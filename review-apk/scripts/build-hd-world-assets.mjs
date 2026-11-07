@@ -61,7 +61,6 @@ function characterFrame(style, dir, move, frame) {
   const legLeftX = left ? 55 : 58;
   const legRightX = left ? 72 : 69;
   const feet = '<g transform="translate(0 ' + bob + ')">' +
-    '<ellipse cx="64" cy="145" rx="22" ry="4.5" fill="#07100d" opacity=".38" filter="url(#softShadow)"/>' +
     '<path d="M' + (legLeftX + legA * .36) + ' 121 l10 0 1 18 -8 4 -5 -4Z" fill="#342d2b" stroke="#171a1b" stroke-width="1.2"/>' +
     '<path d="M' + (legRightX + legB * .36) + ' 121 l10 0 3 17 -8 5 -7 -4Z" fill="#342d2b" stroke="#171a1b" stroke-width="1.2"/>' +
     '<path d="M' + (legLeftX - 2 + legA) + ' 140 q7 -3 14 1 l2 5 -17 1Z" fill="#6b493b" stroke="#2a2626" stroke-width="1.2"/>' +
@@ -93,7 +92,6 @@ function characterFrame(style, dir, move, frame) {
       : '<path d="M77 38 Q86 53 78 68 L72 77 Q75 53 67 47Z" fill="' + style.hair + '" stroke="#11151b" stroke-width="1"/>';
   let art = '<g transform="translate(0 ' + (-bob) + ')">';
   if (left) art = '<g transform="translate(128 0) scale(-1 1)"><g transform="translate(0 ' + (-bob) + ')">';
-  art += '<ellipse cx="64" cy="148" rx="24" ry="5" fill="#050a08" opacity=".36"/>';
   art += '<g>' + (back ? rearHair : hairTail) + '</g>';
   art += '<g transform="translate(0 ' + (walking ? 0 : sway * .18) + ')">' + feet + '</g>';
   art += '<g>' + sleeves + '</g>';
