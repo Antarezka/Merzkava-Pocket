@@ -200,7 +200,24 @@ owner_approval_id: null
 status: "pending_owner_configuration"
 ```
 
-A process may be enabled only when the cost, reserve, drain schedule and interruption rule have an approved Pocket configuration.
+A process may be enabled only when the cost, reserve, drain schedule, interruption rule, continuity mode and maintenance profile have an approved Pocket configuration. For multi-day processes, the maintenance profile must also cover meals, water, safe location, and explicit sleep/rest handling.
+
+**Maintenance profile fields:**
+
+```yaml
+maintenance_profile_id: null
+continuity_mode: "continuous | pause_during_sleep | active_windows | pending"
+meal_plan_id: null
+sleep_policy_id: null
+water_supply_id: null
+location_safety_plan_id: null
+supervision_plan_id: null
+energy_recovery_policy_id: null
+owner_approval_id: null
+status: "pending_owner_configuration"
+```
+
+A profile may use `continuous` only when the selected method is explicitly able to continue without active character input and while normal rest is handled safely. `pause_during_sleep` pauses active-process time during a recorded sleep action. `active_windows` accrues only recorded active sessions. If the mode or maintenance profile is missing, do not start a long absorption process.
 
 ### 3.5 Official absorption readiness and success formula
 
