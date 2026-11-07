@@ -47,10 +47,10 @@ jobs:
       - name: Prepare persistent Pocket signing key
         shell: bash
         env:
-          POCKET_KEYSTORE_BASE64: ${{ secrets.POCKET_KEYSTORE_BASE64 }}
-          POCKET_STORE_PASSWORD: ${{ secrets.POCKET_STORE_PASSWORD }}
-          POCKET_KEY_ALIAS: ${{ secrets.POCKET_KEY_ALIAS }}
-          POCKET_KEY_PASSWORD: ${{ secrets.POCKET_KEY_PASSWORD }}
+          POCKET_KEYSTORE_BASE64: ${{ secrets.POCKET_KEYSTORE_BASE64 || secrets.MERZKAVA_KEYSTORE_BASE64 }}
+          POCKET_STORE_PASSWORD: ${{ secrets.POCKET_STORE_PASSWORD || secrets.MERZKAVA_KEYSTORE_PASSWORD }}
+          POCKET_KEY_ALIAS: ${{ secrets.POCKET_KEY_ALIAS || secrets.MERZKAVA_KEY_ALIAS }}
+          POCKET_KEY_PASSWORD: ${{ secrets.POCKET_KEY_PASSWORD || secrets.MERZKAVA_KEY_PASSWORD }}
         run: |
           if [[ -z "$POCKET_KEYSTORE_BASE64" || -z "$POCKET_STORE_PASSWORD" || -z "$POCKET_KEY_ALIAS" || -z "$POCKET_KEY_PASSWORD" ]]; then
             echo "::error::Persistent Pocket signing is not configured. Add all four POCKET_* GitHub Actions secrets before building."
