@@ -507,3 +507,30 @@ Merzkava Pocket is not intended to be:
 - A source of unapproved canon changes, arbitrary prices, or invented social progression.
 
 **Product identity:** a lightweight, persistent, offline-first isometric life simulation in the Merzkava world, with real-time progression, a small evolving economy, meaningful places and relationships, and an online-verified Daily Login.
+
+
+## 19. Home Base isometric engine and visual identity
+
+The Home Base scene runs in Phaser 4.2.1 inside the existing Pocket WebView. It uses a low-power 2D setup, pixel-art sampling, a 30 FPS target, and bundled local assets. The default scene is a spacious private homestead with a pond, a flowing river, a modest path, and room for later construction.
+
+### Character style references
+
+The in-app style picker contains five original Pocket visual families: **Chibi**, **Classic**, **Elegant**, **Ornate**, and **Painterly**. Each has its own pixel proportions, clothing silhouette, and shading treatment. The selected family is applied to the player and local residents. The PXL source exports idle and walk loops for eight headings: N, NE, E, SE, S, SW, W, and NW.
+
+Character cells use a shared 22 × 30 source-pixel canvas. Small buildings are approximately 28–50 pixels high; the starter hut is visibly wider and taller than the player sprite. People must never be scaled larger than normal doorways or allowed to dominate a house.
+
+### Player interaction and movement
+
+Pocket remains location based rather than a free-roam game. Selecting a building, resource, or NPC makes the player walk automatically to the interaction point, play the appropriate eight-direction walk loop, and return to idle. Tapping the player opens an optional eight-direction step control for short movements.
+
+### Starter facilities and placement
+
+Every new or migrated local profile receives a no-cost Level 1 **Small Hut**, **Foraging Patch**, and **Small Well**. The grant adds no Xuan currency, tools, or inventory items. Starter positions and the selected character style are stored in the profile-scoped local Economy save.
+
+The facility archive uses the existing 200-facility catalogue. Placement is a separate map step: a player selects a facility, then taps an unoccupied tile that fits its location requirement. Existing material, tool, builder, predecessor, fee, and timed-construction Requirements remain authoritative. A construction site becomes a built facility only when its saved process completes.
+
+Resting at the Small Hut accrues a Pocket-only recovery credit at 1 Satiety per real hour. This does not rewrite the Universe hunger rule. Credits apply only when a verified Satiety value is linked to the local Pocket needs record; until then, the credit remains pending and no initial Satiety value is invented.
+
+### Offline asset pipeline
+
+The World Archive pixel source is compiled by Augusto PXL during the app's build step. The generated map, building sprites, character animation strips, water loop, and style previews are copied into the Vite public bundle and APK. The installed game does not fetch Phaser, PXL, or visual assets from a remote server at runtime.

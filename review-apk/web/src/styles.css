@@ -151,3 +151,7 @@
 .page-back:active{transform:translateX(-2px) scale(.95);border-color:var(--lime);color:var(--lime)}
 :root[data-theme="light"] .page-back{background:#ffee;color:#78623d}
 @media(max-height:700px){.home-brand{margin-top:25px}.home-brand .brand-divider{margin:11px auto 14px}.home-world-panel{height:clamp(96px,16vh,122px);margin-bottom:9px}}
+
+.home-base-host{width:100%;height:100dvh;overflow:hidden}
+.home-base-host .page-back{top:calc(env(safe-area-inset-top) + 7px);left:10px;z-index:40;width:32px;height:32px}
+.home-base-host .home-base-page{padding-top:calc(env(safe-area-inset-top) + 7px);padding-left:47px}

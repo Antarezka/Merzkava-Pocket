@@ -1,6 +1,11 @@
 import "./economy.css";
 
-const CLOCK_RATE=48, STATE_VERSION=3;
+const CLOCK_RATE=48, STATE_VERSION=4;
+const STARTER_HOME_FACILITIES={
+  "pocket.starter.hut":{level:1,operational:true,starter:true,built_at:0,map_position:{col:5,row:4},family:"Shelter"},
+  "pocket.starter.foraging":{level:1,operational:true,starter:true,built_at:0,map_position:{col:6,row:6},family:"Foraging"},
+  "pocket.starter.well":{level:1,operational:true,starter:true,built_at:0,map_position:{col:3,row:7},family:"Water & sanitation"}
+};
 const CATALOG_FILES=["POCKET_ECONOMY_ITEMS_001_500.json","POCKET_ECONOMY_ITEMS_501_1000.json","POCKET_FACILITIES_200.json","POCKET_PRODUCTION_RECIPES.json"];
 let cataloguePromise=null, runtimeData=null;
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -80,7 +85,17 @@ function gatheringToolsReady(data,state,item,site){
 function materialCost(data,materials){return (materials||[]).reduce((sum,row)=>sum+num(data.byId.get(row.item_id)?.market?.base_price_xc)*num(row.quantity),0);}
 function addLedger(state,row){state.ledger.unshift({transaction_id:uid(),at:Date.now(),...row});state.ledger=state.ledger.slice(0,250);}
 function saveState(state,key){try{if(state.save_meta)state.save_meta.updated_at=Date.now();localStorage.setItem(key,JSON.stringify(state));return true;}catch{return false;}}
-function createState(){const now=Date.now();return {version:STATE_VERSION,wallet_xc:0,inventory:{},facilities:{},processes:[],ledger:[],item_site_access:{},facility_site_access:{},builder_records:{},qa_grant_used:false,save_meta:{created_at:now,updated_at:now,migrations:[]}};}
+function ensureStarterHomeFacilities(state){
+  const now=Date.now();let changed=false;
+  for(const [id,record] of Object.entries(STARTER_HOME_FACILITIES)){
+    if(!state.facilities[id]){state.facilities[id]={...record,built_at:now};changed=true;}
+  }
+  if(!state.home_rest)state.home_rest={active:false,last_tick_at:now,pending_satiety:0};
+  if(!state.pocket_needs)state.pocket_needs={satiety:null};
+  if(!state.appearance_style)state.appearance_style="classic";
+  return changed;
+}
+function createState(){const now=Date.now();return {version:STATE_VERSION,wallet_xc:0,inventory:{},facilities:{...Object.fromEntries(Object.entries(STARTER_HOME_FACILITIES).map(([id,v])=>[id,{...v,built_at:now}]))},processes:[],ledger:[],item_site_access:{},facility_site_access:{},builder_records:{},home_rest:{active:false,last_tick_at:now,pending_satiety:0},pocket_needs:{satiety:null},appearance_style:"classic",qa_grant_used:false,save_meta:{created_at:now,updated_at:now,migrations:[]}};}
 function migrateState(saved,key){
   if(!saved||typeof saved!=="object"||Array.isArray(saved))throw new Error("The saved economy record is not a valid Pocket save.");
   const from=Number(saved.version??1);
@@ -93,6 +108,9 @@ function migrateState(saved,key){
   const objectFields=["inventory","facilities","item_site_access","facility_site_access","builder_records"];
   for(const field of objectFields)state[field]=saved[field]&&typeof saved[field]==="object"&&!Array.isArray(saved[field])?{...saved[field]}:{};
   for(const field of ["processes","ledger"])state[field]=Array.isArray(saved[field])?[...saved[field]]:[];
+  state.home_rest=saved.home_rest&&typeof saved.home_rest==="object"?{active:false,last_tick_at:Date.now(),pending_satiety:0,...saved.home_rest}:{active:false,last_tick_at:Date.now(),pending_satiety:0};
+  state.pocket_needs=saved.pocket_needs&&typeof saved.pocket_needs==="object"?{satiety:null,...saved.pocket_needs}:{satiety:null};
+  state.appearance_style=["chibi","classic","slim","ornate","painterly"].includes(saved.appearance_style)?saved.appearance_style:"classic";
   state.save_meta={
     ...(saved.save_meta&&typeof saved.save_meta==="object"&&!Array.isArray(saved.save_meta)?saved.save_meta:{}),
     created_at:saved.save_meta?.created_at||Date.now(),
@@ -110,6 +128,9 @@ function migrateState(saved,key){
     delete state.wallet_seeded_from_profile;
     delete state.wallet_source_sha;
     state.save_meta.migrations.push({from,to:3,at:Date.now(),note:"Detached Pocket Wallet from the old Universe-profile opening balance; Pocket balance remains local."});
+  }
+  if(ensureStarterHomeFacilities(state)){
+    state.save_meta.migrations.push({from,to:STATE_VERSION,at:Date.now(),note:"Granted the three free Level 1 starter Home Base facilities; no currency, tools or inventory were added."});
   }
   return state;
 }
@@ -150,7 +171,7 @@ function reconcile(data,state){
       addItems(state,p.outputs);
       for(const out of p.outputs||[])addLedger(state,{type:"process_output",label:data.byId.get(out.item_id)?.name||out.item_id,quantity:out.quantity,amount_xc:0,reference:p.process_id});
     }else if(p.type==="construction"||p.type==="upgrade"){
-      state.facilities[p.facility_id]={level:p.target_level,operational:true,built_at:now,last_process_id:p.process_id};
+      state.facilities[p.facility_id]={level:p.target_level,operational:true,built_at:now,last_process_id:p.process_id,...(p.map_position?{map_position:p.map_position}:{})};
       const f=data.facilitiesById.get(p.facility_id);
       addLedger(state,{type:p.type,label:(f?.name||p.facility_id)+" · L"+p.target_level,quantity:1,amount_xc:0,reference:p.process_id});
     }
@@ -395,4 +416,103 @@ export function mountEconomy(root,identity){
   };
   void initialize();
   return ()=>{disposed=true;if(tick!==null)window.clearInterval(tick);root.removeEventListener("click",click);root.removeEventListener("input",input);root.removeEventListener("change",change);};
+}
+
+
+// Home Base adapter: the same local profile save, 200-facility catalogue and construction Requirements.
+export async function openHomeBaseSession(identity){
+  const data=await loadPocketEconomy();
+  const opened=openState(identity),key=opened.key,state=opened.state;
+  ensureStarterHomeFacilities(state);
+  reconcile(data,state);
+  const persist=()=>saveState(state,key);
+  persist();
+  const restTick=()=>{
+    if(!state.home_rest?.active)return false;
+    const now=Date.now(),last=Number(state.home_rest.last_tick_at||now);
+    if(now<=last)return false;
+    state.home_rest.pending_satiety=Math.max(0,num(state.home_rest.pending_satiety)+(now-last)/3600000);
+    state.home_rest.last_tick_at=now;
+    const current=state.pocket_needs?.satiety;
+    if(current!==null&&current!==undefined&&Number.isFinite(Number(current))&&state.home_rest.pending_satiety>0){
+      const gain=Math.min(Math.max(0,100-num(current)),state.home_rest.pending_satiety);
+      state.pocket_needs.satiety=Math.min(100,num(current)+gain);
+      state.home_rest.pending_satiety-=gain;
+    }
+    return true;
+  };
+  const snapshot=()=>{
+    const restChanged=restTick();
+    const processChanged=reconcile(data,state);
+    if(restChanged||processChanged)persist();
+    return JSON.parse(JSON.stringify(state));
+  };
+  return {
+    getCatalogue:async()=>data,
+    snapshot,
+    getAppearance:()=>state.appearance_style||"classic",
+    setAppearance(style){
+      if(!["chibi","classic","slim","ornate","painterly"].includes(style))return false;
+      state.appearance_style=style;persist();return true;
+    },
+    getFacility(id){
+      if(STARTER_HOME_FACILITIES[id])return {facility_id:id,name:id==="pocket.starter.hut"?"Small Hut":id==="pocket.starter.foraging"?"Foraging Patch":"Small Well",family:STARTER_HOME_FACILITIES[id].family};
+      return data.facilitiesById.get(id)||null;
+    },
+    getItem:id=>data.byId.get(id)||null,
+    getBuildableFacilities:()=>data.facilities,
+    getBuildRecord(id){
+      const facility=data.facilitiesById.get(id);
+      if(!facility)return {ready:false,cost:0,builders:0,requiredBuilders:0,missingMaterials:[],missingTools:[],predecessors:[],reason:"Facility is not in the bundled catalogue."};
+      return buildRecord(data,state,facility);
+    },
+    setBuilders(id,value){state.builder_records[id]=Math.max(0,Math.min(50,Math.floor(num(value))));persist();return state.builder_records[id];},
+    currency,
+    placeFacility(id,site,mapPosition){
+      const facility=data.facilitiesById.get(id);
+      if(!facility)return {ok:false,message:"This facility is not in the 200-facility catalogue."};
+      state.facility_site_access[id]=site||facility.location_requirements?.[0]||"Owned home plot";
+      const r=buildRecord(data,state,facility);
+      if(!r.ready){
+        const missing=[
+          ...r.missingMaterials.map(x=>(data.byId.get(x.item_id)?.name||x.item_name)+" ×"+x.quantity),
+          ...r.missingTools.map(x=>"Tool: "+x),
+          ...r.predecessors.map(x=>"Predecessor: "+(data.facilitiesById.get(x)?.name||x))
+        ];
+        if(r.constructionRunning)missing.push("Construction already running");
+        if(!r.access)missing.push("Site access");
+        if(r.builders<r.requiredBuilders)missing.push("Builders: "+r.builders+"/"+r.requiredBuilders);
+        if(!r.enoughCash)missing.push("Wallet: "+currency(r.cost)+" required");
+        return {ok:false,record:r,message:"Missing Requirements: "+missing.join(", ")};
+      }
+      takeItems(state,r.materials);spend(state,r.cost);
+      const process=startProcess(state,{type:"construction",label:facility.name,facility_id:id,target_level:1,sim_minutes:facility.construction.duration_sim_minutes*r.requiredBuilders/Math.max(1,r.builders),map_position:mapPosition});
+      addLedger(state,{type:"construction_started",label:facility.name,quantity:1,amount_xc:-r.cost,reference:process.process_id});
+      persist();return {ok:true,process};
+    },
+    canGather(itemId,site){
+      const item=data.byId.get(itemId);
+      if(!item)return {ready:false,reason:"Item is not in the bundled catalogue."};
+      state.item_site_access[itemId]=site;
+      return gatherRecord(data,state,item);
+    },
+    startGather(itemId,site){
+      const item=data.byId.get(itemId);
+      if(!item)return {ok:false,message:"Item is not in the bundled catalogue."};
+      state.item_site_access[itemId]=site;
+      const r=gatherRecord(data,state,item);
+      if(!r.ready)return {ok:false,message:"Gathering Requirements are missing: "+(!r.locationReady?"habitat/site; ":"")+(!r.toolsReady?"required tool; ":"")+(!r.facilityReady?"required facility; ":"")};
+      const amount=Math.round(r.rate*60*100)/100;
+      startProcess(state,{type:"gathering",label:item.name,item_id:item.item_id,sim_minutes:60,outputs:[{item_id:item.item_id,quantity:amount}],source_location:site});
+      addLedger(state,{type:"gathering_started",label:item.name,quantity:amount,amount_xc:0});
+      persist();return {ok:true};
+    },
+    toggleRest(){restTick();state.home_rest.active=!state.home_rest.active;state.home_rest.last_tick_at=Date.now();persist();return state.home_rest.active;},
+    isResting:()=>state.home_rest?.active===true,
+    restCredit:()=>num(state.home_rest?.pending_satiety),
+    setSatiety(value){
+      if(!Number.isFinite(Number(value))||Number(value)<0||Number(value)>100)throw new Error("Satiety must be a verified value from 0 to 100.");
+      state.pocket_needs.satiety=Number(value);restTick();persist();return state.pocket_needs.satiety;
+    }
+  };
 }

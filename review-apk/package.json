@@ -4,12 +4,13 @@
   "version": "0.2.0",
   "type": "module",
   "scripts": {
-    "build": "node scripts/copy-catalogs.mjs && vite build",
+    "build": "node scripts/copy-catalogs.mjs && node scripts/build-world-assets.mjs && vite build",
     "dev": "vite --host 0.0.0.0",
     "predev": "node scripts/copy-catalogs.mjs"
   },
   "dependencies": {
-    "animejs": "4.5.0"
+    "animejs": "4.5.0",
+    "phaser": "4.2.1"
   },
   "devDependencies": {
     "vite": "6.4.1"

@@ -1,6 +1,7 @@
 import { animate } from "animejs";
 import "./styles.css";
 import { economyMarkup, mountEconomy } from "./economy.js";
+import { mountHomeBase } from "./home-base.js";
 
 const root = document.querySelector("#app");
 if (!root) throw new Error("Pocket root not found.");
@@ -701,10 +702,7 @@ function renderPage(destination, depth="") {
         <article class="destination-card"><span>02 / DAILY LIFE</span><strong>Living Economy</strong><small>Explore the item register, local wallet, gathering, construction, facilities and defined production chains.</small><button type="button" data-subroute="economy">OPEN ECONOMY ↗</button></article>
       </main>`;
   } else if(destination==="home-base"){
-    pageMarkup=`
-      <main class="page-stage"><span class="eyebrow">GAME / HOME BASE</span><h1>Home Base.</h1><p class="page-lead">Your local starting hub.</p>
-      <article class="destination-card"><span>02 / CITY NAVIGATION</span><strong>City</strong><small>Continue into the connected city layer.</small><button data-subroute="city">OPEN CITY ↗</button></article>
-      <article class="destination-card"><span>03 / DAILY LIFE</span><strong>Living Economy</strong><small>Manage item acquisition, inventory, facilities and local production.</small><button data-subroute="economy">OPEN ECONOMY ↗</button></article></main>`;
+    pageMarkup='<main class="home-base-host" data-home-base-root></main>';
   } else if(destination==="city"){
     pageMarkup=`
       <main class="page-stage"><span class="eyebrow">GAME / CITY</span><h1>City.</h1><p class="page-lead">Choose a connected destination from the city layer.</p>
@@ -764,6 +762,13 @@ function renderPage(destination, depth="") {
     const menuCleanup=currentDisposer;
     const economyCleanup=mountEconomy(root.querySelector("[data-economy-root]"),accessIdentity);
     currentDisposer=()=>{menuCleanup?.();economyCleanup?.();};
+  }else if(destination==="home-base"){
+    const menuCleanup=currentDisposer;
+    let homeBaseCleanup=()=>{};
+    currentDisposer=()=>{menuCleanup?.();homeBaseCleanup?.();};
+    void mountHomeBase(root.querySelector("[data-home-base-root]"),accessIdentity,navigateBack,()=>currentRoute==="home-base")
+      .then(cleanup=>{if(currentRoute==="home-base")homeBaseCleanup=cleanup;else cleanup();})
+      .catch(error=>{const host=root.querySelector("[data-home-base-root]");if(host)host.textContent="Home Base error: "+error.message;});
   }
 }
 
