@@ -3,11 +3,11 @@ import "./home-base.css";
 import { openHomeBaseSession } from "./economy.js";
 
 const STYLE_OPTIONS=[
-  {id:"chibi",name:"Chibi",description:"Rounded head, compact body and soft proportions."},
-  {id:"classic",name:"Classic",description:"Balanced proportions for everyday residents."},
-  {id:"slim",name:"Elegant",description:"Slender silhouette and longer layered garments."},
-  {id:"ornate",name:"Ornate",description:"Decorated robes, trim and small accessories."},
-  {id:"painterly",name:"Painterly",description:"Richer shading and detailed pixel surfaces."}
+  {id:"chibi",name:"Chibi",description:"A round, expressive silhouette in a short layered cultivation robe."},
+  {id:"classic",name:"Classic",description:"Balanced proportions, crossed collar, sash and long everyday robe."},
+  {id:"slim",name:"Scholar",description:"Tall flowing scholar silhouette with long sleeves and hanging ribbons."},
+  {id:"ornate",name:"Ceremonial",description:"Broad layered mantle, ornamental hairpiece and formal robe details."},
+  {id:"painterly",name:"Wanderer",description:"Asymmetric travelling mantle with textured fabric and rugged layers."}
 ];
 const DIRS=["n","ne","e","se","s","sw","w","nw"];
 const DIR_VECTOR={n:[0,-1],ne:[1,-1],e:[1,0],se:[1,1],s:[0,1],sw:[-1,1],w:[-1,0],nw:[-1,-1]};
@@ -38,7 +38,7 @@ const spriteForFacility=f=>{
 };
 
 class HomeBaseScene extends Phaser.Scene{
-  constructor(){super("HomeBase");this.style="classic";this.manual=false;this.placement=null;this.facilityObjects=new Map();this.npcs=[];}
+  constructor(){super("HomeBase");this.style="classic";this.placement=null;this.facilityObjects=new Map();this.npcs=[];}
   preload(){
     this.load.image("home-map","/game-assets/pxl/scenes/home_base_map.png");
     ["facility_starter_hut","facility_starter_foraging","facility_starter_well","facility_farm","facility_workshop","facility_storage","facility_market","world_tree","world_rock"].forEach(id=>this.load.image(id,"/game-assets/pxl/sprites/"+id+".png"));
@@ -47,7 +47,7 @@ class HomeBaseScene extends Phaser.Scene{
       this.load.image("preview-"+style.id,"/game-assets/pxl/sprites/style_preview_"+style.id+".png");
       DIRS.forEach(dir=>["idle","walk"].forEach(move=>{
         const key=style.id+"_"+move+"_"+dir;
-        this.load.spritesheet(key,"/game-assets/pxl/anims/"+key+".png",{frameWidth:22,frameHeight:30});
+        this.load.spritesheet(key,"/game-assets/pxl/anims/"+key+".png",{frameWidth:32,frameHeight:42});
       }));
     });
   }
@@ -62,15 +62,21 @@ class HomeBaseScene extends Phaser.Scene{
     [[344,74],[328,126],[300,169],[107,121],[134,154]].forEach(([x,y])=>this.add.sprite(x,y,"water-glimmer").setDepth(y+1).play("water-glimmer").setAlpha(.72));
     [[58,72,.9],[83,165,.82],[367,52,.9],[366,190,.8],[262,202,.74]].forEach(([x,y,scale])=>this.add.image(x,y,"world_tree").setOrigin(.5,1).setScale(scale).setDepth(y));
     [[75,109],[116,183],[291,216],[357,142]].forEach(([x,y])=>this.add.image(x,y,"world_rock").setOrigin(.5,1).setDepth(y));
-    this.player=this.add.sprite(200,154,"classic_idle_s").setOrigin(.5,1).setDepth(156).setInteractive({useHandCursor:true});
-    this.player.on("pointerdown",()=>this.options.onManualToggle?.());this.player.play("classic:idle:s");
+    this.player=this.add.sprite(200,154,"classic_idle_s").setOrigin(.5,1).setDepth(156);
+    this.player.play("classic:idle:s");
     this.addNpcs();this.drawFacilities();
-    const cam=this.cameras.main,el=this.options.viewport,zoom=Math.min(el.clientWidth/400,el.clientHeight/260)*1.03;
-    cam.setBounds(0,0,400,260);cam.setZoom(Math.max(.72,Math.min(1.24,zoom)));cam.centerOn(200,130);
+    const cam=this.cameras.main,el=this.options.viewport;
+    const coverZoom=Math.max(el.clientWidth/400,el.clientHeight/260);
+    cam.setBounds(0,0,400,260);
+    cam.setZoom(Math.min(2.12,Math.max(.92,coverZoom*.77)));
+    cam.centerOn(this.player.x,this.player.y-4);
+    cam.startFollow(this.player,true,.075,.075);
     this.events.on("update",()=>{if(this.player)this.player.setDepth(this.player.y+6);this.npcs.forEach(npc=>npc.setDepth(npc.y+5));});
     this.input.on("pointerdown",pointer=>{
-      if(!this.placement||pointer.button!==0)return;
-      const world=cam.getWorldPoint(pointer.x,pointer.y);this.options.onPlacementTap?.(this.worldToTile(world.x,world.y),this.placement);
+      if(pointer.button!==0)return;
+      const world=cam.getWorldPoint(pointer.x,pointer.y);
+      if(this.placement){this.options.onPlacementTap?.(this.worldToTile(world.x,world.y),this.placement);return;}
+      this.moveToTap(world.x,world.y);
     });
     this.input.on("pointermove",pointer=>{
       if(!this.placement)return;
@@ -85,7 +91,7 @@ class HomeBaseScene extends Phaser.Scene{
     [[245,108,0xa9b98b],[286,148,0xc6a06d],[150,175,0x9aadb1]].forEach(([x,y,tint],i)=>{
       const npc=this.add.sprite(x,y,"classic_idle_s").setOrigin(.5,1).setDepth(y+2).setScale(.9).setTint(tint).setInteractive({useHandCursor:true});
       npc.play("classic:idle:"+["s","sw","e"][i]);
-      npc.on("pointerdown",()=>this.walkTo({x,y:y-4},()=>this.options.onNpcTap?.(i)));
+      npc.on("pointerdown",(pointer,localX,localY,event)=>{event?.stopPropagation?.();this.walkTo({x,y:y-4},()=>this.options.onNpcTap?.(i),{x,y:y-4});});
       this.npcs.push(npc);
     });
   }
@@ -99,7 +105,7 @@ class HomeBaseScene extends Phaser.Scene{
       const existing=this.facilityObjects.get(id);
       if(existing){existing.setPosition(pos.x,pos.y).setDepth(pos.y+1);continue;}
       const item=this.add.image(pos.x,pos.y,key).setOrigin(.5,1).setDepth(pos.y+1).setInteractive({useHandCursor:true});
-      item.setData("facilityId",id);item.on("pointerdown",()=>this.walkTo({x:pos.x,y:pos.y-7},()=>this.options.onFacilityTap?.(id)));
+      item.setData("facilityId",id);item.on("pointerdown",(pointer,localX,localY,event)=>{event?.stopPropagation?.();this.walkTo({x:pos.x,y:pos.y-7},()=>this.options.onFacilityTap?.(id),{x:pos.x,y:pos.y-7});});
       this.facilityObjects.set(id,item);
     }
   }
@@ -109,19 +115,33 @@ class HomeBaseScene extends Phaser.Scene{
     this.npcs.forEach((npc,i)=>{const dir=["s","sw","e"][i];npc.setTexture(style+"_idle_"+dir).setTint([0xa9b98b,0xc6a06d,0x9aadb1][i]);npc.play(style+":idle:"+dir);});
   }
   applySprite(sprite,dir,move){const key=this.style+":"+move+":"+dir;sprite.play(this.anims.exists(key)?key:this.style+":idle:s",true);}
-  walkTo(target,onArrive){
+  moveToTap(x,y){
+    if(!this.player||this.moving||this.placement)return;
+    const tile=this.worldToTile(x,y),kind=TERRAIN[tile.row]?.[tile.col];
+    if(!kind||!["g","s","d"].includes(kind)){this.options.onInvalidMove?.();return;}
+    const target=locationOf(tile.col,tile.row);
+    this.walkTo({x:target.x,y:target.y+5},null,{x,y});
+  }
+  showTapTrail(target,tapPoint){
+    if(!this.player)return;
+    const fx=this.add.graphics();
+    fx.setDepth(5000);
+    fx.lineStyle(1,0xe7d8ae,.19);
+    fx.beginPath();fx.moveTo(this.player.x,this.player.y-8);fx.lineTo(target.x,target.y);fx.strokePath();
+    fx.fillStyle(0xe7d8ae,.11);fx.fillCircle(tapPoint.x,tapPoint.y,7);
+    fx.lineStyle(1,0xf0ddb0,.27);fx.strokeCircle(tapPoint.x,tapPoint.y,6);
+    fx.fillStyle(0xf5e6bd,.32);fx.fillCircle(tapPoint.x,tapPoint.y,1.8);
+    this.tweens.add({targets:fx,alpha:{from:.9,to:0},scaleX:1.08,scaleY:1.08,duration:920,ease:"Sine.Out",onComplete:()=>fx.destroy()});
+  }
+  walkTo(target,onArrive,tapPoint=null){
     if(!this.player)return;
     this.moving=true;const dx=target.x-this.player.x,dy=target.y-this.player.y,dir=directionOf(dx,dy);
     this.lastDirection=dir;this.applySprite(this.player,dir,"walk");
+    if(tapPoint)this.showTapTrail(target,tapPoint);
     const distance=Math.hypot(dx,dy);this.tweens.killTweensOf(this.player);
-    this.tweens.add({targets:this.player,x:target.x,y:target.y,duration:Math.max(380,Math.min(2200,distance*18)),ease:"Linear",onComplete:()=>{
+    this.tweens.add({targets:this.player,x:target.x,y:target.y,duration:Math.max(360,Math.min(2600,distance*15)),ease:"Linear",onComplete:()=>{
       this.moving=false;this.applySprite(this.player,dir,"idle");onArrive?.();
     }});
-  }
-  setManualDirection(dir){
-    if(!this.manual||!DIR_VECTOR[dir]||this.moving)return;
-    const v=DIR_VECTOR[dir],x=Phaser.Math.Clamp(this.player.x+v[0]*19,22,378),y=Phaser.Math.Clamp(this.player.y+v[1]*10,34,236);
-    this.walkTo({x,y});
   }
   startPlacement(facility){this.placement=facility;this.placementGhost?.destroy();}
   stopPlacement(){this.placement=null;this.placementGhost?.destroy();this.placementGhost=null;}
@@ -129,7 +149,7 @@ class HomeBaseScene extends Phaser.Scene{
 
 export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true){
   if(!root)return ()=>{};
-  let disposed=false,session,game=null,scene=null,snapshot=null,manual=false,tick=null;
+  let disposed=false,session,game=null,scene=null,snapshot=null,tick=null;
   let feedback="Tap a place to see what can be done here.";
   root.innerHTML="<div class='world-empty'>Opening the World Archive...</div>";
   const setFeedback=value=>{feedback=value;const node=root.querySelector("[data-world-feedback]");if(node)node.textContent=value;};
@@ -140,22 +160,17 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
   root.innerHTML=
     "<section class='home-base-page' data-world-shell>"+
       "<header class='world-topbar'><div class='world-title-wrap'><strong>HOME BASE</strong><small>WORLD ARCHIVE · PERSONAL LAND</small></div>"+
-      "<div class='world-top-actions'><button type='button' data-world-appearance>CHARACTER</button><button type='button' data-world-build>BUILD</button></div></header>"+
+      "<div class='world-top-actions'><button type='button' data-world-appearance>CHARACTER</button></div></header>"+
       "<div class='world-statusline'><span>PRIVATE HOMESTEAD</span><span data-world-owned>3 STARTER FACILITIES</span><span>LOCAL SAVE</span></div>"+
       "<div class='world-viewport' data-world-viewport></div>"+
-      "<div class='world-toolbar'>"+
-        "<button class='world-tool-button is-active' data-world-action='places'><span class='tool-symbol'>⌂</span>PLACES</button>"+
-        "<button class='world-tool-button' data-world-action='build'><span class='tool-symbol'>＋</span>BUILD</button>"+
-        "<button class='world-tool-button' data-world-action='appearance'><span class='tool-symbol'>◇</span>STYLE</button>"+
-        "<button class='world-tool-button' data-world-action='manual'><span class='tool-symbol'>✥</span>MOVE</button>"+
+      "<div class='world-toolbar' aria-label='World actions'>"+
+        "<button class='world-tool-button is-active' data-world-action='places' aria-label='Places'><span class='tool-symbol'>⌂</span><small>PLACES</small></button>"+
+        "<button class='world-tool-button' data-world-action='build' aria-label='Build'><span class='tool-symbol'>＋</span><small>BUILD</small></button>"+
+        "<button class='world-tool-button' data-world-action='appearance' aria-label='Character style'><span class='tool-symbol'>◇</span><small>STYLE</small></button>"+
       "</div>"+
       "<section class='world-drawer' data-world-drawer><div class='world-drawer-head'><strong data-world-heading>YOUR HOMESTEAD</strong><button type='button' data-world-close aria-label='Collapse panel'>−</button></div>"+
       "<div data-world-panel></div><p class='world-feedback' data-world-feedback>"+esc(feedback)+"</p></section>"+
-      "<div class='world-control-pad' data-world-pad hidden>"+
-        "<button data-dir='nw' aria-label='North west'>↖</button><button data-dir='n' aria-label='North'>↑</button><button data-dir='ne' aria-label='North east'>↗</button>"+
-        "<button data-dir='w' aria-label='West'>←</button><button data-dir='stop' aria-label='Stop'>STOP</button><button data-dir='e' aria-label='East'>→</button>"+
-        "<button data-dir='sw' aria-label='South west'>↙</button><button data-dir='s' aria-label='South'>↓</button><button data-dir='se' aria-label='South east'>↘</button>"+
-      "</div></section>";
+      "</section>";
   const viewport=root.querySelector("[data-world-viewport]"),worldPanel=root.querySelector("[data-world-panel]");
   const drawer=root.querySelector("[data-world-drawer]"),heading=root.querySelector("[data-world-heading]");
   const renderPlaces=()=>{
@@ -243,10 +258,7 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
   scene.options={
     viewport,session,
     onReady:s=>{s.setStyle(session.getAppearance());},
-    onManualToggle:()=>{
-      manual=!manual;root.querySelector("[data-world-pad]").hidden=!manual;
-      setFeedback(manual?"Eight-direction control active. Tap a direction to move a short step.":"Automatic movement restored.");
-    },
+    onInvalidMove:()=>setFeedback("That part of the ground is not walkable. Tap an open path or clearing."),
     onFacilityTap:id=>renderLocation(id),
     onNpcTap:i=>{
       heading.textContent=["RESIDENT","GARDENER","TRAVELLER"][i]||"RESIDENT";
@@ -269,10 +281,7 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
     if(btn.dataset.worldAction==="places"){scene.stopPlacement();renderPlaces();}
     else if(btn.dataset.worldAction==="build"||btn.hasAttribute("data-world-build"))renderBuild();
     else if(btn.dataset.worldAction==="appearance"||btn.hasAttribute("data-world-appearance"))renderAppearance();
-    else if(btn.dataset.worldAction==="manual"){
-      manual=!manual;root.querySelector("[data-world-pad]").hidden=!manual;
-      setFeedback(manual?"Eight-direction control active. Tap a direction to move.":"Automatic movement restored.");
-    }else if(btn.dataset.worldLocation){
+    else if(btn.dataset.worldLocation){
       const id=btn.dataset.worldLocation,record=snapshot.facilities[id],pos=record?.map_position?locationOf(record.map_position.col,record.map_position.row):{x:200,y:154};
       scene.walkTo({x:pos.x,y:pos.y-7},()=>renderLocation(id));
     }else if(btn.dataset.worldFacility)renderFacilityDetail(btn.dataset.worldFacility);
@@ -294,18 +303,14 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
       setFeedback("Appearance saved for this player. Residents now use the same visual family.");
     }
   };
-  const pointerDown=event=>{
-    const pad=event.target.closest("[data-dir]");if(!pad)return;
-    if(pad.dataset.dir==="stop"){manual=false;root.querySelector("[data-world-pad]").hidden=true;setFeedback("Movement stopped.");return;}
-    scene.setManualDirection(pad.dataset.dir);
-  };
   const inputChange=event=>{
     const input=event.target.closest("[data-world-builders]");if(!input)return;
     session.setBuilders(input.dataset.worldBuilders,input.value);renderFacilityDetail(input.dataset.worldBuilders);
   };
-  root.addEventListener("click",updateClick);root.addEventListener("pointerdown",pointerDown);root.addEventListener("change",inputChange);
+  root.addEventListener("click",updateClick);root.addEventListener("change",inputChange);
   root.querySelector("[data-world-close]")?.addEventListener("click",()=>drawer.classList.toggle("is-collapsed"));
   renderPlaces();
+  drawer.classList.add("is-collapsed");
   tick=window.setInterval(()=>{
     if(disposed)return;
     snapshot=session.snapshot();scene?.drawFacilities?.();

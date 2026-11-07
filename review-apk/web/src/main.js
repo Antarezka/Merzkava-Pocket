@@ -433,9 +433,9 @@ function renderFloatingControl() {
       </section>
       <div class="section-label"><span>INITIAL SETUP</span><small>01 — 03 · COMPLETE IN ORDER</small></div>
       <section class="setup-list">
-        <article class="setup-row" data-step="overlay"><span class="step-no">01</span><div><strong>Display over other apps</strong><small>Allow Pocket to appear above other apps.</small></div><button type="button" data-permission="overlay" aria-label="Open display-over-apps settings" title="Display over other apps">◈</button></article>
-        <article class="setup-row" data-step="notifications"><span class="step-no">02</span><div><strong>Notifications</strong><small>Allow the ongoing Floating Control notification.</small></div><button type="button" data-permission="notifications" aria-label="Allow notifications" title="Notifications" disabled>♧</button></article>
-        <article class="setup-row" data-step="battery"><span class="step-no">03</span><div><strong>Background activity</strong><small>Double-tap to open settings.</small></div><button type="button" data-permission="battery" aria-label="Double-tap to open battery settings" title="Double-tap to open settings" disabled>⚙</button></article>
+        <article class="setup-row" data-step="overlay"><span class="step-no">01</span><div><strong>Display over other apps</strong><small>Allow Pocket to appear above other apps.</small></div><button type="button" data-permission="overlay" aria-label="Open display-over-apps settings" >◈</button></article>
+        <article class="setup-row" data-step="notifications"><span class="step-no">02</span><div><strong>Notifications</strong><small>Allow the ongoing Floating Control notification.</small></div><button type="button" data-permission="notifications" aria-label="Allow notifications"  disabled>♧</button></article>
+        <article class="setup-row" data-step="battery"><span class="step-no">03</span><div><strong>Background activity</strong><small>Double-tap to open settings.</small></div><button type="button" data-permission="battery" aria-label="Double-tap to open battery settings"  disabled>⚙</button></article>
       </section>
       <div class="section-label"><span>QUICK ACTIONS</span><small>SESSION CONTROLS</small></div>
       <section class="floating-actions">
@@ -776,6 +776,7 @@ function navigationMarkup() {
   return `
     <div class="pull-cord-zone" data-pull-cord>
       <svg class="cord-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path data-cord-path d="M28 0 C28 28 28 70 28 112"/></svg>
+      <span class="cord-wall-glow" data-cord-glow aria-hidden="true"></span>
       <button class="cord-handle" type="button" data-cord-handle aria-label="Drag pull-cord handle" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="cord-tv"><i class="antenna a"></i><i class="antenna b"></i><i class="tv-case"><b></b><em></em><u><s></s><s></s></u></i><i class="tv-foot left"></i><i class="tv-foot right"></i></span></button>
       <span class="cord-instruction" data-cord-instruction>PULL DOWN A LITTLE · RELEASE</span>
     </div>
@@ -797,6 +798,7 @@ function mountMenu() {
   const dock=zone.parentElement.querySelector("[data-dock]");
   const scrim=zone.parentElement.querySelector("[data-dock-scrim]");
   const instruction=zone.querySelector("[data-cord-instruction]");
+  const wallGlow=zone.querySelector("[data-cord-glow]");
   const tiles=[...dock.querySelectorAll("[data-destination]")];
   const bubbleButton=root.querySelector("[data-floating-bubble]");
   const bubbleFeedback=root.querySelector("[data-bubble-feedback]");
@@ -816,25 +818,27 @@ function mountMenu() {
   const toggleFloatingBubble=async()=>{
     if(!bubbleButton||bubbleBusy||disposed)return;
     bubbleBusy=true;renderBubbleButton(floatingReadiness);
-    if(bubbleFeedback)bubbleFeedback.textContent="";
+    setBubbleFeedback("");
     try{
       const state=readNativeFloatingState();floatingReadiness=state;
       if(state.serviceRunning){
         native.stopFloatingMode();
         await waitForNativeFloatingState(next=>!next.serviceRunning&&!next.bubbleVisible,1800);
-        if(bubbleFeedback)bubbleFeedback.textContent="FLOATING SERVICE STOPPED.";
+        setBubbleFeedback("FLOATING SERVICE STOPPED.");
       }else{
         const ready=state.supported&&state.displayOverApps&&state.notifications&&state.batteryExemption;
         if(!ready)throw new Error("Complete the Floating Control setup before starting the bubble.");
         if(native.startBubbleMode()!==true)throw new Error("Android rejected the floating-bubble request. Check the required permissions.");
         await waitForNativeFloatingState(next=>next.serviceRunning&&next.bubbleVisible,2600);
-        if(bubbleFeedback)bubbleFeedback.textContent="BUBBLE ACTIVE · TAP THE TV ICON TO RETURN.";
+        setBubbleFeedback("BUBBLE ACTIVE · TAP THE TV ICON TO RETURN.");
         if(typeof native.movePocketToBackground==="function")native.movePocketToBackground();
       }
-    }catch(error){if(bubbleFeedback)bubbleFeedback.textContent=error instanceof Error?error.message:"Floating-bubble action failed."}
+    }catch(error){setBubbleFeedback(error instanceof Error?error.message:"Floating-bubble action failed.");}
     finally{bubbleBusy=false;refreshBubbleButton();}
   };
   bubbleButton?.addEventListener("click",()=>void toggleFloatingBubble());
+  let bubbleFeedbackTimer=null;
+  const setBubbleFeedback=message=>{if(!bubbleFeedback)return;bubbleFeedback.textContent=message;window.clearTimeout(bubbleFeedbackTimer);if(message)bubbleFeedbackTimer=window.setTimeout(()=>{if(bubbleFeedback.textContent===message)bubbleFeedback.textContent="";},3200);};
   const bubbleResume=()=>{if(!disposed)refreshBubbleButton();};
   window.addEventListener("pocket:native-resume",bubbleResume);
   window.addEventListener("focus",bubbleResume);
@@ -858,6 +862,7 @@ function mountMenu() {
     handle.style.top=(point.y-TV_CASE_TOP)+"px";
     instruction.style.left=(point.x-HANDLE_ANCHOR_X+4)+"px";
     instruction.style.top=(point.y-TV_CASE_TOP+64)+"px";
+    if(wallGlow){wallGlow.style.left=(point.x-106)+"px";wallGlow.style.top=(point.y-39)+"px";}
   };
   const setMenu=next=>{
     if(disposed||menuOpen===next)return;
@@ -880,7 +885,7 @@ function mountMenu() {
     const drift={y:0};
     idle=animate(drift,{y:[0,1.8,0],duration:3400,ease:"inOutSine",loop:true,onUpdate:()=>{if(pointerId===null&&!disposed)draw({x:rest.x,y:rest.y+drift.y});}});
   };
-  const showZone=active=>{instruction.textContent=active?"PULL DOWN A LITTLE":"PULL DOWN A LITTLE · RELEASE";};
+  const showZone=active=>{instruction.textContent=active?"PULL DOWN A LITTLE":"PULL DOWN A LITTLE · RELEASE";instruction.classList.toggle("is-visible",active);zone.classList.toggle("is-touched",active);handle.classList.toggle("is-touched",active);};
   const snapBack=activate=>{
     showZone(false);handle.classList.remove("is-dragging");
     idle?.pause();idle=null;
@@ -944,6 +949,7 @@ function mountMenu() {
   currentDisposer=()=>{window.removeEventListener("resize",resizeHandler);
     window.removeEventListener("pocket:native-resume",bubbleResume);
     window.removeEventListener("focus",bubbleResume);
+    window.clearTimeout(bubbleFeedbackTimer);
     disposed=true;idle?.pause();recoil?.pause();
     handle.removeEventListener("pointerdown",down);handle.removeEventListener("pointermove",move);
     if(pointerId!==null){try{handle.releasePointerCapture(pointerId);}catch{}}

@@ -116,9 +116,13 @@ public final class PocketNativeBridge {
     @JavascriptInterface public boolean startBubbleMode() {
         if (!overlayGranted() || !notificationsGranted() || !batteryExempt()) return false;
         try {
-            Intent intent = new Intent(activity, PocketFloatingService.class);
-            intent.setAction(PocketFloatingService.ACTION_BUBBLE);
-            startPocketService(intent);
+            if (activity instanceof MainActivity && ((MainActivity) activity).isFloatingMiniWindowOpen()) {
+                activity.runOnUiThread(() -> ((MainActivity) activity).minimizeFloatingMiniWindowToBubble());
+            } else {
+                Intent intent = new Intent(activity, PocketFloatingService.class);
+                intent.setAction(PocketFloatingService.ACTION_BUBBLE);
+                startPocketService(intent);
+            }
             return true;
         } catch (Exception error) {
             android.util.Log.e("PocketFloating", "Could not request the floating bubble", error);
@@ -128,14 +132,25 @@ public final class PocketNativeBridge {
 
     @JavascriptInterface public boolean openMiniWindow() {
         if (!overlayGranted()) return false;
-        Intent intent = new Intent(activity, PocketFloatingService.class);
-        intent.setAction(PocketFloatingService.ACTION_MINI);
-        startPocketService(intent);
-        return true;
+        try {
+            Intent intent = new Intent(activity, PocketFloatingService.class);
+            intent.setAction(PocketFloatingService.ACTION_HIDE_BUBBLE);
+            startPocketService(intent);
+            activity.runOnUiThread(() -> {
+                if (activity instanceof MainActivity) ((MainActivity) activity).openFloatingMiniWindow();
+            });
+            return true;
+        } catch (Exception error) {
+            android.util.Log.e("PocketFloating", "Could not open the floating mini window", error);
+            return false;
+        }
     }
 
     @JavascriptInterface public void stopFloatingMode() {
-        activity.stopService(new Intent(activity, PocketFloatingService.class));
+        activity.runOnUiThread(() -> {
+            if (activity instanceof MainActivity) ((MainActivity) activity).restoreFloatingToActivity();
+            else activity.stopService(new Intent(activity, PocketFloatingService.class));
+        });
     }
 
     @JavascriptInterface public void movePocketToBackground() {
