@@ -91,38 +91,53 @@ If a process is specified directly as a Pocket duration (for example, the specia
 
 ---
 
-## 3. Spirit Ring progression — active absorption duration and inter-Ring cooldown
+## 3. Spirit Ring absorption — active duration, preparation, energy, and inter-Ring cooldown
 
-Pocket has **two separate timers** for Spirit Ring progression:
+Pocket must treat every Spirit Ring absorption as a prepared, energy-consuming process—not a passive countdown. Keep four separate layers:
 
-1. **Active absorption duration:** the time the character spends undergoing the current Ring absorption process. The owner-approved Pocket duration table is 20 seconds for Ring 2 through 30 days for Ring 9.
-2. **Inter-Ring cooldown:** the minimum waiting interval after a successful Ring absorption before the next Ring attempt may begin. This is inherited from Universe and converted through the ×48 Pocket clock.
+1. **Requirements:** sequential Ring progression, Awakening, Realm/Stage, Sync/bottleneck, inter-Ring cooldown, actual Ring custody, target item where applicable, body condition, and preparation.
+2. **Preparation and readiness:** the character's condition, Satiety, energy reserve, Martial Soul condition, and the quality of the selected absorption method.
+3. **Active absorption duration:** the Pocket time spent undergoing the current Ring absorption.
+4. **Energy expenditure:** Stamina before Qi exists, then Qi after Ring 1. The energy cost and drain curve are Pocket-owned configuration and must be defined per Ring before the process can be enabled.
 
-Never exchange, merge, or reuse one timer as the other.
+These four layers must not be merged. A completed preparation does not complete absorption; sufficient energy does not bypass progression Requirements; a completed timer does not prove success; and the energy cost is not the same value as the readiness score.
 
-### 3.1 Active Ring absorption duration
+### 3.1 Active Ring absorption duration — Pocket progression curve
 
-The listed duration belongs to the **Ring being absorbed**. It starts only after the character has met all Requirements, the target Ring is genuinely available, and the player starts the absorption process.
+The duration belongs to the Ring currently being absorbed. User-defined endpoints are **Ring 1 = 20 seconds** and **Ring 9 = 30 days**. The seven intermediate values use one smooth geometric progression so each higher Ring requires progressively longer active absorption.
+
+Formula:
+
+```text
+T(n) = round(20 × (129600)^((n − 1) / 8)) seconds
+
+where:
+n = Ring number being absorbed (1–9)
+129600 = (30 days in seconds) / 20 seconds
+round = nearest whole second
+```
 
 | Ring being absorbed | Active Pocket absorption duration |
 |---:|---:|
-| Ring 1 | **Not yet specified** — first-Ring duration needs a separate approved value |
-| Ring 2 | **20 seconds** |
-| Ring 3 | **15 hours** |
-| Ring 4 | **1 day 21 hours** |
-| Ring 5 | **3 days 18 hours** |
-| Ring 6 | **7 days 12 hours** |
-| Ring 7 | **15 days** |
-| Ring 8 | **22 days 12 hours** |
+| Ring 1 | **20 seconds** |
+| Ring 2 | **1 minute 27 seconds** |
+| Ring 3 | **6 minutes 19 seconds** |
+| Ring 4 | **27 minutes 33 seconds** |
+| Ring 5 | **2 hours** |
+| Ring 6 | **8 hours 42 minutes 42 seconds** |
+| Ring 7 | **1 day 13 hours 56 minutes 50 seconds** |
+| Ring 8 | **6 days 21 hours 17 minutes 38 seconds** |
 | Ring 9 | **30 days** |
 
-This table is a Pocket active-process schedule, not the Universe inter-Ring cooldown. Completing the timer does not itself guarantee successful absorption. At completion, resolve the actual absorption only if the character still meets all Requirements and the approved absorption-resolution procedure exists. Do not grant a Ring merely because a countdown reaches zero.
+This is a Pocket-only active-process duration curve, not a Universe canon formula and not the inter-Ring cooldown. The 20-second and 30-day endpoints follow the owner's Pocket direction; intermediate durations are interpolated using the formula above.
 
-### 3.2 Canon inter-Ring cooldown, converted to Pocket time
+The timer starts only after every entry Requirement is met, the character has completed the required preparation, a legitimate target Ring is in custody, and the required energy budget has been reserved. At completion, the state becomes **Ready for outcome resolution**; the Ring is not automatically awarded.
 
-The Universe minimum interval begins after the previous Ring was successfully absorbed. Pocket converts that interval using the ×48 simulation clock:
+### 3.2 Inter-Ring cooldown — separate from active absorption
 
-| Previous successful Ring | Next Ring attempt | Universe minimum interval | Pocket inter-Ring cooldown |
+The Universe defines a minimum interval between successful Ring absorptions. Pocket compresses those original intervals using the ×48 simulation clock. This is a separate waiting Requirement; it does not measure the length of the absorption process itself.
+
+| Previous successful Ring | Next Ring | Universe minimum interval | Pocket inter-Ring cooldown |
 |---:|---:|---:|---:|
 | Ring 1 | Ring 2 | 2 weeks | **7 hours** |
 | Ring 2 | Ring 3 | 1 month | **15 hours** |
@@ -134,22 +149,98 @@ The Universe minimum interval begins after the previous Ring was successfully ab
 | Ring 8 | Ring 9 | 4 years | **30 days** |
 | Ring 9 | — | No next Ring | **No cooldown; maximum reached** |
 
-For the normal fallback calendar, one year is 360 days. Therefore the two-week interval is 14 days / 48 = 7 Pocket real hours, and the full 30-day month / 360-day year conversions follow the same ×48 clock.
+The two-week interval is 14 in-world days; at ×48 it becomes 7 real hours. One month is 30 days and one fallback calendar year is 360 days. The cooldown begins only after the previous absorption succeeds and the result is committed.
 
-### 3.3 Timer start, pause, and completion rules
+### 3.3 Preparation Requirements — mandatory before every absorption
 
-- The inter-Ring cooldown starts only after the previous absorption succeeds and the Ring result is committed to the save.
-- The active absorption duration starts only when the current Ring attempt is actually started after all entry Requirements are met.
-- The cooldown and active absorption process can be tracked independently. A player may have an active cooldown for the next Ring while not yet possessing a legitimate target or meeting the other Requirements.
-- The active absorption process must not begin while Ring sequence, Awakening, Realm/Stage, Sync/bottleneck, cooldown, target Ring, mandatory item, body condition, or other applicable Requirements are incomplete.
-- When the cooldown reaches zero, it satisfies only the time Requirement. It does not guarantee a target, hunt, ownership, successful absorption, or breakthrough.
-- When active absorption duration reaches zero, the process becomes **Ready for outcome resolution**. It does not auto-succeed, auto-fail, or grant the Ring without an authorized resolution.
-- If the process is interrupted, persist the interruption point and apply only consequences defined by approved Pocket rules or Universe mechanics. No refund, progress loss, restart, or injury may be invented.
+Before starting any active absorption process, Pocket must present a Preparation screen and require the applicable checklist to be completed:
+
+1. **Character progression:** correct next Ring number, Awakening complete, prior Rings successfully recorded, correct Realm/Stage, and Ring 9 maximum not already reached.
+2. **Time Requirement:** the previous Ring's inter-Ring cooldown has reached exactly zero for Ring 2–9. Ring 1 has no previous-Ring cooldown or breakthrough bottleneck.
+3. **Target and custody:** the actual Spirit Beast specimen and formed Ring are identified sufficiently for the official formula; the Ring is physically secured and legitimate ownership/custody is established.
+4. **Target item:** the Beast-specific breakthrough item is in inventory for Ring 2–9. If no canon item has been recorded, Pocket must create a clearly provisional, target-specific Requirement from the actual Beast type, characteristics, Ring age and Tier context; never silently waive it. This item gate is not added to Ring 1.
+5. **Body preparation:** check current HP, injury/functional restrictions, physical condition, fatigue, Satiety and any condition that affects the recipient's readiness.
+6. **Energy preparation:** enough correct energy resource must be available and reserved for the configured active process. Before Ring 1, the character uses Stamina because Qi has not yet formed. After Ring 1, Qi exists and is the Ring absorption energy resource. Never show positive Qi before Ring 1.
+7. **Martial Soul condition:** record its current condition and any relevant damage/deviation or restriction.
+8. **Absorption method:** select and record a legitimate method/tradition and the real preparation involved. Method quality contributes to the official readiness input P; Soul-Nyuma and Soul-Zoun do not provide a formula bypass, free energy, or automatic bonus.
+9. **Readiness calculation:** record the source inputs G, P, F and V and calculate compatibility/success using the official Universe formula in `core/SPIRIT_RING_RULES.md` §6.1. Do not substitute the timer or energy cost for these formula inputs.
+
+The UI must show each line as **Requirement met**, **Requirement missing**, or **Requirement not configured**. If any mandatory Requirement or the energy profile is missing, disable **Start Absorption** and state exactly what is missing.
+
+### 3.4 Energy Requirements and expenditure
+
+Universe establishes that a Mortal before their first Ring uses Stamina, that Qi is not formed after Awakening but before Ring 1, and that Qi begins after the first successful Ring. The Ring absorption compatibility formula also explicitly includes recipient readiness, including body condition, Satiety, sufficient Qi where Qi exists, Martial Soul condition, and quality of method.
+
+Universe does **not** define a numeric Stamina maximum/recovery curve or a fixed Stamina/Qi cost for each Ring absorption. Pocket must not invent those values and claim they are canon.
+
+Pocket implementation contract:
+
+- Before Ring 1, use the Pocket **Stamina** resource. Qi remains unformed.
+- For Ring 2–9, use the character's current **Qi** as the Ring absorption energy resource. Do not infer that the base Qi value is all available current Qi if the character has already spent some.
+- Add a Pocket energy-cost profile for each Ring: required resource type, total cost, minimum reserve, expenditure schedule, and interruption/settlement behavior.
+- The full cost must be reserved before the process starts. Expenditure is recorded against the process and must never be charged twice after restart/reconciliation.
+- When the process runs, consume energy according to its configured expenditure schedule. Do not drain an arbitrary amount per frame, minute, login, or app open.
+- If available energy is below the configured Requirement, the character must prepare first (rest/recover, eat, cultivate/restore Qi, or obtain other legitimate support where allowed). Preparation actions must not grant free energy.
+- Satiety remains separate from Stamina/Qi. Resolve Satiety by the Pocket needs rules and actual awake intervals; do not convert Satiety points directly into Qi or Stamina.
+- If no approved energy-cost profile exists for a Ring, show **Requirement not configured: absorption energy cost** and keep the production process disabled. Do not treat an unset cost as zero or free.
+
+**Required Pocket energy profile fields:**
+
+```yaml
+ring_number: 1
+energy_resource: "stamina" # ring 1; "qi" for rings 2–9
+total_energy_cost: null
+minimum_start_reserve: null
+drain_schedule_id: null
+reserve_rule: null
+interruption_rule: null
+recovery_rule_ref: null
+owner_approval_id: null
+status: "pending_owner_configuration"
+```
+
+A process may be enabled only when the cost, reserve, drain schedule and interruption rule have an approved Pocket configuration.
+
+### 3.5 Official absorption readiness and success formula
+
+Pocket must preserve the actual Universe inputs and formulas from `core/SPIRIT_RING_RULES.md` §6.1. In particular:
+
+- **G — Beast aggression (0–5):** use the Beast's actual behaviour as the Ring is being processed, not its category or raw strength alone.
+- **P — recipient readiness (0–100):** body condition, Satiety, sufficient Qi where Qi exists (pre-Ring 1 use the Pocket Stamina readiness mapping without creating Qi), Martial Soul condition, and quality of the absorption method. P is a readiness score, not the amount of energy consumed.
+- **F — Martial Soul resonance correction (−15 to +15):** only evidence-based specific resonance/conflict.
+- **V — legitimate voluntary surrender (0 or 1):** only a conscious, genuine surrender.
+
+Use the canonical formulas; Pocket must not approximate them with a generic success bar:
+
+```text
+B(Y) = 10 × log10(1 + Y/10)
+X = max(0, B(Y) − T_R)
+E_eff = X/6
+
+C_raw = clamp(100 − 25E_eff − 3G − 0.5X
+              + 0.10(P − 50) + F + 20V, 0, 100)
+
+C_i = min(C_raw, 20) if EAG = 2; otherwise C_i = C_raw
+
+P_success = clamp(95 − 15E_eff − 5G
+                  + 0.15(P − 50) + F + 10V, 5, 95)
+```
+
+The exact Realm tolerance T_R, Age Grade classification, EAG, AWR, permanent-defect risk and all required rounding follow the Universe source. If the input is not established, show the exact missing Requirement and do not fabricate a precise success chance.
+
+### 3.6 Start, interruption, and completion
+
+- The inter-Ring cooldown begins after a previous Ring succeeds.
+- The active absorption timer begins only after preparation, all Requirements, and energy reservation are complete.
+- A countdown reaching zero changes the state to **Ready for outcome resolution**, not **Absorbed**.
+- Resolve the actual attempt using the official Ring formula and an approved resolution method. If a required numeric resolution method is not configured, do not fabricate a roll or result.
+- On success, commit the Ring, Qi, progression, ability provenance, energy expenditure, and next cooldown atomically.
+- On failure, do not grant the Ring, Qi, slot, Realm or ability. Apply only supported injury/deviation/defect/AWR consequences and the configured energy settlement.
+- On interruption, persist elapsed process time, reserved/spent energy and interruption reason. Apply only the approved interruption rule; do not invent a refund, full restart, automatic failure or penalty.
 - Both timers continue while the app is closed, subject to the trusted-time and offline reconciliation rules.
-- Spirit Realm 9 / Ring 9 is the maximum. No tenth Ring or additional cooldown may be added.
+- Ring 9 / Spirit Realm 9 is the maximum. No Ring 10 may be generated.
 
-**Data fields:** keep separate `active_absorption_duration`, `active_absorption_started_at`, `active_absorption_due_at`, `inter_ring_cooldown`, `inter_ring_cooldown_started_at`, and `inter_ring_cooldown_due_at`. A process may not store one value in both timer fields.
-
+**Separate stored fields:** `active_absorption_duration`, `active_absorption_started_at`, `active_absorption_due_at`, `inter_ring_cooldown`, `inter_ring_cooldown_started_at`, `inter_ring_cooldown_due_at`, `energy_resource`, `energy_reserved`, `energy_spent`, `energy_remaining`, and `preparation_record_id`. Never reuse a field for more than one purpose.
 
 ---
 
@@ -459,8 +550,9 @@ This is an accounting correction, not an arbitrary punishment. Show the correcte
 | HP maximum and HP state | `core/HP_SYSTEM.md` | Inherit unchanged |
 | Satiety formula/modifiers/food recovery | `core/HUNGER_AND_METABOLISM.md` | Inherit numeric formula; use actual real awake time and Pocket meal windows |
 | Injury class and recovery progress | `core/INJURY_SYSTEM.md` | Inherit rates; compress recovery time by ×48 |
-| Spirit Ring cooldown | `bestiary/SPIRIT_BEAST_RULES.md`, `gameplay/TIME_AND_ACTION_RULES.md` | Pocket override table; first wait 20s, final wait 30d |
-| Spirit Realm/Sync/absorption gates | `core/CULTIVATION_SYSTEM.md`, `core/SPIRIT_RING_RULES.md` | Inherit mechanics and eligibility; only approved time gates are adapted |
+| Spirit Ring active absorption | Pocket active duration curve in §3.1: Ring 1 = 20s; Ring 9 = 30d. |
+| Spirit Ring inter-Ring cooldown | `bestiary/SPIRIT_BEAST_RULES.md`, `gameplay/TIME_AND_ACTION_RULES.md` | Universe minimum intervals converted by ×48; Ring 1→2 = 7h, Ring 8→9 = 30d. |
+| Spirit Realm/Sync/absorption Requirements | `core/CULTIVATION_SYSTEM.md`, `core/SPIRIT_RING_RULES.md` | Inherit all hard gates, readiness inputs, and outcomes; Pocket separately configures energy cost. |
 | Arcanist focus training | `core/ARCANISTRY_AND_FORMULATION.md` §13.11 | Convert hours by ×48; retain teacher assessment |
 | Artificial Artifact work time | `core/ARCANISTRY_AND_FORMULATION.md` §13.11 | Convert hours by ×48; retain Grade and production gates |
 | Artifact condition score | `core/ARCANISTRY_AND_FORMULATION.md` §14 | Inherit only for successfully made Artificial Artifacts |
@@ -508,17 +600,18 @@ Pending values must not be replaced with random constants in code. Keep them una
 1. Verify 30 real minutes advances exactly one Pocket simulation day.
 2. Verify one real day advances 48 simulation days, but only one Daily Login local day can be claimed.
 3. Verify timezone change does not change UTC elapsed time or accelerate process completion.
-4. Verify Ring 1 → Ring 2 wait is exactly 20 seconds.
-5. Verify Ring 8 → Ring 9 wait is exactly 30 days.
-6. Verify Ring 9 has no next-ring cooldown or tenth-ring action.
-7. Verify each Arcanist training and artifact timer matches §4.
-8. Verify Satiety uses real awake time, not the ×48 simulation multiplier.
-9. Verify injury progress uses the Pocket-compressed timer and retains class-specific gates.
-10. Verify one process cannot complete or grant outputs twice after app restart, repeated sync, or duplicate callbacks.
-11. Verify invalid offline gains are reversed once, including gains already spent or consumed.
-12. Verify legitimate starting balances and valid progress survive reconciliation.
-13. Verify unknown prices, yields, wages, construction costs, and Social Link values cannot be silently fabricated.
-14. Verify low-end Android performance and local save recovery on the target device.
+4. Verify Ring 1 active absorption duration is exactly 20 seconds and Ring 9 active absorption duration is exactly 30 days.
+5. Verify Ring 1 → Ring 2 inter-Ring cooldown is exactly 7 real hours.
+6. Verify Ring 8 → Ring 9 inter-Ring cooldown is exactly 30 days.
+7. Verify Ring 9 has no next-Ring cooldown or tenth-Ring action.
+8. Verify each Arcanist training and artifact timer matches §4.
+9. Verify Satiety uses real awake time, not the ×48 simulation multiplier.
+10. Verify injury progress uses the Pocket-compressed timer and retains class-specific Requirements.
+11. Verify one process cannot complete or grant outputs twice after app restart, repeated sync, or duplicate callbacks.
+12. Verify invalid offline gains are reversed once, including gains already spent or consumed.
+13. Verify legitimate starting balances and progress supported by Requirements survive reconciliation.
+14. Verify unknown prices, yields, wages, construction costs, and Social Link values cannot be silently fabricated.
+15. Verify low-end Android performance and local save recovery on the target device.
 
 **Binding principle:** Pocket may accelerate waiting, but it must not skip eligibility, invent rewards, double-count transactions, or change the canon source of a mechanic.
 
