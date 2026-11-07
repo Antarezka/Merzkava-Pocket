@@ -14,13 +14,13 @@ Android shell implementation for the approved Pocket launch flow and homepage fr
 
 The Android adapter reads and requests real OS state in the documented order: overlay permission, notifications, background activity/battery exemption, then foreground-service status. The status comes from the service runtime, not from a simulated flag. Bubble and mini-window actions use the native Android service.
 
-The screen retains the approved antique CRT header, Device Status panel, compact icon-only Initial Setup actions, and Quick Actions in this order: Open game / Continue, Start bubble mode, Open floating mini window, Stop service, Donate. The native bubble uses a matching CRT illustration.
+The screen retains the approved antique CRT header, Device Status panel, and compact icon-only Initial Setup actions. Its Quick Actions are limited to Open game / Continue, Open floating mini window, Stop service, and Donate. Floating Bubble is deliberately not a Floating Control action: its CRT toggle lives in the Home header. It starts the native foreground service only after overlay, notification, and battery readiness are confirmed; Pocket reports it active only after Android confirms the overlay view is attached. The draggable CRT bubble returns Pocket to the foreground when tapped, and the same Home-header toggle stops the service.
 
 Donate is a kindness panel only. It has a calm hospital-room scene, no payment flow, no pressure, and the approved Indonesian thank-you state.
 
 ## Home and motion
 
-The Home shell retains Dark and White themes, the double torn-paper four-destination dock, upper-right brush strokes, and the CRT television pull-cord. The pull-cord is drag-only: a tap does nothing; release inside the lower activation zone toggles the dock; recoil and drawer choreography run in parallel.
+The Home shell retains Dark and White themes, the double torn-paper four-destination dock, upper-right brush strokes, and the CRT television pull-cord. The Floating Bubble toggle sits in the Home header and remains separate from the dock. The pull-cord is drag-only: pull the TV down approximately 42 CSS pixels and release to toggle the dock; it no longer requires dragging to the bottom of the screen. The cord terminates behind the TV casing at its top-centre anchor, and the touch offset is preserved so the TV does not jump when a drag begins. Recoil and drawer choreography run in parallel.
 
 Game navigation remains nested as Home Base → City → World Map. These are shell navigation destinations, not a definition of the gameplay model. The intended game is a **2D Isometric Location-Based Simulation**, not a free-roam RPG. Its scene interaction, location panel, travel between scenes (including walking and available mounts), time-based activities, world events, inventory, local persistence, and implementation sequence are defined in [Game Simulation Concept](../docs/game/GAMEPLAY_SIMULATION_CONCEPT.md).
 
