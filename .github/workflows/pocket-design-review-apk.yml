@@ -51,8 +51,8 @@ jobs:
           POCKET_SIGNING_PASSWORD: ${{ secrets.POCKET_SIGNING_PASSWORD }}
         run: |
           set -euo pipefail
-          if [[ -z "$POCKET_SIGNING_PASSWORD" || -z "$POCKET_SIGNING_PASSWORD" || -z "$POCKET_SIGNING_PASSWORD" ]]; then
-            echo "::error::Pocket signing secrets are incomplete. Add POCKET_STORE_PASSWORD, POCKET_KEY_PASSWORD, and POCKET_KEYSTORE_ENCRYPTION_PASSWORD."
+          if [[ -z "$POCKET_SIGNING_PASSWORD" ]]; then
+            echo "::error::Add the POCKET_SIGNING_PASSWORD GitHub Actions secret."
             exit 1
           fi
           if [[ ! -f "signing/merzkava-pocket-upload.jks.gpg" ]]; then
@@ -76,7 +76,10 @@ jobs:
       - name: Build Android APK
         working-directory: review-apk
         env:
-          POCKET_SIGNING_PASSWORD: ${{ secrets.POCKET_SIGNING_PASSWORD }}
+          POCKET_KEYSTORE_PATH: ${{ env.POCKET_KEYSTORE_PATH }}
+          POCKET_STORE_PASSWORD: ${{ secrets.POCKET_SIGNING_PASSWORD }}
+          POCKET_KEY_ALIAS: ${{ env.POCKET_KEY_ALIAS }}
+          POCKET_KEY_PASSWORD: ${{ secrets.POCKET_SIGNING_PASSWORD }}
         run: gradle --no-daemon :app:assembleDebug -PpocketVersion="$POCKET_VERSION" -PpocketVersionCode="$((10000 + GITHUB_RUN_NUMBER))"
       - name: Verify APK package and signature
         run: |
