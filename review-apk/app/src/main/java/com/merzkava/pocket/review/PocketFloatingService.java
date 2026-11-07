@@ -70,7 +70,7 @@ public final class PocketFloatingService extends Service {
         Notification.Builder builder = Build.VERSION.SDK_INT >= 26
             ? new Notification.Builder(this, CHANNEL_ID)
             : new Notification.Builder(this);
-        builder.setSmallIcon(android.R.drawable.ic_menu_view)
+        builder.setSmallIcon(R.drawable.ic_notification_tv)
             .setContentTitle("Merzkava Pocket")
             .setContentText("Floating Control is active.")
             .setOngoing(true);
@@ -102,14 +102,14 @@ public final class PocketFloatingService extends Service {
     private final class TelevisionBubble extends View {
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final float density = getResources().getDisplayMetrics().density;
-        private final RectF casing = new RectF(12*density,20*density,48*density,45*density);
-        private final RectF glass = new RectF(16*density,23*density,39*density,42*density);
+        private final RectF casing = new RectF(12,20,48,45);
+        private final RectF glass = new RectF(16,23,39,42);
 
         TelevisionBubble(Context context) { super(context); }
 
         private void stroke(int color,float width) {
             paint.setColor(color);
-            paint.setStrokeWidth(width*density);
+            paint.setStrokeWidth(width);
             paint.setStyle(Paint.Style.STROKE);
             paint.setStrokeCap(Paint.Cap.ROUND);
             paint.setStrokeJoin(Paint.Join.ROUND);

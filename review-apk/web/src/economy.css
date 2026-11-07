@@ -12,3 +12,9 @@
 .econ-hint{margin-top:10px!important;padding-top:9px;border-top:1px dashed #a98c5455;color:var(--muted)!important;font:italic 9px/1.55 Georgia,serif!important}.econ-more{width:100%;margin-top:3px;color:var(--gold)}.econ-empty,.econ-loading{padding:18px;border:1px dashed #a98c5466;color:var(--muted);font:11px/1.65 Georgia,serif}.econ-footnote{margin:15px 0;color:var(--muted);font:8px/1.5 var(--ui);letter-spacing:.04em}.econ-feedback{margin:10px 0;padding:9px;border-left:2px solid var(--gold);background:#a98c5410;color:var(--paper);font:10px/1.5 Georgia,serif}.econ-feedback[data-kind="warning"]{border-color:var(--red);color:#e0b3aa}.econ-qa-button{width:100%;margin:10px 0;border-color:#b7c77a;color:var(--lime)}.econ-error{padding:13px;border:1px solid var(--red);color:#e0b3aa;font-size:9px;letter-spacing:.12em}
 @media(max-width:640px){.econ-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.econ-browser{grid-template-columns:minmax(0,1fr)}.econ-detail{position:static;max-height:none}.econ-toolbar{grid-template-columns:minmax(0,1fr) 115px}.econ-tabs{top:0}.economy-heading h1{font-size:27px}}
 @media(max-width:360px){.econ-row{padding:8px}.econ-row-head b{font-size:11px}.econ-stat strong{font-size:12px}.econ-detail{padding:11px}}
+
+
+/* Economy owns a scroll surface; shell remains fixed around its navigation controls. */
+.economy-stage{height:100dvh;min-height:100dvh;overflow-x:hidden;overflow-y:auto;justify-content:flex-start;align-items:stretch;padding-top:calc(env(safe-area-inset-top) + 62px);padding-bottom:calc(env(safe-area-inset-bottom) + 205px);overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.economy-stage::-webkit-scrollbar{width:4px}
+.economy-stage::-webkit-scrollbar-thumb{background:#a98c5477;border-radius:4px}

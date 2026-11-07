@@ -15,7 +15,7 @@
 .password-wrap{position:relative}.password-wrap input{padding-right:50px!important}.password-wrap button{position:absolute;top:4px;right:4px;width:38px;height:38px;border:1px solid var(--line);background:transparent;color:var(--gold)}
 .remember-row{display:flex;align-items:center;gap:8px;margin:3px 0;color:var(--muted)!important;font-size:10px!important;letter-spacing:0!important}.remember-row input{width:16px;height:16px;margin:0;accent-color:var(--lime)}
 .login-message{min-height:18px;margin:12px 0 0;color:#d88f83;font-size:10px;line-height:1.5}.login-footer{display:flex;justify-content:space-between;gap:8px;margin-top:17px;padding-top:12px;border-top:1px solid var(--line);color:var(--muted);font-size:7px;letter-spacing:.12em}
-.access-buffer{position:absolute;z-index:8;inset:0;display:grid;place-items:center;padding:26px;background:#090a0cf5;backdrop-filter:blur(8px)}.buffer-frame{width:min(100%,360px);padding:20px 17px 16px;border:1px solid var(--gold);background:linear-gradient(145deg,#1d2023,#101214);box-shadow:0 24px 90px #000b,inset 0 0 0 4px #a98c540b}.buffer-top,.buffer-progress-head{display:flex;justify-content:space-between;gap:9px;color:#c2b69a;font-size:8px;letter-spacing:.15em}.buffer-top b{color:var(--lime);font-size:7px;font-weight:500}
+.access-buffer{position:fixed;z-index:80;inset:0;width:100vw;height:100dvh;display:grid;place-items:center;padding:calc(env(safe-area-inset-top) + 18px) 18px calc(env(safe-area-inset-bottom) + 18px);background:#090a0cf5;backdrop-filter:blur(8px)}.buffer-frame{width:min(100%,360px);padding:20px 17px 16px;border:1px solid var(--gold);background:linear-gradient(145deg,#1d2023,#101214);box-shadow:0 24px 90px #000b,inset 0 0 0 4px #a98c540b}.buffer-top,.buffer-progress-head{display:flex;justify-content:space-between;gap:9px;color:#c2b69a;font-size:8px;letter-spacing:.15em}.buffer-top b{color:var(--lime);font-size:7px;font-weight:500}
 .buffer-instrument{position:relative;width:118px;height:118px;margin:24px auto 19px;display:grid;place-items:center}.buffer-orbit{position:absolute;inset:0;border:1px solid #a98c5466;border-radius:50%;animation:orbit 16s linear infinite}.buffer-orbit:before,.buffer-orbit:after{content:"";position:absolute;inset:9px;border:1px dashed #a98c5444;border-radius:50%}.buffer-orbit:after{inset:22px;border-style:solid;border-color:#b7c77a55}.buffer-orbit i,.buffer-orbit b,.buffer-orbit span,.buffer-orbit em{position:absolute;width:6px;height:6px;border-radius:50%;background:var(--gold);box-shadow:0 0 10px #a98c54aa}.buffer-orbit i{top:8px;left:53px}.buffer-orbit b{right:3px;top:56px;width:4px;height:4px;background:var(--lime)}.buffer-orbit span{left:10px;bottom:18px;width:3px;height:3px}.buffer-orbit em{right:25px;top:17px;width:3px;height:3px;background:var(--red)}
 .buffer-medallion{display:grid;place-items:center;width:62px;height:62px;border:1px solid var(--gold);border-radius:50%;background:radial-gradient(circle,#343b34,#1b211e 70%);color:#e5d3a8;font:26px var(--display);box-shadow:inset 0 0 0 5px #a98c5410,0 0 28px #a98c5420}
 .buffer-copy{text-align:center}.buffer-copy>span{display:block;margin-bottom:8px;color:var(--gold);font-size:8px;font-weight:700;letter-spacing:.18em}.buffer-copy strong{display:block;min-height:28px;color:#f1eadb;font:13px/1.5 Georgia,serif}
@@ -130,3 +130,24 @@
 .cord-svg{z-index:0}
 .cord-handle{z-index:1}
 .cord-instruction{z-index:2;transition:left .04s linear,top .04s linear}
+
+
+/* Pocket home controls and the reserved World Pocket artwork frame. */
+.home-header-actions{display:flex;align-items:center;gap:7px}
+.home-header-icon{position:relative;display:grid;place-items:center;width:32px;height:30px;padding:3px;border:1px solid var(--line);border-radius:3px;background:linear-gradient(145deg,var(--surface2),var(--surface));color:var(--silver);transition:border-color .18s ease,color .18s ease,transform .18s ease}
+.home-header-icon svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.home-header-icon:active{transform:scale(.94);border-color:var(--gold);color:var(--lime)}
+.home-header-icon.is-loading svg{animation:pocketBufferSpin .9s linear infinite}
+@keyframes pocketBufferSpin{to{transform:rotate(360deg)}}
+:root[data-theme="light"] .home-header-icon{background:linear-gradient(145deg,#fff,#e9e3d6);color:#60665f}
+.home-brand{margin-top:clamp(27px,6vh,56px)}
+.home-brand .brand-divider{margin:15px auto 18px}
+.home-world-panel{position:relative;width:min(100%,390px);height:clamp(112px,18vh,150px);margin:0 auto 13px;overflow:hidden;border:1px solid #c0a16a99;border-radius:3px;background:linear-gradient(135deg,#c5d2c41a,#91a6a533 48%,#c7a66d12),linear-gradient(145deg,#17211f88,#26312b55);box-shadow:inset 0 0 0 4px #d9d5bd0b,0 12px 34px #0004;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.home-world-panel:before{content:"";position:absolute;inset:7px;border:1px solid #d6c59b38;pointer-events:none}
+.home-world-panel:after{content:"";position:absolute;left:50%;top:0;width:42%;height:1px;transform:translateX(-50%);background:linear-gradient(90deg,transparent,#ddc58c,transparent);opacity:.8}
+:root[data-theme="light"] .home-world-panel{background:linear-gradient(135deg,#ffffffbb,#dfe7dfaa 48%,#e7dcc5aa);box-shadow:inset 0 0 0 4px #fff8,0 12px 30px #5552}
+.page-back{position:fixed;z-index:26;top:calc(env(safe-area-inset-top) + 12px);left:14px;display:grid;place-items:center;width:40px;height:40px;padding:0;border:1px solid #a98c5480;border-radius:10px 3px 10px 3px;background:linear-gradient(145deg,#1b211fef,#101413ef);color:var(--gold);box-shadow:0 6px 18px #0005;backdrop-filter:blur(8px);transition:transform .18s ease,border-color .18s ease,color .18s ease}
+.page-back svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.page-back:active{transform:translateX(-2px) scale(.95);border-color:var(--lime);color:var(--lime)}
+:root[data-theme="light"] .page-back{background:#ffee;color:#78623d}
+@media(max-height:700px){.home-brand{margin-top:25px}.home-brand .brand-divider{margin:11px auto 14px}.home-world-panel{height:clamp(96px,16vh,122px);margin-bottom:9px}}

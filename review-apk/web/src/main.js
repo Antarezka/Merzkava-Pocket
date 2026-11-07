@@ -668,7 +668,6 @@ function renderHome() {
 function renderPage(destination, depth="") {
   disposeCurrent();
   currentRoute=destination;
-  menuOpen=true;
   let pageMarkup="";
   if(destination==="home"){
     pageMarkup=`
@@ -676,14 +675,16 @@ function renderPage(destination, depth="") {
         <header class="home-topline">
           <span class="micro-brand">MERZKAVA POCKET</span>
           <div class="home-header-actions">
-            <button type="button" class="floating-bubble-toggle" data-floating-bubble aria-label="Start floating bubble" aria-pressed="false" title="Floating bubble is available after setup">
+            <button type="button" class="floating-bubble-toggle" data-floating-bubble aria-label="Start floating bubble" aria-pressed="false">
               <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M11 9 8 4.5M21 9l3-4.5M6.5 11.5h19v14h-19zM9.5 14.5h11v8h-11zM23 15.5h.1M23 20h.1M12 26v2m8-2v2"/></svg><i aria-hidden="true"></i>
             </button>
-            <div class="home-theme"><button data-theme-choice="dark" aria-pressed="false">DARK</button><button data-theme-choice="light" aria-pressed="false">WHITE</button></div>
+            <button type="button" class="home-header-icon" data-app-minimize aria-label="Minimize Pocket"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 16.5h14"/></svg></button>
+            <button type="button" class="home-header-icon" data-app-reload aria-label="Reload Pocket"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0 1 4"/><path d="M20 4v7h-7"/></svg></button>
           </div>
           <span class="bubble-feedback" data-bubble-feedback role="status" aria-live="polite"></span>
         </header>
         <section class="home-brand"><span class="brand-kicker">THE POCKET ARCHIVE</span><h1>MERZKAVA</h1><span class="home-subtitle">A LITTLE WORLD, ALWAYS WITHIN REACH</span><div class="brand-divider"><i></i><span></span><i></i></div></section>
+        <section class="home-world-panel" data-world-pocket-artwork aria-label="World Pocket artwork panel"></section>
         <section class="home-content">
           <span class="eyebrow">HOME / OVERVIEW</span>
           <h2>Welcome back.</h2>
@@ -724,11 +725,38 @@ function renderPage(destination, depth="") {
       <article class="destination-card"><span>DISPLAY THEME</span><strong>Dark / White</strong><div class="theme-options"><button data-theme-choice="dark" aria-pressed="false">DARK THEME</button><button data-theme-choice="light" aria-pressed="false">WHITE THEME</button></div></article>
       <article class="destination-card account-card"><span>ACCOUNT & ACCESS</span><strong>${escapeHtml(accessIdentity?.displayName||"Pocket User")}</strong><small>${(accessIdentity?.role||"player").toUpperCase()} SESSION</small><button class="logout-button" data-signout>LOCK / SIGN OUT</button></article></main>`;
   }
-  root.innerHTML = pageMarkup + navigationMarkup();
+  if(destination==="home")pageMarkup+=accessBufferMarkup("APP RELOAD");
+  const backMarkup=destination==="home"?"":'<button type="button" class="page-back" data-page-back aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5 7.5 12l7 7M8 12h11"/></svg></button>';
+  root.innerHTML = pageMarkup + backMarkup + navigationMarkup();
   applyTheme();
   root.querySelectorAll("[data-theme-choice]").forEach(button=>button.addEventListener("click",()=>setTheme(button.dataset.themeChoice)));
   root.querySelectorAll("[data-subroute]").forEach(button=>button.addEventListener("click",()=>navigate(button.dataset.subroute)));
+  root.querySelector("[data-page-back]")?.addEventListener("click",navigateBack);
   root.querySelector("[data-signout]")?.addEventListener("click",()=>void signOut());
+  root.querySelector("[data-app-minimize]")?.addEventListener("click",()=>{
+    if(nativeReady()&&typeof native.movePocketToBackground==="function")native.movePocketToBackground();
+  });
+  const reloadButton=root.querySelector("[data-app-reload]");
+  let reloadBusy=false;
+  reloadButton?.addEventListener("click",async()=>{
+    if(reloadBusy||!accessIdentity)return;
+    reloadBusy=true;reloadButton.disabled=true;reloadButton.classList.add("is-loading");
+    try{
+      await runAccessSequence("transition",async()=>{
+        if(!accessIdentity)throw new Error("The verified Pocket session is missing.");
+        setTheme(readTheme());
+        if(nativeReady())JSON.parse(native.getReadiness());
+        return true;
+      },new AbortController().signal);
+      if(currentRoute==="home")showSplash();
+    }catch(error){
+      const note=root.querySelector("[data-bubble-feedback]");
+      if(note)note.textContent=error instanceof Error?error.message:"Pocket could not be reloaded.";
+    }finally{
+      reloadBusy=false;
+      if(reloadButton.isConnected){reloadButton.disabled=false;reloadButton.classList.remove("is-loading");}
+    }
+  });
   const page=root.querySelector(".home-stage,.page-stage");
   if(!reducedMotion()&&page)animate(page,{opacity:[0,1],translateY:[8,0],duration:420,ease:"outCubic"});
   mountMenu();
@@ -778,7 +806,6 @@ function mountMenu() {
     bubbleButton.classList.toggle("is-active",active);
     bubbleButton.setAttribute("aria-pressed",String(active));
     bubbleButton.setAttribute("aria-label",active?"Stop floating bubble":"Start floating bubble");
-    bubbleButton.title=active?"Stop the floating bubble":serviceRunning?"Stop the floating service":"Start the floating bubble";
   };
   const refreshBubbleButton=()=>{floatingReadiness=readNativeFloatingState();renderBubbleButton(floatingReadiness);};
   const toggleFloatingBubble=async()=>{
@@ -900,8 +927,11 @@ function mountMenu() {
   }));
   scrim.addEventListener("click",()=>setMenu(false));
   menuController={setMenu,get open(){return menuOpen;},close:()=>setMenu(false)};
-  dock.classList.add("is-open");scrim.classList.add("is-visible");
-  tiles.forEach(tile=>{tile.inert=false;tile.tabIndex=0;});
+  dock.classList.toggle("is-open",menuOpen);
+  dock.classList.toggle("is-closed",!menuOpen);
+  scrim.classList.toggle("is-visible",menuOpen);
+  scrim.disabled=!menuOpen;
+  tiles.forEach(tile=>{tile.inert=!menuOpen;tile.tabIndex=menuOpen?0:-1;});
   syncLayout();
   const resizeHandler=()=>syncLayout();window.addEventListener("resize",resizeHandler);
   draw(rest);startIdle();
@@ -921,19 +951,19 @@ function navigate(destination) {
   if(destination===currentRoute)return;
   routeHistory.push(currentRoute);
   renderPage(destination);
-  if(menuController?.open)menuController.close();
+
 }
 
 function navigateBack() {
   const previous = routeHistory.pop();
   if (previous) {
     renderPage(previous);
-    if (menuController?.open) menuController.close();
+
     return;
   }
   if (currentRoute !== "home") {
     renderPage("home");
-    if (menuController?.open) menuController.close();
+
   }
 }
 
