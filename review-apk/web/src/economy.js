@@ -1,6 +1,6 @@
 import "./economy.css";
 
-const CLOCK_RATE=48, STATE_VERSION=1;
+const CLOCK_RATE=48, STATE_VERSION=2;
 const CATALOG_FILES=["POCKET_ECONOMY_ITEMS_001_500.json","POCKET_ECONOMY_ITEMS_501_1000.json","POCKET_FACILITIES_200.json","POCKET_PRODUCTION_RECIPES.json"];
 let cataloguePromise=null, runtimeData=null;
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -14,13 +14,14 @@ async function readJson(name){
   return response.json();
 }
 export function loadPocketEconomy(){
-  if(!cataloguePromise)cataloguePromise=Promise.all(CATALOG_FILES.map(readJson)).then(([a,b,f,r])=>{
+  if(!cataloguePromise)cataloguePromise=Promise.all([...CATALOG_FILES,"POCKET_CATALOGUE_MANIFEST.json"].map(readJson)).then(([a,b,f,r,manifest])=>{
     const items=[...a.items,...b.items],byId=new Map(items.map(x=>[x.item_id,x]));
     const facilitiesById=new Map(f.facilities.map(x=>[x.facility_id,x]));
     const recipesById=new Map(r.recipes.map(x=>[x.recipe_id,x]));
+    if(manifest?.schema_version!==1||manifest?.counts?.items!==1000||manifest?.counts?.facilities!==200||manifest?.counts?.recipes!==20)throw new Error("Pocket catalogue build manifest is missing or invalid.");
     if(items.length!==1000||byId.size!==1000||f.facilities.length!==200||recipesById.size!==20)throw new Error("Pocket economy catalogue integrity check failed.");
-    for(const recipe of r.recipes)if(!facilitiesById.has(recipe.facility_id)||[...recipe.inputs,...recipe.outputs].some(x=>!byId.has(x.item_id)))throw new Error("Recipe links unknown data: "+recipe.recipe_id);
-    return {items,byId,facilities:f.facilities,facilitiesById,recipes:r.recipes,recipesById};
+    for(const recipe of r.recipes)if(!facilitiesById.has(recipe.facility_id)||[...(recipe.inputs||[]),...(recipe.outputs||[])].some(x=>!byId.has(x.item_id)))throw new Error("Recipe links unknown data: "+recipe.recipe_id);
+    return {items,byId,facilities:f.facilities,facilitiesById,recipes:r.recipes,recipesById,manifest};
   });
   return cataloguePromise;
 }
@@ -78,8 +79,29 @@ function gatheringToolsReady(data,state,item,site){
 }
 function materialCost(data,materials){return (materials||[]).reduce((sum,row)=>sum+num(data.byId.get(row.item_id)?.market?.base_price_xc)*num(row.quantity),0);}
 function addLedger(state,row){state.ledger.unshift({transaction_id:uid(),at:Date.now(),...row});state.ledger=state.ledger.slice(0,250);}
-function saveState(state,key){try{localStorage.setItem(key,JSON.stringify(state));return true;}catch{return false;}}
-function createState(){return {version:STATE_VERSION,wallet_xc:0,inventory:{},facilities:{},processes:[],ledger:[],item_site_access:{},facility_site_access:{},builder_records:{},qa_grant_used:false};}
+function saveState(state,key){try{if(state.save_meta)state.save_meta.updated_at=Date.now();localStorage.setItem(key,JSON.stringify(state));return true;}catch{return false;}}
+function createState(){const now=Date.now();return {version:STATE_VERSION,wallet_xc:0,inventory:{},facilities:{},processes:[],ledger:[],item_site_access:{},facility_site_access:{},builder_records:{},qa_grant_used:false,save_meta:{created_at:now,updated_at:now,migrations:[]}};}
+function migrateState(saved,key){
+  if(!saved||typeof saved!=="object"||Array.isArray(saved))throw new Error("The saved economy record is not a valid Pocket save.");
+  const from=Number(saved.version??1);
+  if(!Number.isInteger(from)||from<1)throw new Error("The saved economy record has an invalid schema version.");
+  if(from>STATE_VERSION)throw new Error("This save was created by a newer Pocket build. Its data has been left untouched; update Pocket before opening it.");
+  if(from<STATE_VERSION){
+    try{const backupKey=key+":backup:v"+from;if(!localStorage.getItem(backupKey))localStorage.setItem(backupKey,JSON.stringify(saved));}catch{}
+  }
+  const state={...createState(),...saved,version:STATE_VERSION};
+  const objectFields=["inventory","facilities","item_site_access","facility_site_access","builder_records"];
+  for(const field of objectFields)state[field]=saved[field]&&typeof saved[field]==="object"&&!Array.isArray(saved[field])?{...saved[field]}:{};
+  for(const field of ["processes","ledger"])state[field]=Array.isArray(saved[field])?[...saved[field]]:[];
+  state.save_meta={
+    ...(saved.save_meta&&typeof saved.save_meta==="object"&&!Array.isArray(saved.save_meta)?saved.save_meta:{}),
+    created_at:saved.save_meta?.created_at||Date.now(),
+    updated_at:Date.now(),
+    migrations:Array.isArray(saved.save_meta?.migrations)?[...saved.save_meta.migrations]:[]
+  };
+  if(from<STATE_VERSION)state.save_meta.migrations.push({from,to:STATE_VERSION,at:Date.now(),note:"Preserved wallet, inventory, facilities, processes, access records, builder assignments and transaction ledger."});
+  return state;
+}
 function readPinnedProfileWallet(identity){
   if(identity?.role!=="player"||!identity?.displayName||!identity?.identityRef||!window.PocketNative?.getLocalPlayerProfiles)return null;
   try{
@@ -99,9 +121,9 @@ function openState(identity){
     ? ["player",identity.displayName||"unverified-character"].join(":")
     : ["developer",identity?.identityRef||identity?.displayName||"local-developer"].join(":");
   const key="mp-economy-v1:"+encodeURIComponent(owner);
-  let state=null;
-  try{const saved=JSON.parse(localStorage.getItem(key)||"null");if(saved?.version===STATE_VERSION)state={...createState(),...saved};}catch{}
-  if(!state)state=createState();
+  const raw=localStorage.getItem(key);
+  const saved=raw?JSON.parse(raw):null;
+  const state=saved?migrateState(saved,key):createState();
   if(identity?.role==="player"&&!state.wallet_seeded_from_profile){
     const opening=readPinnedProfileWallet(identity);
     if(opening){
@@ -210,7 +232,7 @@ export function economyMarkup(){
         <button type="button" data-econ-tab="items" class="is-active">ITEMS</button><button type="button" data-econ-tab="facilities">FACILITIES</button><button type="button" data-econ-tab="production">PRODUCTION</button><button type="button" data-econ-tab="inventory">INVENTORY</button><button type="button" data-econ-tab="ledger">LEDGER</button>
       </nav>
       <div class="econ-content" data-econ-content><div class="econ-loading">Loading Pocket catalogues…</div></div>
-      <p class="econ-footnote">Pocket clock ×48 · Local catalogue assets · Per-profile inventory, wallet and transaction ledger.</p>
+      <p class="econ-footnote">Pocket clock ×48 · <span data-econ-catalogue-meta>Verifying bundled catalogue…</span> · Per-profile inventory, wallet and transaction ledger.</p>
     </main>
   `;
 }
@@ -220,7 +242,7 @@ export function mountEconomy(root,identity){
   const summary=root.querySelector("[data-econ-summary]"),content=root.querySelector("[data-econ-content]");
   let disposed=false,tab="items",query="",category="all",selectedItem="",selectedFacility="",showAll=false,data,state,key,tick=null,feedbackText="",feedbackType="info";
   const feedback=(message,type="info")=>{feedbackText=message;feedbackType=type;const el=root.querySelector("[data-econ-feedback]");if(el){el.textContent=feedbackText;el.dataset.kind=feedbackType;}};
-  const persist=()=>saveState(state,key);
+  const persist=()=>{const ok=saveState(state,key);if(!ok)feedback("Pocket could not write the local save. Free device storage before making more changes.","warning");return ok;};
   const refreshSummary=()=>{
     const items=inventoryRows(data,state),facilities=Object.values(state.facilities).filter(x=>x?.operational).length,running=state.processes.filter(x=>x.status==="running").length;
     summary.innerHTML="<div class='econ-stat'><small>WALLET</small><strong>"+esc(currency(state.wallet_xc))+"</strong></div><div class='econ-stat'><small>ITEM TYPES</small><strong>"+items.length+" / 1,000</strong></div><div class='econ-stat'><small>FACILITIES</small><strong>"+facilities+" / 200</strong></div><div class='econ-stat'><small>ACTIVE PROCESSES</small><strong>"+running+"</strong></div>";
@@ -370,7 +392,10 @@ export function mountEconomy(root,identity){
   const initialize=async()=>{
     try{
       data=await loadPocketEconomy();runtimeData=data;if(disposed)return;
-      ({key,state}=openState(identity));reconcile(data,state);persist();render();
+      ({key,state}=openState(identity));
+      const catalogueMeta=root.querySelector("[data-econ-catalogue-meta]");
+      if(catalogueMeta)catalogueMeta.textContent="Catalogue v"+(data.manifest.catalogue_version||"unknown")+" · source "+(data.manifest.source_commit||"local")+" · 1,000 items / 200 facilities / 20 recipes";
+      reconcile(data,state);persist();render();
       tick=window.setInterval(()=>{if(disposed)return;if(reconcile(data,state))persist();refreshSummary();},1000);
     }catch(error){
       if(disposed)return;
