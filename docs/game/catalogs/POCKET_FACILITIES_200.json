@@ -129,7 +129,7 @@
       },
       "outputs": [
         {
-          "item_id": null,
+          "item_id": "itm.1000",
           "item_name": "Well Water",
           "quantity_per_sim_minute": 0.8
         }
@@ -263,7 +263,7 @@
       },
       "outputs": [
         {
-          "item_id": null,
+          "item_id": "itm.1000",
           "item_name": "Well Water",
           "quantity_per_sim_minute": 0.832
         }
@@ -397,7 +397,7 @@
       },
       "outputs": [
         {
-          "item_id": null,
+          "item_id": "itm.1000",
           "item_name": "Well Water",
           "quantity_per_sim_minute": 0.864
         }
@@ -531,7 +531,7 @@
       },
       "outputs": [
         {
-          "item_id": null,
+          "item_id": "itm.1000",
           "item_name": "Well Water",
           "quantity_per_sim_minute": 0.896
         }
@@ -665,7 +665,7 @@
       },
       "outputs": [
         {
-          "item_id": null,
+          "item_id": "itm.1000",
           "item_name": "Well Water",
           "quantity_per_sim_minute": 0.928
         }
@@ -801,7 +801,7 @@
       },
       "outputs": [
         {
-          "item_id": null,
+          "item_id": "itm.1000",
           "item_name": "Well Water",
           "quantity_per_sim_minute": 0.96
         }
@@ -937,7 +937,7 @@
       },
       "outputs": [
         {
-          "item_id": null,
+          "item_id": "itm.1000",
           "item_name": "Well Water",
           "quantity_per_sim_minute": 0.992
         }
@@ -1075,7 +1075,7 @@
       },
       "outputs": [
         {
-          "item_id": null,
+          "item_id": "itm.1000",
           "item_name": "Well Water",
           "quantity_per_sim_minute": 1.024
         }
@@ -1213,7 +1213,7 @@
       },
       "outputs": [
         {
-          "item_id": null,
+          "item_id": "itm.1000",
           "item_name": "Well Water",
           "quantity_per_sim_minute": 1.056
         }
@@ -1351,7 +1351,7 @@
       },
       "outputs": [
         {
-          "item_id": null,
+          "item_id": "itm.1000",
           "item_name": "Well Water",
           "quantity_per_sim_minute": 1.088
         }
