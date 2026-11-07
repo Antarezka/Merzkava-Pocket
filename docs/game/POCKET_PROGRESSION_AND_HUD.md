@@ -19,7 +19,7 @@ All player-facing gates use **Requirement / Requirements** terminology. The inte
 - **Ready to start**
 - **Ready for outcome resolution**
 
-Do not use conversation-style "validation" wording for gameplay actions, and do not show generic eligibility language in ordinary mode cards. Use the explicit Requirements list and name the missing item/resource/state. The one exception is the official `Spirit Ring Absorption` profile field: its canonical status token must retain the exact Universe mapping (including `eligible` and `not eligible yet`) because it is a formal source field, not generic Pocket UI copy.
+Do not use conversation-style "validation" wording for gameplay actions, and do not show generic eligibility language in ordinary mode cards. Use the explicit Requirements list and name the missing item/resource/state. The internal `Spirit Ring Absorption` state must retain the exact Universe mapping (including `eligible` and `not eligible yet`) for source consistency. The Pocket gameplay HUD does not need to print the conversation-style `status | Day left` line; it surfaces **Requirement met/missing** states and its own clearly named Pocket countdowns.
 
 
 The character screen must not collapse all progression into one level or one bar. At minimum, keep these tracks separate:
@@ -182,7 +182,7 @@ Universe inter-Ring minimum intervals are converted through Pocket's ×48 simula
 | Ring 8 | Ring 9 | 4 years | **30 days** |
 | Ring 9 | — | No next Ring | Maximum reached; no timer |
 
-Cooldown begins when the previous absorption succeeds and is committed. Ring 1 does not have a previous-Ring cooldown. Ring 9 has no next Ring.
+Cooldown begins when the previous absorption succeeds and is committed. Ring 1 does not have a previous-Ring cooldown. Ring 9 has no next Ring. In the Pocket HUD, display this as `Inter-Ring cooldown: [real-time remaining]`; for example, Ring 1 → Ring 2 begins at `7h remaining`. Do not label the converted Pocket countdown as `Day left`, and do not merge it with the active absorption timer.
 
 **C. Energy Requirement — Stamina before Ring 1, Qi after Ring 1**
 
