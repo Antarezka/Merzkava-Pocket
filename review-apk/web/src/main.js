@@ -782,6 +782,7 @@ function navigationMarkup() {
     </div>
     <div class="dock-wrap" data-dock><div class="dock-back"></div><div class="dock-brushes"><i></i><i></i><i></i><i></i></div>
       <nav class="dock-front" aria-label="Main navigation">
+        <svg class="dock-wire-svg" data-dock-wire aria-hidden="true" focusable="false"><defs><linearGradient id="dock-wire-metal" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#786348"/><stop offset=".48" stop-color="#d4bd91"/><stop offset="1" stop-color="#786348"/></linearGradient></defs><path class="dock-wire-shadow" data-wire-path></path><path class="dock-wire-line" data-wire-path></path><path class="dock-wire-glint" data-wire-path></path><g class="dock-wire-pins" data-wire-pins></g></svg>
         <button class="dock-item is-active" type="button" data-destination="home" aria-current="page"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M4 16 18 5l14 11v15H4Z" fill="#789783" stroke="#d8d4b7"/><path d="M10 30V17l8-6 8 6v13" stroke="#f1eadb"/><path d="M14 30v-8h8v8" stroke="#d4b879"/><path d="M18 5V2" stroke="#d4b879"/></svg></span><b>HOME</b></button>
         <button class="dock-item" type="button" data-destination="game"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M8 12.5c1.3-3 4-4.5 7-4.5h6c3 0 5.7 1.5 7 4.5l3 10.2c1.2 4-2.7 6.6-5.7 4.2L20 23h-4l-5.3 3.9C7.7 29.3 3.8 26.7 5 22.7Z" fill="#789783" stroke="#d8d4b7"/><path d="M11 15v6m-3-3h6" stroke="#f1eadb" stroke-width="1.7"/><circle cx="24" cy="16.5" r="1.5" fill="#d4b879" stroke="none"/><circle cx="27" cy="20" r="1.3" fill="#d4b879" stroke="none"/></svg></span><b>GAME</b></button>
         <button class="dock-item" type="button" data-destination="daily-login"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true"><rect x="5" y="7" width="26" height="24" rx="3" fill="#789783" stroke="#d8d4b7"/><path d="M11 4v7M25 4v7M5 14h26" stroke="#f1eadb" stroke-width="1.5"/><path d="m18 17 2 4 4 .6-3 3 .7 4-3.7-2-3.7 2 .7-4-3-3 4-.6Z" fill="#d4b879" stroke="#f1eadb" stroke-width=".8"/></svg></span><b>DAILY LOG-IN</b></button>
@@ -800,6 +801,35 @@ function mountMenu() {
   const instruction=zone.querySelector("[data-cord-instruction]");
   const wallGlow=zone.querySelector("[data-cord-glow]");
   const tiles=[...dock.querySelectorAll("[data-destination]")];
+  const dockFront=dock.querySelector(".dock-front");
+  const wireSvg=dock.querySelector("[data-dock-wire]");
+  const wirePaths=[...wireSvg.querySelectorAll("[data-wire-path]")];
+  const wirePins=wireSvg.querySelector("[data-wire-pins]");
+  const syncDockWire=()=>{
+    const frontRect=dockFront.getBoundingClientRect();
+    if(frontRect.width<=0||frontRect.height<=0)return;
+    const anchors=tiles.map(tile=>{
+      const rect=tile.querySelector(".dock-sigil").getBoundingClientRect();
+      return{x:rect.left+rect.width/2-frontRect.left,y:rect.top-frontRect.top+.8};
+    });
+    wireSvg.setAttribute("viewBox",`0 0 ${frontRect.width} ${frontRect.height}`);
+    wireSvg.setAttribute("width",String(frontRect.width));
+    wireSvg.setAttribute("height",String(frontRect.height));
+    const d=anchors.slice(1).reduce((path,next,index)=>{
+      const previous=anchors[index];
+      const span=next.x-previous.x;
+      const sag=Math.min(7,Math.max(4,span*.08));
+      return path+` C ${previous.x+span*.32} ${previous.y+sag}, ${next.x-span*.32} ${next.y+sag}, ${next.x} ${next.y}`;
+    },`M ${anchors[0].x} ${anchors[0].y}`);
+    wirePaths.forEach(path=>path.setAttribute("d",d));
+    wirePins.replaceChildren(...anchors.map(point=>{
+      const pin=document.createElementNS("http://www.w3.org/2000/svg","circle");
+      pin.setAttribute("cx",String(point.x));
+      pin.setAttribute("cy",String(point.y));
+      pin.setAttribute("r","2.35");
+      return pin;
+    }));
+  };
   const bubbleButton=root.querySelector("[data-floating-bubble]");
   const bubbleFeedback=root.querySelector("[data-bubble-feedback]");
   let bubbleBusy=false;
@@ -954,8 +984,8 @@ function mountMenu() {
   scrim.disabled=!menuOpen;
   tiles.forEach(tile=>{tile.inert=!menuOpen;tile.tabIndex=menuOpen?0:-1;});
   syncLayout();
-  const resizeHandler=()=>syncLayout();window.addEventListener("resize",resizeHandler);
-  draw(rest);startIdle();
+  const resizeHandler=()=>{syncLayout();syncDockWire();};window.addEventListener("resize",resizeHandler);
+  syncDockWire();draw(rest);startIdle();
   void refreshBubbleButton();
   currentDisposer=()=>{window.removeEventListener("resize",resizeHandler);
     window.removeEventListener("pocket:native-resume",bubbleResume);
