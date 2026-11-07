@@ -87,7 +87,7 @@ Pocket Timer (real seconds) =
 
 Use full precision internally. Round only the displayed countdown. A process may complete only once, after its stored completion timestamp has been reached. Reopening the app must not duplicate output or restart its timer.
 
-If a process is specified directly as a Pocket duration (for example, the special Ring 1 → Ring 2 onboarding interval below), use that approved Pocket duration rather than applying the ×48 conversion a second time.
+If a process is specified directly as a Pocket duration (for example, Ring 1's 20-second active absorption duration), use that approved Pocket duration rather than applying the ×48 conversion a second time.
 
 ---
 
@@ -149,7 +149,7 @@ The Universe defines a minimum interval between successful Ring absorptions. Poc
 | Ring 8 | Ring 9 | 4 years | **30 days** |
 | Ring 9 | — | No next Ring | **No cooldown; maximum reached** |
 
-The two-week interval is 14 in-world days; at ×48 it becomes 7 real hours. One month is 30 days and one fallback calendar year is 360 days. The cooldown begins only after the previous absorption succeeds and the result is committed.
+The two-week interval is 14 in-world days; at ×48 it becomes 7 real hours. One month is 30 days and one fallback calendar year is 360 days. The cooldown begins only after the previous absorption succeeds and the result is committed. Accumulate it only during qualifying normal-life world time; every interval classified as Cultivation is excluded, exactly as in Universe. Offline time counts only when the saved activity/process record proves it was not Cultivation.
 
 ### 3.3 Preparation Requirements — mandatory before every absorption
 
@@ -559,7 +559,7 @@ This is an accounting correction, not an arbitrary punishment. Show the correcte
 | Jobs, gathering, farming, facilities | Relevant Universe setting modules | No universal canon formula; require approved Pocket content data; convert specified canonical durations by ×48 |
 | Social Link numeric points | `world/NPC_MANAGEMENT.md` | No numeric canon formula; qualitative record inherited, numeric extension requires approval |
 | NPC schedules and World Events | `world/NPC_MANAGEMENT.md`, `world/DYNAMIC_EVENTS.md` | Inherit records/lifecycle; schedules authored from canonical context and Pocket content |
-| Daily Login | No equivalent universal claim formula in audited Universe modules | Pocket-only online server validation; actual 24h regional day |
+| Daily Login | No equivalent universal claim formula in audited Universe modules | Pocket-only online server time check; actual 24h regional day |
 | Device clock anti-cheat | `templates/ANTI_CHEAT_HARD_GATE.md` is RP enforcement, not Pocket code | Pocket-specific server checkpoint and ledger reconciliation; do not copy RP death sanctions |
 
 ---
@@ -647,7 +647,7 @@ The cooldown table in §3 controls only the Pocket waiting-time gate. It is **no
 ### 14.2 Arcanist Focus and Grade are different state fields
 
 - Focus has six teacher-assessed stages in order: Pemula, Initiate, Beginner, Ordinary, Ahli, Expert. Pocket practice timers are in §4; they do not automatically pass an assessment.
-- Passing Initiate makes the student eligible for the Apprentice Examination. It does not award Grade 1.
+- Passing Initiate means the student meets the Focus Requirement for the Apprentice Examination. It does not award Grade 1. It does not award Grade 1.
 - Official Arcanist Grade 1–10 is awarded only after registration, meeting the target Grade's prerequisites, sitting the recognized examination, and passing.
 - Grade 2–10 conditions, cohort caps, competitive ranking, personal-designed Formation Engraver and candidate-made artifact prerequisites remain in the progression/HUD specification and the Universe source.
 - Arcanist Grade and Focus must be shown separately in the HUD. Neither is inferred from Spirit Realm, Martial Soul rarity, time elapsed, or artifact ownership.
