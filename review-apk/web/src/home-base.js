@@ -81,7 +81,8 @@ class HomeBaseScene extends Phaser.Scene{
     this.addWorldDecorations();
     this.playerTile={col:6,row:5};
     const spawn=groundOf(this.playerTile.col,this.playerTile.row);
-    this.player=this.add.sprite(spawn.x,spawn.y,"classic_idle_s").setOrigin(.5,1).setDepth(spawn.y+8);
+    this.playerShadow=this.add.ellipse(spawn.x,spawn.y-2,40,11,0x050a08,.34).setDepth(spawn.y+2);
+    this.player=this.add.sprite(spawn.x,spawn.y,"classic_idle_s").setOrigin(.5,1).setScale(.72).setDepth(spawn.y+8);
     this.player.play("classic:idle:s");
     this.addNpcs();this.drawFacilities();
     const cam=this.cameras.main,el=this.options.viewport;
@@ -91,8 +92,8 @@ class HomeBaseScene extends Phaser.Scene{
     cam.centerOn(this.player.x,this.player.y-18);
     this.lastDirection="s";
     this.events.on("update",()=>{
-      if(this.player)this.player.setDepth(this.player.y+8);
-      this.npcs.forEach(npc=>npc.setDepth(npc.y+8));
+      if(this.player){this.player.setDepth(this.player.y+8);this.playerShadow?.setPosition(this.player.x,this.player.y-2).setDepth(this.player.y+2);}
+      this.npcs.forEach(npc=>{npc.setDepth(npc.y+8);npc.shadow?.setPosition(npc.x,npc.y-2).setDepth(npc.y+2);});
     });
     this.dragState=null;this.pointerConsumed=false;
     this.input.on("pointerdown",pointer=>{
@@ -177,7 +178,9 @@ class HomeBaseScene extends Phaser.Scene{
     ];
     residents.forEach((record,i)=>{
       const pos=groundOf(record.tile.col,record.tile.row),texture=record.style+"_idle_"+record.dir;
-      const npc=this.add.sprite(pos.x,pos.y,texture).setOrigin(.5,1).setDepth(pos.y+5).setInteractive({useHandCursor:true});
+      const shadow=this.add.ellipse(pos.x,pos.y-2,36,10,0x050a08,.3).setDepth(pos.y+2);
+      const npc=this.add.sprite(pos.x,pos.y,texture).setOrigin(.5,1).setScale(.68).setDepth(pos.y+8).setInteractive({useHandCursor:true});
+      npc.shadow=shadow;
       npc.play(record.style+":idle:"+record.dir);npc.setData("tile",record.tile);npc.setData("residentIndex",i);
       npc.on("pointerdown",()=>{this.pointerConsumed=true;});
       npc.on("pointerup",(pointer,localX,localY,event)=>{
