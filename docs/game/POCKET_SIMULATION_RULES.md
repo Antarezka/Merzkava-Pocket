@@ -164,6 +164,7 @@ Before starting any active absorption process, Pocket must present a Preparation
 7. **Martial Soul condition:** record its current condition and any relevant damage/deviation or restriction.
 8. **Absorption method:** select and record a legitimate method/tradition and the real preparation involved. Method quality contributes to the official readiness input P; Soul-Nyuma and Soul-Zoun do not provide a formula bypass, free energy, or automatic bonus.
 9. **Readiness calculation:** record the source inputs G, P, F and V and calculate compatibility/success using the official Universe formula in `core/SPIRIT_RING_RULES.md` §6.1. Do not substitute the timer or energy cost for these formula inputs.
+10. **Process maintenance:** define how food, water, rest/sleep, location safety, supervision and energy management will be handled for the full active duration. For any process crossing normal meal/sleep windows—especially Ring 6–9—a maintenance profile is mandatory. The profile must state whether the absorption continues through sleep, pauses during rest, or progresses only during active windows. Pocket must not assume app-closed time is sleep, grant free Satiety, or force a character to remain awake for days.
 
 The UI must show each line as **Requirement met**, **Requirement missing**, or **Requirement not configured**. If any mandatory Requirement or the energy profile is missing, disable **Start Absorption** and state exactly what is missing.
 
