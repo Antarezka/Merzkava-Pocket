@@ -46,7 +46,7 @@ for (const recipe of recipes) {
 }
 
 const specText = await readFile(new URL("POCKET_ECONOMY_CATALOG.md", sourceDir), "utf8");
-const versionMatch = specText.match(/Pocket baseline\\s+v([0-9]+\\.[0-9]+\\.[0-9]+)/i);
+const versionMatch = specText.match(/Pocket baseline\s+v([0-9]+\.[0-9]+\.[0-9]+)/i);
 const catalogueVersion = versionMatch?.[1] || "unversioned";
 await mkdir(targetDir, { recursive: true });
 
@@ -57,7 +57,7 @@ for (const name of files) {
   hashes[name] = sha256(bytes);
   const target = new URL(name, targetDir);
   await copyFile(source, target);
-  process.stdout.write("Validated and copied " + name + " (" + bytes.length + " bytes)\\n");
+  process.stdout.write("Validated and copied " + name + " (" + bytes.length + " bytes)\n");
 }
 
 const manifest = {
@@ -69,5 +69,5 @@ const manifest = {
   economy_spec_sha256: sha256(specText)
 };
 const manifestPath = new URL("POCKET_CATALOGUE_MANIFEST.json", targetDir);
-await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\\n", "utf8");
-process.stdout.write("Wrote " + fileURLToPath(manifestPath) + " for catalogue v" + catalogueVersion + "\\n");
+await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n", "utf8");
+process.stdout.write("Wrote " + fileURLToPath(manifestPath) + " for catalogue v" + catalogueVersion + "\n");
