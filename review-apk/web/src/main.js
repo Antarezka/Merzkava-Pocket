@@ -19,7 +19,7 @@ let theme = readTheme();
 let menuOpen = true;
 let menuController = null;
 let backPrompt = null;
-let floatingReadiness = { displayOverApps:false, notifications:false, batteryExemption:false, serviceRunning:false, supported:false };
+let floatingReadiness = { displayOverApps:false, notifications:false, batteryExemption:false, serviceRunning:false, bubbleVisible:false, supported:false };
 let floatingBusy = false;
 
 window.PocketNativeCallbacks = {
@@ -51,6 +51,18 @@ function setTheme(next) { theme = next === "light" ? "light" : "dark"; applyThem
 
 function nativeReady() {
   try { return !!native && native.isNative() === true; } catch { return false; }
+}
+function readNativeFloatingState() {
+  const empty={displayOverApps:false,notifications:false,batteryExemption:false,serviceRunning:false,bubbleVisible:false,supported:false};
+  if(!nativeReady()||typeof native.getReadiness!=="function")return empty;
+  try{const state=JSON.parse(native.getReadiness()||"{}");return {...empty,...state,bubbleVisible:state.bubbleVisible===true,supported:state.supported===true};}
+  catch{return empty;}
+}
+async function waitForNativeFloatingState(predicate,timeout=2200){
+  const deadline=Date.now()+timeout;
+  do{const state=readNativeFloatingState();floatingReadiness=state;if(predicate(state))return state;await wait(80);}while(Date.now()<=deadline);
+  floatingReadiness=readNativeFloatingState();
+  throw new Error("Android did not confirm the floating-bubble state. Check the overlay permission and try again.");
 }
 function invokeNative(method, args, signal) {
   if (!nativeReady() || typeof native[method] !== "function") return Promise.reject(new Error("Native Android access is unavailable. This APK must run on Android."));
@@ -424,7 +436,6 @@ function renderFloatingControl() {
       <div class="section-label"><span>QUICK ACTIONS</span><small>SESSION CONTROLS</small></div>
       <section class="floating-actions">
         <button class="continue-action" type="button" data-action="continue"><span><small>ENTER POCKET</small><strong>Open game / continue playing</strong></span><b>↗</b></button>
-        <button type="button" data-action="bubble" disabled><span><small>FLOATING MODE</small><strong>Start bubble mode</strong></span><b>↗</b></button>
         <button type="button" data-action="mini" disabled><span><small>WINDOW</small><strong>Open floating mini window</strong></span><b>↗</b></button>
         <button type="button" data-action="stop" disabled><span><small>SERVICE</small><strong>Stop service and close window</strong></span><b>×</b></button>
         <button type="button" data-action="donate"><span><small>A LITTLE KINDNESS</small><strong>Donate / send a kind wish</strong></span><b>↗</b></button>
@@ -496,7 +507,6 @@ function renderFloatingControl() {
       button.setAttribute("aria-label",ready?"Permission ready":("Open "+key+" permission settings"));
       button.closest(".setup-row").classList.toggle("is-complete",!!ready);
     });
-    stage.querySelector('[data-action="bubble"]').disabled=!state.supported || !(state.displayOverApps&&state.notifications&&state.batteryExemption) || floatingBusy;
     stage.querySelector('[data-action="mini"]').disabled=!state.supported || !state.displayOverApps || floatingBusy;
     stage.querySelector('[data-action="stop"]').disabled=!state.supported || !state.serviceRunning || floatingBusy;
     stage.querySelector('[data-action="continue"]').disabled=transitionBusy;
@@ -593,7 +603,6 @@ function renderFloatingControl() {
     }
   };
   continueButton.addEventListener("click",()=>void enterPocket());
-  stage.querySelector('[data-action="bubble"]').addEventListener("click",()=>void run(async()=>{if(!native.startBubbleMode())throw new Error("Floating bubble could not start. Verify the overlay permission.");}));
   stage.querySelector('[data-action="mini"]').addEventListener("click",()=>void run(async()=>{if(!native.openMiniWindow())throw new Error("Mini window could not open. Verify the overlay permission.");}));
   stage.querySelector('[data-action="stop"]').addEventListener("click",()=>void run(async()=>native.stopFloatingMode()));
   stage.querySelector("[data-signout]").addEventListener("click",()=>void signOut());
@@ -661,7 +670,16 @@ function renderPage(destination, depth="") {
   if(destination==="home"){
     pageMarkup=`
       <main class="home-stage">
-        <header class="home-topline"><span class="micro-brand">MERZKAVA POCKET</span><div class="home-theme"><button data-theme-choice="dark" aria-pressed="false">DARK</button><button data-theme-choice="light" aria-pressed="false">WHITE</button></div></header>
+        <header class="home-topline">
+          <span class="micro-brand">MERZKAVA POCKET</span>
+          <div class="home-header-actions">
+            <button type="button" class="floating-bubble-toggle" data-floating-bubble aria-label="Start floating bubble" aria-pressed="false" title="Floating bubble is available after setup">
+              <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M11 9 8 4.5M21 9l3-4.5M6.5 11.5h19v14h-19zM9.5 14.5h11v8h-11zM23 15.5h.1M23 20h.1M12 26v2m8-2v2"/></svg><i aria-hidden="true"></i>
+            </button>
+            <div class="home-theme"><button data-theme-choice="dark" aria-pressed="false">DARK</button><button data-theme-choice="light" aria-pressed="false">WHITE</button></div>
+          </div>
+          <span class="bubble-feedback" data-bubble-feedback role="status" aria-live="polite"></span>
+        </header>
         <section class="home-brand"><span class="brand-kicker">THE POCKET ARCHIVE</span><h1>MERZKAVA</h1><span class="home-subtitle">A LITTLE WORLD, ALWAYS WITHIN REACH</span><div class="brand-divider"><i></i><span></span><i></i></div></section>
         <section class="home-content">
           <span class="eyebrow">HOME / OVERVIEW</span>
@@ -714,8 +732,7 @@ function navigationMarkup() {
     <div class="pull-cord-zone" data-pull-cord>
       <svg class="cord-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path data-cord-path d="M28 0 C28 28 28 70 28 112"/></svg>
       <button class="cord-handle" type="button" data-cord-handle aria-label="Drag pull-cord handle" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="cord-tv"><i class="antenna a"></i><i class="antenna b"></i><i class="tv-case"><b></b><em></em><u><s></s><s></s></u></i><i class="tv-foot left"></i><i class="tv-foot right"></i></span></button>
-      <span class="cord-instruction" data-cord-instruction>PULL &amp; RELEASE AT THE BOTTOM</span>
-      <div class="release-zone" data-release-zone><span class="release-line"></span><b>RELEASE TO TOGGLE MENU</b><small>DROP THE HANDLE INSIDE THIS ZONE</small></div>
+      <span class="cord-instruction" data-cord-instruction>PULL DOWN A LITTLE · RELEASE</span>
     </div>
     <div class="dock-wrap" data-dock><div class="dock-back"></div><div class="dock-brushes"><i></i><i></i><i></i><i></i></div>
       <nav class="dock-front" aria-label="Main navigation">
@@ -734,21 +751,68 @@ function mountMenu() {
   const path=zone.querySelector("[data-cord-path]");
   const dock=zone.parentElement.querySelector("[data-dock]");
   const scrim=zone.parentElement.querySelector("[data-dock-scrim]");
-  const release=zone.querySelector("[data-release-zone]");
   const instruction=zone.querySelector("[data-cord-instruction]");
   const tiles=[...dock.querySelectorAll("[data-destination]")];
+  const bubbleButton=root.querySelector("[data-floating-bubble]");
+  const bubbleFeedback=root.querySelector("[data-bubble-feedback]");
+  let bubbleBusy=false;
+  let disposed=false;
+  const renderBubbleButton=state=>{
+    if(!bubbleButton)return;
+    const active=state.bubbleVisible===true;
+    const ready=state.supported&&state.displayOverApps&&state.notifications&&state.batteryExemption;
+    bubbleButton.disabled=bubbleBusy||!state.supported||(!active&&!ready);
+    bubbleButton.classList.toggle("is-active",active);
+    bubbleButton.setAttribute("aria-pressed",String(active));
+    bubbleButton.setAttribute("aria-label",active?"Stop floating bubble":"Start floating bubble");
+    bubbleButton.title=active?"Stop the floating bubble":ready?"Start the floating bubble":"Complete Floating Control setup first";
+  };
+  const refreshBubbleButton=()=>{floatingReadiness=readNativeFloatingState();renderBubbleButton(floatingReadiness);};
+  const toggleFloatingBubble=async()=>{
+    if(!bubbleButton||bubbleBusy||disposed)return;
+    bubbleBusy=true;renderBubbleButton(floatingReadiness);
+    if(bubbleFeedback)bubbleFeedback.textContent="";
+    try{
+      const state=readNativeFloatingState();floatingReadiness=state;
+      if(state.bubbleVisible){
+        native.stopFloatingMode();
+        await waitForNativeFloatingState(next=>!next.serviceRunning&&!next.bubbleVisible,1800);
+        if(bubbleFeedback)bubbleFeedback.textContent="FLOATING BUBBLE STOPPED.";
+      }else{
+        const ready=state.supported&&state.displayOverApps&&state.notifications&&state.batteryExemption;
+        if(!ready)throw new Error("Complete the Floating Control setup before starting the bubble.");
+        if(native.startBubbleMode()!==true)throw new Error("Android rejected the floating-bubble request. Check the required permissions.");
+        await waitForNativeFloatingState(next=>next.serviceRunning&&next.bubbleVisible,2600);
+        if(bubbleFeedback)bubbleFeedback.textContent="BUBBLE ACTIVE · TAP THE TV ICON TO RETURN.";
+        if(typeof native.movePocketToBackground==="function")native.movePocketToBackground();
+      }
+    }catch(error){if(bubbleFeedback)bubbleFeedback.textContent=error instanceof Error?error.message:"Floating-bubble action failed."}
+    finally{bubbleBusy=false;refreshBubbleButton();}
+  };
+  bubbleButton?.addEventListener("click",()=>void toggleFloatingBubble());
+  const bubbleResume=()=>{if(!disposed)refreshBubbleButton();};
+  window.addEventListener("pocket:native-resume",bubbleResume);
+  window.addEventListener("focus",bubbleResume);
   const activeDestination=["home-base","city","world-map"].includes(currentRoute)?"game":currentRoute;
   tiles.forEach(tile=>{const active=tile.dataset.destination===activeDestination;tile.classList.toggle("is-active",active);if(active)tile.setAttribute("aria-current","page");else tile.removeAttribute("aria-current");});
-  let pointerId=null, start={x:0,y:0}, current={x:0,y:0}, rest={x:0,y:112}, dragged=false, disposed=false, idle=null, recoil=null;
+  const HANDLE_ANCHOR_X=28.5;
+  const TV_CASE_TOP=18;
+  const CORD_HIDE_DEPTH=5;
+  const PULL_THRESHOLD=42;
+  let pointerId=null,start={x:0,y:0},pointerOrigin={x:0,y:0},dragOrigin={x:0,y:0},current={x:0,y:0},rest={x:0,y:130},dragged=false,idle=null,recoil=null;
   const bounds=()=>({w:window.innerWidth,h:window.innerHeight});
   const cordSvg=zone.querySelector(".cord-svg");
-  const syncLayout=()=>{const b=bounds();cordSvg.setAttribute("viewBox",`0 0 ${b.w} ${b.h}`);rest={x:b.w*.25,y:112};if(pointerId===null)draw(rest);};
-  const clamp=(x,y)=>{const b=bounds();return{x:Math.max(25,Math.min(b.w-25,x)),y:Math.max(30,Math.min(b.h-28,y))};};
+  const syncLayout=()=>{const b=bounds();cordSvg.setAttribute("viewBox",`0 0 ${b.w} ${b.h}`);rest={x:b.w*.25+HANDLE_ANCHOR_X,y:112+TV_CASE_TOP};if(pointerId===null)draw(rest);};
+  const clamp=(x,y)=>{const b=bounds();return{x:Math.max(HANDLE_ANCHOR_X,Math.min(b.w-HANDLE_ANCHOR_X,x)),y:Math.max(48,Math.min(b.h-24,y))};};
   const draw=point=>{
     current={...point};
-    const dx=point.x-rest.x,dy=point.y;
-    path.setAttribute("d",`M ${rest.x} 0 C ${rest.x+dx*.08} ${dy*.42}, ${point.x-dx*.14} ${point.y-dy*.28}, ${point.x} ${point.y}`);
-    handle.style.left=point.x+"px";handle.style.top=point.y+"px";
+    const dx=point.x-rest.x,dy=point.y,endY=point.y+CORD_HIDE_DEPTH;
+    // The final cord segment enters the casing and is covered by the TV layer.
+    path.setAttribute("d",`M ${rest.x} 0 C ${rest.x+dx*.08} ${dy*.42}, ${point.x-dx*.14} ${endY-dy*.28}, ${point.x} ${endY}`);
+    handle.style.left=(point.x-HANDLE_ANCHOR_X)+"px";
+    handle.style.top=(point.y-TV_CASE_TOP)+"px";
+    instruction.style.left=(point.x-HANDLE_ANCHOR_X+4)+"px";
+    instruction.style.top=(point.y-TV_CASE_TOP+64)+"px";
   };
   const setMenu=next=>{
     if(disposed||menuOpen===next)return;
@@ -771,12 +835,7 @@ function mountMenu() {
     const drift={y:0};
     idle=animate(drift,{y:[0,1.8,0],duration:3400,ease:"inOutSine",loop:true,onUpdate:()=>{if(pointerId===null&&!disposed)draw({x:rest.x,y:rest.y+drift.y});}});
   };
-  const showZone=active=>{
-    release.style.height=Math.min(176,Math.max(112,bounds().h*.17))+"px";
-    release.classList.toggle("is-active",active);
-    if(!active)release.classList.remove("is-targeted");
-    instruction.textContent=active?"DRAG THE TV AND DROP BELOW":"PULL & RELEASE AT THE BOTTOM";
-  };
+  const showZone=active=>{instruction.textContent=active?"PULL DOWN A LITTLE":"PULL DOWN A LITTLE · RELEASE";};
   const snapBack=activate=>{
     showZone(false);handle.classList.remove("is-dragging");
     idle?.pause();idle=null;
@@ -792,25 +851,24 @@ function mountMenu() {
     const p=clamp(point.x,point.y);
     if(Math.hypot(p.x-start.x,p.y-start.y)>=7)dragged=true;
     draw(p);
-    const inZone=p.y>=bounds().h-Math.min(176,Math.max(112,bounds().h*.17));
-    release.classList.toggle("is-targeted",inZone);
-    instruction.textContent=inZone?"RELEASE TO TOGGLE MENU":"DROP THE HANDLE IN THE LOWER ZONE";
-    handle.setAttribute("aria-valuenow",String(Math.round((p.y/bounds().h)*100)));
+    const pulled=Math.max(0,p.y-rest.y),readyToRelease=pulled>=PULL_THRESHOLD;
+    instruction.textContent=readyToRelease?"RELEASE TO TOGGLE MENU":"PULL DOWN A LITTLE";
+    handle.setAttribute("aria-valuenow",String(Math.max(0,Math.min(100,Math.round(pulled/PULL_THRESHOLD*100)))));
   };
   const down=event=>{
     if(disposed||pointerId!==null||event.button!==0)return;
     event.preventDefault();pointerId=event.pointerId;
-    begin(clamp(event.clientX,event.clientY));
-    handle.setPointerCapture(event.pointerId);
+    pointerOrigin={x:event.clientX,y:event.clientY};dragOrigin={...current};
+    begin(current);handle.setPointerCapture(event.pointerId);
   };
   const move=event=>{
     if(pointerId!==event.pointerId)return;
-    event.preventDefault();update(clamp(event.clientX,event.clientY));
+    event.preventDefault();
+    update({x:dragOrigin.x+(event.clientX-pointerOrigin.x),y:dragOrigin.y+(event.clientY-pointerOrigin.y)});
   };
   const up=(event,cancelled)=>{
     if(pointerId!==event.pointerId)return;
-    const inZone=event.clientY>=bounds().h-Math.min(176,Math.max(112,bounds().h*.17));
-    const activate=!cancelled&&dragged&&inZone;
+    const activate=!cancelled&&dragged&&(current.y-rest.y)>=PULL_THRESHOLD;
     pointerId=null;handle.releasePointerCapture?.(event.pointerId);snapBack(activate);
     handle.setAttribute("aria-valuenow","0");
   };
@@ -821,7 +879,7 @@ function mountMenu() {
   handle.addEventListener("lostpointercapture",event=>{if(pointerId===event.pointerId)up(event,true);});
   handle.addEventListener("keydown",event=>{
     if(event.key===" "&&!event.repeat&&pointerId===null){event.preventDefault();pointerId=-1;begin(current);}
-    else if(pointerId===-1){const step=event.shiftKey?90:48;const p={...current};if(event.key==="ArrowDown")p.y+=step;else if(event.key==="ArrowUp")p.y-=step;else if(event.key==="ArrowLeft")p.x-=step;else if(event.key==="ArrowRight")p.x+=step;else if(event.key===" "){event.preventDefault();const zoneHeight=Math.min(176,Math.max(112,bounds().h*.17));const activate=dragged&&p.y>=bounds().h-zoneHeight;pointerId=null;snapBack(activate);return;}else return;event.preventDefault();update(p);}
+    else if(pointerId===-1){const step=event.shiftKey?90:48;const p={...current};if(event.key==="ArrowDown")p.y+=step;else if(event.key==="ArrowUp")p.y-=step;else if(event.key==="ArrowLeft")p.x-=step;else if(event.key==="ArrowRight")p.x+=step;else if(event.key===" "){event.preventDefault();const activate=dragged&&(current.y-rest.y)>=PULL_THRESHOLD;pointerId=null;snapBack(activate);return;}else return;event.preventDefault();update(p);}
   });
   tiles.forEach(tile=>tile.addEventListener("click",()=>{
     const destination=tile.dataset.destination;
@@ -834,7 +892,10 @@ function mountMenu() {
   syncLayout();
   const resizeHandler=()=>syncLayout();window.addEventListener("resize",resizeHandler);
   draw(rest);startIdle();
+  void refreshBubbleButton();
   currentDisposer=()=>{window.removeEventListener("resize",resizeHandler);
+    window.removeEventListener("pocket:native-resume",bubbleResume);
+    window.removeEventListener("focus",bubbleResume);
     disposed=true;idle?.pause();recoil?.pause();
     handle.removeEventListener("pointerdown",down);handle.removeEventListener("pointermove",move);
     if(pointerId!==null){try{handle.releasePointerCapture(pointerId);}catch{}}
@@ -870,7 +931,7 @@ async function signOut() {
   }
   accessIdentity=null;
   routeHistory.length=0;
-  floatingReadiness={displayOverApps:false,notifications:false,batteryExemption:false,serviceRunning:false,supported:false};
+  floatingReadiness={displayOverApps:false,notifications:false,batteryExemption:false,serviceRunning:false,bubbleVisible:false,supported:false};
   renderLoginGate();
 }
 
