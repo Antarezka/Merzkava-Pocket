@@ -2,12 +2,13 @@ import Phaser from "phaser";
 import "./home-base.css";
 import { openHomeBaseSession } from "./economy.js";
 
-const STYLE_OPTIONS=[
-  {id:"chibi",name:"Chibi",description:"A round, expressive silhouette in a short layered cultivation robe."},
-  {id:"classic",name:"Classic",description:"Balanced proportions, crossed collar, sash and long everyday robe."},
-  {id:"slim",name:"Scholar",description:"Tall flowing scholar silhouette with long sleeves and hanging ribbons."},
-  {id:"ornate",name:"Ceremonial",description:"Broad layered mantle, ornamental hairpiece and formal robe details."},
-  {id:"painterly",name:"Wanderer",description:"Asymmetric travelling mantle with textured fabric and rugged layers."}
+const CHARACTER_OPTIONS=[
+  {id:"tr",source:"crew.tr",name:"Wandering Cultivator",description:"A travelling cultivator in a layered cloak."},
+  {id:"sai",source:"crew.sai",name:"Sword Disciple",description:"A young disciple with a tied bandana and practical robes."},
+  {id:"dkb",source:"crew.dkb",name:"Ironwood Hunter",description:"A rugged bearded hunter in a work vest."},
+  {id:"cmp",source:"crew.cmp",name:"Jade Veil Adept",description:"A braided cultivator in a long formal dress."},
+  {id:"off",source:"crew.off",name:"Grey-Robed Elder",description:"An older cultivator with silver hair tied back."},
+  {id:"mk",source:"miko.mk",name:"Spirit Shrine Keeper",description:"A shrine keeper in layered white and vermilion robes."}
 ];
 const DIRS=["n","ne","e","se","s","sw","w","nw"];
 const DIR_VECTOR={n:[0,-1],ne:[1,-1],e:[1,0],se:[1,1],s:[0,1],sw:[-1,1],w:[-1,0],nw:[-1,-1]};
@@ -27,13 +28,13 @@ const TERRAIN=Array.from({length:WORLD_ROWS},(_,row)=>Array.from({length:WORLD_C
   return "g";
 }).join(""));
 const RESERVED_CELLS=new Set(["5,4","6,6","7,4","6,5","9,5","10,7","10,8","4,8"]);
-const STARTER_SPRITES={"pocket.starter.hut":"hd-facility-hut","pocket.starter.foraging":"hd-facility-foraging","pocket.starter.well":"hd-facility-well"};
+const STARTER_SPRITES={"pocket.starter.hut":"pxl-facility_starter_hut","pocket.starter.foraging":"pxl-facility_starter_foraging","pocket.starter.well":"pxl-facility_starter_well"};
 const FAMILY_SPRITES=[
-  [/farm|horticulture|garden|agriculture/i,"hd-facility-farm"],
-  [/water|sanitation|aquaculture|fish/i,"hd-facility-well"],
-  [/storage|logistics/i,"hd-facility-storage"],
-  [/trade|commerce|market/i,"hd-facility-market"],
-  [/workshop|processing|textile|ceramic|medicine|herb/i,"hd-facility-workshop"]
+  [/farm|horticulture|garden|agriculture/i,"pxl-facility_farm"],
+  [/water|sanitation|aquaculture|fish/i,"pxl-facility_starter_well"],
+  [/storage|logistics/i,"pxl-facility_storage"],
+  [/trade|commerce|market/i,"pxl-facility_market"],
+  [/workshop|processing|textile|ceramic|medicine|herb/i,"pxl-facility_workshop"]
 ];
 const esc=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const locationOf=(col,row)=>({x:MAP_ORIGIN_X+(col-row)*TILE_W/2,y:MAP_ORIGIN_Y+(col+row)*TILE_H/2+8});
@@ -54,36 +55,39 @@ const siteCanUse=(facility,col,row)=>{
 const spriteForFacility=f=>{
   const id=f?.facility_id||"";
   if(STARTER_SPRITES[id])return STARTER_SPRITES[id];
-  return FAMILY_SPRITES.find(([pattern])=>pattern.test((f?.family||"")+" "+(f?.name||"")))?.[1]||"hd-facility-storage";
+  return FAMILY_SPRITES.find(([pattern])=>pattern.test((f?.family||"")+" "+(f?.name||"")))?.[1]||"pxl-facility_storage";
 };
 
 class HomeBaseScene extends Phaser.Scene{
-  constructor(){super("HomeBase");this.style="classic";this.placement=null;this.facilityObjects=new Map();this.npcs=[];this.decorCells=new Set();this.moving=false;this.playerTile={col:6,row:5};}
+  constructor(){super("HomeBase");this.style="tr";this.placement=null;this.facilityObjects=new Map();this.npcs=[];this.decorCells=new Set();this.moving=false;this.playerTile={col:6,row:5};}
   preload(){
-    const objects=["tree","rock","facility_hut","facility_foraging","facility_well","facility_farm","facility_workshop","facility_storage","facility_market"];
-    objects.forEach(id=>this.load.image("hd-"+id.replace("facility_","facility-"),"/game-assets/hd/objects/"+id+".svg"));
-    STYLE_OPTIONS.forEach(style=>{
-      this.load.image("preview-"+style.id,"/game-assets/hd/previews/style-preview-"+style.id+".svg");
+    const objects=["world_tree","world_rock","facility_starter_hut","facility_starter_foraging","facility_starter_well","facility_farm","facility_workshop","facility_storage","facility_market"];
+    objects.forEach(id=>this.load.image("pxl-"+id,"/game-assets/pxl/sprites/"+id+".png"));
+    const tiles=["tile_grass_0","tile_grass_1","tile_grass_2","tile_path","tile_stone","tile_water","tile_water_deep","tile_rock_ground"];
+    tiles.forEach(id=>this.load.image("pxl-"+id,"/game-assets/pxl/sprites/"+id+".png"));
+    CHARACTER_OPTIONS.forEach(character=>{
+      const source=character.source;
+      this.load.image("preview-"+character.id,"/game-assets/pxl/sprites/character_preview_"+character.id+".png");
       DIRS.forEach(dir=>["idle","walk"].forEach(move=>{
-        const key=style.id+"_"+move+"_"+dir;
-        this.load.spritesheet(key,"/game-assets/hd/characters/"+key+".svg",{frameWidth:128,frameHeight:160});
+        const key=source+"_"+move+"_"+dir;
+        this.load.spritesheet(key,"/game-assets/pxl/anims/"+key+".png",{frameWidth:26,frameHeight:40});
       }));
     });
   }
   create(){
     this.cameras.main.setBackgroundColor("#18261e");
-    STYLE_OPTIONS.forEach(style=>DIRS.forEach(dir=>["idle","walk"].forEach(move=>{
-      const texture=style.id+"_"+move+"_"+dir;
-      const key=style.id+":"+move+":"+dir;
-      if(!this.anims.exists(key))this.anims.create({key,frames:this.anims.generateFrameNumbers(texture,{start:0,end:11}),frameRate:move==="walk"?12:10,repeat:-1});
+    CHARACTER_OPTIONS.forEach(character=>DIRS.forEach(dir=>["idle","walk"].forEach(move=>{
+      const texture=character.source+"_"+move+"_"+dir;
+      const key=character.id+":"+move+":"+dir;
+      if(!this.anims.exists(key))this.anims.create({key,frames:this.anims.generateFrameNumbers(texture,{start:0,end:3}),frameRate:move==="walk"?10:5,repeat:-1});
     })));
     this.drawWorld();
     this.addWorldDecorations();
     this.playerTile={col:6,row:5};
     const spawn=groundOf(this.playerTile.col,this.playerTile.row);
-    this.playerShadow=this.add.ellipse(spawn.x,spawn.y-2,40,11,0x050a08,.34).setDepth(spawn.y+2);
-    this.player=this.add.sprite(spawn.x,spawn.y,"classic_idle_s").setOrigin(.5,1).setScale(.72).setDepth(spawn.y+8);
-    this.player.play("classic:idle:s");
+    this.playerShadow=this.add.ellipse(spawn.x,spawn.y-2,30,8,0x050a08,.34).setDepth(spawn.y+2);
+    this.player=this.add.sprite(spawn.x,spawn.y,"crew.tr_idle_s").setOrigin(.5,1).setScale(1.16).setDepth(spawn.y+8);
+    this.player.play("tr:idle:s");
     this.addNpcs();this.drawFacilities();
     const cam=this.cameras.main,el=this.options.viewport;
     cam.setBounds(0,0,WORLD_WIDTH,WORLD_HEIGHT);
@@ -114,7 +118,7 @@ class HomeBaseScene extends Phaser.Scene{
       if(this.placement&&!this.dragState.moved){
         const world=cam.getWorldPoint(pointer.x,pointer.y),tile=this.worldToTile(world.x,world.y),pos=locationOf(tile.col,tile.row);
         this.placementGhost?.destroy();
-        if(inWorld(tile.col,tile.row))this.placementGhost=this.add.image(pos.x,pos.y+8,"hd-facility-storage").setOrigin(.5,1).setAlpha(.38).setTint(0xb4d7a0).setDepth(pos.y+40);
+        if(inWorld(tile.col,tile.row))this.placementGhost=this.add.image(pos.x,pos.y+8,"pxl-facility_storage").setOrigin(.5,1).setAlpha(.38).setTint(0xb4d7a0).setDepth(pos.y+40);
       }
     });
     this.input.on("pointerup",pointer=>{
@@ -133,56 +137,41 @@ class HomeBaseScene extends Phaser.Scene{
     this.options.onReady?.(this);
   }
   drawWorld(){
-    const g=this.add.graphics();g.setDepth(-1000);
-    const palette={g:[45,76,52],s:[105,112,94],d:[116,94,66],w:[36,104,113],p:[55,125,130],r:[104,102,88]};
+    const tileSets={
+      g:["pxl-tile_grass_0","pxl-tile_grass_1","pxl-tile_grass_2"],
+      s:["pxl-tile_stone"],d:["pxl-tile_path"],w:["pxl-tile_water"],
+      p:["pxl-tile_water_deep"],r:["pxl-tile_rock_ground"]
+    };
     for(let row=0;row<WORLD_ROWS;row++)for(let col=0;col<WORLD_COLS;col++){
-      const kind=terrainAt(col,row),pos=locationOf(col,row),rgb=palette[kind]||palette.g;
-      const top={x:pos.x,y:pos.y-8},right={x:pos.x+16,y:pos.y},bottom={x:pos.x,y:pos.y+8},left={x:pos.x-16,y:pos.y};
-      if(kind==="r"){
-        g.fillStyle(0x343b31,.96);g.fillPoints([{x:left.x,y:left.y},{x:bottom.x,y:bottom.y},{x:bottom.x,y:bottom.y+7},{x:left.x,y:left.y+4}],true);
-        g.fillStyle(0x4b5144,.98);g.fillPoints([{x:bottom.x,y:bottom.y},{x:right.x,y:right.y},{x:right.x,y:right.y+6},{x:bottom.x,y:bottom.y+7}],true);
-      }
-      g.fillStyle((rgb[0]<<16)|(rgb[1]<<8)|rgb[2],1);
-      g.fillPoints([top,right,bottom,left],true);
-      g.lineStyle(1,kind==="w"||kind==="p"?0xa4d2c8:0xd0c9a3,kind==="w"||kind==="p"?.12:.075);
-      g.strokePoints([top,right,bottom,left],true);
-      if(kind==="w"||kind==="p"){
-        g.lineStyle(1,0xb8e3d7,.36);
-        g.beginPath();g.moveTo(pos.x-7,pos.y-2);g.lineTo(pos.x+2,pos.y+1);g.strokePath();
-      }else if(kind==="d"){
-        g.fillStyle(0xd4b17c,.12);g.fillCircle(pos.x-3,pos.y+1,1.5);
-        g.fillCircle(pos.x+5,pos.y-2,1);
-      }else if(kind==="g"&&((col*7+row*11)%9===0)){
-        g.lineStyle(1,0xa6b77e,.3);g.beginPath();g.moveTo(pos.x-3,pos.y+2);g.lineTo(pos.x-4,pos.y-1);g.moveTo(pos.x,pos.y+2);g.lineTo(pos.x+1,pos.y-2);g.strokePath();
-      }
+      const kind=terrainAt(col,row),pos=locationOf(col,row),variants=tileSets[kind]||tileSets.g;
+      const seed=(col*37+row*61+col*row*13)%variants.length;
+      this.add.image(pos.x,pos.y,variants[seed]).setOrigin(.5,.5).setDepth(pos.y);
     }
-    // A softly layered shoreline rim gives the map a clear playable edge.
-    g.lineStyle(2,0x8f9d78,.2);g.beginPath();g.moveTo(...Object.values(locationOf(0,0)));g.lineTo(...Object.values(locationOf(WORLD_COLS-1,0)));g.lineTo(...Object.values(locationOf(WORLD_COLS-1,WORLD_ROWS-1)));g.lineTo(...Object.values(locationOf(0,WORLD_ROWS-1)));g.closePath();g.strokePath();
   }
   addWorldDecorations(){
     for(let row=0;row<WORLD_ROWS;row++)for(let col=0;col<WORLD_COLS;col++){
       const kind=terrainAt(col,row),seed=(col*31+row*47+col*row*3)%97,pos=groundOf(col,row);
       if(RESERVED_CELLS.has(tileKey(col,row)))continue;
       if(kind==="r"&&seed%3===0){
-        this.add.image(pos.x,pos.y,"hd-rock").setOrigin(.5,1).setScale(.72+((seed%5)*.035)).setDepth(pos.y+2);
+        this.add.image(pos.x,pos.y,"pxl-world_rock").setOrigin(.5,1).setScale(.72+((seed%5)*.035)).setDepth(pos.y+2);
       }else if(kind==="g"&&seed%19===0&&((col<4||col>15)||(row>12))){
         this.decorCells.add(tileKey(col,row));
-        this.add.image(pos.x,pos.y,"hd-tree").setOrigin(.5,1).setScale(.68+((seed%5)*.045)).setDepth(pos.y+3);
+        this.add.image(pos.x,pos.y,"pxl-world_tree").setOrigin(.5,1).setScale(.68+((seed%5)*.045)).setDepth(pos.y+3);
       }
     }
   }
   addNpcs(){
     const residents=[
-      {tile:{col:9,row:5},style:"slim",dir:"s"},
-      {tile:{col:10,row:8},style:"ornate",dir:"sw"},
-      {tile:{col:4,row:8},style:"painterly",dir:"e"}
+      {tile:{col:9,row:5},id:"off",source:"crew.off",dir:"s"},
+      {tile:{col:10,row:8},id:"cmp",source:"crew.cmp",dir:"sw"},
+      {tile:{col:4,row:8},id:"mk",source:"miko.mk",dir:"e"}
     ];
     residents.forEach((record,i)=>{
-      const pos=groundOf(record.tile.col,record.tile.row),texture=record.style+"_idle_"+record.dir;
-      const shadow=this.add.ellipse(pos.x,pos.y-2,36,10,0x050a08,.3).setDepth(pos.y+2);
-      const npc=this.add.sprite(pos.x,pos.y,texture).setOrigin(.5,1).setScale(.68).setDepth(pos.y+8).setInteractive({useHandCursor:true});
+      const pos=groundOf(record.tile.col,record.tile.row),texture=record.source+"_idle_"+record.dir;
+      const shadow=this.add.ellipse(pos.x,pos.y-2,30,8,0x050a08,.3).setDepth(pos.y+2);
+      const npc=this.add.sprite(pos.x,pos.y,texture).setOrigin(.5,1).setScale(1.05).setDepth(pos.y+8).setInteractive({useHandCursor:true});
       npc.shadow=shadow;
-      npc.play(record.style+":idle:"+record.dir);npc.setData("tile",record.tile);npc.setData("residentIndex",i);
+      npc.play(record.id+":idle:"+record.dir);npc.setData("tile",record.tile);npc.setData("residentIndex",i);
       npc.on("pointerdown",()=>{this.pointerConsumed=true;});
       npc.on("pointerup",(pointer,localX,localY,event)=>{
         if(this.dragState?.moved||this.skipObjectTapId===pointer.id){this.skipObjectTapId=null;return;}event?.stopPropagation?.();this.pointerConsumed=true;
@@ -217,7 +206,7 @@ class HomeBaseScene extends Phaser.Scene{
     }
   }
   setStyle(style){
-    if(!STYLE_OPTIONS.some(x=>x.id===style))return;
+    if(!CHARACTER_OPTIONS.some(x=>x.id===style))return;
     this.style=style;
     if(this.player)this.applySprite(this.player,this.lastDirection||"s",this.moving?"walk":"idle");
   }
@@ -365,7 +354,7 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
     heading.textContent="CHARACTER STYLE";
     const current=session.getAppearance();
     worldPanel.innerHTML="<p class='world-drawer-copy'>Choose the Player silhouette. Residents keep their own authored outfits and proportions.</p>"+
-      "<div class='world-style-grid'>"+STYLE_OPTIONS.map(s=>"<button class='world-style-card "+(current===s.id?"is-selected":"")+"' data-world-style='"+s.id+"'><img src='/game-assets/hd/previews/style-preview-"+s.id+".svg' alt=''><span><b>"+s.name+"</b><small>"+s.description+"</small></span></button>").join("")+"</div>";
+      "<div class='world-style-grid'>"+CHARACTER_OPTIONS.map(s=>"<button class='world-style-card "+(current===s.id?"is-selected":"")+"' data-world-style='"+s.id+"'><img src='/game-assets/pxl/sprites/character_preview_"+s.id+".png' alt=''><span><b>"+s.name+"</b><small>"+s.description+"</small></span></button>").join("")+"</div>";
   };
   const renderBuild=()=>{
     heading.textContent="FACILITY ARCHIVE";
@@ -433,7 +422,13 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
   };
   scene.options={
     viewport,session,
-    onReady:s=>{s.setStyle(session.getAppearance());},
+    onReady:s=>{
+      const saved=session.getAppearance();
+      const migrate={chibi:"tr",classic:"tr",slim:"sai",ornate:"off",painterly:"cmp"};
+      const selected=CHARACTER_OPTIONS.some(x=>x.id===saved)?saved:(migrate[saved]||"tr");
+      if(selected!==saved)session.setAppearance(selected);
+      s.setStyle(selected);
+    },
     onInvalidMove:()=>setFeedback("That part of the ground is not walkable. Tap an open path or clearing."),
     onFacilityTap:id=>renderLocation(id),
     onNpcTap:i=>{
@@ -444,10 +439,10 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
   };
   game=new Phaser.Game({
     type:Phaser.AUTO,parent:viewport,width:Math.max(1,viewport.clientWidth),height:Math.max(1,viewport.clientHeight),
-    backgroundColor:"#18261e",pixelArt:false,roundPixels:false,antialias:true,powerPreference:"low-power",
+    backgroundColor:"#18261e",pixelArt:true,roundPixels:true,antialias:false,powerPreference:"low-power",
     audio:{noAudio:true},fps:{target:30,min:20,forceSetTimeOut:true},
     scale:{mode:Phaser.Scale.RESIZE,width:viewport.clientWidth,height:viewport.clientHeight},
-    render:{pixelArt:false,antialias:true,roundPixels:false,clearBeforeRender:true,premultipliedAlpha:false},
+    render:{pixelArt:true,antialias:false,roundPixels:true,clearBeforeRender:true,premultipliedAlpha:false},
     scene:[scene]
   });
   const updateClick=async event=>{
