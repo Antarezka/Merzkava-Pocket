@@ -69,7 +69,7 @@ The simulation clock advances from elapsed UTC duration multiplied by 48. Local 
 The Trusted Real-World Clock uses absolute UTC time and is used for:
 
 - Server time checkpoints.
-- Daily Login eligibility and claim records.
+- Daily Login claim Requirements and claim records.
 - Clock manipulation detection.
 - Device relocation verification.
 - Audit timestamps and synchronization.
@@ -263,7 +263,7 @@ Mandatory requirements remain:
 - Foundational instruction from a qualified teacher or recognized educational source.
 - Focus stages completed in order.
 - Actual assessment by the teacher/institution.
-- Registration, eligibility, and official examination for every Arcanist Grade.
+- Registration Requirements and official examination for every Arcanist Grade.
 - Personal-designed engraver and all other applicable requirements for higher Grades.
 
 Elapsed Pocket timer alone never awards an assessed stage or official Arcanist Grade.
@@ -336,7 +336,7 @@ Progress remains 0–100%. Structural injuries require the specified structural 
 
 Spirit Realm, Stage, Sync compatibility, bottleneck, Spirit Ring requirements, and breakthrough outcomes retain the Universe's mechanics and hard gates. Any canon duration attached to a genuinely timed activity uses the Pocket ×48 conversion unless this document gives a more specific Pocket exception.
 
-Do not award Spirit Realm, Stage, Sync, Arcanist Grade, a technique, or a ring only because time elapsed. The action, teacher, examination, process, ring, item, eligibility, and resolution requirements remain in force.
+Do not award Spirit Realm, Stage, Sync, Arcanist Grade, a technique, or a ring only because time elapsed. The action, teacher, examination, process, ring, item, Requirements, and resolution rules remain in force.
 
 ---
 
@@ -368,7 +368,7 @@ Foraging may cover fruit, edible plants, herbs, and other resources supported by
 
 Before implementing numerical gathering, Pocket content must specify:
 - Resource node identity and permitted region/season.
-- Required tool/access and eligibility.
+- Required tool/access and Requirements.
 - Yield range or fixed yield and the resolution method.
 - Resource depletion/refresh timer.
 - Inventory capacity or storage destination.
@@ -409,7 +409,7 @@ A facility's timer is converted by ×48 only when its source duration is specifi
 
 ### 6.6 Employment and life paths
 
-Work at a port, market, farm, workshop, institution, dojo, clan, sect, or Arcanist environment requires a real location, available role, access, and eligibility. Pocket job data must define shift duration, wages, requirements, interruption behavior, and payment timing.
+Work at a port, market, farm, workshop, institution, dojo, clan, sect, or Arcanist environment requires a real location, available role, access, and Requirements. Pocket job data must define shift duration, wages, requirements, interruption behavior, and payment timing.
 
 An Arcanist apprentice or Spirit Realm student must follow the appropriate Universe progression and examination gates. A completed work timer may record attendance or completed practice hours; it does not automatically confer professional rank, Arcanist Grade, Spirit Realm, Stage, technique, membership, or recognition.
 
@@ -489,12 +489,12 @@ Daily Login is the one intentionally online-gated daily feature. Ordinary gamepl
 
 Mandatory rules:
 
-1. Daily Login claims require successful online server validation.
-2. The server's UTC timestamp is authoritative for claim eligibility.
+1. Daily Login claims require successful online server time verification.
+2. The server's UTC timestamp is authoritative for claim Requirements.
 3. The accepted regional timezone determines the local calendar-day boundary.
 4. The timezone cannot be freely changed to claim another reward.
-5. A different area/timezone is a pending relocation until the new area remains consistent for **24 continuous real-world hours** and the server validates it.
-6. Only after validation does Daily Login adopt the new area's timezone.
+5. A different area/timezone is a pending relocation until the new area remains consistent for **24 continuous real-world hours** and the server confirms it.
+6. Only after confirmation does Daily Login adopt the new area's timezone.
 7. Manual clock settings, manual timezone changes, or a VPN alone are not proof of genuine relocation.
 8. One local calendar day can produce at most one claim under the accepted timezone.
 9. Reward amounts, streak progression, and missed-day policy require a separate approved Daily Login table. Do not invent them.
@@ -520,7 +520,7 @@ A timezone offset change must not alter UTC elapsed duration. A device reboot or
 
 ### 10.2 Reconciliation sequence
 
-1. On a successful online connection, obtain and persist a server-validated UTC checkpoint.
+1. On a successful online connection, obtain and persist a server-trusted UTC checkpoint.
 2. Offline, allow the local Pocket simulation to continue using available device timing evidence. Mark unverified time-derived outputs as provisional.
 3. On reconnection, compare elapsed UTC supported by the server with locally recorded device/monotonic evidence.
 4. Identify the specific intervals and processes that depended on any confirmed forged forward jump or rollback.
@@ -613,7 +613,7 @@ Pending values must not be replaced with random constants in code. Keep them una
 14. Verify unknown prices, yields, wages, construction costs, and Social Link values cannot be silently fabricated.
 15. Verify low-end Android performance and local save recovery on the target device.
 
-**Binding principle:** Pocket may accelerate waiting, but it must not skip eligibility, invent rewards, double-count transactions, or change the canon source of a mechanic.
+**Binding principle:** Pocket may accelerate waiting, but it must not skip Requirements, invent rewards, double-count transactions, or change the canon source of a mechanic.
 
 
 ---
@@ -631,7 +631,7 @@ This document is the time/formula authority. It does **not** replace the detaile
 
 ### 14.1 Sequential Ring gate is not a timer-only unlock
 
-The cooldown table in §3 controls only the Pocket waiting-time gate. It is **not** the whole Ring eligibility rule.
+The cooldown table in §3 controls only the Pocket waiting-time gate. It is **not** the whole Ring Requirements rule.
 
 - Ring 1 requires completed and verified Martial Soul Awakening, a legitimately available/obtained physical Ring, and all applicable body/compatibility/absorption conditions. It has no previous-Ring, Realm bottleneck, or inter-Ring cooldown requirement.
 - Ring 2–9 are strictly sequential. Every preceding Ring must have been successfully absorbed and recorded. A visible empty slot or a completed cooldown does not allow a player to skip a Ring.
