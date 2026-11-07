@@ -40,7 +40,7 @@ jobs:
         shell: bash
         run: |
           HASH="$(git rev-parse --short=4 "$GITHUB_SHA")"
-          echo "POCKET_VERSION=v.0.01.006-$HASH" >> "$GITHUB_ENV"
+          echo "POCKET_VERSION=v.0.01.007-$HASH" >> "$GITHUB_ENV"
       - name: Prepare persistent Pocket signing key
         shell: bash
         env:
