@@ -80,10 +80,11 @@ public final class PocketNativeBridge {
             state.put("notifications", notifications);
             state.put("batteryExemption", battery);
             state.put("serviceRunning", running);
+            state.put("bubbleVisible", PocketFloatingService.isBubbleVisible());
             state.put("supported", true);
             return state.toString();
         } catch (Exception ignored) {
-            return "{\"displayOverApps\":false,\"notifications\":false,\"batteryExemption\":false,\"serviceRunning\":false,\"supported\":true}";
+            return "{\"displayOverApps\":false,\"notifications\":false,\"batteryExemption\":false,\"serviceRunning\":false,\"bubbleVisible\":false,\"supported\":true}";
         }
     }
 
@@ -114,10 +115,15 @@ public final class PocketNativeBridge {
 
     @JavascriptInterface public boolean startBubbleMode() {
         if (!overlayGranted() || !notificationsGranted() || !batteryExempt()) return false;
-        Intent intent = new Intent(activity, PocketFloatingService.class);
-        intent.setAction(PocketFloatingService.ACTION_BUBBLE);
-        startPocketService(intent);
-        return true;
+        try {
+            Intent intent = new Intent(activity, PocketFloatingService.class);
+            intent.setAction(PocketFloatingService.ACTION_BUBBLE);
+            startPocketService(intent);
+            return true;
+        } catch (Exception error) {
+            android.util.Log.e("PocketFloating", "Could not request the floating bubble", error);
+            return false;
+        }
     }
 
     @JavascriptInterface public boolean openMiniWindow() {
@@ -130,6 +136,12 @@ public final class PocketNativeBridge {
 
     @JavascriptInterface public void stopFloatingMode() {
         activity.stopService(new Intent(activity, PocketFloatingService.class));
+    }
+
+    @JavascriptInterface public void movePocketToBackground() {
+        activity.runOnUiThread(() -> {
+            if (!activity.isFinishing()) activity.moveTaskToBack(true);
+        });
     }
 
     private void startPocketService(Intent intent) {
