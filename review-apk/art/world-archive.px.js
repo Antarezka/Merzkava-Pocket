@@ -35,7 +35,7 @@ for(const [name,base,swap] of CULTIVATION_WARDROBES){
     anim(name+"_"+move+"_"+dir,{base:base+"_"+move+"_"+dir,swap});
   }
 }
-const previewCharacter=(id,source)=>sprite("character_preview_"+id,{w:26,h:40,pivot:[13,38]},c=>c.stamp(source+"_idle_s",0,0,{t:0}));
+const previewCharacter=(id,source)=>sprite("character_preview_"+id,{w:26,h:40,pivot:[13,38]},c=>c.stamp(source+"_idle_s",13,38,{t:0}));
 previewCharacter("tr","realm_tr");
 previewCharacter("sai","realm_sai");
 previewCharacter("dkb","realm_dkb");
