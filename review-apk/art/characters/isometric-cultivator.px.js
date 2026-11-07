@@ -1,5 +1,6 @@
 // Merzkava Pocket — isometric wuxia character family.
 // Built as a real 3D-posed pixel rig: PXL renders every heading and every animation frame.
+// Review pass 1: keep all five appearance IDs stable for existing Pocket saves.
 // No SVG, bitmap tracing, or mirrored one-view shortcuts are used for character art.
 
 include("./_pxl-dress.px.js")
