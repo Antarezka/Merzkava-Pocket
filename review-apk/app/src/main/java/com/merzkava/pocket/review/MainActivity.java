@@ -143,7 +143,11 @@ public final class MainActivity extends Activity {
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-        handleFloatingLaunchIntent();
+        if (intent != null && PocketFloatingService.ACTION_OPEN_WINDOW.equals(intent.getAction())) {
+            handleFloatingLaunchIntent();
+        } else if (floatingWindow != null && floatingWindow.isShowing()) {
+            restoreFloatingToActivity();
+        }
     }
 
     private void handleFloatingLaunchIntent() {

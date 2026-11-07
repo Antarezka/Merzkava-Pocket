@@ -160,7 +160,7 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
   root.innerHTML=
     "<section class='home-base-page' data-world-shell>"+
       "<header class='world-topbar'><div class='world-title-wrap'><strong>HOME BASE</strong><small>WORLD ARCHIVE · PERSONAL LAND</small></div>"+
-      "<div class='world-top-actions'><button type='button' data-world-appearance>CHARACTER</button><button type='button' data-world-build>BUILD</button></div></header>"+
+      "<div class='world-top-actions'><button type='button' data-world-appearance>CHARACTER</button></div></header>"+
       "<div class='world-statusline'><span>PRIVATE HOMESTEAD</span><span data-world-owned>3 STARTER FACILITIES</span><span>LOCAL SAVE</span></div>"+
       "<div class='world-viewport' data-world-viewport></div>"+
       "<div class='world-toolbar' aria-label='World actions'>"+

@@ -264,6 +264,7 @@ final class PocketFloatingWindow {
         if (isShowing()) {
             removeOverlay();
             if (!activity.isFinishing()) activity.setContentView(webView);
+            else activity.stopService(new Intent(activity, PocketFloatingService.class));
         }
     }
 }

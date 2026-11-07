@@ -1,6 +1,6 @@
 :root{--archive-ink:#17201e;--archive-paper:#e6dfca;--archive-muted:#a9a18c;--archive-gold:#c5a46c;--archive-water:#4f9298;--archive-sage:#71876b}
 .home-base-host{position:fixed;z-index:35;inset:0;width:100%;height:100dvh;overflow:hidden;background:#101814}
-.home-base-host .page-back{position:fixed;top:calc(env(safe-area-inset-top) + 9px);left:10px;z-index:45;width:34px;height:34px;opacity:.88}
+.home-base-host ~ .page-back{position:fixed;top:calc(env(safe-area-inset-top) + 9px);left:10px;z-index:45;width:34px;height:34px;opacity:.88}
 .home-base-host .home-base-page{position:relative;width:100%;height:100dvh;min-height:100dvh;overflow:hidden;padding:0;background:radial-gradient(ellipse at 50% 40%,#71876b12,transparent 58%),#101814;color:var(--archive-paper)}
 .world-viewport{position:absolute;z-index:0;inset:0;width:100%;height:100%;min-height:0;max-height:none;overflow:hidden;border:0;border-radius:0;background:#19251f;box-shadow:none;touch-action:pan-x pan-y}
 .world-viewport canvas{display:block;width:100%!important;height:100%!important;image-rendering:pixelated;touch-action:none}
