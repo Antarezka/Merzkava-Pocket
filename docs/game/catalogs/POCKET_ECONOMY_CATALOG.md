@@ -1043,7 +1043,7 @@ itm.0996 | Fish Crate | craft | base 16 xc
 itm.0997 | Meat Hook | craft | base 18 xc
 itm.0998 | Smokehouse Hook | craft | base 20 xc
 itm.0999 | Drying Frame | craft | base 22 xc
-itm.1000 | Cloth Bolt | craft | base 24 xc
+itm.1000 | Well Water | raw | base 0.4 xc
 
 ## Facility listing (200)
 facility.water.01 | Village Well | Water & sanitation | cash fee 22 xc + 20 Fieldstone, 12 Pine Log, 4 Rough Plank, 4 Rope Coil | 480 sim min
