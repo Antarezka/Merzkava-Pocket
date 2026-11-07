@@ -36,6 +36,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
+      - name: Compile Pocket Android source
+        working-directory: review-apk
+        run: gradle --no-daemon :app:compileDebugJavaWithJavac
       - name: Set version
         shell: bash
         run: |
