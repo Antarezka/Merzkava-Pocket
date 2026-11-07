@@ -118,6 +118,13 @@ Before the player can start a Spirit Ring absorption, open a dedicated Preparati
 - Show configured total cost, minimum start reserve, reserved amount, and expenditure schedule.
 - If the Ring's Pocket energy-cost profile is not approved/configured, show **Requirement not configured: absorption energy cost** and keep Start Absorption disabled.
 
+**Process Maintenance Requirement**
+- Define meal/food supply, water, safe location, supervision/support, and the exact rest/sleep policy for the full active duration.
+- Select an approved continuity mode: continuous, pause during recorded sleep/rest, or progress only during active windows.
+- Ring 6–9 durations cross multiple daily meal/sleep windows; they cannot start without a complete maintenance profile.
+- App closed is not automatically sleep. Satiety follows actual awake-time rules, and energy recovery is never granted automatically.
+- A maintenance profile is not a success bonus; it keeps the character and process supported for the chosen duration.
+
 Do not confuse the Universe recipient-readiness score P with energy amount. P is a 0–100 formula input; Stamina/Qi expenditure is a separate Pocket resource cost. The official Universe formula remains the authority for cap, success chance, defect risk and AWR. The active duration and inter-Ring cooldown are two separate timers.
 
 ### 2.6 Hunt resolution constraints
