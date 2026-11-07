@@ -150,6 +150,8 @@ Use the exact Pocket-only cooldown schedule from `POCKET_SIMULATION_RULES.md`:
 
 The cooldown is one separate eligibility gate. When it reaches zero, the player still needs a legitimate target ring, item, Sync/bottleneck, body readiness, and every other requirement. Ring 9 is the cap; never create Ring 10.
 
+**Important timer distinction:** the 20-second to 30-day table is the *post-absorption inter-Ring cooldown*, not the active time spent performing the next Ring absorption. The audited Universe source defines minimum intervals between successful absorptions but does not define a per-Ring active absorption-process duration. Pocket must store these as separate fields: `inter_ring_cooldown` and `absorption_process_duration`. The latter remains pending until the owner approves a Pocket schedule; never reuse the cooldown value as the active absorption duration.
+
 ### 3.6 Ring record and ability provenance
 
 For each successful Ring, store:
