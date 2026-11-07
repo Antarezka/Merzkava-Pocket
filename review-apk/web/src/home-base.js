@@ -205,7 +205,7 @@ class HomeBaseScene extends Phaser.Scene{
       item.setData("facilityId",id);item.setData("tile",{col,row});
       item.on("pointerdown",()=>{this.pointerConsumed=true;});
       item.on("pointerup",(pointer,localX,localY,event)=>{
-        if(this.dragState?.moved)return;event?.stopPropagation?.();this.pointerConsumed=true;
+        if(this.dragState?.moved||this.skipObjectTapId===pointer.id){this.skipObjectTapId=null;return;}event?.stopPropagation?.();this.pointerConsumed=true;
         const approach=this.findApproachTile({col,row});
         if(approach)this.walkToTile(approach,()=>this.options.onFacilityTap?.(id));
       });
