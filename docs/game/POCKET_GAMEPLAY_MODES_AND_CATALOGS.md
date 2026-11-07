@@ -300,7 +300,47 @@ All prerequisites and formulas must resolve using the canonical Arcanistry sourc
 
 ---
 
-## 9. Daily Life, Gathering, Farming and Facilities
+## 9. Bestiary, Field Notes and Skillbook
+
+These are persistent knowledge libraries attached to the character profile, not automatically unlocked world encyclopedias.
+
+### 9.1 Bestiary
+
+The Bestiary collects:
+- Known species and category.
+- Confirmed habitat/region and last discovered location.
+- Specimen age and Age Grade, where actually established.
+- Appraisal Tier and whether it is official, provisional, or unknown.
+- Known capabilities, behavior, weaknesses and danger evidence.
+- Spirit Ring properties and target-specific mandatory item, if discovered/verified.
+- Discovery evidence: rumor, tracks, sighted, identified, appraised, defeated, Ring obtained.
+
+The player-facing Bestiary must maintain two distinct knowledge states:
+1. **World record:** the complete factual record available to game simulation.
+2. **Character knowledge:** only what the character has legitimately discovered, learned, purchased, been taught, or appraised.
+
+Do not show undiscovered species entries or hidden stats just because data exists in the app. A discovered clue is not a completed identification or appraisal. Catalogue completeness must not create omniscience.
+
+### 9.2 Skillbook
+
+The Skillbook groups:
+- Martial Soul innate capabilities.
+- Successfully absorbed Spirit Ring abilities (Ring 1–9).
+- Formal techniques taught by instructors/schools/dojos/clans/sects.
+- Combat proficiency and practical manoeuvres.
+- Arcanistry knowledge and formulations.
+- Documented Artificial Artifact functions.
+- Profession and life skills.
+
+Every entry shows source/provenance, character compatibility, acquisition/teaching evidence, requirements, proficiency/assessment, actual effects, cost, cooldown and limitations only when defined. Draft, locked, unknown, unlearned, and unverified abilities are not usable. Do not provide one generic skill list to every character at the same Realm; hundreds of Realm-band variations belong to a large, source-grounded catalogue, not automatic individual unlocks.
+
+### 9.3 Library navigation
+
+Bestiary and Skillbook must be reachable from the character/gameplay interface without obscuring the isometric world. Provide search and filters by category, Realm band, Ring source, technique family, location, discovery state and eligibility where those fields are supported. The library must distinguish **Known to Character**, **Available to Learn**, **Locked by Requirements**, and **Unknown/Undiscovered**. Do not expose hidden data through search suggestions, icons, counts, tooltips or cached previews.
+
+---
+
+## 10. Daily Life, Gathering, Farming and Facilities
 
 These are the everyday activity systems that keep Pocket useful outside combat:
 
@@ -317,7 +357,7 @@ Each activity requires a Pocket data record with its requirements, timer, cost, 
 
 ---
 
-## 10. World Events and ambient simulation
+## 11. World Events and ambient simulation
 
 World Events use the Universe event lifecycle and data model. Daily routines, minor jobs and ordinary conversations remain local records unless they create persistent wider consequences.
 
@@ -336,7 +376,7 @@ Do not make events appear merely to keep the screen busy.
 
 ---
 
-## 11. Cross-mode progression and anti-exploit rules
+## 12. Cross-mode progression and anti-exploit rules
 
 - One mode cannot bypass another mode's requirements. Sparring does not grant a Ring; hunting does not automatically grant absorption; a job does not grant a professional Grade; socializing does not automatically create loyalty; War Zone participation does not guarantee rank or loot.
 - All mode rewards must use the same currency/item ledger and inventory/asset services.
@@ -345,7 +385,7 @@ Do not make events appear merely to keep the screen busy.
 - Every mode must handle interruption, logout, app restart, time manipulation, death, injury and location change according to a documented rule.
 - If a numerical requirement or output is not defined, mark it pending and do not mint the result.
 
-## 12. Required implementation data domains
+## 13. Required implementation data domains
 
 Before full production implementation, Pocket needs stable data models for:
 
