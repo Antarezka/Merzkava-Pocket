@@ -46,9 +46,12 @@ function itemByName(data,name){
 function hasNamedItem(data,state,name){const item=itemByName(data,name);return !!item&&qty(state,item.item_id)>=1;}
 function hasAnyTool(data,state,requirements){
   if(!requirements?.length)return true;
-  return requirements.some(requirement=>{
-    const words=String(requirement).toLowerCase().replace(/\b(suitable|appropriate|for loose deposits|for hard rock)\b/g,"").split(/[,/ ]+/).filter(x=>x.length>2&&x!=="or"&&x!=="and");
-    return data.items.some(item=>words.some(word=>item.name.toLowerCase().includes(word))&&qty(state,item.item_id)>=1);
+  return requirements.every(requirement=>{
+    const alternatives=String(requirement).split(/\s*\|\s*|\s+or\s+/i);
+    return alternatives.some(alternative=>{
+      const words=alternative.toLowerCase().replace(/\b(suitable|appropriate|for loose deposits|for hard rock)\b/g,"").split(/[,/ ]+/).filter(x=>x.length>2&&x!=="or"&&x!=="and");
+      return words.length>0&&data.items.some(item=>words.some(word=>item.name.toLowerCase().includes(word))&&qty(state,item.item_id)>=1);
+    });
   });
 }
 function materialCost(data,materials){return (materials||[]).reduce((sum,row)=>sum+num(data.byId.get(row.item_id)?.market?.base_price_xc)*num(row.quantity),0);}
@@ -100,16 +103,17 @@ function facilityRequirementMet(data,state,requirement){
   const level=Number((text.match(/l(\d+)/)||[])[1]||1),owned=state.facilities[match.facility_id];
   return !!owned?.operational&&num(owned.level)>=level;
 }
-function facilityRequirementsMet(data,state,requirements){return !requirements?.length||requirements.some(x=>facilityRequirementMet(data,state,x));}
+function facilityRequirementsMet(data,state,requirements){return !requirements?.length||requirements.every(x=>facilityRequirementMet(data,state,x));}
 function buildRecord(data,state,facility){
   const b=facility.build_requirements||{},materials=b.materials||[],fee=num(b.cash_fee_xc);
   const cost=materialCost(data,materials)+fee;
   const missingMaterials=materials.filter(x=>qty(state,x.item_id)<num(x.quantity));
   const missingTools=(b.builder_tools||[]).filter(x=>!hasNamedItem(data,state,x));
+  const constructionRunning=state.processes.some(x=>x.status==="running"&&x.facility_id===facility.facility_id&&(x.type==="construction"||x.type==="upgrade"));
   const predecessors=(b.predecessor||[]).filter(id=>!state.facilities[id]?.operational);
   const builders=num(state.builder_records[facility.facility_id]),requiredBuilders=num(b.builders_required),access=!!state.facility_site_access[facility.facility_id];
   const enoughCash=num(state.wallet_xc)>=cost;
-  return {cost,fee,materials,missingMaterials,missingTools,predecessors,builders,requiredBuilders,access,enoughCash,ready:!state.facilities[facility.facility_id]&&access&&builders>=requiredBuilders&&!missingMaterials.length&&!missingTools.length&&!predecessors.length&&enoughCash};
+  return {cost,fee,materials,missingMaterials,missingTools,predecessors,builders,requiredBuilders,access,enoughCash,constructionRunning,ready:!state.facilities[facility.facility_id]&&!constructionRunning&&access&&builders>=requiredBuilders&&!missingMaterials.length&&!missingTools.length&&!predecessors.length&&enoughCash};
 }
 function upgradeRecord(data,state,facility){
   const owned=state.facilities[facility.facility_id],nextLevel=num(owned?.level)+1,level=facility.levels?.[nextLevel-1],upgrade=level?.upgrade;
@@ -161,11 +165,11 @@ export function economyMarkup(){
   `;
 }
 
-export async function mountEconomy(root,identity){
+export function mountEconomy(root,identity){
   if(!root)return ()=>{};
   const summary=root.querySelector("[data-econ-summary]"),content=root.querySelector("[data-econ-content]");
-  let disposed=false,tab="items",query="",category="all",selectedItem="",selectedFacility="",showAll=false,data,state,key,tick=null;
-  const feedback=(message,type="info")=>{const el=root.querySelector("[data-econ-feedback]");if(el){el.textContent=message;el.dataset.kind=type;}};
+  let disposed=false,tab="items",query="",category="all",selectedItem="",selectedFacility="",showAll=false,data,state,key,tick=null,feedbackText="",feedbackType="info";
+  const feedback=(message,type="info")=>{feedbackText=message;feedbackType=type;const el=root.querySelector("[data-econ-feedback]");if(el){el.textContent=feedbackText;el.dataset.kind=feedbackType;}};
   const persist=()=>saveState(state,key);
   const refreshSummary=()=>{
     const items=inventoryRows(data,state),facilities=Object.values(state.facilities).filter(x=>x?.operational).length,running=state.processes.filter(x=>x.status==="running").length;
@@ -192,6 +196,7 @@ export async function mountEconomy(root,identity){
     const outputs=(facility.outputs||[]).map(x=>"<li>"+esc(x.item_name)+" · "+esc(x.quantity_per_sim_minute)+" / simulation minute</li>").join("");
     let action=owned?(u.available?"<button type='button' data-econ-action='upgrade' data-id='"+esc(facility.facility_id)+"' "+(u.ready?"":"disabled")+">UPGRADE TO LEVEL "+u.nextLevel+"</button>":""):"<button type='button' data-econ-action='build' data-id='"+esc(facility.facility_id)+"' "+(r.ready?"":"disabled")+">BEGIN CONSTRUCTION</button>";
     const missing=[];
+    if(r.constructionRunning)missing.push("construction is already running");
     if(!r.access)missing.push("record a secured site");
     if(r.builders<r.requiredBuilders)missing.push(r.requiredBuilders+" builders assigned (currently "+r.builders+")");
     if(r.missingMaterials.length)missing.push(r.missingMaterials.length+" material line(s) short");
@@ -236,6 +241,7 @@ export async function mountEconomy(root,identity){
     content.innerHTML=tab==="items"?renderItems():tab==="facilities"?renderFacilities():tab==="production"?renderProduction():tab==="inventory"?renderInventory():renderLedger();
     let feedbackNode=root.querySelector("[data-econ-feedback]");
     if(!feedbackNode){content.insertAdjacentHTML("beforeend","<p class='econ-feedback' data-econ-feedback role='status'></p>");feedbackNode=root.querySelector("[data-econ-feedback]");}
+    feedbackNode.textContent=feedbackText;feedbackNode.dataset.kind=feedbackType;
     const oldQa=root.querySelector(".econ-qa-button");oldQa?.remove();
     if(identity?.role==="developer"&&!state.qa_grant_used)feedbackNode.insertAdjacentHTML("beforebegin","<button type='button' class='econ-qa-button' data-econ-action='qa-grant'>LOAD DEVELOPER QA SAMPLE PACK</button>");
     if(focused){const field=root.querySelector("[data-econ-search]");field?.focus();if(cursor!==null)field?.setSelectionRange(cursor,cursor);}
@@ -311,13 +317,17 @@ export async function mountEconomy(root,identity){
   };
   const change=event=>{if(event.target.matches("[data-econ-builder-count]")){state.builder_records[event.target.dataset.econBuilderCount]=Math.max(0,Math.min(50,Math.floor(num(event.target.value))));persist();}};
   root.addEventListener("click",click);root.addEventListener("input",input);root.addEventListener("change",change);
-  try{
-    data=await loadPocketEconomy();runtimeData=data;if(disposed)return ()=>{};
-    ({key,state}=openState(identity));if(reconcile(data,state))persist();render();
-    tick=window.setInterval(()=>{if(disposed)return;if(reconcile(data,state))persist();refreshSummary();},1000);
-  }catch(error){
-    summary.innerHTML="<div class='econ-error'>ECONOMY DATA UNAVAILABLE</div>";
-    content.innerHTML="<p class='econ-empty'>"+esc(error?.message||"Pocket economy assets could not be loaded.")+" Rebuild the APK so catalogues are copied into local data assets.</p>";
-  }
+  const initialize=async()=>{
+    try{
+      data=await loadPocketEconomy();runtimeData=data;if(disposed)return;
+      ({key,state}=openState(identity));if(reconcile(data,state))persist();render();
+      tick=window.setInterval(()=>{if(disposed)return;if(reconcile(data,state))persist();refreshSummary();},1000);
+    }catch(error){
+      if(disposed)return;
+      summary.innerHTML="<div class='econ-error'>ECONOMY DATA UNAVAILABLE</div>";
+      content.innerHTML="<p class='econ-empty'>"+esc(error?.message||"Pocket economy assets could not be loaded.")+" Rebuild the APK so catalogues are copied into local data assets.</p>";
+    }
+  };
+  void initialize();
   return ()=>{disposed=true;if(tick!==null)window.clearInterval(tick);root.removeEventListener("click",click);root.removeEventListener("input",input);root.removeEventListener("change",change);};
 }
