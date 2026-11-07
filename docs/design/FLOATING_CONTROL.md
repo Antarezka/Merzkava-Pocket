@@ -1,56 +1,78 @@
 # Merzkava Pocket — Floating Control Design
 
-**Status:** Approved visual baseline  
+**Status:** Approved visual baseline with approved emblem replacement  
 **Scope:** Floating Control screen only  
 **Document type:** UI/UX design reference; not an implementation handoff  
-**Approval:** The full-screen mockup was approved in conversation on 2026-11-07.
+**Approval:** Full-screen Floating Control baseline approved 2026-11-07; antique CRT television emblem approved 2026-11-07.
 
 ## 1. Design scope and preservation
 
 - Preserve the approved full-screen Floating Control mockup as the current baseline.
 - Do not expand this document into other app pages or flows.
-- Do not change the approved layout, section order, or feature order while working on the emblem.
+- Do not change the approved layout, section order, or feature order while working on later mockups.
+- The emblem replacement affects the header app mark only; it does not authorize redesigning the rest of the screen.
 - This document records the conceptual design. It does not claim that Android permissions, service actions, animations, sound, or Donate interactions are implemented.
 
 ## 2. Visual direction
 
 The visual language combines:
-- **Reverse: 1999:** editorial typography, refined atmosphere, restrained ornament.
-- **Harry Potter:** antique heraldic identity, mysterious institutional symbolism.
-- **Arknights:** geometric insignia, clean and deliberate structure.
-- **Girls' Frontline:** precise, technical faction identity.
+- **Reverse: 1999:** editorial typography, refined atmosphere, antique warmth, and restrained ornament.
+- **Harry Potter:** antique heraldic identity and mysterious institutional symbolism.
+- **Arknights:** clean, deliberate structure.
+- **Girls' Frontline:** precise, technical identity.
 
 The intended character is elegant, mysterious, arcane, modern, and recognizable rather than generic.
 
-## 3. Color palette
+## 3. Floating Control screen palette
+
+The approved screen palette remains:
 
 | Color | Hex | Intended use |
 |---|---|---|
-| Electric Lime | `#EFFE59` | Dominant identity/accent color |
+| Electric Lime | `#EFFE59` | Existing screen identity/accent |
 | Ink Black | `#17191B` | Main dark surface |
-| Imperial Gold | `#F0B10A` | Premium accent and emblem details |
+| Imperial Gold | `#F0B10A` | Existing premium accent |
 | Pale Silver-Blue | `#DEE4F4` | Secondary light detail |
 | Antique Brown | `#976759` | Warm muted accent |
 | Muted Slate | `#747788` | Secondary labels and subdued text |
 | Parchment / Ivory | `#F1EBDD` | Primary light text |
 
-For the emblem, Electric Lime is dominant, Ink Black is the base, and Imperial Gold is the restrained secondary accent.
+The emblem has its own antique-wood color treatment described below. Its colors do not replace or silently recolor the approved screen palette.
 
-## 4. Emblem direction — not final
+## 4. Header emblem — approved replacement
 
-The selected direction combines:
-- The **abstract/arcane monogram approach from concept 02**.
-- The **angular geometric frame from concept 03**.
-- A custom, distinctive M-like symbol; it should not look like an ordinary font glyph.
-- Potential use of negative space, diagonal cuts, geometric construction, and subtle arcane details.
-- A custom CSS-built emblem, using SVG/CSS geometry where appropriate.
+The previous abstract M monogram direction is discontinued. It is replaced by a **custom antique CRT television mark**.
 
-The M shape itself remains under exploration. No individual M concept has been approved as final. The emblem shown in the approved full-screen mockup is only a temporary placeholder.
+### Approved visual characteristics
+
+- A classic rounded CRT television silhouette, with a large curved-glass screen.
+- Antique wooden casing, evoking aged mahogany rather than modern plastic.
+- Restrained aged-bronze / brass trim and physical control knobs.
+- Two visible antenna rods extending from the top.
+- A slight three-quarter perspective, with the right side subtly visible; it should not face perfectly forward.
+- Flat, clean illustration treatment with enough characteristic detail to read unmistakably as a vintage television.
+- No enclosing background, badge, tile, card, or square container. The TV illustration itself is the mark.
+- Display size in the Floating Control header: **38 × 38 px** (half the previously previewed 76 × 76 px size).
+- Keep the emblem visually secondary to the MERZKAVA wordmark.
+
+### Emblem color direction
+
+Use warm antique materials inspired by the atmosphere of Reverse: 1999:
+- Mahogany / aged wood brown as the dominant casing color.
+- Deep dark brown for shadow and recesses.
+- Aged bronze / brass for restrained trim, antenna details, and knobs.
+- Warm ivory only for small highlights and screen reflections.
+
+Do not make Electric Lime the dominant emblem color. Do not add a colored background behind the TV.
+
+### Identity and approval boundary
+
+The antique CRT television is the approved replacement for the former M mark in the Floating Control header. The 38 × 38 px, no-background treatment is the selected direction. This approval applies to the emblem only; it does not imply that its vector artwork or runtime asset has already been implemented in the app.
 
 ## 5. Floating Control — approved full-screen structure
 
 ### Header
-- Compact emblem/app mark at the left.
+- Compact antique CRT television emblem at the left, 38 × 38 px, with no background container.
 - MERZKAVA wordmark.
 - POCKET as the secondary product label.
 - Short tagline: “A little world, always within reach.”
@@ -116,8 +138,8 @@ The Donate copy should eventually be localized into the exact language set alrea
 
 ## 8. Approval boundary and next work
 
-**Approved now:** the full-screen Floating Control layout and its documented structure, ordering, tone, and interaction intent.
+**Approved now:** the full-screen Floating Control layout, its documented structure and interaction intent, and the antique CRT television header emblem.
 
-**Still open:** the custom abstract M emblem and final wordmark treatment.
+**Still open:** the next app-screen mockup and any implementation-specific vector asset decisions.
 
-Next design work should focus only on refining the abstract M emblem. Once that is selected, it can be integrated into the approved Floating Control baseline. Do not redesign the rest of the screen without a new request.
+Do not redesign the approved Floating Control screen while creating the next mockup. Treat this document as its visual baseline and reference.
