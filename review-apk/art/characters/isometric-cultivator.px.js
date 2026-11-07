@@ -182,21 +182,19 @@ function headField(style) {
     { smooth:0.6 }
   )
   let hair = sdf.union(cap, locks, { smooth:0.6 })
+    .noise({ amp:0.35, scale:1.2, seed:style.id.length + 2 }).mat("JjhH")
   if (style.hair === "bun") {
     const bun = sdf.ellipsoid([2.6, 2.2, 2.4]).at(0, -6.2, 0).mat("JjhH")
     const pin = sdf.capsule([-0.3, -7.7, 1.4], [0.3, -9.2, 3.6], 0.28).mat("gG")
     hair = sdf.union(hair, bun, pin, { smooth:0.45 })
   } else if (tail) {
-    hair = sdf.union(hair, sdf.capsule([0, -4.6, -1], [0.5, -7.2, -4.8], 1.0, 0.6), { smooth:0.5 })
+    const tailLock = sdf.capsule([0, -4.6, -1], [0.5, -7.2, -4.8], 1.0, 0.6).mat("JjhH")
+    hair = sdf.union(hair, tailLock, { smooth:0.5 })
   } else if (long) {
-    hair = sdf.union(
-      hair,
-      sdf.capsule([-4.4, -0.2, 1], [-3.8, -0.2, -5.7], 1.15, 0.75),
-      sdf.capsule([4.4, -0.2, 1], [3.8, -0.2, -5.7], 1.15, 0.75),
-      { smooth:0.55 }
-    )
+    const leftLock = sdf.capsule([-4.4, -0.2, 1], [-3.8, -0.2, -5.7], 1.15, 0.75).mat("JjhH")
+    const rightLock = sdf.capsule([4.4, -0.2, 1], [3.8, -0.2, -5.7], 1.15, 0.75).mat("JjhH")
+    hair = sdf.union(hair, leftLock, rightLock, { smooth:0.55 })
   }
-  hair = hair.noise({ amp:0.35, scale:1.2, seed:style.id.length + 2 }).mat("JjhH")
   return sdf.union(skull, hair)
 }
 
