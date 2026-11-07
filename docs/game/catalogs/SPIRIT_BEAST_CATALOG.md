@@ -52,6 +52,54 @@ Keep these independent:
 - Danger/capability evidence.
 - Habitat and regional population.
 
+**Canonical Spirit Beast Age Grade by actual age**
+
+| Age Grade | Actual age |
+|---:|---:|
+| 1 | 10–150 years |
+| 2 | 151–999 years |
+| 3 | 1,000–4,999 years |
+| 4 | 5,000–9,999 years |
+| 5 | 10,000–49,999 years |
+| 6 | 50,000–99,999 years |
+| 7 | 100,000–199,999 years |
+| 8 | 200,000–499,999 years |
+| 9 | 500,000 years and above; no fixed maximum |
+
+Age Grade 9 begins at 500,000 years and has no maximum fixed age. A Beast's age is not its appraisal Tier. Do not use Age Grade as a substitute for the actual Tier or for combat calculations.
+
+**Canonical Spirit Ring colour by actual Ring age**
+
+| Spirit Ring colour | Ring age |
+|---|---:|
+| White | 10–99 years |
+| Yellow | 100–999 years |
+| Blue | 1,000–9,999 years |
+| Black | 10,000–49,999 years |
+| Red | 50,000–99,999 years |
+| Orange | 100,000–499,999 years |
+| Maroon | 500,000–999,999 years |
+| Gold | 1,000,000–1,999,999 years |
+| Purple | 2,000,000–3,999,999 years |
+| Pink | 4,000,000–6,999,999 years |
+| Dark Vienna | 7,000,000–15,000,000 years |
+
+A Beast older than 15,000,000 years is a Heaven Realm being, not an ordinary Spirit Beast with a higher number. No Ring colour above Dark Vienna is established. Do not infer a colour beyond the documented range.
+
+Age Grade is an age bracket, not a power tier. Beast appraisal Tier is not an Age Grade. A Ring colour is determined from Ring age using the Spirit Ring module, not from the main Beast category.
+
+
+Keep these independent:
+- Species identity.
+- Specimen identity.
+- Actual age in years.
+- Age Grade 1–9, calculated from actual age.
+- Official appraisal Tier or provisional/unassessed state.
+- Main Beast category.
+- Ring age and Ring colour.
+- Danger/capability evidence.
+- Habitat and regional population.
+
 Age Grade is an age bracket, not a power tier. Beast appraisal Tier is not an Age Grade. A Ring colour is determined from Ring age using the Spirit Ring module, not from the main Beast category.
 
 ---
