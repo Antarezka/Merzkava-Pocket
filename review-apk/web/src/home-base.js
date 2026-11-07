@@ -318,7 +318,7 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
   },2500);
   return ()=>{
     disposed=true;if(tick!==null)window.clearInterval(tick);
-    root.removeEventListener("click",updateClick);root.removeEventListener("pointerdown",pointerDown);root.removeEventListener("change",inputChange);
+    root.removeEventListener("click",updateClick);root.removeEventListener("change",inputChange);
     if(game)game.destroy(true);
   };
 }
