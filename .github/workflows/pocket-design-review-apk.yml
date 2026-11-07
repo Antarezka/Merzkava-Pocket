@@ -1,7 +1,8 @@
 name: Merzkava Pocket Android APK
+# Feature-branch build is intentionally enabled for the 2.5D HD runtime review.
 on:
   push:
-    branches: [main]
+    branches: [main, feat/2-5d-hd-runtime-foundation-2026-11-07]
     paths:
       - "review-apk/**"
       - "docs/game/**"

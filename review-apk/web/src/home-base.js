@@ -11,18 +11,38 @@ const STYLE_OPTIONS=[
 ];
 const DIRS=["n","ne","e","se","s","sw","w","nw"];
 const DIR_VECTOR={n:[0,-1],ne:[1,-1],e:[1,0],se:[1,1],s:[0,1],sw:[-1,1],w:[-1,0],nw:[-1,-1]};
-const TERRAIN=["ggggggggggww","gggggggggwww","ggppggggwwww","gppppgggwwwg","gpppggggwwgg","ggppddggwggg","gggggdgwwggg","ggggddwwgggg","ggggggwggggg","gggggggggggg"];
-const STARTER_SPRITES={"pocket.starter.hut":"facility_starter_hut","pocket.starter.foraging":"facility_starter_foraging","pocket.starter.well":"facility_starter_well"};
+const WORLD_COLS=24,WORLD_ROWS=20,TILE_W=32,TILE_H=16,MAP_ORIGIN_X=400,MAP_ORIGIN_Y=20,WORLD_WIDTH=800,WORLD_HEIGHT=440;
+const BASE_TERRAIN=["ggggggggggww","gggggggggwww","ggppggggwwww","gppppgggwwwg","gpppggggwwgg","ggppddggwggg","gggggdgwwggg","ggggddwwgggg","ggggggwggggg","gggggggggggg"];
+const TERRAIN=Array.from({length:WORLD_ROWS},(_,row)=>Array.from({length:WORLD_COLS},(_,col)=>{
+  if(row<10&&col<12)return BASE_TERRAIN[row][col];
+  const riverCol=19+Math.round(Math.sin((row+1)*.42)*1.3);
+  if(col===riverCol&&row>=1&&row<=17)return "w";
+  if(row===8&&col>=12&&col<=18)return "d";
+  if(col===12&&row>=8&&row<=15)return "d";
+  if(row>=15&&col>=13&&col<=21&&((row+col)%4!==0))return "d";
+  const seed=(col*37+row*61+col*row*13)%101;
+  if(seed<7)return "r";
+  if(seed<15)return "s";
+  if(seed<23)return "d";
+  return "g";
+}).join(""));
+const RESERVED_CELLS=new Set(["5,4","6,6","7,4","6,5","9,5","10,7","10,8","4,8"]);
+const STARTER_SPRITES={"pocket.starter.hut":"hd-facility-hut","pocket.starter.foraging":"hd-facility-foraging","pocket.starter.well":"hd-facility-well"};
 const FAMILY_SPRITES=[
-  [/farm|horticulture|garden|agriculture/i,"facility_farm"],
-  [/water|sanitation|aquaculture|fish/i,"facility_starter_well"],
-  [/storage|logistics/i,"facility_storage"],
-  [/trade|commerce|market/i,"facility_market"],
-  [/workshop|processing|textile|ceramic|medicine|herb/i,"facility_workshop"]
+  [/farm|horticulture|garden|agriculture/i,"hd-facility-farm"],
+  [/water|sanitation|aquaculture|fish/i,"hd-facility-well"],
+  [/storage|logistics/i,"hd-facility-storage"],
+  [/trade|commerce|market/i,"hd-facility-market"],
+  [/workshop|processing|textile|ceramic|medicine|herb/i,"hd-facility-workshop"]
 ];
 const esc=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const locationOf=(col,row)=>({x:200+(col-row)*16,y:20+(col+row)*8+8});
+const locationOf=(col,row)=>({x:MAP_ORIGIN_X+(col-row)*TILE_W/2,y:MAP_ORIGIN_Y+(col+row)*TILE_H/2+8});
+const groundOf=(col,row)=>{const p=locationOf(col,row);return {x:p.x,y:p.y+8};};
 const directionOf=(dx,dy)=>DIRS[Math.round((((Math.atan2(dx,-dy)+Math.PI*2)%(Math.PI*2))/(Math.PI/4)))%8];
+const inWorld=(col,row)=>col>=0&&row>=0&&col<WORLD_COLS&&row<WORLD_ROWS;
+const terrainAt=(col,row)=>inWorld(col,row)?TERRAIN[row][col]:"";
+const walkable=(col,row)=>["g","s","d"].includes(terrainAt(col,row));
+const tileKey=(col,row)=>col+","+row;
 const siteCanUse=(facility,col,row)=>{
   const req=(facility.location_requirements||[]).join(" ").toLowerCase(),tile=TERRAIN[row]?.[col]||"";
   if(!tile||tile==="w"||tile==="p"||tile==="d")return false;
@@ -34,114 +54,270 @@ const siteCanUse=(facility,col,row)=>{
 const spriteForFacility=f=>{
   const id=f?.facility_id||"";
   if(STARTER_SPRITES[id])return STARTER_SPRITES[id];
-  return FAMILY_SPRITES.find(([pattern])=>pattern.test((f?.family||"")+" "+(f?.name||"")))?.[1]||"facility_storage";
+  return FAMILY_SPRITES.find(([pattern])=>pattern.test((f?.family||"")+" "+(f?.name||"")))?.[1]||"hd-facility-storage";
 };
 
 class HomeBaseScene extends Phaser.Scene{
-  constructor(){super("HomeBase");this.style="classic";this.placement=null;this.facilityObjects=new Map();this.npcs=[];}
+  constructor(){super("HomeBase");this.style="classic";this.placement=null;this.facilityObjects=new Map();this.npcs=[];this.decorCells=new Set();this.moving=false;this.playerTile={col:6,row:5};}
   preload(){
-    this.load.image("home-map","/game-assets/pxl/scenes/home_base_map.png");
-    ["facility_starter_hut","facility_starter_foraging","facility_starter_well","facility_farm","facility_workshop","facility_storage","facility_market","world_tree","world_rock"].forEach(id=>this.load.image(id,"/game-assets/pxl/sprites/"+id+".png"));
-    this.load.spritesheet("water-glimmer","/game-assets/pxl/anims/water_glimmer.png",{frameWidth:32,frameHeight:16});
+    const objects=["tree","rock","facility_hut","facility_foraging","facility_well","facility_farm","facility_workshop","facility_storage","facility_market"];
+    objects.forEach(id=>this.load.image("hd-"+id.replace("facility_","facility-"),"/game-assets/hd/objects/"+id+".svg"));
     STYLE_OPTIONS.forEach(style=>{
-      this.load.image("preview-"+style.id,"/game-assets/pxl/sprites/style_preview_"+style.id+".png");
+      this.load.image("preview-"+style.id,"/game-assets/hd/previews/style-preview-"+style.id+".svg");
       DIRS.forEach(dir=>["idle","walk"].forEach(move=>{
         const key=style.id+"_"+move+"_"+dir;
-        this.load.spritesheet(key,"/game-assets/pxl/anims/"+key+".png",{frameWidth:32,frameHeight:42});
+        this.load.spritesheet(key,"/game-assets/hd/characters/"+key+".svg",{frameWidth:128,frameHeight:160});
       }));
     });
   }
   create(){
-    this.cameras.main.setBackgroundColor("#19251f");
-    this.add.image(0,0,"home-map").setOrigin(0).setDepth(-1000);
-    this.anims.create({key:"water-glimmer",frames:this.anims.generateFrameNumbers("water-glimmer",{start:0,end:3}),frameRate:5,repeat:-1});
+    this.cameras.main.setBackgroundColor("#18261e");
     STYLE_OPTIONS.forEach(style=>DIRS.forEach(dir=>["idle","walk"].forEach(move=>{
       const texture=style.id+"_"+move+"_"+dir;
-      this.anims.create({key:style.id+":"+move+":"+dir,frames:this.anims.generateFrameNumbers(texture,{start:0,end:3}),frameRate:move==="walk"?8:3,repeat:-1});
+      const key=style.id+":"+move+":"+dir;
+      if(!this.anims.exists(key))this.anims.create({key,frames:this.anims.generateFrameNumbers(texture,{start:0,end:11}),frameRate:move==="walk"?12:10,repeat:-1});
     })));
-    [[344,74],[328,126],[300,169],[107,121],[134,154]].forEach(([x,y])=>this.add.sprite(x,y,"water-glimmer").setDepth(y+1).play("water-glimmer").setAlpha(.72));
-    [[58,72,.9],[83,165,.82],[367,52,.9],[366,190,.8],[262,202,.74]].forEach(([x,y,scale])=>this.add.image(x,y,"world_tree").setOrigin(.5,1).setScale(scale).setDepth(y));
-    [[75,109],[116,183],[291,216],[357,142]].forEach(([x,y])=>this.add.image(x,y,"world_rock").setOrigin(.5,1).setDepth(y));
-    this.player=this.add.sprite(200,154,"classic_idle_s").setOrigin(.5,1).setDepth(156);
+    this.drawWorld();
+    this.addWorldDecorations();
+    this.playerTile={col:6,row:5};
+    const spawn=groundOf(this.playerTile.col,this.playerTile.row);
+    this.playerShadow=this.add.ellipse(spawn.x,spawn.y-2,40,11,0x050a08,.34).setDepth(spawn.y+2);
+    this.player=this.add.sprite(spawn.x,spawn.y,"classic_idle_s").setOrigin(.5,1).setScale(.72).setDepth(spawn.y+8);
     this.player.play("classic:idle:s");
     this.addNpcs();this.drawFacilities();
     const cam=this.cameras.main,el=this.options.viewport;
-    const coverZoom=Math.max(el.clientWidth/400,el.clientHeight/260);
-    cam.setBounds(0,0,400,260);
-    cam.setZoom(Math.min(2.12,Math.max(.92,coverZoom*.77)));
-    cam.centerOn(this.player.x,this.player.y-4);
-    cam.startFollow(this.player,true,.075,.075);
-    this.events.on("update",()=>{if(this.player)this.player.setDepth(this.player.y+6);this.npcs.forEach(npc=>npc.setDepth(npc.y+5));});
+    cam.setBounds(0,0,WORLD_WIDTH,WORLD_HEIGHT);
+    const fit=Math.min(el.clientWidth/320,el.clientHeight/360);
+    cam.setZoom(Math.max(.78,Math.min(1.32,fit)));
+    cam.centerOn(this.player.x,this.player.y-18);
+    this.lastDirection="s";
+    this.events.on("update",()=>{
+      if(this.player){this.player.setDepth(this.player.y+8);this.playerShadow?.setPosition(this.player.x,this.player.y-2).setDepth(this.player.y+2);}
+      this.npcs.forEach(npc=>{npc.setDepth(npc.y+8);npc.shadow?.setPosition(npc.x,npc.y-2).setDepth(npc.y+2);});
+    });
+    this.dragState=null;this.pointerConsumed=false;
     this.input.on("pointerdown",pointer=>{
-      if(pointer.button!==0)return;
-      const world=cam.getWorldPoint(pointer.x,pointer.y);
-      if(this.placement){this.options.onPlacementTap?.(this.worldToTile(world.x,world.y),this.placement);return;}
-      this.moveToTap(world.x,world.y);
+      this.pointerConsumed=false;this.skipObjectTapId=null;
+      this.dragState={id:pointer.id,x:pointer.x,y:pointer.y,lastX:pointer.x,lastY:pointer.y,moved:false};
     });
     this.input.on("pointermove",pointer=>{
-      if(!this.placement)return;
-      const world=cam.getWorldPoint(pointer.x,pointer.y),tile=this.worldToTile(world.x,world.y),pos=locationOf(tile.col,tile.row);
-      this.placementGhost?.destroy();
-      this.placementGhost=this.add.image(pos.x,pos.y,"facility_storage").setOrigin(.5,1).setAlpha(.38).setTint(0xb4d7a0).setDepth(pos.y+80);
+      if(!this.dragState||pointer.id!==this.dragState.id)return;
+      const dx=pointer.x-this.dragState.lastX,dy=pointer.y-this.dragState.lastY;
+      if(!this.dragState.moved&&Math.hypot(pointer.x-this.dragState.x,pointer.y-this.dragState.y)>7){
+        this.dragState.moved=true;
+        this.cameras.main.stopFollow();
+      }
+      if(this.dragState.moved){
+        cam.scrollX-=dx/cam.zoom;cam.scrollY-=dy/cam.zoom;
+      }
+      this.dragState.lastX=pointer.x;this.dragState.lastY=pointer.y;
+      if(this.placement&&!this.dragState.moved){
+        const world=cam.getWorldPoint(pointer.x,pointer.y),tile=this.worldToTile(world.x,world.y),pos=locationOf(tile.col,tile.row);
+        this.placementGhost?.destroy();
+        if(inWorld(tile.col,tile.row))this.placementGhost=this.add.image(pos.x,pos.y+8,"hd-facility-storage").setOrigin(.5,1).setAlpha(.38).setTint(0xb4d7a0).setDepth(pos.y+40);
+      }
+    });
+    this.input.on("pointerup",pointer=>{
+      const drag=this.dragState;this.dragState=null;
+      if(drag?.moved)this.skipObjectTapId=pointer.id;
+      if(!drag||pointer.id!==drag.id||drag.moved||this.pointerConsumed)return;
+      const world=cam.getWorldPoint(pointer.x,pointer.y),tile=this.worldToTile(world.x,world.y);
+      if(this.placement){this.options.onPlacementTap?.(tile,this.placement);return;}
+      this.moveToTap(world.x,world.y);
+    });
+    this.input.on("wheel",(pointer,gameObjects,deltaX,deltaY)=>{
+      const next=Phaser.Math.Clamp(cam.zoom*(deltaY>0?.9:1.1),.72,1.6);
+      cam.setZoom(next);
     });
     this.events.once("shutdown",()=>this.placementGhost?.destroy());
     this.options.onReady?.(this);
   }
+  drawWorld(){
+    const g=this.add.graphics();g.setDepth(-1000);
+    const palette={g:[45,76,52],s:[105,112,94],d:[116,94,66],w:[36,104,113],p:[55,125,130],r:[104,102,88]};
+    for(let row=0;row<WORLD_ROWS;row++)for(let col=0;col<WORLD_COLS;col++){
+      const kind=terrainAt(col,row),pos=locationOf(col,row),rgb=palette[kind]||palette.g;
+      const top={x:pos.x,y:pos.y-8},right={x:pos.x+16,y:pos.y},bottom={x:pos.x,y:pos.y+8},left={x:pos.x-16,y:pos.y};
+      if(kind==="r"){
+        g.fillStyle(0x343b31,.96);g.fillPoints([{x:left.x,y:left.y},{x:bottom.x,y:bottom.y},{x:bottom.x,y:bottom.y+7},{x:left.x,y:left.y+4}],true);
+        g.fillStyle(0x4b5144,.98);g.fillPoints([{x:bottom.x,y:bottom.y},{x:right.x,y:right.y},{x:right.x,y:right.y+6},{x:bottom.x,y:bottom.y+7}],true);
+      }
+      g.fillStyle((rgb[0]<<16)|(rgb[1]<<8)|rgb[2],1);
+      g.fillPoints([top,right,bottom,left],true);
+      g.lineStyle(1,kind==="w"||kind==="p"?0xa4d2c8:0xd0c9a3,kind==="w"||kind==="p"?.12:.075);
+      g.strokePoints([top,right,bottom,left],true);
+      if(kind==="w"||kind==="p"){
+        g.lineStyle(1,0xb8e3d7,.36);
+        g.beginPath();g.moveTo(pos.x-7,pos.y-2);g.lineTo(pos.x+2,pos.y+1);g.strokePath();
+      }else if(kind==="d"){
+        g.fillStyle(0xd4b17c,.12);g.fillCircle(pos.x-3,pos.y+1,1.5);
+        g.fillCircle(pos.x+5,pos.y-2,1);
+      }else if(kind==="g"&&((col*7+row*11)%9===0)){
+        g.lineStyle(1,0xa6b77e,.3);g.beginPath();g.moveTo(pos.x-3,pos.y+2);g.lineTo(pos.x-4,pos.y-1);g.moveTo(pos.x,pos.y+2);g.lineTo(pos.x+1,pos.y-2);g.strokePath();
+      }
+    }
+    // A softly layered shoreline rim gives the map a clear playable edge.
+    g.lineStyle(2,0x8f9d78,.2);g.beginPath();g.moveTo(...Object.values(locationOf(0,0)));g.lineTo(...Object.values(locationOf(WORLD_COLS-1,0)));g.lineTo(...Object.values(locationOf(WORLD_COLS-1,WORLD_ROWS-1)));g.lineTo(...Object.values(locationOf(0,WORLD_ROWS-1)));g.closePath();g.strokePath();
+  }
+  addWorldDecorations(){
+    for(let row=0;row<WORLD_ROWS;row++)for(let col=0;col<WORLD_COLS;col++){
+      const kind=terrainAt(col,row),seed=(col*31+row*47+col*row*3)%97,pos=groundOf(col,row);
+      if(RESERVED_CELLS.has(tileKey(col,row)))continue;
+      if(kind==="r"&&seed%3===0){
+        this.add.image(pos.x,pos.y,"hd-rock").setOrigin(.5,1).setScale(.72+((seed%5)*.035)).setDepth(pos.y+2);
+      }else if(kind==="g"&&seed%19===0&&((col<4||col>15)||(row>12))){
+        this.decorCells.add(tileKey(col,row));
+        this.add.image(pos.x,pos.y,"hd-tree").setOrigin(.5,1).setScale(.68+((seed%5)*.045)).setDepth(pos.y+3);
+      }
+    }
+  }
   addNpcs(){
-    [[245,108,0xa9b98b],[286,148,0xc6a06d],[150,175,0x9aadb1]].forEach(([x,y,tint],i)=>{
-      const npc=this.add.sprite(x,y,"classic_idle_s").setOrigin(.5,1).setDepth(y+2).setScale(.9).setTint(tint).setInteractive({useHandCursor:true});
-      npc.play("classic:idle:"+["s","sw","e"][i]);
-      npc.on("pointerdown",(pointer,localX,localY,event)=>{event?.stopPropagation?.();this.walkTo({x,y:y-4},()=>this.options.onNpcTap?.(i),{x,y:y-4});});
+    const residents=[
+      {tile:{col:9,row:5},style:"slim",dir:"s"},
+      {tile:{col:10,row:8},style:"ornate",dir:"sw"},
+      {tile:{col:4,row:8},style:"painterly",dir:"e"}
+    ];
+    residents.forEach((record,i)=>{
+      const pos=groundOf(record.tile.col,record.tile.row),texture=record.style+"_idle_"+record.dir;
+      const shadow=this.add.ellipse(pos.x,pos.y-2,36,10,0x050a08,.3).setDepth(pos.y+2);
+      const npc=this.add.sprite(pos.x,pos.y,texture).setOrigin(.5,1).setScale(.68).setDepth(pos.y+8).setInteractive({useHandCursor:true});
+      npc.shadow=shadow;
+      npc.play(record.style+":idle:"+record.dir);npc.setData("tile",record.tile);npc.setData("residentIndex",i);
+      npc.on("pointerdown",()=>{this.pointerConsumed=true;});
+      npc.on("pointerup",(pointer,localX,localY,event)=>{
+        if(this.dragState?.moved||this.skipObjectTapId===pointer.id){this.skipObjectTapId=null;return;}event?.stopPropagation?.();this.pointerConsumed=true;
+        const approach=this.findApproachTile(record.tile);
+        if(approach)this.walkToTile(approach,()=>this.options.onNpcTap?.(i));
+      });
       this.npcs.push(npc);
     });
   }
-  worldToTile(x,y){const b=(y-28)/8,a=(x-200)/16;return {col:Math.round((a+b)/2),row:Math.round((b-a)/2)};}
+  worldToTile(x,y){
+    const a=(x-MAP_ORIGIN_X)/(TILE_W/2),b=(y-(MAP_ORIGIN_Y+8))/(TILE_H/2);
+    return {col:Math.round((a+b)/2),row:Math.round((b-a)/2)};
+  }
   drawFacilities(){
     if(!this.options?.session||!this.player)return;
     const facilities=this.options.session.snapshot().facilities||{};
     for(const [id,record] of Object.entries(facilities)){
       if(!record?.operational||!record.map_position)continue;
-      const pos=locationOf(record.map_position.col,record.map_position.row),key=spriteForFacility(this.options.session.getFacility(id));
+      const {col,row}=record.map_position;if(!inWorld(col,row))continue;
+      const pos=groundOf(col,row),key=spriteForFacility(this.options.session.getFacility(id));
       const existing=this.facilityObjects.get(id);
-      if(existing){existing.setPosition(pos.x,pos.y).setDepth(pos.y+1);continue;}
-      const item=this.add.image(pos.x,pos.y,key).setOrigin(.5,1).setDepth(pos.y+1).setInteractive({useHandCursor:true});
-      item.setData("facilityId",id);item.on("pointerdown",(pointer,localX,localY,event)=>{event?.stopPropagation?.();this.walkTo({x:pos.x,y:pos.y-7},()=>this.options.onFacilityTap?.(id),{x:pos.x,y:pos.y-7});});
+      if(existing){existing.setPosition(pos.x,pos.y).setDepth(pos.y+2);continue;}
+      const item=this.add.image(pos.x,pos.y,key).setOrigin(.5,1).setDepth(pos.y+2).setInteractive({useHandCursor:true});
+      item.setData("facilityId",id);item.setData("tile",{col,row});
+      item.on("pointerdown",()=>{this.pointerConsumed=true;});
+      item.on("pointerup",(pointer,localX,localY,event)=>{
+        if(this.dragState?.moved||this.skipObjectTapId===pointer.id){this.skipObjectTapId=null;return;}event?.stopPropagation?.();this.pointerConsumed=true;
+        const approach=this.findApproachTile({col,row});
+        if(approach)this.walkToTile(approach,()=>this.options.onFacilityTap?.(id));
+      });
       this.facilityObjects.set(id,item);
     }
   }
   setStyle(style){
     if(!STYLE_OPTIONS.some(x=>x.id===style))return;
-    this.style=style;if(this.player)this.applySprite(this.player,this.lastDirection||"s",this.moving?"walk":"idle");
-    this.npcs.forEach((npc,i)=>{const dir=["s","sw","e"][i];npc.setTexture(style+"_idle_"+dir).setTint([0xa9b98b,0xc6a06d,0x9aadb1][i]);npc.play(style+":idle:"+dir);});
+    this.style=style;
+    if(this.player)this.applySprite(this.player,this.lastDirection||"s",this.moving?"walk":"idle");
   }
-  applySprite(sprite,dir,move){const key=this.style+":"+move+":"+dir;sprite.play(this.anims.exists(key)?key:this.style+":idle:s",true);}
+  applySprite(sprite,dir,move,style=this.style){
+    const key=style+":"+move+":"+dir;
+    sprite.play(this.anims.exists(key)?key:style+":idle:s",true);
+  }
+  blockedCells(){
+    const blocked=new Set();
+    const facilities=this.options?.session?.snapshot?.().facilities||{};
+    for(const record of Object.values(facilities))if(record?.map_position)blocked.add(tileKey(record.map_position.col,record.map_position.row));
+    for(const npc of this.npcs){const tile=npc.getData("tile");if(tile)blocked.add(tileKey(tile.col,tile.row));}
+    return blocked;
+  }
+  isTileBlocked(col,row,blocked){
+    const key=tileKey(col,row);
+    return !walkable(col,row)||(blocked?.has(key)??false)||this.decorCells.has(key);
+  }
+  findApproachTile(target){
+    const blocked=this.blockedCells();
+    const candidates=[];
+    for(let radius=1;radius<=3;radius++)for(let dy=-radius;dy<=radius;dy++)for(let dx=-radius;dx<=radius;dx++){
+      if(Math.max(Math.abs(dx),Math.abs(dy))!==radius)continue;
+      const col=target.col+dx,row=target.row+dy;
+      if(!inWorld(col,row)||this.isTileBlocked(col,row,blocked))continue;
+      candidates.push({col,row,distance:Math.abs(dx)+Math.abs(dy)});
+    }
+    candidates.sort((a,b)=>a.distance-b.distance);
+    const start=this.playerTile||{col:6,row:5};
+    for(const candidate of candidates){
+      if(this.findPath(start,candidate).length)return candidate;
+    }
+    return null;
+  }
+  findPath(start,target){
+    const blocked=this.blockedCells();
+    if(!inWorld(start.col,start.row)||!inWorld(target.col,target.row)||this.isTileBlocked(target.col,target.row,blocked))return [];
+    const startKey=tileKey(start.col,start.row),goalKey=tileKey(target.col,target.row);
+    const open=[{col:start.col,row:start.row,key:startKey}];
+    const came=new Map(),cost=new Map([[startKey,0]]),closed=new Set();
+    const heuristic=(col,row)=>Math.max(Math.abs(target.col-col),Math.abs(target.row-row))+(Math.SQRT2-1)*Math.min(Math.abs(target.col-col),Math.abs(target.row-row));
+    const offsets=[[-1,0],[-1,1],[0,1],[1,1],[1,0],[1,-1],[0,-1],[-1,-1]];
+    while(open.length){
+      open.sort((a,b)=>(cost.get(a.key)+heuristic(a.col,a.row))-(cost.get(b.key)+heuristic(b.col,b.row)));
+      const current=open.shift();
+      if(current.key===goalKey){
+        const path=[{col:current.col,row:current.row}];let key=current.key;
+        while(came.has(key)){const previous=came.get(key);path.unshift({col:previous.col,row:previous.row});key=tileKey(previous.col,previous.row);}
+        return path;
+      }
+      if(closed.has(current.key))continue;closed.add(current.key);
+      for(const [dx,dy] of offsets){
+        const col=current.col+dx,row=current.row+dy,key=tileKey(col,row);
+        if(!inWorld(col,row)||closed.has(key)||this.isTileBlocked(col,row,blocked))continue;
+        if(dx!==0&&dy!==0&&(this.isTileBlocked(current.col+dx,current.row,blocked)||this.isTileBlocked(current.col,current.row+dy,blocked)))continue;
+        const next=cost.get(current.key)+(dx!==0&&dy!==0?Math.SQRT2:1);
+        if(next>=(cost.get(key)??Infinity))continue;
+        cost.set(key,next);came.set(key,{col:current.col,row:current.row});
+        open.push({col,row,key});
+      }
+    }
+    return [];
+  }
   moveToTap(x,y){
     if(!this.player||this.moving||this.placement)return;
-    const tile=this.worldToTile(x,y),kind=TERRAIN[tile.row]?.[tile.col];
-    if(!kind||!["g","s","d"].includes(kind)){this.options.onInvalidMove?.();return;}
-    const target=locationOf(tile.col,tile.row);
-    this.walkTo({x:target.x,y:target.y+5},null,{x,y});
+    const tile=this.worldToTile(x,y);
+    const blocked=this.blockedCells();
+    if(!inWorld(tile.col,tile.row)||this.isTileBlocked(tile.col,tile.row,blocked)){this.options.onInvalidMove?.();return;}
+    this.walkToTile(tile,null,{x,y});
   }
   showTapTrail(target,tapPoint){
     if(!this.player)return;
-    const fx=this.add.graphics();
-    fx.setDepth(5000);
-    fx.lineStyle(1,0xe7d8ae,.19);
-    fx.beginPath();fx.moveTo(this.player.x,this.player.y-8);fx.lineTo(target.x,target.y);fx.strokePath();
-    fx.fillStyle(0xe7d8ae,.11);fx.fillCircle(tapPoint.x,tapPoint.y,7);
-    fx.lineStyle(1,0xf0ddb0,.27);fx.strokeCircle(tapPoint.x,tapPoint.y,6);
-    fx.fillStyle(0xf5e6bd,.32);fx.fillCircle(tapPoint.x,tapPoint.y,1.8);
+    const fx=this.add.graphics();fx.setDepth(5000);
+    fx.lineStyle(1,0xe7d8ae,.24);fx.beginPath();fx.moveTo(this.player.x,this.player.y-12);fx.lineTo(target.x,target.y);fx.strokePath();
+    fx.fillStyle(0xe7d8ae,.14);fx.fillCircle(tapPoint.x,tapPoint.y,8);
+    fx.lineStyle(1,0xf0ddb0,.32);fx.strokeCircle(tapPoint.x,tapPoint.y,7);
     this.tweens.add({targets:fx,alpha:{from:.9,to:0},scaleX:1.08,scaleY:1.08,duration:920,ease:"Sine.Out",onComplete:()=>fx.destroy()});
   }
-  walkTo(target,onArrive,tapPoint=null){
-    if(!this.player)return;
-    this.moving=true;const dx=target.x-this.player.x,dy=target.y-this.player.y,dir=directionOf(dx,dy);
-    this.lastDirection=dir;this.applySprite(this.player,dir,"walk");
-    if(tapPoint)this.showTapTrail(target,tapPoint);
-    const distance=Math.hypot(dx,dy);this.tweens.killTweensOf(this.player);
-    this.tweens.add({targets:this.player,x:target.x,y:target.y,duration:Math.max(360,Math.min(2600,distance*15)),ease:"Linear",onComplete:()=>{
-      this.moving=false;this.applySprite(this.player,dir,"idle");onArrive?.();
-    }});
+  walkToTile(target,onArrive,tapPoint=null){
+    if(!this.player||this.moving)return;
+    const start=this.playerTile||this.worldToTile(this.player.x,this.player.y-8),path=this.findPath(start,target);
+    if(!path.length){this.options.onInvalidMove?.();return;}
+    this.moving=true;this.tweens.killTweensOf(this.player);
+    const targetPos=groundOf(target.col,target.row);
+    if(tapPoint)this.showTapTrail(targetPos,tapPoint);
+    let index=1;
+    const step=()=>{
+      if(index>=path.length){
+        this.playerTile={col:target.col,row:target.row};this.moving=false;
+        this.applySprite(this.player,this.lastDirection||"s","idle");onArrive?.();return;
+      }
+      const tile=path[index++],pos=groundOf(tile.col,tile.row),dx=pos.x-this.player.x,dy=pos.y-this.player.y;
+      this.lastDirection=directionOf(dx,dy);this.applySprite(this.player,this.lastDirection,"walk");
+      const duration=Math.max(170,Math.min(390,Math.hypot(dx,dy)*10.5));
+      this.tweens.add({targets:this.player,x:pos.x,y:pos.y,duration,ease:"Sine.InOut",onComplete:step});
+    };
+    step();
+  }
+  zoomBy(factor){
+    const cam=this.cameras.main;cam.setZoom(Phaser.Math.Clamp(cam.zoom*factor,.72,1.6));
   }
   startPlacement(facility){this.placement=facility;this.placementGhost?.destroy();}
   stopPlacement(){this.placement=null;this.placementGhost?.destroy();this.placementGhost=null;}
@@ -160,7 +336,7 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
   root.innerHTML=
     "<section class='home-base-page' data-world-shell>"+
       "<header class='world-topbar'><div class='world-title-wrap'><strong>HOME BASE</strong><small>WORLD ARCHIVE · PERSONAL LAND</small></div>"+
-      "<div class='world-top-actions'><button type='button' data-world-appearance>CHARACTER</button></div></header>"+
+      "<div class='world-top-actions'><button type='button' data-world-zoom-out aria-label='Zoom out'>−</button><button type='button' data-world-zoom-in aria-label='Zoom in'>＋</button><button type='button' data-world-appearance>CHARACTER</button></div></header>"+
       "<div class='world-statusline'><span>PRIVATE HOMESTEAD</span><span data-world-owned>3 STARTER FACILITIES</span><span>LOCAL SAVE</span></div>"+
       "<div class='world-viewport' data-world-viewport></div>"+
       "<div class='world-toolbar' aria-label='World actions'>"+
@@ -188,8 +364,8 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
   const renderAppearance=()=>{
     heading.textContent="CHARACTER STYLE";
     const current=session.getAppearance();
-    worldPanel.innerHTML="<p class='world-drawer-copy'>Choose a visual family. The player and every resident use the selected proportions and animation set.</p>"+
-      "<div class='world-style-grid'>"+STYLE_OPTIONS.map(s=>"<button class='world-style-card "+(current===s.id?"is-selected":"")+"' data-world-style='"+s.id+"'><img src='/game-assets/pxl/sprites/style_preview_"+s.id+".png' alt=''><span><b>"+s.name+"</b><small>"+s.description+"</small></span></button>").join("")+"</div>";
+    worldPanel.innerHTML="<p class='world-drawer-copy'>Choose the Player silhouette. Residents keep their own authored outfits and proportions.</p>"+
+      "<div class='world-style-grid'>"+STYLE_OPTIONS.map(s=>"<button class='world-style-card "+(current===s.id?"is-selected":"")+"' data-world-style='"+s.id+"'><img src='/game-assets/hd/previews/style-preview-"+s.id+".svg' alt=''><span><b>"+s.name+"</b><small>"+s.description+"</small></span></button>").join("")+"</div>";
   };
   const renderBuild=()=>{
     heading.textContent="FACILITY ARCHIVE";
@@ -247,8 +423,8 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
   const placeAt=(tile,facility)=>{
     if(disposed||!facility)return;
     const col=tile.col,row=tile.row;
-    if(col<0||col>=12||row<0||row>=10||!siteCanUse(facility,col,row)){setFeedback("That tile does not meet this facility's land/location Requirements.");return;}
-    const occupied=Object.values(session.snapshot().facilities||{}).some(v=>v?.map_position&&v.map_position.col===col&&v.map_position.row===row);
+    if(!inWorld(col,row)||!siteCanUse(facility,col,row)){setFeedback("That tile does not meet this facility's land/location Requirements.");return;}
+    const occupied=scene.blockedCells().has(tileKey(col,row));
     if(occupied){setFeedback("That plot is already occupied. Choose another open tile.");return;}
     const site=facility.location_requirements?.[0]||"Owned home plot",result=session.placeFacility(facility.facility_id,site,{col,row});
     if(!result.ok){setFeedback(result.message);renderFacilityDetail(facility.facility_id);return;}
@@ -268,22 +444,24 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
   };
   game=new Phaser.Game({
     type:Phaser.AUTO,parent:viewport,width:Math.max(1,viewport.clientWidth),height:Math.max(1,viewport.clientHeight),
-    backgroundColor:"#19251f",pixelArt:true,roundPixels:true,antialias:false,powerPreference:"low-power",
+    backgroundColor:"#18261e",pixelArt:false,roundPixels:false,antialias:true,powerPreference:"low-power",
     audio:{noAudio:true},fps:{target:30,min:20,forceSetTimeOut:true},
     scale:{mode:Phaser.Scale.RESIZE,width:viewport.clientWidth,height:viewport.clientHeight},
-    render:{pixelArt:true,antialias:false,roundPixels:true,clearBeforeRender:true,premultipliedAlpha:false},
+    render:{pixelArt:false,antialias:true,roundPixels:false,clearBeforeRender:true,premultipliedAlpha:false},
     scene:[scene]
   });
   const updateClick=async event=>{
-    const btn=event.target.closest("[data-world-action],[data-world-appearance],[data-world-build],[data-world-location],[data-world-facility],[data-world-start-placement],[data-world-open-build],[data-world-rest],[data-world-forage],[data-world-water],[data-world-gather],[data-world-style]");
+    const btn=event.target.closest("[data-world-action],[data-world-appearance],[data-world-zoom-in],[data-world-zoom-out],[data-world-build],[data-world-location],[data-world-facility],[data-world-start-placement],[data-world-open-build],[data-world-rest],[data-world-forage],[data-world-water],[data-world-gather],[data-world-style]");
     if(!btn)return;
+    if(btn.dataset.worldZoomIn){scene.zoomBy(1.15);return;}
+    else if(btn.dataset.worldZoomOut){scene.zoomBy(.87);return;}
     drawer.classList.remove("is-collapsed");
     if(btn.dataset.worldAction==="places"){scene.stopPlacement();renderPlaces();}
     else if(btn.dataset.worldAction==="build"||btn.hasAttribute("data-world-build"))renderBuild();
     else if(btn.dataset.worldAction==="appearance"||btn.hasAttribute("data-world-appearance"))renderAppearance();
     else if(btn.dataset.worldLocation){
-      const id=btn.dataset.worldLocation,record=snapshot.facilities[id],pos=record?.map_position?locationOf(record.map_position.col,record.map_position.row):{x:200,y:154};
-      scene.walkTo({x:pos.x,y:pos.y-7},()=>renderLocation(id));
+      const id=btn.dataset.worldLocation,record=snapshot.facilities[id];
+      const target=scene.findApproachTile(record?.map_position||{col:6,row:5});if(target)scene.walkToTile(target,()=>renderLocation(id));
     }else if(btn.dataset.worldFacility)renderFacilityDetail(btn.dataset.worldFacility);
     else if(btn.dataset.worldStartPlacement){
       const id=btn.dataset.worldStartPlacement,f=session.getFacility(id),r=session.getBuildRecord(id);
@@ -300,7 +478,7 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
       setFeedback(result.ok?"Gathering started. Output is credited when the saved process completes.":result.message);snapshot=session.snapshot();
     }else if(btn.dataset.worldStyle){
       session.setAppearance(btn.dataset.worldStyle);scene.setStyle(btn.dataset.worldStyle);renderAppearance();
-      setFeedback("Appearance saved for this player. Residents now use the same visual family.");
+      setFeedback("Appearance saved for the Player. Residents retain their own silhouettes.");
     }
   };
   const inputChange=event=>{
