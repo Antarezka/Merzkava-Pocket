@@ -61,7 +61,7 @@ class HomeBaseScene extends Phaser.Scene{
   constructor(){super("HomeBase");this.style="classic";this.placement=null;this.facilityObjects=new Map();this.npcs=[];this.moving=false;this.playerTile={col:6,row:5};}
   preload(){
     const objects=["tree","rock","facility_hut","facility_foraging","facility_well","facility_farm","facility_workshop","facility_storage","facility_market"];
-    objects.forEach(id=>this.load.image("hd-"+id,"/game-assets/hd/objects/"+id.replace("facility_","facility_")+".svg"));
+    objects.forEach(id=>this.load.image("hd-"+id.replace("facility_","facility-"),"/game-assets/hd/objects/"+id+".svg"));
     STYLE_OPTIONS.forEach(style=>{
       this.load.image("preview-"+style.id,"/game-assets/hd/previews/style-preview-"+style.id+".svg");
       DIRS.forEach(dir=>["idle","walk"].forEach(move=>{
@@ -178,6 +178,7 @@ class HomeBaseScene extends Phaser.Scene{
       const pos=groundOf(record.tile.col,record.tile.row),texture=record.style+"_idle_"+record.dir;
       const npc=this.add.sprite(pos.x,pos.y,texture).setOrigin(.5,1).setDepth(pos.y+5).setInteractive({useHandCursor:true});
       npc.play(record.style+":idle:"+record.dir);npc.setData("tile",record.tile);npc.setData("residentIndex",i);
+      npc.on("pointerdown",()=>{this.pointerConsumed=true;});
       npc.on("pointerup",(pointer,localX,localY,event)=>{
         if(this.dragState?.moved)return;event?.stopPropagation?.();this.pointerConsumed=true;
         const approach=this.findApproachTile(record.tile);
@@ -201,6 +202,7 @@ class HomeBaseScene extends Phaser.Scene{
       if(existing){existing.setPosition(pos.x,pos.y).setDepth(pos.y+2);continue;}
       const item=this.add.image(pos.x,pos.y,key).setOrigin(.5,1).setDepth(pos.y+2).setInteractive({useHandCursor:true});
       item.setData("facilityId",id);item.setData("tile",{col,row});
+      item.on("pointerdown",()=>{this.pointerConsumed=true;});
       item.on("pointerup",(pointer,localX,localY,event)=>{
         if(this.dragState?.moved)return;event?.stopPropagation?.();this.pointerConsumed=true;
         const approach=this.findApproachTile({col,row});
@@ -240,8 +242,8 @@ class HomeBaseScene extends Phaser.Scene{
     return candidates[0]||null;
   }
   findPath(start,target){
-    if(!inWorld(start.col,start.row)||!inWorld(target.col,target.row)||this.isTileBlocked(target.col,target.row))return [];
     const blocked=this.blockedCells();
+    if(!inWorld(start.col,start.row)||!inWorld(target.col,target.row)||this.isTileBlocked(target.col,target.row,blocked))return [];
     const startKey=tileKey(start.col,start.row),goalKey=tileKey(target.col,target.row);
     const open=[{col:start.col,row:start.row,key:startKey}];
     const came=new Map(),cost=new Map([[startKey,0]]),closed=new Set();
