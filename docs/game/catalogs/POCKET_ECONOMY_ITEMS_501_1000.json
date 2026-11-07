@@ -21617,44 +21617,49 @@
     },
     {
       "item_id": "itm.1000",
-      "name": "Cloth Bolt",
-      "category": "craft",
-      "unit": "unit",
+      "name": "Well Water",
+      "category": "raw",
+      "unit": "bucket",
       "quality_tier": 1,
       "market": {
-        "base_price_xc": 24,
-        "typical_shop_price_xc": 30.72,
-        "typical_merchant_buyback_price_xc": 15.6,
+        "base_price_xc": 0.4,
+        "typical_shop_price_xc": 0.5,
+        "typical_merchant_buyback_price_xc": 0.4,
         "currency": "xc",
-        "note": "Pocket baseline; Universe market modifiers apply at transaction time."
+        "note": "Pocket baseline: five buckets of ordinary well water = 2 xc. Cleanliness and regional access affect value.",
+        "price_lot": {
+          "quantity": 5,
+          "price_xc": 2
+        }
       },
       "acquisition": {
-        "method": "craft_or_market_or_specialty_gathering",
+        "method": "water_drawing",
         "locations": [
-          "market",
-          "workshop",
-          "farm",
-          "river",
-          "spring"
+          "Village Well",
+          "Stone-Lined Well",
+          "accessible clean well"
         ],
         "tool_requirements": [
-          "matching tool"
+          "Wooden Bucket",
+          "Iron Bucket"
         ],
         "facility_requirements": [
-          "matching craft station"
+          "Village Well L1 or accessible public well"
         ],
         "output_per_active_sim_minute": {
-          "quantity": 0.096,
-          "unit": "finished/gathered units/min"
+          "quantity": 1.5,
+          "unit": "buckets/minute"
         }
       },
       "requirements": [
-        "Matching recipe or source/node",
-        "Correct location, tool and materials"
+        "Accessible clean well with remaining draw capacity",
+        "Empty bucket and available carrying capacity",
+        "Well not contaminated or depleted"
       ],
       "uses": [
-        "Daily life, craft, beast-derived goods and Arcanistry recipes where configured",
-        "Merchant sale"
+        "Drinking and cooking",
+        "Farm watering, washing and ordinary household use",
+        "Market sale where clean water is scarce"
       ]
     }
   ]
