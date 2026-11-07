@@ -1,5 +1,8 @@
 # Merzkava Pocket
 
+## Mandatory game rules
+- [Mandatory Simulation and Adapted Formula Rules](./docs/game/POCKET_SIMULATION_RULES.md)
+
 ## Product and gameplay
 - [Game Simulation Concept — 2D Isometric Location-Based Simulation](./docs/game/GAMEPLAY_SIMULATION_CONCEPT.md)
 
