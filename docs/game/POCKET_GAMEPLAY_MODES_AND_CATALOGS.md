@@ -3,7 +3,7 @@
 **Status: MANDATORY — game-mode and catalogue architecture**  
 **Depends on:** `POCKET_SIMULATION_RULES.md` and `POCKET_PROGRESSION_AND_HUD.md`.
 
-Pocket is a location-based life simulation with multiple modes that share one character state, one world map, and one transaction/event ledger. Modes are not separate disconnected mini-games. Their eligibility, time, HP, Satiety, inventory, money, NPC continuity, and progression must all resolve through the same simulation services.
+Pocket is a location-based life simulation with multiple modes that share one character state, one world map, and one transaction/event ledger. Modes are not separate disconnected mini-games. Their **Requirements**, time, HP, Satiety, Stamina/Qi, inventory, money, NPC continuity, and progression all resolve through the same simulation services. Player-facing screens use Requirement / Requirements language, not conversation-style validation terminology.
 
 ---
 
@@ -13,7 +13,7 @@ The player should be able to open a **Mode Hub** from the isometric gameplay scr
 
 Each mode card must show:
 - Mode title and a clear visual identity.
-- Available / locked / unavailable-here / event-not-active / requirement-missing state.
+- Available / locked / unavailable-here / event-not-active / **Requirements missing** / **Requirements not configured** state.
 - Current local location or valid destination.
 - The requirements that block access.
 - Active process/contract, remaining Pocket time, and claimable result when one exists.
@@ -24,7 +24,7 @@ All modes share:
 - The same player HP, Satiety, Qi/stamina, injury, equipment, Inventory, Wallet, and assets.
 - The same simulation clock and offline process scheduler.
 - The same location/route and NPC availability state.
-- The same source-of-truth and anti-cheat validation.
+- The same source-of-truth, time-integrity and anti-cheat checks.
 - The same append-only money, item, activity, progression, and event ledgers.
 
 ---
@@ -66,7 +66,7 @@ Resolve remains, loot, and ring appearance if supported
     ↓
 Establish legitimate ring ownership/distribution
     ↓
-Check character eligibility and target item requirements
+Open Ring Preparation: check Awakening / Realm / previous Ring, Sync, cooldown, target Ring custody, required item, body condition, Satiety, energy reserve, and absorption method Requirements
     ↓
 Sync / absorption process
     ↓
@@ -84,11 +84,43 @@ During a hunt show:
 - Party members, roles, condition, injuries and agreed loot/ring terms.
 - HP, Satiety, Qi/stamina and relevant equipment.
 - Combat log, tactical choices, retreat status, objective and extracted rewards.
-- If a ring is involved: Ring number sought, prior Ring count, cooldown, Sync gap/cap, required item and each eligibility gate.
+- If a Ring is involved: Ring number sought, prior Ring count, active absorption duration, inter-Ring cooldown, Sync gap/cap, target item, body condition, Satiety, Stamina/Qi reserve, preparation method, and every Requirement state.
 
 Do not reveal hidden Beast capabilities, rare loot, exact age, hidden identity, or a Ring ability before a valid discovery/appraisal event establishes it.
 
-### 2.5 Hunt resolution constraints
+### 2.5 Ring Preparation and Energy panel
+
+Before the player can start a Spirit Ring absorption, open a dedicated Preparation panel. It must show four independent sections:
+
+**Progression Requirements**
+- Correct next Ring number and no skipped previous Ring.
+- Awakening complete for Ring 1.
+- Correct Realm/Stage and Sync bottleneck for Ring 2–9.
+- Inter-Ring cooldown exactly zero for Ring 2–9.
+- Ring 9 maximum restriction.
+
+**Target Requirements**
+- Correct target Beast/specimen and actual Ring availability.
+- Legitimate custody/ownership and party spoils agreement.
+- Target-specific required item for Ring 2–9.
+- Beast age, aggression evidence, appraisal state and uncertain fields.
+
+**Character Preparation**
+- HP, injury and functional restrictions.
+- Satiety and fatigue/body condition.
+- Martial Soul condition and resonance evidence.
+- Chosen absorption method, instruction/support, location and actual equipment.
+- Official readiness inputs G, P, F, V required by the Universe formula.
+
+**Energy Requirement**
+- Ring 1: Stamina reserve; Qi is not yet formed.
+- Ring 2–9: current Qi reserve.
+- Show configured total cost, minimum start reserve, reserved amount, and expenditure schedule.
+- If the Ring's Pocket energy-cost profile is not approved/configured, show **Requirement not configured: absorption energy cost** and keep Start Absorption disabled.
+
+Do not confuse the Universe recipient-readiness score P with energy amount. P is a 0–100 formula input; Stamina/Qi expenditure is a separate Pocket resource cost. The official Universe formula remains the authority for cap, success chance, defect risk and AWR. The active duration and inter-Ring cooldown are two separate timers.
+
+### 2.6 Hunt resolution constraints
 
 - Use Universe combat rules for attack/defense/damage/combo and existing PowerScale/Qi rules.
 - Do not reuse Spirit Ring absorption probability as the chance to find or defeat a Beast.
