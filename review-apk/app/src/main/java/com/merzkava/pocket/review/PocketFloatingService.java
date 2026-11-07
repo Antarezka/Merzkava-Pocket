@@ -7,7 +7,11 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.RectF;
 import android.graphics.PixelFormat;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
@@ -92,16 +96,69 @@ public final class PocketFloatingService extends Service {
         return drawable;
     }
 
+    /** Small, background-free antique CRT mark matching the approved Pocket emblem. */
+    private final class TelevisionBubble extends View {
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final float density = getResources().getDisplayMetrics().density;
+        private final RectF casing = new RectF(12*density,20*density,48*density,45*density);
+        private final RectF glass = new RectF(16*density,23*density,39*density,42*density);
+
+        TelevisionBubble(Context context) { super(context); }
+
+        private void stroke(int color,float width) {
+            paint.setColor(color);
+            paint.setStrokeWidth(width*density);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeCap(Paint.Cap.ROUND);
+            paint.setStrokeJoin(Paint.Join.ROUND);
+        }
+
+        @Override protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            canvas.save();
+            canvas.scale(density,density);
+            int brass=Color.rgb(198,164,105), bright=Color.rgb(226,198,143);
+            paint.setStyle(Paint.Style.STROKE);
+            stroke(brass,1.5f);
+            Path antenna=new Path();
+            antenna.moveTo(28,20);antenna.lineTo(20,7);
+            antenna.moveTo(30,20);antenna.lineTo(39,7);
+            canvas.drawPath(antenna,paint);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(bright);
+            canvas.drawCircle(20,7,1.1f,paint);
+            canvas.drawCircle(39,7,1.1f,paint);
+            paint.setColor(Color.rgb(31,25,21));
+            canvas.drawRoundRect(casing.left-1,casing.top+2,casing.right+1,casing.bottom+3,6,6,paint);
+            paint.setColor(Color.rgb(76,48,34));
+            canvas.drawRoundRect(casing,6,6,paint);
+            stroke(brass,1.5f);
+            canvas.drawRoundRect(casing,6,6,paint);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(Color.rgb(19,27,27));
+            canvas.drawRoundRect(glass,4,4,paint);
+            stroke(bright,.8f);
+            canvas.drawRoundRect(glass,4,4,paint);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(bright);
+            canvas.drawCircle(44,29,2.2f,paint);
+            stroke(brass,.8f);
+            canvas.drawCircle(44,29,2.2f,paint);
+            canvas.drawCircle(44,36,1.35f,paint);
+            stroke(brass,1.2f);
+            canvas.drawLine(17,46,14,50,paint);
+            canvas.drawLine(42,46,45,50,paint);
+            stroke(bright,.65f);
+            canvas.drawLine(16,24,21,22,paint);
+            canvas.restore();
+        }
+    }
+
     private void showBubble() {
         if (bubble != null) return;
-        TextView mark = new TextView(this);
-        mark.setText("M");
-        mark.setTextColor(Color.rgb(241, 235, 221));
-        mark.setTextSize(19);
-        mark.setGravity(Gravity.CENTER);
-        mark.setBackground(shape(Color.rgb(112, 31, 42), Color.rgb(240, 177, 10), dp(80)));
+        TelevisionBubble mark = new TelevisionBubble(this);
         bubble = mark;
-        WindowManager.LayoutParams params = overlayParams(dp(54), dp(54), Gravity.TOP | Gravity.END);
+        WindowManager.LayoutParams params = overlayParams(dp(58), dp(58), Gravity.TOP | Gravity.END);
         params.x = dp(14);
         params.y = dp(150);
         mark.setOnTouchListener(new View.OnTouchListener() {

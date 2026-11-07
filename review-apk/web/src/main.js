@@ -77,108 +77,174 @@ function invokeNative(method, args, signal) {
 }
 
 function accessStages(role) {
+  if (role === "transition") return [
+    ["Restoring your verified Pocket session", "SESSION RESTORE"],
+    ["Synchronizing local Pocket preferences", "LOCAL STATE SYNC"],
+    ["Refreshing Android device status", "FLOATING CONTROL STATE"],
+    ["Preparing the opening scene", "SPLASH PREPARATION"],
+    ["Handing off to the Archive", "HOME HANDOFF"],
+    ["Opening Merzkava Pocket", "ARCHIVE TRANSITION"]
+  ];
   return role === "player"
     ? [
-        ["Resolving character identity", "IDENTITY LOOKUP"],
-        ["Reading the pinned Universe source", "UNIVERSE REGISTRY"],
-        ["Checking the exact registered name", "EXACT NAME MATCH"],
-        ["Recording the verified local identity", "LOCAL PROFILE INDEX"],
+        ["Resolving the Player identity", "PLAYER IDENTITY"],
+        ["Reading the pinned Universe source", "PINNED UNIVERSE SOURCE"],
+        ["Matching the registered character name", "EXACT REGISTRY MATCH"],
+        ["Saving the verified local profile", "LOCAL PROFILE CACHE"],
         ["Preparing the Player session", "PLAYER SESSION"],
-        ["Finalizing access", "ACCESS HANDOFF"]
+        ["Handing off to Floating Control", "FLOATING CONTROL HANDOFF"]
       ]
     : [
-        ["Resolving Developer identity", "DEVELOPER ID"],
-        ["Checking the local credential verifier", "PBKDF2 · SHA-256"],
-        ["Applying Developer-only access", "ROLE ISOLATION"],
-        ["Securing the optional remembered credentials", "ANDROID KEYSTORE"],
+        ["Resolving the Developer identity", "DEVELOPER ID"],
+        ["Verifying the shared Developer credential", "PBKDF2 · SHA-256"],
+        ["Applying Developer-only permissions", "ROLE ISOLATION"],
+        ["Securing optional remembered credentials", "ANDROID KEYSTORE"],
         ["Preparing the Developer session", "DEVELOPER SESSION"],
-        ["Finalizing access", "ACCESS HANDOFF"]
+        ["Handing off to Floating Control", "FLOATING CONTROL HANDOFF"]
       ];
 }
 const checkpoints = [15, 32, 51, 70, 88, 93];
 
 function cancellableWait(ms, signal) {
-  if (signal.aborted) return Promise.reject(new DOMException("Access cancelled.", "AbortError"));
+  if (signal?.aborted) return Promise.reject(new DOMException("Access cancelled.", "AbortError"));
   return new Promise((resolve, reject) => {
     const timer = window.setTimeout(() => {
-      signal.removeEventListener("abort", abort);
+      signal?.removeEventListener("abort", abort);
       resolve();
-    }, ms);
+    }, Math.max(0, ms));
     const abort = () => {
       window.clearTimeout(timer);
-      signal.removeEventListener("abort", abort);
+      signal?.removeEventListener("abort", abort);
       reject(new DOMException("Access cancelled.", "AbortError"));
     };
-    signal.addEventListener("abort", abort, { once:true });
+    signal?.addEventListener("abort", abort, { once:true });
   });
+}
+
+function accessBufferMarkup(mode = "ACCESS ROUTINE") {
+  return `
+    <div class="access-buffer" data-access-buffer hidden aria-hidden="true">
+      <div class="buffer-frame">
+        <div class="buffer-top"><span>MERZKAVA POCKET</span><b>${mode}</b></div>
+        <div class="buffer-instrument">
+          <div class="buffer-orbit"><i></i><b></b><span></span><em></em></div>
+          <div class="buffer-scan"></div>
+          <div class="buffer-medallion">M</div>
+        </div>
+        <div class="buffer-copy">
+          <span data-access-label>IDENTITY LOOKUP</span>
+          <strong data-access-message aria-live="polite">Resolving account identity.</strong>
+        </div>
+        <div class="buffer-progress">
+          <div class="buffer-progress-head"><span>ROUTINE STEP</span><b data-access-number>00 / 06</b></div>
+          <div class="buffer-track"><i data-access-rail></i></div>
+          <small>VISUAL PACING · FINAL HANDSHAKE WAITS FOR THE VERIFIED RESULT</small>
+        </div>
+        <button type="button" class="buffer-cancel" data-access-cancel>CANCEL ROUTINE</button>
+      </div>
+    </div>`;
 }
 
 async function runAccessSequence(role, operation, signal) {
   const overlay = root.querySelector("[data-access-buffer]");
+  if (!overlay) throw new Error("The access transition surface is unavailable.");
   const rail = overlay.querySelector("[data-access-rail]");
   const number = overlay.querySelector("[data-access-number]");
   const message = overlay.querySelector("[data-access-message]");
   const label = overlay.querySelector("[data-access-label]");
   const animations = [];
   const reduced = reducedMotion();
+  const stages = accessStages(role);
+  if (!stages.length) throw new Error("The access routine has no stages.");
+
   overlay.hidden = false;
   overlay.setAttribute("aria-hidden", "false");
   overlay.classList.add("is-active");
   rail.style.transform = "scaleX(0)";
-  number.textContent = "00";
-  const stages = accessStages(role);
-  let settled = false;
+  number.textContent = "00 / " + String(stages.length).padStart(2,"0");
+
   const resultPromise = Promise.resolve().then(operation).then(
-    value => { settled = true; return { ok:true, value }; },
-    error => { settled = true; return { ok:false, error }; }
+    value => ({ ok:true, value }),
+    error => ({ ok:false, error })
   );
-  const failFast = resultPromise.then(result => result.ok ? new Promise(() => {}) : Promise.reject(result.error));
+  const failFast = resultPromise.then(result => {
+    if (result.ok) return new Promise(() => {});
+    throw result.error;
+  });
   let progress = 0;
-  try {
-    for (let index=0; index<checkpoints.length; index++) {
-      if (signal.aborted) throw new DOMException("Access cancelled.", "AbortError");
-      const [copy, technical] = stages[index];
+  let activeStage = "";
+
+  const pause = ms => Promise.race([cancellableWait(ms,signal), failFast]);
+  const showFrame = (copy, technical, dots, entering = false) => {
+    if (technical !== activeStage) {
+      activeStage = technical;
       label.textContent = technical;
-      for (let dots=1; dots<=3; dots++) {
-        message.textContent = copy + ".".repeat(dots);
-        if (!reduced) animations.push(animate(message, { opacity:[.58,1], translateY:[4,0], duration:110, ease:"outCubic" }));
-        if (dots === 1) {
-          const target = checkpoints[index];
-          const duration = 210 + Math.random()*170;
-          if (reduced) rail.style.transform = "scaleX(" + target/100 + ")";
-          else animations.push(animate(rail, { scaleX:[progress/100,target/100], duration, ease:"outSine" }));
-          number.textContent = String(target).padStart(2,"0");
-          await Promise.race([cancellableWait(duration, signal), failFast]);
-          progress = target;
-        } else {
-          await Promise.race([cancellableWait(dots===2?74:115 + Math.random()*130, signal), failFast]);
-        }
+    }
+    message.textContent = copy + ".".repeat(dots);
+    if (!reduced) animations.push(animate(message,{
+      opacity:[entering ? .58 : .82,1],
+      translateY:[entering ? 4 : 1,0],
+      duration:entering ? 150 : 72,
+      ease:"outCubic"
+    }));
+  };
+  const moveRail = async target => {
+    const duration = reduced ? 18 : 205 + Math.random()*155;
+    if (reduced) rail.style.transform = "scaleX(" + target/100 + ")";
+    else animations.push(animate(rail,{
+      scaleX:[progress/100,target/100],
+      duration,
+      ease:"outSine"
+    }));
+    await pause(duration);
+    progress = target;
+  };
+
+  try {
+    for (let index=0; index<stages.length; index++) {
+      if (signal?.aborted) throw new DOMException("Access cancelled.","AbortError");
+      const [copy,technical] = stages[index];
+      number.textContent = String(index+1).padStart(2,"0") + " / " + String(stages.length).padStart(2,"0");
+      showFrame(copy,technical,1,true);
+      await moveRail(checkpoints[index] ?? (92 + index));
+      showFrame(copy,technical,2);
+      await pause(reduced ? 16 : 72 + Math.random()*34);
+      showFrame(copy,technical,3);
+      await pause(reduced ? 16 : 92 + Math.random()*56);
+      await pause(reduced ? 18 : 115 + Math.random()*205);
+    }
+
+    let result = null;
+    let finalDots = 1;
+    while (!result) {
+      result = await Promise.race([
+        resultPromise,
+        cancellableWait(reduced ? 90 : 190,signal).then(() => null)
+      ]);
+      if (!result) {
+        const [copy,technical] = stages[stages.length-1];
+        showFrame(copy,technical,finalDots);
+        finalDots = finalDots === 3 ? 1 : finalDots + 1;
       }
     }
-    let result;
-    while (true) {
-      result = await Promise.race([resultPromise, cancellableWait(170, signal).then(()=>null), failFast.then(()=>null)]);
-      if (result) break;
-      const stage = stages[stages.length-1][0];
-      message.textContent = stage + ".".repeat(1 + (Math.floor(Date.now()/170)%3));
-    }
     if (!result.ok) throw result.error;
-    message.textContent = "Identity verified.";
-    label.textContent = "ACCESS VERIFIED";
-    number.textContent = "100";
+    if (signal?.aborted) throw new DOMException("Access cancelled.","AbortError");
+
+    number.textContent = "READY";
+    label.textContent = role === "transition" ? "SESSION READY" : "ACCESS VERIFIED";
+    message.textContent = role === "transition" ? "Pocket is ready." : "Identity verified.";
     if (reduced) rail.style.transform = "scaleX(1)";
-    else animations.push(animate(rail, { scaleX:[progress/100,1], duration:190, ease:"outCubic" }));
-    await cancellableWait(reduced?0:200, signal);
+    else animations.push(animate(rail,{scaleX:[progress/100,1],duration:230,ease:"outCubic"}));
+    await cancellableWait(reduced ? 0 : 230,signal);
     return result.value;
   } finally {
     animations.forEach(animation => animation.pause());
     overlay.classList.remove("is-active");
     overlay.hidden = true;
-    overlay.setAttribute("aria-hidden", "true");
+    overlay.setAttribute("aria-hidden","true");
     rail.style.transform = "scaleX(0)";
   }
 }
-
 function renderLoginGate() {
   disposeCurrent();
   routeHistory.length = 0;
@@ -221,18 +287,7 @@ function renderLoginGate() {
         <p class="login-message" data-login-message role="status" aria-live="polite"></p>
         <div class="login-footer"><span>PLAYER ACCESS</span><span>DEVELOPER ACCESS</span><span>SEPARATE ROLES</span></div>
       </section>
-      <div class="access-buffer" data-access-buffer hidden aria-hidden="true">
-        <div class="buffer-frame">
-          <div class="buffer-top"><span>MERZKAVA POCKET</span><b>ACCESS ROUTINE</b></div>
-          <div class="buffer-instrument">
-            <div class="buffer-orbit"><i></i><b></b><span></span><em></em></div>
-            <div class="buffer-medallion">M</div>
-          </div>
-          <div class="buffer-copy"><span data-access-label>IDENTITY LOOKUP</span><strong data-access-message>Resolving account identity.</strong></div>
-          <div class="buffer-progress"><div class="buffer-progress-head"><span>ACCESS SEQUENCE</span><b data-access-number>00</b></div><div class="buffer-track"><i data-access-rail></i></div><small>VISUAL PACING · WAITING FOR VERIFIED RESULT</small></div>
-          <button type="button" class="buffer-cancel" data-access-cancel>CANCEL ACCESS CHECK</button>
-        </div>
-      </div>
+      ${accessBufferMarkup("IDENTITY VERIFICATION")}
     </main>`;
   applyTheme();
   const stage = root.querySelector("[data-login-stage]");
@@ -362,9 +417,9 @@ function renderFloatingControl() {
       </section>
       <div class="section-label"><span>INITIAL SETUP</span><small>01 — 03 · COMPLETE IN ORDER</small></div>
       <section class="setup-list">
-        <article class="setup-row" data-step="overlay"><span class="step-no">01</span><div><strong>Display over other apps</strong><small>Allow Pocket to appear above other apps.</small></div><button type="button" data-permission="overlay">ALLOW ↗</button></article>
-        <article class="setup-row" data-step="notifications"><span class="step-no">02</span><div><strong>Notifications</strong><small>Allow the ongoing Floating Control notification.</small></div><button type="button" data-permission="notifications" disabled>ALLOW ↗</button></article>
-        <article class="setup-row" data-step="battery"><span class="step-no">03</span><div><strong>Background activity / battery</strong><small>Reduce the chance Android stops Floating Mode.</small></div><button type="button" data-permission="battery" disabled>ALLOW ↗</button></article>
+        <article class="setup-row" data-step="overlay"><span class="step-no">01</span><div><strong>Display over other apps</strong><small>Allow Pocket to appear above other apps.</small></div><button type="button" data-permission="overlay" aria-label="Open display-over-apps settings" title="Display over other apps">◈</button></article>
+        <article class="setup-row" data-step="notifications"><span class="step-no">02</span><div><strong>Notifications</strong><small>Allow the ongoing Floating Control notification.</small></div><button type="button" data-permission="notifications" aria-label="Allow notifications" title="Notifications" disabled>♧</button></article>
+        <article class="setup-row" data-step="battery"><span class="step-no">03</span><div><strong>Background activity</strong><small>Double-tap to open settings.</small></div><button type="button" data-permission="battery" aria-label="Double-tap to open battery settings" title="Double-tap to open settings" disabled>⚙</button></article>
       </section>
       <div class="section-label"><span>QUICK ACTIONS</span><small>SESSION CONTROLS</small></div>
       <section class="floating-actions">
@@ -372,10 +427,30 @@ function renderFloatingControl() {
         <button type="button" data-action="bubble" disabled><span><small>FLOATING MODE</small><strong>Start bubble mode</strong></span><b>↗</b></button>
         <button type="button" data-action="mini" disabled><span><small>WINDOW</small><strong>Open floating mini window</strong></span><b>↗</b></button>
         <button type="button" data-action="stop" disabled><span><small>SERVICE</small><strong>Stop service and close window</strong></span><b>×</b></button>
+        <button type="button" data-action="donate"><span><small>A LITTLE KINDNESS</small><strong>Donate / send a kind wish</strong></span><b>↗</b></button>
       </section>
       <p class="floating-feedback" role="status" aria-live="polite" data-floating-feedback></p>
-      <footer class="floating-footer"><span>MERZKAVA POCKET</span><span>${escapeHtml(identity.displayName)} · ${identity.role.toUpperCase()}</span></footer>
+      <p class="kindness-note">A quiet wish is already more than enough.</p>
+      <footer class="floating-footer"><span>MERZKAVA POCKET · MADE WITH CARE</span><span>${escapeHtml(identity.displayName)} · ${identity.role.toUpperCase()}</span></footer>
       <button type="button" class="signout-action" data-signout>LOCK / SIGN OUT</button>
+      ${accessBufferMarkup("POCKET TRANSITION")}
+      <div class="donate-overlay" data-donate-panel hidden aria-hidden="true">
+        <section class="donate-card" role="dialog" aria-modal="true" aria-labelledby="donate-title">
+          <button type="button" class="donate-close" data-donate-close aria-label="Close kindness panel">×</button>
+          <div class="donate-scene" aria-hidden="true">
+            <div class="donate-window"><i class="tree-one"></i><i class="tree-two"></i><i class="window-light"></i></div>
+            <div class="donate-bed"><i></i><b></b><span></span></div>
+            <div class="donate-lamp"></div>
+          </div>
+          <div class="donate-copy">
+            <span>A LITTLE KINDNESS</span>
+            <h2 id="donate-title">A gentle wish is enough.</h2>
+            <p>If you'd like to support this little project, all we ask for is your kindest wishes. May the developer be given a longer, gentler stretch of rest — with every breath coming easy, and no pain to carry.</p>
+            <p class="donate-secondary">No pressure. No payment needed. Your kind thoughts are already a gift.</p>
+            <button type="button" class="donate-send" data-donate-send>SEND A LITTLE KINDNESS</button>
+          </div>
+        </section>
+      </div>
     </main>`;
   const stage = root.querySelector(".floating-stage");
   const reduce = reducedMotion();
@@ -387,7 +462,15 @@ function renderFloatingControl() {
     animate(stage.querySelector(".floating-actions"),{opacity:[0,1],translateY:[10,0],delay:360,duration:420,ease:"outCubic"});
   }
   let disposed = false;
+  let transitionBusy = false;
   const feedback = stage.querySelector("[data-floating-feedback]");
+  const statusPanel=stage.querySelector(".floating-status-panel");
+  statusPanel.addEventListener("pointerdown",event=>{
+    if(reduce)return;
+    const bounds=statusPanel.getBoundingClientRect();
+    statusPanel.style.transformOrigin=(event.clientX-bounds.left)+"px "+(event.clientY-bounds.top)+"px";
+    animate(statusPanel,{scale:[1,1.012,.998,1],rotate:[0,-.12,.12,0],duration:520,ease:"outElastic(1,.5)"});
+  });
   const renderReadiness = state => {
     floatingReadiness = state;
     const status = {
@@ -409,13 +492,14 @@ function renderFloatingControl() {
       const ready=status[key];
       const priorOk=index===0 || steps.slice(0,index).every(name=>status[name]);
       button.disabled=!!ready || !state.supported || !priorOk || floatingBusy;
-      button.textContent=ready?"READY ✓":"ALLOW ↗";
+      button.textContent=ready?"✓":({"overlay":"◈","notifications":"♧","battery":"⚙"}[key]||"↗");
+      button.setAttribute("aria-label",ready?"Permission ready":("Open "+key+" permission settings"));
       button.closest(".setup-row").classList.toggle("is-complete",!!ready);
     });
     stage.querySelector('[data-action="bubble"]').disabled=!state.supported || !(state.displayOverApps&&state.notifications&&state.batteryExemption) || floatingBusy;
     stage.querySelector('[data-action="mini"]').disabled=!state.supported || !state.displayOverApps || floatingBusy;
     stage.querySelector('[data-action="stop"]').disabled=!state.supported || !state.serviceRunning || floatingBusy;
-    stage.querySelector('[data-action="continue"]').disabled=false;
+    stage.querySelector('[data-action="continue"]').disabled=transitionBusy;
   };
   const refresh = async () => {
     if (!nativeReady()) {
@@ -442,16 +526,73 @@ function renderFloatingControl() {
       renderReadiness(floatingReadiness);
     }
   };
+  let lastBatteryTap=0;
   stage.querySelectorAll("[data-permission]").forEach(button=>button.addEventListener("click",()=>{
     const key=button.dataset.permission;
+    if(key==="battery"){
+      const now=Date.now();
+      if(now-lastBatteryTap>480){
+        lastBatteryTap=now;
+        feedback.textContent="DOUBLE-TAP THE SETTINGS ICON TO OPEN ANDROID BATTERY SETTINGS.";
+        return;
+      }
+      lastBatteryTap=0;
+    }
     void run(async()=>{
-      if (key==="overlay") native.requestOverlayPermission();
-      else if (key==="notifications") native.requestNotifications();
+      if(key==="overlay")native.requestOverlayPermission();
+      else if(key==="notifications")native.requestNotifications();
       else native.requestBatteryExemption();
       feedback.textContent="COMPLETE THE ANDROID SYSTEM STEP, THEN RETURN TO POCKET.";
     });
   }));
-  stage.querySelector('[data-action="continue"]').addEventListener("click",showSplash);
+  const continueButton=stage.querySelector('[data-action="continue"]');
+  const transitionCancel=stage.querySelector("[data-access-cancel]");
+  const donatePanel=stage.querySelector("[data-donate-panel]");
+  const closeDonate=()=>{
+    donatePanel.hidden=true;
+    donatePanel.setAttribute("aria-hidden","true");
+  };
+  stage.querySelector('[data-action="donate"]').addEventListener("click",()=>{
+    donatePanel.hidden=false;
+    donatePanel.setAttribute("aria-hidden","false");
+    donatePanel.querySelector("[data-donate-close]").focus();
+  });
+  donatePanel.querySelector("[data-donate-close]").addEventListener("click",closeDonate);
+  donatePanel.addEventListener("click",event=>{
+    if(event.target===donatePanel || event.target?.closest?.("[data-donate-dismiss]"))closeDonate();
+  });
+  donatePanel.querySelector("[data-donate-send]").addEventListener("click",()=>{
+    const copy=donatePanel.querySelector(".donate-copy");
+    copy.classList.add("is-kindness-received");
+    copy.innerHTML='<span>A KIND THOUGHT RECEIVED</span><p class="kindness-received">Simpan saja, ada yang lebih membutuhkan di sekitarmu.</p><button type="button" class="donate-send" data-donate-dismiss>RETURN TO POCKET</button>';
+  });
+  const enterPocket=async()=>{
+    if(transitionBusy||disposed)return;
+    transitionBusy=true;
+    continueButton.disabled=true;
+    const controller=new AbortController();
+    const cancelRoutine=()=>controller.abort();
+    transitionCancel.addEventListener("click",cancelRoutine,{once:true});
+    try{
+      await runAccessSequence("transition",async()=>{
+        if(!accessIdentity)throw new Error("The verified Pocket session is missing.");
+        setTheme(readTheme());
+        if(nativeReady())JSON.parse(native.getReadiness());
+        return true;
+      },controller.signal);
+      if(!disposed)showSplash();
+    }catch(error){
+      if(error?.name==="AbortError")feedback.textContent="POCKET ENTRY CANCELLED.";
+      else feedback.textContent=error instanceof Error?error.message:"Pocket could not be opened.";
+    }finally{
+      transitionCancel.removeEventListener("click",cancelRoutine);
+      if(!disposed){
+        transitionBusy=false;
+        continueButton.disabled=false;
+      }
+    }
+  };
+  continueButton.addEventListener("click",()=>void enterPocket());
   stage.querySelector('[data-action="bubble"]').addEventListener("click",()=>void run(async()=>{if(!native.startBubbleMode())throw new Error("Floating bubble could not start. Verify the overlay permission.");}));
   stage.querySelector('[data-action="mini"]').addEventListener("click",()=>void run(async()=>{if(!native.openMiniWindow())throw new Error("Mini window could not open. Verify the overlay permission.");}));
   stage.querySelector('[data-action="stop"]').addEventListener("click",()=>void run(async()=>native.stopFloatingMode()));
