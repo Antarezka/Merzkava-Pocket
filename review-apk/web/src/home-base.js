@@ -325,7 +325,7 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
   root.innerHTML=
     "<section class='home-base-page' data-world-shell>"+
       "<header class='world-topbar'><div class='world-title-wrap'><strong>HOME BASE</strong><small>WORLD ARCHIVE · PERSONAL LAND</small></div>"+
-      "<div class='world-top-actions'><button type='button' data-world-appearance>CHARACTER</button></div></header>"+
+      "<div class='world-top-actions'><button type='button' data-world-zoom-out aria-label='Zoom out'>−</button><button type='button' data-world-zoom-in aria-label='Zoom in'>＋</button><button type='button' data-world-appearance>CHARACTER</button></div></header>"+
       "<div class='world-statusline'><span>PRIVATE HOMESTEAD</span><span data-world-owned>3 STARTER FACILITIES</span><span>LOCAL SAVE</span></div>"+
       "<div class='world-viewport' data-world-viewport></div>"+
       "<div class='world-toolbar' aria-label='World actions'>"+
@@ -354,7 +354,7 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
     heading.textContent="CHARACTER STYLE";
     const current=session.getAppearance();
     worldPanel.innerHTML="<p class='world-drawer-copy'>Choose the Player silhouette. Residents keep their own authored outfits and proportions.</p>"+
-      "<div class='world-style-grid'>"+STYLE_OPTIONS.map(s=>"<button class='world-style-card "+(current===s.id?"is-selected":"")+"' data-world-style='"+s.id+"'><img src='/game-assets/pxl/sprites/style_preview_"+s.id+".png' alt=''><span><b>"+s.name+"</b><small>"+s.description+"</small></span></button>").join("")+"</div>";
+      "<div class='world-style-grid'>"+STYLE_OPTIONS.map(s=>"<button class='world-style-card "+(current===s.id?"is-selected":"")+"' data-world-style='"+s.id+"'><img src='/game-assets/hd/previews/style-preview-"+s.id+".svg' alt=''><span><b>"+s.name+"</b><small>"+s.description+"</small></span></button>").join("")+"</div>";
   };
   const renderBuild=()=>{
     heading.textContent="FACILITY ARCHIVE";
@@ -467,7 +467,7 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
       setFeedback(result.ok?"Gathering started. Output is credited when the saved process completes.":result.message);snapshot=session.snapshot();
     }else if(btn.dataset.worldStyle){
       session.setAppearance(btn.dataset.worldStyle);scene.setStyle(btn.dataset.worldStyle);renderAppearance();
-      setFeedback("Appearance saved for this player. Residents now use the same visual family.");
+      setFeedback("Appearance saved for the Player. Residents retain their own silhouettes.");
     }
   };
   const inputChange=event=>{
