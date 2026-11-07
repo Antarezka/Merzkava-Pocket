@@ -1,7 +1,7 @@
 # Merzkava Pocket — 2.5D HD Isometric Art Direction
 
 **Decision date:** 2026-11-07  
-**Status:** Approved visual direction · implementation in progress  
+**Status:** Approved visual direction · runtime implementation pending  
 **Scope:** Pocket app shell, Home Base, character presentation, map scenes, facilities, objects, items, HUD and supporting illustrations.
 
 ## 1. Visual identity
