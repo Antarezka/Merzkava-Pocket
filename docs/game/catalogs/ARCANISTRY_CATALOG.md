@@ -72,7 +72,45 @@ For Grades 3–7, the quota is a cap and not a guarantee. Grade 5–7 competitiv
 
 ## 3. Production and condition references
 
-### 3.1 Baseline Artificial Artifact work time
+### 3.1 Canonical baseline Grade × Artifact Tier success-chance matrix
+
+This table is inherited from Universe `core/ARCANISTRY_AND_FORMULATION.md` §5. It is the baseline chance **before any situational adjustment that is explicitly authorized by official rules**.
+
+| Arcanist Grade / Artifact Tier | T1 | T2 | T3 | T4 | T5 | T6 | T7 | T8 | T9 | T10 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| **Grade 1** | 80% | 30% | 10% | 0% | 0% | 0% | 0% | 0% | 0% | 0% |
+| **Grade 2** | 100% | 80% | 30% | 10% | 0% | 0% | 0% | 0% | 0% | 0% |
+| **Grade 3** | 100% | 100% | 80% | 30% | 10% | 0% | 0% | 0% | 0% | 0% |
+| **Grade 4** | 100% | 100% | 100% | 80% | 30% | 10% | 0% | 0% | 0% | 0% |
+| **Grade 5** | 100% | 100% | 100% | 100% | 80% | 30% | 10% | 0% | 0% | 0% |
+| **Grade 6** | 100% | 100% | 100% | 100% | 100% | 80% | 30% | 10% | 0% | 0% |
+| **Grade 7** | 100% | 100% | 100% | 100% | 100% | 100% | 80% | 30% | 10% | 0% |
+| **Grade 8** | 100% | 100% | 100% | 100% | 100% | 100% | 100% | 80% | 30% | 10% |
+| **Grade 9** | 100% | 100% | 100% | 100% | 100% | 100% | 100% | 100% | 80% | 30% |
+| **Grade 10** | 100% | 100% | 100% | 100% | 100% | 100% | 100% | 100% | 100% | 80% |
+
+Equivalent tier-difference rule:
+
+| Target tier relative to Arcanist Grade | Baseline chance |
+|---|---:|
+| Two or more Tiers below Grade | 100% |
+| One Tier below Grade | 100% |
+| Same Tier as Grade | 80% |
+| One Tier above Grade | 30% |
+| Two Tiers above Grade | 10% |
+| Three or more Tiers above Grade | 0% |
+
+A 0% baseline means normal formulation cannot produce that target Tier at that Grade. A special talent does not bypass the Grade ceiling unless an official exception is recorded. A baseline 100% is not immunity to valid situational disruption; however, the engine must not arbitrarily reduce it.
+
+**Resolution limitation inherited from Universe:** the canonical source has not established a numeric conversion formula for situational factors/talents that alter success chance or a formal random-resolution method. Therefore:
+- The matrix may be previewed as baseline chance.
+- The countdown can record completed work time, but it does not prove success.
+- Do not run a fake roll or fabricate a final success/failure outcome until the game owner approves a resolution method.
+- Keep modifiers outside the formula unless a source defines them.
+
+### 3.2 Production requirements
+
+### 3.3 Baseline Artificial Artifact work time
 
 | Artificial Artifact Tier | Universe workshop time | Pocket timer |
 |---:|---:|---:|
@@ -89,7 +127,7 @@ For Grades 3–7, the quota is a cap and not a guarantee. Grade 5–7 competitiv
 
 A timer completion does not prove production success. Use the official Arcanist Grade × target Tier probability matrix and authorized resolution. Situational modifiers and unresolved production parameters remain pending where Universe leaves them undefined.
 
-### 3.2 Official Artificial Artifact condition
+### 3.4 Official Artificial Artifact condition
 
 Use exactly these labels:
 1. Buruk
