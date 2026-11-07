@@ -329,6 +329,15 @@ These are baseline previews, not fixed prices or universal costs. Recalculate th
 
 ### 6.1 Persistent compact HUD
 
+The primary progression badge must express the character's current state in a single clear sequence:
+
+- `Mortal · Not Awakened`
+- `Mortal · Awakening in Progress`
+- `Mortal · Awakening Complete`
+- `Spirit Realm N · [Canonical Realm Name] · [Early/Middle/Late/Peak Stage]`
+
+The Awakening substate is shown only while the character is still Mortal. Once a Spirit Realm transition is officially recorded, show the exact Realm and Stage; do not keep presenting the character as simply `Awakened` instead of their actual Spirit Realm. `Mortal` is never labelled Spirit Realm 0.
+
 The isometric gameplay screen must keep the most decision-relevant character information visible without blocking the world view.
 
 **Persistent HUD rows:**
