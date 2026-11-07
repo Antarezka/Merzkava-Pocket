@@ -457,18 +457,21 @@ Build the data, time, and interaction contracts before producing a large amount 
 
 | Stage | Deliverable | Completion check |
 |---|---|---|
-| **01 — Simulation foundation** | Define Pocket's local database, stable IDs, transaction ledger, local-time model, and offline save format. | A small prototype can save, close, reopen, and calculate elapsed time without duplicating a transaction. |
-| **02 — Engine validation** | Evaluate the game engine with one low-cost isometric scene on the target Android device. | Scene rendering, touch targets, ambient animation, memory use, and responsiveness are acceptable. |
-| **03 — Scene data contract** | Define area, location, footprint, hotspot, object, resource node, layer, and NPC metadata. | One test area can be described without hard-coding its contents into the interface. |
-| **04 — Isometric scene sample** | Render terrain, buildings, facilities, environment, and multiple interactive points. | Visual scale, depth order, footprints, and hit areas remain aligned. |
-| **05 — Location interactions** | Implement Overview, People, Activities, and contextual action validation. | Tapping a supported object opens the correct information and actions. |
-| **06 — Basic needs and gathering** | Add HP/Satiety presentation, foraging, woodcutting, storage, and a small initial resource loop. | Actions validate needs/tools, produce recorded outputs, and remain balanced. |
-| **07 — Micro-economy and facilities** | Add selling, material use, Level 1 facility sample, construction/upgrade timers, and ledger-based transactions. | Every cost, yield, and completion has an explicit data rule and is saved once. |
-| **08 — Work, learning, and social paths** | Add an initial sample of work, institutional learning, and social interactions. | Eligibility follows canon and no new progression formula is silently assumed. |
-| **09 — Daily Life and World Events** | Connect schedules, NPC presence, recurring activities, and conditional events to local time. | The same area changes appropriately over time without fabricating events. |
-| **10 — Travel and scene transitions** | Add route validation, walking/horseback and other available transport, and travel state. | The player reaches only connected destinations and interrupted trips resume safely. |
-| **11 — Daily Login and time security** | Add online claims, regional time-zone lock, 24-hour relocation validation, trusted checkpoints, and reconciliation. | Clock changes cannot authorize extra daily rewards or retain unearned time-based gains. |
-| **12 — Content expansion and hardening** | Expand scenes/facilities, tune animation and performance, test migration and recovery. | Multiple areas and long-running offline sessions remain stable on target devices. |
+| **01 — Simulation foundation** | Define Pocket's local database, stable IDs, event/transaction ledgers, dual-clock model, process scheduler, and offline save format. | A prototype can save, close, reopen, and resolve timers exactly once without losing valid state. |
+| **02 — Character progression state machine** | Model Awakening, Mortal/Awakened states, nine Spirit Realms × four Stages, sequential Ring slots/gates, Sync/Qi, Arcanist Focus, Grade 1–10 and exam records. | Every transition has explicit prerequisites, source references, valid/blocked states and no timer-only promotion. |
+| **03 — Canon and Pocket catalogues** | Build import/approval pipelines for Bestiary, abilities/techniques, Arcanistry, artifact/materials, jobs, facilities, items and NPC data. | Unknown data stays unknown; only verified or approved records can spawn, be learned, used or reward the player. |
+| **04 — HUD and interaction contract** | Implement compact HP/Satiety/progression/Arcanist/Wallet strip, expanded Character drawer, Ring slots, Skillbook, Bestiary and Mode Hub navigation. | HUD values match validated character state and every blocked action explains its unmet requirements. |
+| **05 — Engine validation** | Evaluate the game engine with one low-cost isometric scene on the target Android device. | Scene rendering, touch targets, ambient animation, memory use, and responsiveness are acceptable. |
+| **06 — Scene data contract** | Define area, location, footprint, hotspot, object, resource node, layer and NPC metadata. | One test area can be described without hard-coding its contents into the interface. |
+| **07 — Isometric scene sample** | Render terrain, buildings, facilities, environment, and multiple interactive points. | Visual scale, depth order, footprints, and hit areas remain aligned. |
+| **08 — Location interactions** | Implement Overview, People, Activities and contextual Mode Hub actions. | Tapping a supported object opens the correct information and only valid actions. |
+| **09 — Core needs and first life loop** | Add HP/Satiety/injury, foraging, woodcutting, storage, and one approved resource loop. | Actions validate needs/tools, produce recorded outputs, and remain balanced. |
+| **10 — Micro-economy and facilities** | Add selling, material use, one Level 1 facility sample, construction/upgrade timers and ledger-based transactions. | Every cost, yield and completion has an explicit data rule and is saved once. |
+| **11 — Jobs, Arcanistry and Socialize** | Implement one data-backed job, one Focus/teacher assessment path, workshop sample, and evidence-based NPC interactions. | Job payment, Focus assessment, production, and relationship changes meet their own gates. |
+| **12 — Hunting, Skillbook and Sparring** | Implement a source-backed Beast encounter, hunt stages, Ring ownership/eligibility, sourced ability, and a controlled training example. | Hunt, combat, Ring absorption, technique learning and injury are not conflated. |
+| **13 — War Zone and persistent events** | Integrate active World Events, faction/operation access, objectives, supply and persistent consequences. | War Zone appears only for valid active events and reconciles changes to the shared world state. |
+| **14 — Daily Life, travel and World Events** | Connect schedules, NPC presence, farming/facilities, route validation, transport and conditional events to Pocket time. | Locations and world state evolve coherently without fabricated activities or unreachable destinations. |
+| **15 — Daily Login, security and content hardening** | Add online claims, regional time-zone lock, trusted checkpoints, reconciliation, migration/recovery, and expanding content. | Clock changes cannot grant extra rewards or retain unearned gains; long offline sessions remain stable. |
 
 ### First production sample
 
