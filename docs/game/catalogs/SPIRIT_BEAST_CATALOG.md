@@ -89,18 +89,7 @@ A Beast older than 15,000,000 years is a Heaven Realm being, not an ordinary Spi
 Age Grade is an age bracket, not a power tier. Beast appraisal Tier is not an Age Grade. A Ring colour is determined from Ring age using the Spirit Ring module, not from the main Beast category.
 
 
-Keep these independent:
-- Species identity.
-- Specimen identity.
-- Actual age in years.
-- Age Grade 1–9, calculated from actual age.
-- Official appraisal Tier or provisional/unassessed state.
-- Main Beast category.
-- Ring age and Ring colour.
-- Danger/capability evidence.
-- Habitat and regional population.
 
-Age Grade is an age bracket, not a power tier. Beast appraisal Tier is not an Age Grade. A Ring colour is determined from Ring age using the Spirit Ring module, not from the main Beast category.
 
 ---
 
