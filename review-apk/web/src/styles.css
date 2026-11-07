@@ -176,3 +176,12 @@
 :root[data-theme="light"] .cord-wall-glow{background:radial-gradient(ellipse at 48% 45%,rgba(196,164,105,.11),rgba(198,164,105,.045) 40%,transparent 75%)}
 :root[data-theme="light"] .cord-handle.is-touched{filter:drop-shadow(0 0 5px rgba(198,164,105,.2)) drop-shadow(0 6px 7px #0005)}
 @media(prefers-reduced-motion:reduce){.cord-handle.is-touched .tv-case b:before,.cord-handle.is-touched .tv-case b:after{animation:none}.cord-wall-glow,.cord-instruction{transition:none}}
+
+/* Quiet overhead cable: each span rests on the top of a menu sigil. */
+.dock-wire-svg{position:absolute;z-index:2;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;animation:dock-wire-sway 10.5s ease-in-out infinite;transform:translateY(-.55px)}
+.dock-wire-svg path{fill:none;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.dock-wire-shadow{stroke:#080a0b99;stroke-width:4;filter:blur(.55px)}
+.dock-wire-line{stroke:url(#dock-wire-metal);stroke-width:1.8;filter:drop-shadow(0 1px 1px #0008)}
+.dock-wire-glint{stroke:#f1eadb;stroke-width:.55;stroke-dasharray:1 8;opacity:.55}
+.dock-wire-pins circle{fill:var(--surface);stroke:var(--gold);stroke-width:1.25;vector-effect:non-scaling-stroke}
+@keyframes dock-wire-sway{0%,100%{transform:translateY(-.55px)}50%{transform:translateY(.55px)}}
