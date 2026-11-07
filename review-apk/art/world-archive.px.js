@@ -1,14 +1,44 @@
-// Merzkava Pocket — PXL source for all world, map and character raster assets.
-include("./.pxl-lib/characters/crew.px.js", { as: "crew" })
-
 const DIRS=["n","ne","e","se","s","sw","w","nw"];
+// Recolor the authored figures into Merzkava's cultivation wardrobe palettes.
+// Each figure retains its own modeled head, garment construction and silhouette.
+const CULTIVATION_WARDROBES=[
+  ["realm_tr","crew.tr",{
+    P:"#252c41",p:"#35415a",R:"#161d30",W:"#e6ddc5",w:"#c7b990",v:"#77684f",
+    C:"#55766d",c:"#3e635b",n:"#284a48",N:"#162f35",g:"#e1c17a"
+  }],
+  ["realm_sai","crew.sai",{
+    m:"#52252b",r:"#843b3c",t:"#c69a62",Q:"#203947",A:"#365d66",B:"#6f9b93",
+    x:"#b9c6b3",y:"#e6dfc7",Z:"#f7edda",i:"#453a34",o:"#6b5540",u:"#9b7e55"
+  }],
+  ["realm_dkb","crew.dkb",{
+    O:"#263e35",U:"#42624e",V:"#789174",i:"#3d342d",o:"#6e5139",u:"#aa8053",
+    x:"#b8b19d",y:"#ded1b1",Z:"#f2e5cb"
+  }],
+  ["realm_cmp","crew.cmp",{
+    I:"#272d48",K:"#414b70",M:"#8792aa",m:"#5a2632",r:"#9a4142",t:"#d1a06c",
+    x:"#d5cbb7",y:"#ece2cc",Z:"#fbf2df"
+  }],
+  ["realm_off","crew.off",{
+    Q:"#292744",A:"#49466d",B:"#8e83a2",x:"#bfb7a5",y:"#e1d6be",Z:"#f5ead4",
+    g:"#d6b46c"
+  }],
+  ["realm_crn","crew.crn",{
+    a:"#27333a",b:"#58646a",f:"#a4aaa0",O:"#394437",U:"#61714b",V:"#a1a06a",
+    x:"#c7c2af",y:"#e7ddc6",Z:"#f5ebd8"
+  }]
+];
+for(const [name,base,swap] of CULTIVATION_WARDROBES){
+  for(const dir of DIRS)for(const move of ["idle","walk"]){
+    anim(name+"_"+move+"_"+dir,{base:base+"_"+move+"_"+dir,swap});
+  }
+}
 const previewCharacter=(id,source)=>sprite("character_preview_"+id,{w:26,h:40,pivot:[13,38]},c=>c.stamp(source+"_idle_s",0,0,{frame:0}));
-previewCharacter("tr","crew.tr");
-previewCharacter("sai","crew.sai");
-previewCharacter("dkb","crew.dkb");
-previewCharacter("cmp","crew.cmp");
-previewCharacter("off","crew.off");
-previewCharacter("crn","crew.crn");
+previewCharacter("tr","realm_tr");
+previewCharacter("sai","realm_sai");
+previewCharacter("dkb","realm_dkb");
+previewCharacter("cmp","realm_cmp");
+previewCharacter("off","realm_off");
+previewCharacter("crn","realm_crn");
 
 pal({K:"#18221f",g:"#5b7956",G:"#7d9869",L:"#a9b58a",d:"#806f50",D:"#a18c65",w:"#2d7180",W:"#3b93a0",B:"#74bec0",F:"#b3d9c9",s:"#b8a47a",S:"#d6c397",r:"#6a5847",R:"#947757",h:"#31453d",H:"#49664f",y:"#dbc88e",Y:"#f0dfaa"});
 
