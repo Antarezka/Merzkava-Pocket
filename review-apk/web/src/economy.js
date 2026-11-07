@@ -82,7 +82,7 @@ function readPinnedProfileWallet(identity){
     const profiles=JSON.parse(window.PocketNative.getLocalPlayerProfiles()||"[]");
     const profile=profiles.find(x=>x?.name===identity.displayName&&x?.sourceSha===sourceSha&&typeof x?.profileMarkdown==="string"&&x.profileMarkdown.length>0);
     if(!profile)return null;
-    const match=profile.profileMarkdown.match(/^\s*-\s*\*\*Wallet(?:\s*\(wealth\))?\*\*:\s*([0-9]+(?:[.,][0-9]+)?)\s*xc\s*\|\s*([0-9]+(?:[.,][0-9]+)?)\s*xs\s*\|\s*([0-9]+(?:[.,][0-9]+)?)\s*xg\s*\|\s*([0-9]+(?:[.,][0-9]+)?)\s*zj\s*\|\s*([0-9]+(?:[.,][0-9]+)?)\s*az/i);
+    const match=profile.profileMarkdown.match(/^\s*-\s*\*\*Wallet(?:\s*\(wealth\))?:\*\*\s*([0-9]+(?:[.,][0-9]+)?)\s*xc\s*\|\s*([0-9]+(?:[.,][0-9]+)?)\s*xs\s*\|\s*([0-9]+(?:[.,][0-9]+)?)\s*xg\s*\|\s*([0-9]+(?:[.,][0-9]+)?)\s*zj\s*\|\s*([0-9]+(?:[.,][0-9]+)?)\s*az/i);
     if(!match)return null;
     const [xc,xs,xg,zj,az]=match.slice(1).map(x=>Number(x.replace(",",".")));
     if([xc,xs,xg,zj,az].some(x=>!Number.isFinite(x)||x<0))return null;
