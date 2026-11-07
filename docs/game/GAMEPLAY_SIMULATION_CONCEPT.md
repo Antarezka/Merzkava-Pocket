@@ -252,7 +252,7 @@ Canon references: `core/HP_SYSTEM.md` and `core/HUNGER_AND_METABOLISM.md`.
 
 ## 7. Real-time progression using the device clock
 
-**Pocket time mapping:** use one verified real-world second as one Pocket simulation second (1:1). A verified 24-hour real interval therefore advances 24 hours of Pocket simulation time. This is a Pocket execution rule, not a new Universe canon formula. Use absolute UTC elapsed time for process duration; accepted local time-zone data controls local-time presentation and Daily Login day boundaries only. A time-zone change must never accelerate a timer.
+**Mandatory time rule:** all Pocket timers use the accelerated simulation clock and the separate UTC/Daily Login clock defined in [POCKET_SIMULATION_RULES.md](./POCKET_SIMULATION_RULES.md). Pocket simulation runs at ×48 (30 real minutes = 1 Pocket simulation day). Daily Login, relocation verification, and anti-cheat server checkpoints continue to use actual real-world time. Do not use the previous 1:1 simulation mapping.
 
 Construction, assigned work, farming, production, recovery, and other approved time-based processes use **real-world elapsed time from the device's built-in clock**. Pocket is not intended to advance all progress only while the app is open.
 
@@ -424,255 +424,20 @@ The simulation/data layer is responsible for:
 
 ---
 
-## 12. Canon formulas and Pocket adaptation
-
-**Rule of authority:** use the existing Merzkava Universe formula whenever a matching canon formula exists. Pocket adapts its presentation, persistence, and real-time execution; it does not create a competing version of the same mechanic. The canonical module remains the source of truth. Store formula inputs and outputs in Pocket data with a source-module reference and formula version so a later canon update can be reconciled.
-
-The audit below uses the Merzkava Universe sources pinned by its README at `268df00`. The relevant formula-bearing files in that pin were checked against the current `main` tree and have matching file contents.
-
-### 12.1 Currency, item pricing, and transaction accounting
-
-Use the five official Xuan denominations and fixed exchange rates:
-
-| Conversion | Canon rate |
-|---|---:|
-| Xuan Copper → Xuan Silver | 100 xc = 1 xs |
-| Xuan Silver → Xuan Gold | 100 xs = 1 xg |
-| Xuan Gold → Zun Jade | 1,000 xg = 1 zj |
-| Zun Jade → Ancient Zun | 10 zj = 1 az |
-
-Do not change these exchange rates. Pocket's opening example of **5 xc** is a proposed Pocket starting balance, not a universal Merzkava character balance. Keep it as the initial test scenario until the Pocket onboarding table is approved; never recalculate it on reload.
-
-For ordinary item valuation, inherit the single Merzkava Universe formula:
-
-```text
-Final Price =
-  (Tier 1 Base Price
-   × Tier Multiplier
-   × Condition Multiplier
-   × Scarcity Multiplier
-   × Demand Multiplier)
-  + Distribution Adjustment
-  + Local Market Adjustment
-```
-
-Use the tier, condition, scarcity, demand, distribution, and local-market values from `core/10_ECONOMY_SYSTEM.md`. Do not maintain separate Pocket multipliers or apply the same market pressure twice. Base price is specific to the item's identity and local source market. The Snow Herb example at 5 xc is only an illustration for that northern market; it is not a universal price for fruit, wood, herbs, crops, or all Tier 1 items.
-
-**Important market boundary:** the canon pricing formula values ordinary items, but it does not define a universal merchant buyback percentage or a fixed sale spread for every resource. A Pocket sale must use a valid local buyer/market quote calculated from supported inputs. Do not invent “sell for 50%” or another blanket percentage.
-
-The following Merzkava Universe accounting rules carry directly into Pocket:
-
-- Every Wallet income and expense gets its own chronological, append-only transaction-ledger entry.
-- Each currency entry records date/time, source/recipient, reason, direction, amount, conversion where relevant, balance before, balance after, and cause.
-- Every item quantity/ownership/condition/location change gets an item-ledger entry.
-- Purchases and sales cross-reference their money and item entries.
-- Opening Wallet and inventory are opening balances, not invented past transactions.
-- Corrections preserve the original ledger entry and append a correction; never silently rewrite history.
-- Building/property records belong in Assets, separately from carried Inventory.
-
-Use the canon ledger structures in `core/10_ECONOMY_SYSTEM.md` as the data contract for Pocket's local database.
-
-### 12.2 HP and injury
-
-HP maximum and current HP follow `core/HP_SYSTEM.md`:
-
-- Mortal maximum HP is **100**.
-- Spirit Realm and Stage determine higher maximum HP using the official table; Pocket must read that table rather than inventing its own scaling curve.
-- HP is stored as current/maximum. A change in maximum does not automatically refill current HP.
-- HP reaching 0 means death under the current canon.
-- The canon does **not** define a general numeric HP regeneration rate. Do not create passive HP regeneration merely because a real-time timer ran; recovery needs a documented item, treatment, technique, or separately approved Pocket rule.
-
-Injury is a separate state from HP. If Pocket represents injury recovery, inherit `core/INJURY_SYSTEM.md`:
-
-| Injury class | Natural recovery at full rest per 24 in-world hours | With appropriate treatment |
-|---|---:|---:|
-| I — Light | +10 progress | +20 progress |
-| II — Requires care | +2 progress | +10 progress |
-| III — Structural | No functional recovery from rest alone | +5 after required structural treatment |
-| IV — Critical | No progress before stabilization | +2 after stabilization during continuing treatment |
-
-Progress is capped at 100%. Apply only when the real recovery conditions are actually met. Treatment must match the injury and be available and correctly applied. HP recovery and injury recovery remain separate.
-
-### 12.3 Satiety and activity intensity
-
-`core/HUNGER_AND_METABOLISM.md` is the **single authority** for Satiety. Pocket must implement this formula rather than an independent hunger timer.
-
-```text
-Base Satiety reduction =
-  (Awake elapsed hours / Base hours per 100 Satiety) × 100
-
-Final Satiety reduction =
-  min(Current Satiety,
-      Base reduction × A × F × B × S)
-```
-
-The canonical baseline duration for 100 Satiety is:
-
-| Body / cultivation status | Awake time per 100 Satiety |
-|---|---:|
-| Mortal | 24 hours |
-| Spirit Initiate | 2 days |
-| Spirit Adept | 4 days |
-| Spirit Elder | 8 days |
-| Spirit Monarch | 16 days |
-| Spirit King | 32 days |
-| Spirit Ancestor | 64 days |
-| Spirit Emperor | 128 days |
-| Spirit Sovereign | 256 days |
-| Spirit Primordial | 365 days |
-
-Use the canonical modifiers:
-
-| Input | Canon values |
-|---|---|
-| Activity factor A | Awake rest ×0.50; Light ×1.25; Moderate ×1.75; Heavy ×2.50; Survival ×4.00 |
-| Missed-meal factor F | 0 missed ×1.00; 1 ×1.75; 2 ×2.75; 3 or more ×4.00 |
-| Body-condition factor B | Normal/light fatigue ×1.00; noticeable fatigue ×1.25; heavy fatigue ×1.75; extreme fatigue ×2.50 |
-| Special biological factor S | Use only a documented numeric effect; otherwise ×1.00 |
-| Combined modifier cap | Maximum ×8.00 |
-
-Canonical meal recovery:
-- Small snack: **+10 Satiety**.
-- Standard meal: **+34 Satiety**.
-- Large meal: **+50 Satiety**.
-- Normal meal windows: 06:00–11:00, 12:00–18:00, and 19:00–01:00 local world time.
-- Protected normal night sleep locks Satiety at the value when sleep begins. Sleep does not restore Satiety.
-
-Do not assign one fixed Satiety factor just from an activity's name. Assess the actual interval: a short easy gathering task may be Light, sustained physical gathering may be Moderate, and strenuous woodcutting may be Heavy when the described effort supports it. Do not count the same elapsed interval twice. Keep full internal precision and round only the displayed value to one decimal place, as required by canon.
-
-### 12.4 Time, action duration, and Pocket's real-time adapter
-
-Use `gameplay/TIME_AND_ACTION_RULES.md` for the world calendar and action rules:
-
-- If no other session calendar exists, use the canon fallback of 12 months × 30 days, with the established season and weekday cycles.
-- Ordinary player actions are limited to **3 in-world hours per turn**.
-- Normal night sleep is the protected exception and may exceed 3 hours.
-- Pure cultivation may use the canon allowance of up to one month only when every required safety, logistics, checkpoint, and activity condition is satisfied.
-- Time passing alone does not grant cultivation progress, Spirit Ring absorption, a breakthrough, or another progression result.
-
-**Pocket real-time adaptation:** for the first Pocket implementation, use a **1:1 elapsed-time mapping**: one verified real-world second advances one Pocket simulation second; 24 verified real-world hours advance 24 Pocket simulation hours. This is a Pocket execution rule, not a new Merzkava Universe canon rule. Any future time multiplier requires an explicit Pocket balance revision.
-
-Measure elapsed duration using an absolute UTC timeline. The accepted local time zone is used for local-time presentation and Daily Login day boundaries; changing a time-zone offset must not add, remove, or accelerate elapsed process time. Use the accepted in-world calendar rules for the displayed simulation date.
-
-The Universe three-hour ordinary-action limit governs discrete gameplay actions/turns. It does not mean a background Pocket timer must stop after three hours. Timed Pocket processes can continue while the app is closed, but their activity-specific durations and eligibility must be defined by the applicable canon or approved Pocket data.
-
-### 12.5 Arcanist training and Artificial Artifact production
-
-Pocket must directly reuse the binding training and workshop schedule in `core/ARCANISTRY_AND_FORMULATION.md` §13.11 where the player is undertaking the Arcanist path.
-
-**Mental-focus training stages**
-
-| Stage | Minimum guided practice | Standard schedule (up to 3 hours/day) | Mortal baseline Satiety cost |
-|---|---:|---:|---:|
-| Pemula | 12 active hours | 4 training days | 87.5 |
-| Initiate | 24 active hours | 8 training days | 175.0 |
-| Beginner | 40 active hours | 14 training days | 291.7 |
-| Ordinary | 60 active hours | 20 training days | 437.5 |
-| Ahli | 90 active hours | 30 training days | 656.3 |
-| Expert | 120 active hours | 40 training days | 875.0 |
-
-These are minimum guided-practice hours, not automatic stage grants. A qualified teacher/institution must assess the student's demonstrated progress. Foundational theory, travel, exam waiting, and recovery breaks are not included unless separately established.
-
-**Artificial Artifact focused-work baseline**
-
-| Target Artificial Artifact Tier | Workshop time | Mortal baseline Satiety cost |
-|---:|---:|---:|
-| Tier 1 | 1 hour | 7.3 |
-| Tier 2 | 2 hours | 14.6 |
-| Tier 3 | 3 hours | 21.9 |
-| Tier 4 | 4 hours | 29.2 |
-| Tier 5 | 6 hours | 43.8 |
-| Tier 6 | 8 hours | 58.3 |
-| Tier 7 | 12 hours | 87.5 |
-| Tier 8 | 18 hours | 131.3 |
-| Tier 9 | 24 hours | 175.0 |
-| Tier 10 | 36 hours | 262.5 |
-
-These Satiety reference totals assume a Mortal, normal body condition, no missed meal windows, no special modifiers, and Moderate work intensity. Recalculate actual intervals using the official Satiety formula for other statuses and conditions.
-
-Do not award Arcanist Focus stages, Arcanist Grades, or examination passes merely because a timer finishes. Mandatory instruction, teacher assessment, eligibility, official examinations, tool authorship, and other relevant gates remain in force.
-
-The Arcanist Grade × target Artificial Artifact Tier success matrix in §5 and the Artificial Artifact Condition Score in §14 are separate mechanics. The condition formula applies **only to a successfully produced Artificial Artifact**. Do not apply it to a well, sawmill, ordinary building, farm, or other non-artifact facility. Production failure resolution and numeric situational modifiers remain unresolved where the core module says they are unresolved; Pocket must not invent them.
-
-### 12.6 Spirit Realm, learning, and institutional paths
-
-When Pocket offers Spirit Realm study or cultivation, use `core/CULTIVATION_SYSTEM.md`, `core/SPIRIT_RING_RULES.md`, `core/SPIRIT_REALM_TRADITIONS.md`, and the applicable school/dojo/clan/sect sources.
-
-- Spirit Realm and Arcanist progression are independent.
-- Learning access requires a real qualified teacher or recognized institution where canon requires one.
-- Training attendance or elapsed time alone does not automatically grant a Spirit Realm, Stage, Sync progress, Spirit Ring, technique, or breakthrough.
-- Spirit Ring eligibility, cooldown/Day left, compatibility, absorption, and breakthrough follow their existing formulas and hard gates only.
-- Do not turn an ordinary Pocket idle timer into cultivation progress or a free advancement system.
-
-### 12.7 NPC relationships and Social Link
-
-The Universe relationship model in `world/NPC_MANAGEMENT.md` is evidence-based and qualitative:
-
-- Record the relationship's cause: witnessed event, family tie, employment, debt, rivalry, agreement, or another confirmed basis.
-- Record the NPC's own disposition when useful: pro, contra, neutral, or mixed.
-- A recorded stance is directional; it does not prove that both parties feel the same way.
-- Change a relationship only after a scene or confirmed event justifies it.
-- Preserve continuity, location, knowledge, and cause for important persistent changes.
-
-The proposed Pocket **Social Link** screen may visualize this existing relationship record, its history, and available interactions. A numeric affection/relationship-point scale, thresholds, decay, rewards, romance meter, or automatic relationship level is **not** present in the audited Universe canon and must not be invented as if it were. It needs a separate owner-approved Pocket rule before numerical implementation.
-
-### 12.8 World Events and daily schedules
-
-Use `world/DYNAMIC_EVENTS.md` for persistent world-level events. Its lifecycle and record schema (PROPOSED, ACTIVE, RESOLVED, SUPERSEDED, REJECTED; trigger, outcome, location/scope, evidence, involved actors, persistent effects, knowledge distribution, duration, and continuity notes) provide the reference for Pocket's event records.
-
-Not every ordinary activity is a World Event. Meals, routine foraging, one private purchase, a normal work shift, or an individual NPC conversation remain local/player activity records unless they create a meaningful persistent effect on a region, route, resource, institution, faction, or wider world.
-
-NPC schedules and local daily routines may be stored as Pocket simulation data, but the audited Universe modules do not define one universal schedule for every NPC. Use a relevant regional/NPC source where a schedule exists; otherwise a schedule is a Pocket-specific content record that needs approval.
-
-### 12.9 Formulas and values not established by the audited Universe canon
-
-The following systems have examples or setting foundations, but no universal numeric gameplay formula in the audited Universe modules:
-
-| Pocket feature | What is missing and must be specified |
-|---|---|
-| Foraging / gathering | Yield per attempt, resource-node availability, refresh/respawn timing, tool modifiers, and success resolution. |
-| Woodcutting | Wood yield, tree/resource depletion, regrowth, tool durability, and processing loss. |
-| Farming | Crop catalogue, planting requirements, growth duration, water/soil/season effects, harvest yield, spoilage, and replant cycle. |
-| Facilities | Well/sawmill/hunter/farm level requirements, build time, material list, construction costs, capacity, output rate, upkeep, and upgrades. |
-| General employment | Job availability, qualifications, work duration, wage rates, shift rules, and promotion. |
-| Merchant selling | Universal buyback spread or sale multiplier; local quotes still need supported market inputs. |
-| Social Link | Numeric points, levels, thresholds, decay, and mechanical rewards. |
-| Daily Login | Reward table, streak rules, missed-day policy, and claim progression. |
-| Device-time security | Exact anomaly tolerance, evidence weighting, server protocol, relocation signals, and dispute handling. |
-
-Do not fill these gaps with arbitrary values or borrow an unrelated formula (for example, do not use the Artificial Artifact condition formula as a building-construction formula). Keep these features disabled, qualitative, or clearly marked as pending until the corresponding Pocket rules and data tables are approved.
-
-### 12.10 Anti-cheat and ledger boundary
-
-Reuse the Universe's evidence, continuity, append-only ledger, validation, and correction principles. However, `templates/ANTI_CHEAT_HARD_GATE.md` is a roleplay enforcement procedure; its NPC social penalty and second-violation permanent-character-death rule are **not** Pocket device-clock penalties and must not be imported into Pocket.
-
-Pocket's device-clock reconciliation is its own technical rule:
-
-1. The server provides the trusted UTC checkpoint whenever the device is online.
-2. Offline timers may run locally, but time-derived outputs remain provisional until reconciliation.
-3. On reconnect, compare the local elapsed timeline with the server's actual elapsed time since the last trusted checkpoint. Use monotonic elapsed-time and boot/session evidence as supporting signals, not as a substitute for server time.
-4. If a forged forward jump is confirmed, calculate the invalid interval and identify all gains produced by it: wages, completed work, harvests, resource yields, facility output, rewards, and other timer-derived changes.
-5. Remove unspent invalid currency and unspent invalid items/materials.
-6. If provisional currency was already spent, post a correction debit for the spent unearned amount. The net Wallet may become negative; this is a Pocket reconciliation deficit, not an automatically created in-world loan and not subject to invented interest.
-7. If invalid items/materials were consumed, processed, sold, or built into something, trace the item ledger and reverse the invalid output or record the corresponding deficit. Convert a resource deficit into currency only when its value can be defensibly calculated with the official item-pricing formula and a known local base price; otherwise keep it as a material deficit rather than inventing a price.
-8. Append correction entries with references to the original provisional grants and spending. Reconciliation must be idempotent: the same invalid gain cannot be debited twice.
-9. Preserve legitimate opening balances and progress supported by trusted elapsed time. Do not wipe the entire save to correct one invalid interval.
-
-For a time-zone change, keep elapsed duration on the UTC timeline. A candidate new area/time zone remains pending until the device has shown a consistent new area for **24 continuous hours** and the server validates the relocation. The exact Android evidence and privacy-preserving method remain an implementation requirement; a manual time-zone setting alone is not proof of physical relocation. A relocation must never create an extra Daily Login claim across the old and new day boundaries.
-
-### 12.11 Canon source map used for this adaptation
-
-- `core/10_ECONOMY_SYSTEM.md` — currency, item-quality tiers, regional pricing, unified pricing formula, money ledger, and item-movement ledger.
-- `core/HP_SYSTEM.md` — HP maximum, current HP validation, and no general passive HP recovery rate.
-- `core/HUNGER_AND_METABOLISM.md` — Satiety, meal windows, activity multipliers, missed meals, sleep, and body-condition modifiers.
-- `core/INJURY_SYSTEM.md` — injury classes and recovery progress rates.
-- `core/ARCANISTRY_AND_FORMULATION.md` — Arcanist progression, Grade success matrix, training schedule, production time, Satiety costs, and Artificial Artifact condition score.
-- `core/CULTIVATION_SYSTEM.md` and `core/SPIRIT_RING_RULES.md` — Spirit Realm progression, Sync, eligibility, cooldown, absorption, and breakthrough rules.
-- `gameplay/TIME_AND_ACTION_RULES.md` — calendar, action duration, sleep, and cultivation time-skip boundaries.
-- `world/NPC_MANAGEMENT.md` — relationship continuity and qualitative NPC disposition.
-- `world/DYNAMIC_EVENTS.md` — persistent event threshold, lifecycle, and event schema.
-- `world/GEOGRAPHY_AND_TRAVEL.md` and `world/LOCATION_AND_ROUTE_NETWORK.md` — transport and route foundations.
-- `world/GOLDEN_DRAGON_EMPIRE_POPULATION_SERVICES.md` and `world/TIANHAI_ACADEMIES_AND_ARCANIST_INSTITUTE.md` — institutional access and administration, not universal wage or fee tables.
+## 12. Mandatory formula authority
+
+All inherited Universe formulas and all Pocket-specific time adaptations are governed by **[POCKET_SIMULATION_RULES.md](./POCKET_SIMULATION_RULES.md)**.
+
+That document is the mandatory implementation source for:
+- The ×48 Pocket Simulation Clock and separate real-world UTC/Daily Login clock.
+- Spirit Ring cooldown adaptation: 20 seconds for Ring 1 → Ring 2 and 30 days for Ring 8 → Ring 9, with the full intermediate schedule.
+- Arcanist training and Artificial Artifact work timers.
+- HP, Satiety, injury recovery, and Spirit Realm progression boundaries.
+- Economy formula inheritance, wallet/item ledgers, and missing Pocket economy data.
+- Work, gathering, woodcutting, farming, facility timers, Social Link, World Events, and NPC schedules.
+- Offline timer validation, regional Daily Login locking, and time-manipulation reconciliation.
+
+**Conflict rule:** if this concept overview or an implementation note contains a timer or formula that conflicts with `POCKET_SIMULATION_RULES.md`, the mandatory simulation rules document wins. Never change the Merzkava Universe source modules as a side effect of implementing a Pocket adaptation.
 
 ## 13. Recommended implementation order
 
