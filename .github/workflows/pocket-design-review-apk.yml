@@ -78,9 +78,7 @@ jobs:
       - name: Build Android APK
         working-directory: review-apk
         env:
-          POCKET_KEYSTORE_PATH: ${{ env.POCKET_KEYSTORE_PATH }}
           POCKET_STORE_PASSWORD: ${{ secrets.POCKET_STORE_PASSWORD }}
-          POCKET_KEY_ALIAS: ${{ env.POCKET_KEY_ALIAS }}
           POCKET_KEY_PASSWORD: ${{ secrets.POCKET_KEY_PASSWORD }}
         run: gradle --no-daemon :app:assembleDebug -PpocketVersion="$POCKET_VERSION" -PpocketVersionCode="$((10000 + GITHUB_RUN_NUMBER))"
       - name: Verify APK package and signature
@@ -92,6 +90,11 @@ jobs:
           mkdir -p dist
           cp review-apk/app/build/outputs/apk/debug/app-debug.apk "dist/Merzkava-Pocket-$POCKET_VERSION.apk"
           ls -lh dist
+      - name: Clean up signing material
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$RUNNER_TEMP/merzkava-pocket-upload.jks" "$RUNNER_TEMP/pocket-keystore-passphrase" "$RUNNER_TEMP/pocket-signing-check.csr"
       - uses: actions/upload-artifact@v4
         with:
           name: Merzkava-Pocket-Android
