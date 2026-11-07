@@ -5,6 +5,7 @@ on:
     paths:
       - "review-apk/**"
       - "docs/game/**"
+      - "signing/**"
       - ".github/workflows/pocket-design-review-apk.yml"
   workflow_dispatch:
 permissions:
@@ -47,25 +48,39 @@ jobs:
       - name: Prepare persistent Pocket signing key
         shell: bash
         env:
-          POCKET_KEYSTORE_BASE64: ${{ secrets.POCKET_KEYSTORE_BASE64 }}
           POCKET_STORE_PASSWORD: ${{ secrets.POCKET_STORE_PASSWORD }}
-          POCKET_KEY_ALIAS: ${{ secrets.POCKET_KEY_ALIAS }}
           POCKET_KEY_PASSWORD: ${{ secrets.POCKET_KEY_PASSWORD }}
+          POCKET_KEYSTORE_ENCRYPTION_PASSWORD: ${{ secrets.POCKET_KEYSTORE_ENCRYPTION_PASSWORD }}
         run: |
-          if [[ -z "$POCKET_KEYSTORE_BASE64" || -z "$POCKET_STORE_PASSWORD" || -z "$POCKET_KEY_ALIAS" || -z "$POCKET_KEY_PASSWORD" ]]; then
-            echo "::error::Persistent Pocket signing is not configured. Add all four POCKET_* GitHub Actions secrets before building."
+          set -euo pipefail
+          if [[ -z "$POCKET_STORE_PASSWORD" || -z "$POCKET_KEY_PASSWORD" || -z "$POCKET_KEYSTORE_ENCRYPTION_PASSWORD" ]]; then
+            echo "::error::Pocket signing secrets are incomplete. Add POCKET_STORE_PASSWORD, POCKET_KEY_PASSWORD, and POCKET_KEYSTORE_ENCRYPTION_PASSWORD."
             exit 1
           fi
-          printf '%s' "$POCKET_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/merzkava-pocket-upload.jks"
-          test -s "$RUNNER_TEMP/merzkava-pocket-upload.jks"
-          keytool -list -keystore "$RUNNER_TEMP/merzkava-pocket-upload.jks" -storepass "$POCKET_STORE_PASSWORD" -alias "$POCKET_KEY_ALIAS" >/dev/null
-          echo "POCKET_KEYSTORE_PATH=$RUNNER_TEMP/merzkava-pocket-upload.jks" >> "$GITHUB_ENV"
+          if [[ ! -f "signing/merzkava-pocket-upload.jks.gpg" ]]; then
+            echo "::error::The encrypted Pocket signing key is missing. Run the 'Create Pocket signing key' workflow first."
+            exit 1
+          fi
+          PASSPHRASE_FILE="$RUNNER_TEMP/pocket-keystore-passphrase"
+          KEYSTORE_FILE="$RUNNER_TEMP/merzkava-pocket-upload.jks"
+          umask 077
+          printf '%s' "$POCKET_KEYSTORE_ENCRYPTION_PASSWORD" > "$PASSPHRASE_FILE"
+          gpg --batch --yes --pinentry-mode loopback --passphrase-file "$PASSPHRASE_FILE" --decrypt --output "$KEYSTORE_FILE" "signing/merzkava-pocket-upload.jks.gpg"
+          rm -f "$PASSPHRASE_FILE"
+          test -s "$KEYSTORE_FILE"
+          keytool -list -keystore "$KEYSTORE_FILE" -storetype JKS -storepass "$POCKET_STORE_PASSWORD" -alias "merzkava-pocket-upload" >/dev/null
+          keytool -certreq -alias "merzkava-pocket-upload" -keystore "$KEYSTORE_FILE" -storetype JKS -storepass "$POCKET_STORE_PASSWORD" -keypass "$POCKET_KEY_PASSWORD" -file "$RUNNER_TEMP/pocket-signing-check.csr" >/dev/null 2>&1
+          rm -f "$RUNNER_TEMP/pocket-signing-check.csr"
+          {
+            echo "POCKET_KEYSTORE_PATH=$KEYSTORE_FILE"
+            echo "POCKET_KEY_ALIAS=merzkava-pocket-upload"
+          } >> "$GITHUB_ENV"
       - name: Build Android APK
         working-directory: review-apk
         env:
           POCKET_KEYSTORE_PATH: ${{ env.POCKET_KEYSTORE_PATH }}
           POCKET_STORE_PASSWORD: ${{ secrets.POCKET_STORE_PASSWORD }}
-          POCKET_KEY_ALIAS: ${{ secrets.POCKET_KEY_ALIAS }}
+          POCKET_KEY_ALIAS: ${{ env.POCKET_KEY_ALIAS }}
           POCKET_KEY_PASSWORD: ${{ secrets.POCKET_KEY_PASSWORD }}
         run: gradle --no-daemon :app:assembleDebug -PpocketVersion="$POCKET_VERSION" -PpocketVersionCode="$((10000 + GITHUB_RUN_NUMBER))"
       - name: Verify APK package and signature
