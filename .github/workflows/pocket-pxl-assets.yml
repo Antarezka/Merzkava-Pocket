@@ -1,0 +1,35 @@
+name: Pocket PXL pixel-art assets
+
+on:
+  push:
+    branches: [feat/pxl-character-runtime-review-2026-11-08]
+    paths:
+      - "review-apk/art/world-archive.px.js"
+      - "review-apk/scripts/build-world-assets.mjs"
+      - ".github/workflows/pocket-pxl-assets.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  pxl-assets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/pxl-character-runtime-review-2026-11-08
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.18.0"
+      - name: Compile PXL PNG assets
+        working-directory: review-apk
+        run: node scripts/build-world-assets.mjs
+      - name: Publish PXL assets for review
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add review-apk/web/public/game-assets/pxl/sprites review-apk/web/public/game-assets/pxl/anims review-apk/web/public/game-assets/pxl/scenes
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: publish Pocket PXL character and map PNGs [skip ci]"
+          git push origin HEAD:feat/pxl-character-runtime-review-2026-11-08
