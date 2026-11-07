@@ -30,9 +30,7 @@ jobs:
       - name: Generate and encrypt the Pocket key
         shell: bash
         env:
-          POCKET_STORE_PASSWORD: ${{ secrets.POCKET_STORE_PASSWORD }}
-          POCKET_KEY_PASSWORD: ${{ secrets.POCKET_KEY_PASSWORD }}
-          POCKET_KEYSTORE_ENCRYPTION_PASSWORD: ${{ secrets.POCKET_KEYSTORE_ENCRYPTION_PASSWORD }}
+          POCKET_SIGNING_PASSWORD: ${{ secrets.POCKET_SIGNING_PASSWORD }}
         run: |
           set -euo pipefail
           KEYSTORE_FILE="$RUNNER_TEMP/merzkava-pocket-upload.jks"
