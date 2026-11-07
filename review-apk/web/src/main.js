@@ -782,10 +782,10 @@ function navigationMarkup() {
     </div>
     <div class="dock-wrap" data-dock><div class="dock-back"></div><div class="dock-brushes"><i></i><i></i><i></i><i></i></div>
       <nav class="dock-front" aria-label="Main navigation">
-        <button class="dock-item is-active" type="button" data-destination="home" aria-current="page"><span class="dock-sigil"><svg viewBox="0 0 24 24"><path d="M3.5 11.2 12 4l8.5 7.2M6.5 10.3v9h11v-9M10 19.3v-5.7h4v5.7"/></svg></span><b>HOME</b></button>
-        <button class="dock-item" type="button" data-destination="game"><span class="dock-sigil"><svg viewBox="0 0 24 24"><path d="M12 2.5 20.5 12 12 21.5 3.5 12 12 2.5Z"/><path d="m12 6.5 4.8 5.5-4.8 5.5-4.8-5.5L12 6.5Z"/><path d="M12 2.5v19M3.5 12h17"/></svg></span><b>GAME</b></button>
-        <button class="dock-item" type="button" data-destination="daily-login"><span class="dock-sigil"><svg viewBox="0 0 24 24"><path d="m12 2.5 2.2 5.5 5.8 1-4.2 4.2 1 6-4.8-2.8-4.8 2.8 1-6L4 9l5.8-1L12 2.5Z"/></svg></span><b>DAILY LOG-IN</b></button>
-        <button class="dock-item" type="button" data-destination="settings"><span class="dock-sigil"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.1"/><circle cx="12" cy="12" r="8.7"/><path d="M12 3v3m0 12v3M3 12h3m12 0h3"/></svg></span><b>SETTINGS</b></button>
+        <button class="dock-item is-active" type="button" data-destination="home" aria-current="page"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M4 16 18 5l14 11v15H4Z" fill="#789783" stroke="#d8d4b7"/><path d="M10 30V17l8-6 8 6v13" stroke="#f1eadb"/><path d="M14 30v-8h8v8" stroke="#d4b879"/><path d="M18 5V2" stroke="#d4b879"/></svg></span><b>HOME</b></button>
+        <button class="dock-item" type="button" data-destination="game"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M8 12.5c1.3-3 4-4.5 7-4.5h6c3 0 5.7 1.5 7 4.5l3 10.2c1.2 4-2.7 6.6-5.7 4.2L20 23h-4l-5.3 3.9C7.7 29.3 3.8 26.7 5 22.7Z" fill="#789783" stroke="#d8d4b7"/><path d="M11 15v6m-3-3h6" stroke="#f1eadb" stroke-width="1.7"/><circle cx="24" cy="16.5" r="1.5" fill="#d4b879" stroke="none"/><circle cx="27" cy="20" r="1.3" fill="#d4b879" stroke="none"/></svg></span><b>GAME</b></button>
+        <button class="dock-item" type="button" data-destination="daily-login"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true"><rect x="5" y="7" width="26" height="24" rx="3" fill="#789783" stroke="#d8d4b7"/><path d="M11 4v7M25 4v7M5 14h26" stroke="#f1eadb" stroke-width="1.5"/><path d="m18 17 2 4 4 .6-3 3 .7 4-3.7-2-3.7 2 .7-4-3-3 4-.6Z" fill="#d4b879" stroke="#f1eadb" stroke-width=".8"/></svg></span><b>DAILY LOG-IN</b></button>
+        <button class="dock-item" type="button" data-destination="settings"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M15 4h6l1 4 4 2 4-1 3 5-3 4v3l3 4-3 5-4-1-4 2-1 4h-6l-1-4-4-2-4 1-3-5 3-4v-3l-3-4 3-5 4 1 4-2Z" fill="#789783" stroke="#d8d4b7" transform="translate(0 -1) scale(1 .96)"/><circle cx="18" cy="18" r="5.5" fill="#f1eadb" stroke="#d4b879" stroke-width="1.2"/><circle cx="18" cy="18" r="2" fill="#789783" stroke="none"/></svg></span><b>SETTINGS</b></button>
       </nav>
     </div>
     <button class="dock-scrim" data-dock-scrim tabindex="-1" aria-label="Close navigation"></button>`;
@@ -931,10 +931,21 @@ function mountMenu() {
     if(event.key===" "&&!event.repeat&&pointerId===null){event.preventDefault();pointerId=-1;begin(current);}
     else if(pointerId===-1){const step=event.shiftKey?90:48;const p={...current};if(event.key==="ArrowDown")p.y+=step;else if(event.key==="ArrowUp")p.y-=step;else if(event.key==="ArrowLeft")p.x-=step;else if(event.key==="ArrowRight")p.x+=step;else if(event.key===" "){event.preventDefault();const activate=dragged&&(current.y-rest.y)>=PULL_THRESHOLD;pointerId=null;snapBack(activate);return;}else return;event.preventDefault();update(p);}
   });
-  tiles.forEach(tile=>tile.addEventListener("click",()=>{
-    const destination=tile.dataset.destination;
-    navigate(destination);
-  }));
+  const lightTap=event=>{
+    const tile=event.currentTarget,rect=tile.getBoundingClientRect();
+    tile.style.setProperty("--tap-x",((event.clientX-rect.left)/rect.width*100)+"%");
+    tile.style.setProperty("--tap-y",((event.clientY-rect.top)/rect.height*100)+"%");
+    tile.classList.remove("is-lit");
+    void tile.offsetWidth;
+    tile.classList.add("is-lit");
+  };
+  tiles.forEach(tile=>{
+    tile.addEventListener("pointerdown",lightTap);
+    tile.addEventListener("click",()=>{
+      const destination=tile.dataset.destination;
+      navigate(destination);
+    });
+  });
   scrim.addEventListener("click",()=>setMenu(false));
   menuController={setMenu,get open(){return menuOpen;},close:()=>setMenu(false)};
   dock.classList.toggle("is-open",menuOpen);
@@ -952,6 +963,7 @@ function mountMenu() {
     window.clearTimeout(bubbleFeedbackTimer);
     disposed=true;idle?.pause();recoil?.pause();
     handle.removeEventListener("pointerdown",down);handle.removeEventListener("pointermove",move);
+    tiles.forEach(tile=>tile.removeEventListener("pointerdown",lightTap));
     if(pointerId!==null){try{handle.releasePointerCapture(pointerId);}catch{}}
     menuController=null;
   };
