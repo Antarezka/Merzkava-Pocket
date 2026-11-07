@@ -310,7 +310,7 @@ A teacher/institution assesses demonstrated progress at each stage. Completing t
 | Ahli | 90h | 30 training days | 1 hour 52 minutes 30 seconds |
 | Expert | 120h | 40 training days | 2 hours 30 minutes |
 
-Passing Initiate Focus makes the student eligible to register for the Apprentice Examination. It does **not** award Grade 1.
+Passing Initiate Focus means the student meets the Focus Requirement to register for the Apprentice Examination. It does **not** award Grade 1.
 
 ### 5.2 Grade 1 — Apprentice Examination
 
@@ -326,7 +326,7 @@ Only a passed Apprentice Examination grants Arcanist Grade 1. The mark on the En
 
 ### 5.3 Grade 2–7 advancement
 
-Every Grade requires registration, applicable established fee, target-Grade eligibility, the required examination, and an actual pass.
+Every Grade requires registration, applicable established fee, target-Grade Requirements, the required examination, and an actual pass.
 
 | Target Grade | Required exam artifact | Additional pass conditions |
 |---:|---|---|
@@ -462,10 +462,10 @@ The expanded drawer must contain:
 - Arcanist Grade (official Grade or exactly `???` if the personal Grade is unverified).
 - Arcanist Focus (last passed stage; `Belum dimulai` only when known not started; otherwise `Belum ditetapkan`).
 - Foundational teacher/institution and learning record.
-- Next Focus assessment and Apprentice/Grade examination eligibility.
+- Next Focus assessment and Apprentice/Grade examination Requirements.
 - Formation Engraver / Engraver's Apprentice and blueprint authorship where relevant.
 - Candidate-made Artifact counts by Tier, condition, type, series code and current ownership.
-- Senior recognition/token status for Grade 10 eligibility.
+- Senior recognition/token status for Grade 10 Requirements.
 - Formulations/materials known and currently available.
 
 **Condition and belongings**
@@ -515,7 +515,7 @@ The expanded drawer must contain:
 - When Realm/Stage changes, recompute only the HP maximum and other fields the source explicitly says change. Do not refill current HP automatically.
 - When a ring succeeds, update ring count, slot fill, Qi, cooldown, Sync state, ability record, and Realm transition as supported by the resolution. Apply all updates atomically.
 - When the Arcanist Focus stage is assessed, update Focus only; do not update Grade until the official exam is passed.
-- When a Grade exam is passed, update Grade only after eligibility, requirements, evidence, and result are committed.
+- When a Grade exam is passed, update Grade only after Requirements, evidence, and result are committed.
 - A countdown reaching zero changes only the time gate. It must not auto-trigger hunt, absorption, training assessment, artifact production success, exam pass, or social reward.
 - Use descriptive blocked-requirement text (e.g. `Ring 1 not yet absorbed`, `Sync gap 12.4 — must be below 10`, `required target item missing`); never reduce the player to a generic red lock icon without explaining what is missing.
 - No UI value may be derived from an unverified assumption or guessed from rarity/name/artwork.
@@ -534,6 +534,6 @@ When Universe adds or changes a formula, Pocket must record the Universe source 
 
 ## 8. Unresolved rule — character age progression
 
-The ×48 Pocket simulation clock makes the world calendar advance rapidly. Automatically aging characters at ×48 would age them by four in-world years in only 30 real days. The current Universe modules establish age eligibility and the public awakening cycle but do not define a Pocket age-progression policy.
+The ×48 Pocket simulation clock makes the world calendar advance rapidly. Automatically aging characters at ×48 would age them by four in-world years in only 30 real days. The current Universe modules establish the minimum-age Requirement and public Awakening cycle but do not define a Pocket age-progression policy.
 
-**Until the owner approves an age policy, do not automatically increase player-character age from the accelerated simulation clock.** Keep the recorded character age stable and store elapsed simulation age separately as a pending design decision. Do not silently alter birthdays, age-gated eligibility, or existing character profiles.
+**Until the owner approves an age policy, do not automatically increase player-character age from the accelerated simulation clock.** Keep the recorded character age stable and store elapsed simulation age separately as a pending design decision. Do not silently alter birthdays, age-based Requirements, or existing character profiles.
