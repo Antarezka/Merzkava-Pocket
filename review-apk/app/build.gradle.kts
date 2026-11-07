@@ -1,5 +1,5 @@
 plugins { id("com.android.application") }
-val pocketVersion = providers.gradleProperty("pocketVersion").orElse("v.0.01.006-local").get()
+val pocketVersion = providers.gradleProperty("pocketVersion").orElse("v.0.01.007-local").get()
 val pocketVersionCode = providers.gradleProperty("pocketVersionCode").orElse("1005").get().toInt()
 val pocketKeystorePath = System.getenv("POCKET_KEYSTORE_PATH")
 val pocketStorePassword = System.getenv("POCKET_STORE_PASSWORD")
