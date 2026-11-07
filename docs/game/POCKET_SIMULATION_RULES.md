@@ -183,7 +183,7 @@ Pocket implementation contract:
 - When the process runs, consume energy according to its configured expenditure schedule. Do not drain an arbitrary amount per frame, minute, login, or app open.
 - If available energy is below the configured Requirement, the character must prepare first (rest/recover, eat, cultivate/restore Qi, or obtain other legitimate support where allowed). Preparation actions must not grant free energy.
 - Satiety remains separate from Stamina/Qi. Resolve Satiety by the Pocket needs rules and actual awake intervals; do not convert Satiety points directly into Qi or Stamina.
-- If no approved energy-cost profile exists for a Ring, show **Requirement not configured: absorption energy cost** and keep the production process disabled. Do not treat an unset cost as zero or free.
+- If no approved energy-cost profile exists for a Ring, show **Requirement not configured: absorption energy cost** and keep the absorption process disabled. Do not treat an unset cost as zero or free.
 
 **Required Pocket energy profile fields:**
 
