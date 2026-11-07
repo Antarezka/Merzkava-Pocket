@@ -267,9 +267,6 @@ for (const style of STYLES) {
     body, w:FRAME_W, h:FRAME_H, pivot:PIVOT, ink:"k", surface:LIGHT,
     n:8, head:headName, parts:dress(makeOutfit(style)), moves
   })
-  card(style.id, {
-    is:"Merzkava wuxia field character, 8-way pixel rig, layered cultivation robe"
-  })
 }
 
 sheet("pocket_isometric_characters", STYLES.map(style => style.id + "_*"), { rows:"tag", pad:1 })
