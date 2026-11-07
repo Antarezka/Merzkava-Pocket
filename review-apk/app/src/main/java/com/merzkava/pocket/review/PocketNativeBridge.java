@@ -373,13 +373,12 @@ public final class PocketNativeBridge {
                     registeredNames.put(registeredName);
                     if (characterName.equals(registeredName)) exactMatch = true;
                 }
+                if (cancelledRequests.contains(requestId)) return;
+                rememberPlayerRegistry(registeredNames, fullSha);
                 if (!exactMatch) {
                     completePlayer(requestId, false, "", fullSha, "That exact character name is not in the currently pinned Universe registry.");
                     return;
                 }
-
-                if (cancelledRequests.contains(requestId)) return;
-                rememberPlayerRegistry(registeredNames, fullSha);
                 completePlayer(requestId, true, characterName, "universe:" + fullSha, "");
             } catch (Exception error) {
                 if (!cancelledRequests.contains(requestId)) {
