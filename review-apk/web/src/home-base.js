@@ -86,7 +86,7 @@ class HomeBaseScene extends Phaser.Scene{
     this.playerTile={col:6,row:5};
     const spawn=groundOf(this.playerTile.col,this.playerTile.row);
     this.playerShadow=this.add.ellipse(spawn.x,spawn.y-2,30,8,0x050a08,.34).setDepth(spawn.y+2);
-    this.player=this.add.sprite(spawn.x,spawn.y,"crew.tr_idle_s").setOrigin(.5,1).setScale(1.16).setDepth(spawn.y+8);
+    this.player=this.add.sprite(spawn.x,spawn.y,"realm_tr_idle_s").setOrigin(.5,1).setScale(1.16).setDepth(spawn.y+8);
     this.player.play("tr:idle:s");
     this.addNpcs();this.drawFacilities();
     const cam=this.cameras.main,el=this.options.viewport;
