@@ -3,11 +3,11 @@ import "./home-base.css";
 import { openHomeBaseSession } from "./economy.js";
 
 const STYLE_OPTIONS=[
-  {id:"chibi",name:"Chibi",description:"A round, expressive silhouette in a short layered cultivation robe."},
-  {id:"classic",name:"Classic",description:"Balanced proportions, crossed collar, sash and long everyday robe."},
-  {id:"slim",name:"Scholar",description:"Tall flowing scholar silhouette with long sleeves and hanging ribbons."},
-  {id:"ornate",name:"Ceremonial",description:"Broad layered mantle, ornamental hairpiece and formal robe details."},
-  {id:"painterly",name:"Wanderer",description:"Asymmetric travelling mantle with textured fabric and rugged layers."}
+  {id:"chibi",name:"Chibi",description:"A compact field silhouette with a short, layered cultivation robe."},
+  {id:"classic",name:"Classic",description:"Balanced proportions with a crossed collar, waist sash and flowing jade robe."},
+  {id:"slim",name:"Scholar",description:"A slender long robe with cool blue cloth and silver-blue details."},
+  {id:"ornate",name:"Ceremonial",description:"A formal wine-red mantle, layered sleeves and a gold hair ornament."},
+  {id:"painterly",name:"Wanderer",description:"A dark forest cloak over travel-worn layers and warm leather accents."}
 ];
 const DIRS=["n","ne","e","se","s","sw","w","nw"];
 const DIR_VECTOR={n:[0,-1],ne:[1,-1],e:[1,0],se:[1,1],s:[0,1],sw:[-1,1],w:[-1,0],nw:[-1,-1]};
@@ -44,10 +44,9 @@ class HomeBaseScene extends Phaser.Scene{
     ["facility_starter_hut","facility_starter_foraging","facility_starter_well","facility_farm","facility_workshop","facility_storage","facility_market","world_tree","world_rock"].forEach(id=>this.load.image(id,"/game-assets/pxl/sprites/"+id+".png"));
     this.load.spritesheet("water-glimmer","/game-assets/pxl/anims/water_glimmer.png",{frameWidth:32,frameHeight:16});
     STYLE_OPTIONS.forEach(style=>{
-      this.load.image("preview-"+style.id,"/game-assets/pxl/sprites/style_preview_"+style.id+".png");
       DIRS.forEach(dir=>["idle","walk"].forEach(move=>{
         const key=style.id+"_"+move+"_"+dir;
-        this.load.spritesheet(key,"/game-assets/pxl/anims/"+key+".png",{frameWidth:32,frameHeight:42});
+        this.load.spritesheet(key,"/game-assets/pxl/anims/"+key+".png",{frameWidth:34,frameHeight:48});
       }));
     });
   }
@@ -189,7 +188,7 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
     heading.textContent="CHARACTER STYLE";
     const current=session.getAppearance();
     worldPanel.innerHTML="<p class='world-drawer-copy'>Choose a visual family. The player and every resident use the selected proportions and animation set.</p>"+
-      "<div class='world-style-grid'>"+STYLE_OPTIONS.map(s=>"<button class='world-style-card "+(current===s.id?"is-selected":"")+"' data-world-style='"+s.id+"'><img src='/game-assets/pxl/sprites/style_preview_"+s.id+".png' alt=''><span><b>"+s.name+"</b><small>"+s.description+"</small></span></button>").join("")+"</div>";
+      "<div class='world-style-grid'>"+STYLE_OPTIONS.map(s=>"<button class='world-style-card "+(current===s.id?"is-selected":"")+"' data-world-style='"+s.id+"'><i class='world-style-portrait' style='background-image:url(/game-assets/pxl/anims/"+s.id+"_idle_s.png)' aria-hidden='true'></i><span><b>"+s.name+"</b><small>"+s.description+"</small></span></button>").join("")+"</div>";
   };
   const renderBuild=()=>{
     heading.textContent="FACILITY ARCHIVE";
