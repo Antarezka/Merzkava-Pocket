@@ -526,7 +526,7 @@ Local device time is required to keep the game running offline, but it is not tr
 ### 10.1 Time evidence
 
 Record:
-- Server-validated UTC checkpoint.
+- Server-trusted UTC checkpoint.
 - Device wall-clock observation.
 - Monotonic elapsed-time observation where Android provides it.
 - Boot/session boundary where available.
@@ -635,6 +635,9 @@ Pending values must not be replaced with random constants in code. Keep them una
 16. Verify legitimate starting balances and progress supported by Requirements survive reconciliation.
 17. Verify unknown prices, yields, wages, construction costs, and Social Link values cannot be silently fabricated.
 18. Verify low-end Android performance and local save recovery on the target device.
+19. Verify inter-Ring cooldown does not decrease during any activity/process classified as Cultivation.
+20. Verify Ring 6–9 cannot start without a complete maintenance profile, and app closure is never treated as automatic sleep.
+21. Verify active absorption follows its configured continuity mode: continuous, pause during recorded sleep/rest, or active windows.
 
 **Binding principle:** Pocket may accelerate waiting, but it must not skip Requirements, invent rewards, double-count transactions, or change the canon source of a mechanic.
 
