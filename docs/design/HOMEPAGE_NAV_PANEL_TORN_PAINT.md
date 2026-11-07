@@ -38,3 +38,21 @@ Keep the previously selected **Arcane Fusion** navigation icon treatment:
 - Preserve the Quest Console horizontal RPG command-dock layout and the existing homepage baseline.
 - This approval applies to the homepage navigation panel only. It does not change the Floating Control screen or other UI surfaces.
 - Do not replace the saved homepage baseline or the separate Arcane Fusion icon-direction note; this document supplements them.
+
+## Approved illustrated dock update — Celestial Jade
+
+The homepage navigation now uses the approved **Celestial Jade / Illustrated** treatment for both existing themes (Dark and White):
+- Keep the four destinations in the full-width, evenly divided dock: HOME, GAME, DAILY LOG-IN, and SETTINGS.
+- Use compact but clearly legible illustrated artwork (approximately 28 px), with comfortable spacing between icon groups and labels directly below.
+- Use recognizable illustrations: a small pavilion/house for Home, a game controller for Game, a calendar/check-in mark for Daily Log-in, and a gear for Settings.
+- Add a restrained tap-origin glow and a brief light sweep; do not replace the feedback with a simple color swap.
+- Keep the existing theme tokens and ensure the illustrated treatment remains legible in both themes.
+
+## Structural elements that must remain
+
+This visual approval does **not** authorize removing or redesigning the existing pull-cord assembly or the torn-paper dock construction:
+- Preserve the full-screen pull-cord zone, cord SVG/path, TV handle, antennae, TV casing, controls, and pull interaction.
+- Preserve the offset rear dock panel (`.dock-back`) behind the front panel.
+- Preserve the painted brush accents/rods (`.dock-brushes`) above the dock.
+- Preserve the torn front dock silhouette, outline, and its placement at the bottom of the screen.
+- Do not flatten the layered dock into a single plain bar or remove its rear backing layer / brush strokes during future menu revisions.
