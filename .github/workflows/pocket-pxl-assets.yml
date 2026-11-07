@@ -11,6 +11,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: pocket-pxl-assets-review
+  cancel-in-progress: true
+
 jobs:
   pxl-assets:
     runs-on: ubuntu-latest
@@ -32,4 +36,5 @@ jobs:
           git add review-apk/web/public/game-assets/pxl/sprites review-apk/web/public/game-assets/pxl/anims review-apk/web/public/game-assets/pxl/scenes
           git diff --cached --quiet && exit 0
           git commit -m "chore: publish Pocket PXL character and map PNGs [skip ci]"
+          git pull --rebase origin feat/pxl-character-runtime-review-2026-11-08
           git push origin HEAD:feat/pxl-character-runtime-review-2026-11-08
