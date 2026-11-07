@@ -24,6 +24,8 @@ The Home shell retains Dark and White themes, the double torn-paper four-destina
 
 Game navigation remains nested as Home Base → City → World Map. These are shell navigation destinations, not a definition of the gameplay model. The intended game is a **2D Isometric Location-Based Simulation**, not a free-roam RPG. Its scene interaction, location panel, travel between scenes (including walking and available mounts), time-based activities, world events, inventory, local persistence, and implementation sequence are defined in [Game Simulation Concept](../docs/game/GAMEPLAY_SIMULATION_CONCEPT.md).
 
+All runtime formula and timer implementations are governed by the mandatory [Pocket Simulation Rules](../docs/game/POCKET_SIMULATION_RULES.md). This includes the ×48 accelerated simulation clock, Pocket-adapted Spirit Ring cooldown schedule, Arcanist/work timers, HP/Satiety/injury handling, economy ledger requirements, offline clock reconciliation, and online-only Daily Login. The mandatory rules document takes precedence over any conflicting shell note or prototype.
+
 The current Game destinations are navigation scaffolding only. The isometric runtime, travel simulation, and dedicated local game database are separate implementation work and must follow the concept document rather than be inferred from the placeholder pages.
 
 Anime.js 4.x owns access pacing, the Pocket Transition, screen transitions, Splash, pull-cord and dock choreography. CSS owns surfaces and static/reduced-motion presentation. Augusto PXL remains a build-time visual-art authoring/export pipeline; it is not treated as an animation engine and no generated artwork is fabricated for this shell.
