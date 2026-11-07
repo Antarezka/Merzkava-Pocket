@@ -21,7 +21,10 @@ All shipped artwork must be original Merzkava material or assets with a document
 - Trees, rocks, plants, lanterns, wells, fences, furniture and resource nodes need their own ground pivots and depth values.
 - Preserve a clear distinction between visual geometry and authoritative gameplay data. Collision, occupancy, placement rules, walkable areas, hotspots and Requirements remain data-driven and must never be inferred from artwork.
 - Sort actors and objects by their ground-contact position. Foreground walls, roof edges and foliage may occlude an actor only where the map explicitly defines that layer.
+- Expand the playable scene well beyond one phone viewport. The first expanded Home Base target is at least **24×20 isometric cells**—four times the current 12×10 prototype's cell count—with room for connected neighbourhoods, terrain, paths, facilities, landmarks and undiscovered space. The map must not feel like a tiny board stretched to fill the screen.
+- The camera shows only a readable portion of the world. Support smooth, bounded drag-panning and deliberate zoom; retain a useful player/scene focus when entering an area. The map itself stays larger than the viewport and must not be rescaled to fit every cell on screen at once.
 - Keep the world visually rich but uncluttered. A mobile player must be able to distinguish a path, open tile, building entrance, NPC and resource node at normal phone scale.
+- Movement remains location-based. Tapping a valid revealed location calculates a safe route across the walkable map graph, follows the path around blocked terrain and occupied cells, and animates the actor continuously along the route. Do not use a straight-line tween through obstacles. Camera panning is map inspection, not a new free-roam control mode.
 
 ## 3. Character direction
 
@@ -65,8 +68,29 @@ A character's appearance is cosmetic. It must not change attributes, HP, Satiety
 - Use restrained atmospheric depth: distant haze, soft light shafts, weather, moving water, foliage sway and spiritual effects. Effects must not obscure taps, actors, labels or status information.
 - Prefer baked/high-quality artwork, small reusable overlays and a limited number of lightweight runtime effects over expensive full-screen filters or broad redraws.
 - Region palettes can differ, but lighting, edge quality, perspective and material rendering must remain consistent.
+- A single Pocket Simulation Clock drives time-of-day for all scenes. The visual cycle is continuous and should pass through dawn, morning, noon, afternoon, dusk and night without abrupt palette swaps. At ×48, one complete 24-hour Pocket day corresponds to 30 real minutes; this is a presentation readout of the authoritative simulation clock, not a second visual-only clock.
+- Daylight must change the complete scene composition: sky/horizon gradient, upper-sky brightness, ambient fill, directional sunlight, shadow length/direction, material warmth, water highlights, foliage response and atmospheric depth. The light source should read as coming from the sky above the playable world, not as a flat colour filter placed over the map.
+- Animate the sun's apparent path from the morning/eastern sky toward the afternoon/western sky. Use soft volumetric shafts that descend from the upper sky through clouds and gaps in foliage. At dusk, fade warm sunlight and activate windows/lanterns; at night, use a cool moonlit fill with restrained stars and local warm light sources.
+- Clouds move slowly across the upper sky plane and may cast soft moving shadows across the terrain. Separate cloud, sun, sky, fog and map-light layers so weather and time can be blended without repainting the world every frame.
+- Layer atmospheric mist/haze from the distant horizon toward the foreground. Fog density may respond to local weather, time and terrain (especially water, valleys and forests); it should reveal depth rather than obscure interaction targets. Weather effects remain separate from vision/fog-of-war visibility.
+- All lighting and atmosphere must update from the shared world-time and weather state. Closing/reopening the app must resume the correct visual phase from saved simulation time instead of restarting at dawn.
 
-## 6. App UI and illustrations
+## 6. Exploration visibility and fog of war
+
+Use a strategy-game-style visibility system to make the expanded world feel discovered rather than fully exposed from the start. The fog is a dedicated world-visibility layer and is separate from weather mist or atmospheric haze.
+
+- **Unexplored:** distant/undiscovered map space is covered by opaque near-black fog. Terrain detail, buildings, NPCs, resources, labels, interaction markers and live activity must not show through it.
+- **Explored but not currently visible:** areas revealed in the past remain on the map as a darkened, low-saturation memory. Preserve only last-known/static map information; do not display live NPC positions, current resource state or activity that the player cannot currently see.
+- **Currently visible:** the area around the Player is fully revealed with normal scene colour, lighting, objects, NPCs, resources and valid interaction hotspots.
+- Visibility expands smoothly as the Player approaches and moves through the map. The reveal edge uses a soft, irregular radial falloff that follows the isometric ground plane, not a hard circular UI spotlight. The reveal should feel like active scouting or scanning across the terrain.
+- Use the Player's current ground position as the default vision source. Additional vision sources such as an approved scout, companion, elevated observation point or temporary scan action may contribute only when the gameplay system explicitly supports them.
+- Vision radius and any terrain/elevation modifiers are map/actor configuration, not values inferred from artwork. Do not let a visual reveal bypass access, collision, placement or gameplay Requirements.
+- Save explored cells/regions per Pocket character and map ID. Reopening the same save preserves discovered territory; entering a new map starts from that map's recorded discovery state.
+- Unexplored fog must not block the map's touch surface globally. Taps on hidden space return a neutral unavailable response and never reveal hidden labels or contents. Player movement/pathfinding can target only currently revealed, valid walkable ground or a known interaction destination.
+- Keep fog state independent from day/night and weather. Night can darken visible terrain through lighting, but it must never reset exploration; bright daylight must not reveal unexplored terrain.
+- Update the visibility mask only when a vision source changes cells or a relevant visibility rule changes. Do not redraw the entire world every animation frame or place expensive blur/filter passes across the whole map.
+
+## 7. App UI and illustrations
 
 Apply the same art quality to character portraits, profile panels, item illustrations, equipment, Spirit Ring frames, Martial Soul and skill icons, currency emblems, facility cards, map markers, HUD panels and contextual activity windows.
 
@@ -76,7 +100,7 @@ Apply the same art quality to character portraits, profile panels, item illustra
 - Preserve clear contrast, readable typography, touch-safe controls and compact one-hand mobile layouts.
 - UI artwork is decorative only; numbers, locks, requirements, timers and transaction states must continue to come from authoritative saved data.
 
-## 7. Asset pipeline and performance
+## 8. Asset pipeline and performance
 
 - All runtime art must be bundled locally in the APK. No map, character, texture, portrait or animation may require a remote request to appear.
 - Replace the current pixel-only asset output as the final visual source. The existing PXL source can remain as a historical/prototype reference during migration, but new final assets must follow this document.
@@ -85,12 +109,17 @@ Apply the same art quality to character portraits, profile panels, item illustra
 - Profile texture memory, scene load time, frame pacing, zoom quality and touch response on the TECNO Spark Go 1 KL4. Use reduced-detail fallbacks for distant/small objects rather than making the whole scene blurry.
 - Never claim visual or device validation from source inspection alone. Record the exact build and physical-device result after testing.
 
-## 8. Acceptance checklist
+## 9. Acceptance checklist
 
 - [ ] Home Base reads as an elevated, layered isometric world rather than a flat pixel board.
 - [ ] Ground, water, paths, buildings, props, characters and foreground objects have clear depth and consistent perspective.
 - [ ] Player and seeded NPCs are full-body, individually identifiable and visually consistent.
-- [ ] Eight-direction idle and walk loops preserve scale and the ground-contact pivot.
+- [ ] Eight-direction idle and walk loops preserve scale and the ground-contact pivot, with planted foot contacts and smooth start/stop/turn transitions.
+- [ ] The expanded Home Base reaches at least 24×20 cells and supports bounded map panning without shrinking the world to fit the phone screen.
+- [ ] Valid movement follows walkable routes and does not slide through blocked or occupied terrain.
+- [ ] Day/night composition follows the shared ×48 Pocket Simulation Clock and updates sky, light direction, shadows, clouds, water and atmosphere.
+- [ ] Upper-sky clouds, sunlight shafts and layered atmospheric haze animate subtly without obscuring the playable map.
+- [ ] Fog of war distinguishes unexplored black space, explored dim space and currently visible terrain; discovery persists per character and map.
 - [ ] Character scale is believable beside buildings, doors and facilities.
 - [ ] Tapping NPCs, facilities, resources and valid map locations still invokes the existing location-based interaction rules.
 - [ ] Existing saves, appearance values, facility positions, economy transactions and progression survive the visual migration.
