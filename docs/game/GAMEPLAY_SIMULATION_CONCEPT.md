@@ -44,7 +44,7 @@ The following wireframe is a layout reference, not a final visual asset. “Tian
 │  Day 08 · 08:15                    │
 │  HP 180/200  ▰▰▰▰▰▰▰▰▱▱           │
 │  SAT 78/100   ▰▰▰▰▰▰▰▱▱▱           │
-│  STAMINA 72/100 ▰▰▰▰▰▰▱▱▱          │
+│  ENERGY: STAMINA · value per profile│
 │  MORTAL · AWAKENED                 │
 │  ARCANIST GRADE ??? · FOCUS —      │
 │  xc   xs   xg   zj   az            │
