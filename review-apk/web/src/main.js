@@ -18,6 +18,7 @@ let currentRoute = "login";
 const routeHistory = [];
 let currentDisposer = null;
 let theme = readTheme();
+let paperGlow = readPaperGlow();
 let menuOpen = true;
 let menuController = null;
 let backPrompt = null;
@@ -50,6 +51,31 @@ function applyTheme() {
   });
 }
 function setTheme(next) { theme = next === "light" ? "light" : "dark"; applyTheme(); }
+
+function readPaperGlow() {
+  try {
+    const stored=localStorage.getItem("mp-paper-glow");
+    if(stored===null)return 78;
+    const value=Number(stored);
+    return Number.isFinite(value)?Math.max(0,Math.min(100,Math.round(value))):78;
+  } catch { return 78; }
+}
+function applyPaperGlow() {
+  const value=Math.max(0,Math.min(100,Number(paperGlow)||0));
+  document.documentElement.style.setProperty("--paper-glow-intensity",(value/100).toFixed(2));
+  const slider=root.querySelector("[data-paper-glow]");
+  const output=root.querySelector("[data-paper-glow-value]");
+  if(slider){slider.value=String(value);slider.style.setProperty("--glow-level",value+"%");}
+  if(output)output.textContent=value+"%";
+}
+function setPaperGlow(next) {
+  const value=Number(next);
+  if(!Number.isFinite(value))return;
+  paperGlow=Math.max(0,Math.min(100,Math.round(value)));
+  try{localStorage.setItem("mp-paper-glow",String(paperGlow));}catch{}
+  applyPaperGlow();
+}
+
 
 function nativeReady() {
   try { return !!native && native.isNative() === true; } catch { return false; }
@@ -721,13 +747,16 @@ function renderPage(destination, depth="") {
     pageMarkup=`
       <main class="page-stage"><span class="eyebrow">SETTINGS / PREFERENCES</span><h1>Make it yours.</h1><p class="page-lead">Display and account controls.</p>
       <article class="destination-card"><span>DISPLAY THEME</span><strong>Dark / White</strong><div class="theme-options"><button data-theme-choice="dark" aria-pressed="false">DARK THEME</button><button data-theme-choice="light" aria-pressed="false">WHITE THEME</button></div></article>
+      <article class="destination-card paper-light-card"><span>PAPER LIGHT / BACKLIGHT</span><strong>Upward glow</strong><small>A soft, breathing light that rises from the paper behind your navigation dock.</small><div class="paper-light-control"><div class="paper-light-head"><label for="paper-light-intensity">LIGHT INTENSITY</label><output data-paper-glow-value>${paperGlow}%</output></div><input id="paper-light-intensity" class="paper-light-range" data-paper-glow type="range" min="0" max="100" step="1" value="${paperGlow}" style="--glow-level:${paperGlow}%" aria-label="Paper light intensity"><div class="paper-light-scale"><span>DIM</span><span>BRIGHT</span></div></div></article>
       <article class="destination-card account-card"><span>ACCOUNT & ACCESS</span><strong>${escapeHtml(accessIdentity?.displayName||"Pocket User")}</strong><small>${(accessIdentity?.role||"player").toUpperCase()} SESSION</small><button class="logout-button" data-signout>LOCK / SIGN OUT</button></article></main>`;
   }
   if(destination==="home")pageMarkup+=accessBufferMarkup("APP RELOAD");
   const backMarkup=destination==="home"?"":'<button type="button" class="page-back" data-page-back aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5 7.5 12l7 7M8 12h11"/></svg></button>';
   root.innerHTML = pageMarkup + backMarkup + navigationMarkup();
   applyTheme();
+  applyPaperGlow();
   root.querySelectorAll("[data-theme-choice]").forEach(button=>button.addEventListener("click",()=>setTheme(button.dataset.themeChoice)));
+  root.querySelector("[data-paper-glow]")?.addEventListener("input",event=>setPaperGlow(event.currentTarget.value));
   root.querySelectorAll("[data-subroute]").forEach(button=>button.addEventListener("click",()=>navigate(button.dataset.subroute)));
   root.querySelector("[data-page-back]")?.addEventListener("click",navigateBack);
   root.querySelector("[data-signout]")?.addEventListener("click",()=>void signOut());
