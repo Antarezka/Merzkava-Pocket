@@ -3,7 +3,14 @@
   "private": true,
   "version": "0.2.0",
   "type": "module",
-  "scripts": { "build": "vite build", "dev": "vite --host 0.0.0.0" },
-  "dependencies": { "animejs": "4.5.0" },
-  "devDependencies": { "vite": "6.4.1" }
+  "scripts": {
+    "build": "node scripts/copy-catalogs.mjs && vite build",
+    "dev": "vite --host 0.0.0.0"
+  },
+  "dependencies": {
+    "animejs": "4.5.0"
+  },
+  "devDependencies": {
+    "vite": "6.4.1"
+  }
 }
