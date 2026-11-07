@@ -510,3 +510,44 @@ Pending values must not be replaced with random constants in code. Keep them una
 14. Verify low-end Android performance and local save recovery on the target device.
 
 **Binding principle:** Pocket may accelerate waiting, but it must not skip eligibility, invent rewards, double-count transactions, or change the canon source of a mechanic.
+
+
+---
+
+## 14. Mandatory progression, HUD, mode, and catalogue dependencies
+
+This document is the time/formula authority. It does **not** replace the detailed character progression gates or content catalogues. The following companion specifications are mandatory and must be implemented together with this file:
+
+- [POCKET_PROGRESSION_AND_HUD.md](./POCKET_PROGRESSION_AND_HUD.md) — authoritative Pocket state/HUD contract for Awakening, Ring 1 vs Ring 2–9 prerequisites, Spirit Realm/Stage, Sync/bottleneck, Arcanist Focus, Grade 1–10 examination gates, HP, Satiety, Qi, and skills display.
+- [POCKET_GAMEPLAY_MODES_AND_CATALOGS.md](./POCKET_GAMEPLAY_MODES_AND_CATALOGS.md) — Hunting, Part-time Job, Socialize, Sparring, War Zone, Cultivation/Ring, Arcanistry/Workshop, Daily Life, and cross-mode continuity.
+- [catalogs/README.md](./catalogs/README.md) — required content catalogue index.
+- [catalogs/SPIRIT_BEAST_CATALOG.md](./catalogs/SPIRIT_BEAST_CATALOG.md) — Beast species/specimen, habitat, age, appraisal, ring-source and required-item data.
+- [catalogs/SKILL_AND_TECHNIQUE_CATALOG.md](./catalogs/SKILL_AND_TECHNIQUE_CATALOG.md) — Martial Soul abilities, Spirit Abilities, formal techniques, combat proficiency, artifact functions and life skills.
+- [catalogs/ARCANISTRY_CATALOG.md](./catalogs/ARCANISTRY_CATALOG.md) — Focus, Grade, examinations, Formation Engravers, materials, formulations and artifact records.
+
+### 14.1 Sequential Ring gate is not a timer-only unlock
+
+The cooldown table in §3 controls only the Pocket waiting-time gate. It is **not** the whole Ring eligibility rule.
+
+- Ring 1 requires completed and verified Martial Soul Awakening, a legitimately available/obtained physical Ring, and all applicable body/compatibility/absorption conditions. It has no previous-Ring, Realm bottleneck, or inter-Ring cooldown requirement.
+- Ring 2–9 are strictly sequential. Every preceding Ring must have been successfully absorbed and recorded. A visible empty slot or a completed cooldown does not allow a player to skip a Ring.
+- Ring 2–9 additionally require the correct Realm/Stage progression, Sync gap below 10 percentage points, `0 Day left`, a legitimate target Ring, the target Beast's mandatory item, suitable body condition/compatibility, and every other official gate.
+- If a gate fails, the absorption success chance is 0%. A timer reaching zero cannot start or complete the absorption by itself.
+- Ring 9 / Spirit Realm 9 is the maximum. There is no Ring 10.
+
+### 14.2 Arcanist Focus and Grade are different state fields
+
+- Focus has six teacher-assessed stages in order: Pemula, Initiate, Beginner, Ordinary, Ahli, Expert. Pocket practice timers are in §4; they do not automatically pass an assessment.
+- Passing Initiate makes the student eligible for the Apprentice Examination. It does not award Grade 1.
+- Official Arcanist Grade 1–10 is awarded only after registration, meeting the target Grade's prerequisites, sitting the recognized examination, and passing.
+- Grade 2–10 conditions, cohort caps, competitive ranking, personal-designed Formation Engraver and candidate-made artifact prerequisites remain in the progression/HUD specification and the Universe source.
+- Arcanist Grade and Focus must be shown separately in the HUD. Neither is inferred from Spirit Realm, Martial Soul rarity, time elapsed, or artifact ownership.
+
+### 14.3 Catalogues and game modes cannot fabricate content
+
+- Universe contains category/rule modules for Spirit Beasts but not a populated species catalogue in the audited source pin; Pocket must not create fake canonical species to fill the Bestiary.
+- Universe does not define a universal generic list of hundreds of abilities automatically unlocked per Spirit Realm. Each ability requires documented Martial Soul/Ring/Beast/formulation or teacher/technique/artifact provenance.
+- A War Zone exists only when a corresponding active World Event and valid regional/operational access exist.
+- Wages, Pocket Social Link numbers, crop yields, resource respawns, facility outputs, and Daily Login rewards require approved Pocket data when not defined by Universe.
+
+**No module may bypass these dependencies by using a placeholder result, generic Realm unlock, timer-only promotion, invented species, or unverified catalogue record.**
