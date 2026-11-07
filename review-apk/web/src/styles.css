@@ -43,6 +43,16 @@
 @media(prefers-reduced-motion:reduce){.dock-wrap:before{animation:none;transform:none;filter:blur(17px) brightness(1)}}
 /* The intensity lever uses the Pocket gold, paper and lime palette. */
 .paper-light-card{gap:8px}
+
+.visual-section{gap:0}
+.visual-section>.visual-setting{display:grid;gap:8px;padding:11px 0}
+.visual-section>.visual-setting:first-of-type{padding-top:5px}
+.visual-section>.visual-setting+.visual-setting{border-top:1px solid var(--line);margin-top:2px;padding-top:14px}
+.visual-setting>strong,.paper-light-heading>strong{font:500 16px var(--display);color:var(--paper)}
+.visual-setting .theme-options{margin-top:1px}
+.paper-light-heading{display:grid;gap:5px}
+.paper-light-heading>small{max-width:320px;color:var(--muted);font:10px/1.6 Georgia,serif}
+
 .paper-light-control{display:grid;gap:8px;margin-top:3px}
 .paper-light-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .paper-light-head label{color:var(--muted);font-size:8px;font-weight:700;letter-spacing:.15em}
