@@ -33,8 +33,10 @@ public final class PocketFloatingService extends Service {
     private View bubble;
     private View miniWindow;
     private static volatile boolean serviceRunning = false;
+    private static volatile boolean bubbleVisible = false;
 
     static boolean isRunning() { return serviceRunning; }
+    static boolean isBubbleVisible() { return bubbleVisible; }
 
     @Override public void onCreate() {
         super.onCreate();
@@ -155,9 +157,14 @@ public final class PocketFloatingService extends Service {
     }
 
     private void showBubble() {
-        if (bubble != null) return;
+        if (bubble != null && bubble.getParent() != null) {
+            bubbleVisible = true;
+            return;
+        }
+        bubbleVisible = false;
+        if (windowManager == null) windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+        if (windowManager == null) return;
         TelevisionBubble mark = new TelevisionBubble(this);
-        bubble = mark;
         WindowManager.LayoutParams params = overlayParams(dp(58), dp(58), Gravity.TOP | Gravity.END);
         params.x = dp(14);
         params.y = dp(150);
@@ -174,8 +181,10 @@ public final class PocketFloatingService extends Service {
                     int dx = (int) (event.getRawX() - downX);
                     int dy = (int) (event.getRawY() - downY);
                     if (Math.abs(dx) + Math.abs(dy) > dp(5)) moved = true;
-                    params.x = Math.max(0, startX - dx);
-                    params.y = Math.max(0, startY + dy);
+                    int maxX = Math.max(0, getResources().getDisplayMetrics().widthPixels - dp(58));
+                    int maxY = Math.max(0, getResources().getDisplayMetrics().heightPixels - dp(58));
+                    params.x = Math.max(0, Math.min(maxX, startX - dx));
+                    params.y = Math.max(0, Math.min(maxY, startY + dy));
                     try { windowManager.updateViewLayout(view, params); } catch (Exception ignored) {}
                     return true;
                 }
@@ -186,7 +195,24 @@ public final class PocketFloatingService extends Service {
                 return true;
             }
         });
-        try { windowManager.addView(mark, params); } catch (Exception ignored) { bubble = null; }
+        try {
+            windowManager.addView(mark, params);
+            bubble = mark;
+            bubbleVisible = true;
+        } catch (Exception error) {
+            bubble = null;
+            bubbleVisible = false;
+            android.util.Log.e("PocketFloating", "Could not attach the floating bubble overlay", error);
+        }
+    }
+
+    private void removeBubble() {
+        if (bubble != null && windowManager != null) {
+            try { if (bubble.getParent() != null) windowManager.removeView(bubble); }
+            catch (Exception error) { android.util.Log.w("PocketFloating", "Bubble removal failed", error); }
+        }
+        bubble = null;
+        bubbleVisible = false;
     }
 
     private void showMiniWindow() {
@@ -238,8 +264,9 @@ public final class PocketFloatingService extends Service {
     private int dp(float value) { return (int) (value * getResources().getDisplayMetrics().density + .5f); }
 
     @Override public void onDestroy() {
+        removeBubble();
         serviceRunning = false;
-        if (bubble != null) { try { windowManager.removeView(bubble); } catch (Exception ignored) {} bubble = null; }
+        bubbleVisible = false;
         removeMiniWindow();
         getSharedPreferences("merzkava-pocket-access", MODE_PRIVATE).edit().putBoolean("floating_service_running", false).apply();
         super.onDestroy();
