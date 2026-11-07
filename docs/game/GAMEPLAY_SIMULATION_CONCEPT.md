@@ -27,9 +27,9 @@ Do not add a virtual joystick or unrestricted walk-anywhere controller to Pocket
 2. **Small, satisfying progress.** Activities should be understandable and manageable in short visits, while time-based tasks can continue between visits.
 3. **A living presentation.** The world should feel worth looking at: ambient movement, changing light, weather or environmental details when supported, NPC presence, and visible activity changes.
 4. **A flexible life simulation.** Players may gather, produce, sell, store, build, work, study, cultivate, and develop social links through paths supported by Merzkava.
-5. **Real-time progression.** Construction, assigned work, production, recovery, and other approved timed processes use elapsed real-world time measured from the device, subject to time-integrity validation.
+5. **Real-time progression.** Construction, assigned work, production, recovery, and other approved timed processes use elapsed real-world time measured from the device, subject to time-integrity checks.
 6. **Offline-first gameplay.** The main game loop, local scenes, saved state, and already available activities do not require a continuous internet connection.
-7. **Online Daily Login.** Daily Login rewards require an internet connection so the service can verify the claim day, time zone, and eligibility.
+7. **Online Daily Login.** Daily Login rewards require an internet connection so the service can check the claim-day and accepted-time-zone Requirements.
 8. **Canon remains authoritative.** Merzkava Universe supplies established lore, geography, transport, currency, character systems, and organizations. Pocket-specific micro-economy and simulation rules must be defined separately without silently changing canon.
 
 ---
@@ -87,9 +87,9 @@ The isometric area remains the visual focus. The lower panel should provide cont
 
 ### Character quick-status HUD
 
-The gameplay view must also expose a compact character-status strip without taking over the isometric canvas. The persistent quick view shows **HP current/maximum**, **Satiety/100**, **Mortal or exact Spirit Realm + Stage (and Awakening state when relevant)**, **Arcanist Grade**, **Arcanist Focus**, and the five-denomination Wallet. Tapping the character strip opens the expanded character drawer with Martial Soul, Awakening record, Ring slots and requirements, Sync, Qi, injury, equipment, skills, employment, social records, and Arcanistry details.
+The gameplay view must also expose a compact character-status strip without taking over the isometric canvas. The persistent quick view shows **HP current/maximum**, **Satiety/100**, **Stamina before Ring 1 or Qi after Ring 1**, **Mortal or exact Spirit Realm + Stage (and Awakening state when relevant)**, **Arcanist Grade**, **Arcanist Focus**, and the five-denomination Wallet. Tapping the character strip opens the expanded character drawer with Martial Soul, Awakening record, Ring slots and requirements, Sync, Qi, injury, equipment, skills, employment, social records, and Arcanistry details.
 
-The exact states, values, and update rules are governed by [Pocket Progression and HUD](./POCKET_PROGRESSION_AND_HUD.md). The HUD is a view of validated state; it must never grant a Ring, Grade, Focus stage, ability, HP recovery, or other progression by animation or timer completion.
+The exact states, values, and update rules are governed by [Pocket Progression and HUD](./POCKET_PROGRESSION_AND_HUD.md). The HUD displays saved character state and Requirement states; it must never grant a Ring, Grade, Focus stage, ability, HP recovery, or other progression by animation or timer completion.
 
 
 ### Location panel
@@ -139,7 +139,7 @@ The normal Pocket loop is:
 3. **Render the area.** Display the isometric environment, available locations, current NPC presence, and visible activity.
 4. **Inspect a point of interest.** Tap a facility, NPC, resource, object, or activity marker.
 5. **Review the Location Panel.** Check Overview, People, and Activities.
-6. **Choose an action.** Validate requirements, time, tools, HP/Satiety, materials, access, and other relevant state.
+6. **Choose an action.** Check the action's Requirements: time, tools, HP/Satiety, Stamina/Qi, materials, location access, and all other relevant state.
 7. **Start or resolve the action.** Immediate actions resolve directly; timed actions create a saved job/process with a start time and expected completion condition.
 8. **Refresh the simulation.** Update the scene, player state, inventory, materials, wallet, schedule, and event state when appropriate.
 9. **Save locally.** Persist the result and any active timers.
@@ -157,7 +157,7 @@ OPEN LOCATION PANEL
     ↓
 CHOOSE AN AVAILABLE ACTION
     ↓
-VALIDATE COSTS, NEEDS, TIME & ACCESS
+CHECK REQUIREMENTS, COSTS, NEEDS, TIME & ACCESS
     ↓
 RESOLVE NOW OR START A TIMED PROCESS
     ↓
@@ -211,7 +211,7 @@ Facilities may have levels, capacity, unlock requirements, operating conditions,
 
 ### Work, learning, and life paths
 
-Pocket should support multiple ways to participate in Merzkava's world, where the relevant institution, location, eligibility, and canon allow it. Examples include:
+Pocket should support multiple ways to participate in Merzkava's world, where the relevant institution, location, Requirements, and canon allow it. Examples include:
 
 - Working as a market or port worker.
 - Apprenticing under an Arcanist or learning a specialist craft.
@@ -220,7 +220,7 @@ Pocket should support multiple ways to participate in Merzkava's world, where th
 - Seeking instruction or service through a clan or sect.
 - Working in logistics, trade, gathering, agriculture, workshops, or local services.
 
-These are different paths with their own requirements and progression. Pocket must not grant an Arcanist grade, Spirit Realm progress, institutional membership, techniques, or formal recognition merely because a timer completed. Canon eligibility and examination/teaching rules continue to apply.
+These are different paths with their own requirements and progression. Pocket must not grant an Arcanist grade, Spirit Realm progress, institutional membership, techniques, or formal recognition merely because a timer completed. Canon Requirements and examination/teaching rules continue to apply.
 
 ### Social links
 
@@ -333,7 +333,7 @@ This is an accounting correction, not an arbitrary punishment. Show the player a
 - Daily Login rewards must never be authorized solely by the device's editable clock.
 - Reconciliation must be idempotent: syncing the same records again must not subtract the same gains twice.
 - Use append-only or tamper-evident transaction records for grants, spending, consumption, construction, and reversals.
-- Validate process completion against the stored process definition and verified elapsed interval.
+- Check process completion against the stored process definition and trusted elapsed interval.
 - Keep the legitimate starting grant and verified transactions distinguishable from provisional offline gains.
 - If evidence is insufficient, mark the affected interval for review or keep the uncertain gains provisional; do not fabricate a precise penalty.
 - Avoid destructive full-save resets. Correct the smallest affected set of transactions and dependent state.
@@ -347,7 +347,7 @@ Daily Login is the specific online-connected feature. It provides time-gated rew
 ### Daily Login rules
 
 - The player must be online to verify and claim a Daily Login reward.
-- The server validates the claim against authoritative time and the player's accepted regional time-zone context.
+- The server checks the claim against authoritative time and the player's accepted regional time-zone context.
 - The daily reset follows the accepted local time zone for the player's current area, not an arbitrary time zone selected solely to claim another reward.
 - Each calendar day can be claimed only once under the accepted region's day boundary.
 - Reward values, streak rules, missed-day handling, and the complete reward table require a separate approved Daily Login specification. This document does not invent them.
@@ -359,8 +359,8 @@ Daily Login is tied to the region/time zone associated with the device's real ar
 1. On the first successful Daily Login synchronization, record the accepted time-zone ID and the region/area evidence available to the service.
 2. Keep that region/time-zone context locked for Daily Login.
 3. If the device reports a different region or time zone, mark it as a **pending relocation**. Do not immediately move the daily reset boundary.
-4. Accept the new area only after the device remains consistently in the new area for **24 continuous hours** and the relocation is validated during online synchronization.
-5. After validation, migrate the Daily Login time-zone context to the new area and continue using that area's local day boundary.
+4. Accept the new area only after the device remains consistently in the new area for **24 continuous hours** and the relocation is confirmed during online synchronization.
+5. After confirmation, migrate the Daily Login time-zone context to the new area and continue using that area's local day boundary.
 6. A manual clock or time-zone setting change, VPN change, or isolated location signal must not by itself prove that the player physically relocated.
 7. If the device's location/time-zone evidence is unavailable or contradictory, keep the existing lock and ask for a later online verification rather than granting an extra claim.
 
@@ -438,7 +438,7 @@ The simulation/data layer is responsible for:
 
 All runtime formulas and timer adaptations are governed by [Pocket Simulation Rules](./POCKET_SIMULATION_RULES.md).
 
-Character progression and the character-status HUD are governed by [Pocket Progression and HUD](./POCKET_PROGRESSION_AND_HUD.md). This is the required reference for Awakening, sequential Ring gates, Spirit Realm/Stage, Arcanist Focus/Grade, HP/Satiety/Qi presentation, and progression validation.
+Character progression and the character-status HUD are governed by [Pocket Progression and HUD](./POCKET_PROGRESSION_AND_HUD.md). This is the required reference for Awakening, sequential Ring gates, Spirit Realm/Stage, Arcanist Focus/Grade, HP/Satiety/Qi presentation, and progression Requirements.
 
 Gameplay modes and their shared state requirements are governed by [Pocket Gameplay Modes and Catalogues](./POCKET_GAMEPLAY_MODES_AND_CATALOGS.md). This defines the requirements for Hunting, Part-time Job, Socialize, Sparring, War Zone, Cultivation/Spirit Ring, Arcanistry/Workshop, and Daily Life.
 
@@ -465,12 +465,12 @@ Build the data, time, and interaction contracts before producing a large amount 
 | **06 — Scene data contract** | Define area, location, footprint, hotspot, object, resource node, layer and NPC metadata. | One test area can be described without hard-coding its contents into the interface. |
 | **07 — Isometric scene sample** | Render terrain, buildings, facilities, environment, and multiple interactive points. | Visual scale, depth order, footprints, and hit areas remain aligned. |
 | **08 — Location interactions** | Implement Overview, People, Activities and contextual Mode Hub actions. | Tapping a supported object opens the correct information and only valid actions. |
-| **09 — Core needs and first life loop** | Add HP/Satiety/injury, foraging, woodcutting, storage, and one approved resource loop. | Actions validate needs/tools, produce recorded outputs, and remain balanced. |
+| **09 — Core needs and first life loop** | Add HP/Satiety/injury, foraging, woodcutting, storage, and one approved resource loop. | Actions check the relevant Requirements, produce recorded outputs, and remain balanced. |
 | **10 — Micro-economy and facilities** | Add selling, material use, one Level 1 facility sample, construction/upgrade timers and ledger-based transactions. | Every cost, yield and completion has an explicit data rule and is saved once. |
 | **11 — Jobs, Arcanistry and Socialize** | Implement one data-backed job, one Focus/teacher assessment path, workshop sample, and evidence-based NPC interactions. | Job payment, Focus assessment, production, and relationship changes meet their own gates. |
 | **12 — Hunting, Skillbook and Sparring** | Implement a source-backed Beast encounter, hunt stages, Ring ownership/eligibility, sourced ability, and a controlled training example. | Hunt, combat, Ring absorption, technique learning and injury are not conflated. |
 | **13 — War Zone and persistent events** | Integrate active World Events, faction/operation access, objectives, supply and persistent consequences. | War Zone appears only for valid active events and reconciles changes to the shared world state. |
-| **14 — Daily Life, travel and World Events** | Connect schedules, NPC presence, farming/facilities, route validation, transport and conditional events to Pocket time. | Locations and world state evolve coherently without fabricated activities or unreachable destinations. |
+| **14 — Daily Life, travel and World Events** | Connect schedules, NPC presence, farming/facilities, route Requirements, transport and conditional events to Pocket time. | Locations and world state evolve coherently without fabricated activities or unreachable destinations. |
 | **15 — Daily Login, security and content hardening** | Add online claims, regional time-zone lock, trusted checkpoints, reconciliation, migration/recovery, and expanding content. | Clock changes cannot grant extra rewards or retain unearned gains; long offline sessions remain stable. |
 
 ### First production sample
