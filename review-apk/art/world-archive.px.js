@@ -1,74 +1,5 @@
 // Merzkava Pocket — World Archive Home Base asset source.
-// Compiled by Augusto PXL during the Android build. All names and visual styles are original to Pocket.
-const W = 22, H = 30;
-const DIRS = ["n","ne","e","se","s","sw","w","nw"];
-const STYLES = [
-  { id:"chibi", head:10, headH:9, torso:7, torsoH:6, robe:false, detail:0 },
-  { id:"classic", head:8, headH:7, torso:8, torsoH:8, robe:false, detail:1 },
-  { id:"slim", head:7, headH:7, torso:7, torsoH:9, robe:true, detail:1 },
-  { id:"ornate", head:8, headH:7, torso:9, torsoH:8, robe:true, detail:2 },
-  { id:"painterly", head:9, headH:8, torso:8, torsoH:8, robe:false, detail:3 }
-];
-const drawRect=(c,x,y,w,h,k)=>{for(let yy=y;yy<y+h;yy++)for(let xx=x;xx<x+w;xx++)c.px(xx,yy,k);};
-const oval=(c,cx,cy,rx,ry,k)=>{for(let y=-ry;y<=ry;y++)for(let x=-rx;x<=rx;x++)if(x*x/(rx*rx)+y*y/(ry*ry)<=1)c.px(cx+x,cy+y,k);};
-const drawLine=(c,x1,y1,x2,y2,k)=>{const n=Math.max(Math.abs(x2-x1),Math.abs(y2-y1),1);for(let i=0;i<=n;i++)c.px(Math.round(x1+(x2-x1)*i/n),Math.round(y1+(y2-y1)*i/n),k);};
-function drawCharacter(c,style,dir,move,frame=0){
-  const front=["s","se","sw"].includes(dir),back=["n","ne","nw"].includes(dir),side=!front&&!back;
-  const left=["w","nw","sw"].includes(dir),fx=x=>left?W-1-x:x;
-  const walking=move==="walk",step=walking?[0,1,2,1][frame%4]:0,bob=walking?[0,1,0,1][frame%4]:(frame%4===1?1:0);
-  const cx=10,headTop=2+bob,headW=style.head,headH=style.headH;
-  oval(c,10,28,5,1,"K");
-  const bodyY=headTop+headH,legTop=bodyY+style.torsoH+1,legShift=walking?(step===1?1:step===2?-1:0):0;
-  drawRect(c,fx(8+legShift),legTop,3,Math.max(2,27-legTop),"D");
-  drawRect(c,fx(12-legShift),legTop+(walking&&step===2?1:0),3,Math.max(2,27-legTop),"D");
-  drawRect(c,fx(7+legShift),26,4,2,"B");drawRect(c,fx(12-legShift),26,4,2,"B");
-  const tw=style.torso,tl=cx-Math.floor(tw/2);
-  drawRect(c,fx(tl-1),bodyY,tw+2,style.torsoH+1,"K");
-  drawRect(c,fx(tl),bodyY,tw,style.torsoH,"d");
-  drawRect(c,fx(tl+1),bodyY+1,Math.max(2,tw-2),Math.max(2,style.torsoH-2),"c");
-  drawRect(c,fx(tl+1),bodyY+1,1,Math.max(2,style.torsoH-2),"C");
-  const armY=bodyY+2+(walking&&step%2?1:0);
-  drawRect(c,fx(tl-2),armY,2,4,"K");drawRect(c,fx(tl-1),armY,1,3,"C");
-  drawRect(c,fx(tl+tw),armY,2,4,"K");drawRect(c,fx(tl+tw),armY,1,3,"c");
-  c.px(fx(tl-1),armY+4,"s");c.px(fx(tl+tw),armY+4,"s");
-  if(style.robe){
-    drawRect(c,fx(tl-1),bodyY+style.torsoH-1,tw+2,2,"D");
-    drawRect(c,fx(cx-1),bodyY+style.torsoH,2,2,"g");
-    drawLine(c,fx(cx-2),bodyY+style.torsoH+1,fx(cx-4),27,"d");
-    drawLine(c,fx(cx+2),bodyY+style.torsoH+1,fx(cx+4),27,"d");
-  }else{drawRect(c,fx(tl),bodyY+style.torsoH-1,tw,1,"D");c.px(fx(cx),bodyY+style.torsoH-1,"g");}
-  const cy=headTop+Math.floor(headH/2);
-  oval(c,cx,cy,Math.floor(headW/2)+1,Math.floor(headH/2)+1,"K");
-  oval(c,cx,cy,Math.floor(headW/2),Math.floor(headH/2),"s");
-  oval(c,cx-1,cy-2,Math.floor(headW/2),Math.max(2,Math.floor(headH/2)-1),"h");
-  drawRect(c,cx-Math.floor(headW/2),headTop+2,2,Math.max(2,headH-3),"h");
-  drawRect(c,cx+Math.floor(headW/2)-1,headTop+2,2,Math.max(2,headH-3),"h");
-  drawLine(c,cx-2,headTop+1,cx+2,headTop+1,"H");
-  if(front){c.px(fx(cx-2),cy+1,"K");c.px(fx(cx+2),cy+1,"K");}
-  else if(side)c.px(fx(left?cx-2:cx+2),cy+1,"K");
-  if(style.id==="ornate"){drawRect(c,fx(cx-1),headTop-1,3,2,"g");c.px(fx(cx),headTop-2,"G");}
-  if(style.id==="painterly"){c.px(fx(cx-3),headTop+3,"H");c.px(fx(cx+2),headTop+5,"h");c.px(fx(tl+2),bodyY+3,"C");c.px(fx(tl+tw-2),bodyY+5,"D");}
-  if(style.id==="slim"||style.id==="ornate")c.px(fx(cx),bodyY+2,"g");
-  if(style.detail>1){c.px(fx(tl+1),bodyY+5,"C");c.px(fx(tl+tw-2),bodyY+6,"d");}
-}
-const palettes={
-  chibi:{K:"#18201f",s:"#d69c7a",S:"#f4c9a6",h:"#382a2d",H:"#725044",c:"#496d62",C:"#88a88a",d:"#29443e",D:"#b08a55",B:"#54443b",g:"#ddbd72",G:"#f1df9b"},
-  classic:{K:"#17201f",s:"#bd8063",S:"#eab28d",h:"#302b30",H:"#66505a",c:"#46636f",C:"#7894a0",d:"#293c4c",D:"#c0a06a",B:"#493b34",g:"#d9bd83",G:"#f2d99e"},
-  slim:{K:"#182020",s:"#d7a27e",S:"#f0c5a0",h:"#26282d",H:"#5b5150",c:"#5d584c",C:"#a19372",d:"#39372f",D:"#c6a16a",B:"#423b35",g:"#c69c55",G:"#f0d18d"},
-  ornate:{K:"#171c20",s:"#d59b77",S:"#f3c39c",h:"#29232a",H:"#68505a",c:"#693e50",C:"#ac6877",d:"#3b293b",D:"#c7a36a",B:"#40363a",g:"#dcba70",G:"#f4dfab"},
-  painterly:{K:"#171c1b",s:"#c78e70",S:"#edbb98",h:"#332a26",H:"#8b6749",c:"#5b665b",C:"#a0a77c",d:"#35423d",D:"#c49b61",B:"#4c4036",g:"#dfbd76",G:"#f5e4aa"}
-};
-for(const style of STYLES){
-  pal(palettes[style.id]);
-  sprite("style_preview_"+style.id,{w:W,h:H,pivot:[10,28]},c=>drawCharacter(c,style,"s","idle",2));
-  for(const dir of DIRS){
-    anim(style.id+"_idle_"+dir,{w:W,h:H,frames:4,fps:3},c=>drawCharacter(c,style,dir,"idle",c.frame));
-    anim(style.id+"_walk_"+dir,{w:W,h:H,frames:4,fps:8},c=>drawCharacter(c,style,dir,"walk",c.frame));
-  }
-}
-pal({K:"#18221f",g:"#5b7956",G:"#7d9869",L:"#a9b58a",d:"#806f50",D:"#a18c65",w:"#2d7180",W:"#3b93a0",B:"#74bec0",F:"#b3d9c9",s:"#b8a47a",S:"#d6c397",r:"#6a5847",R:"#947757",h:"#31453d",H:"#49664f",y:"#dbc88e",Y:"#f0dfaa"});
-// Merzkava Pocket — World Archive Home Base asset source.
- // The five selectable character families use visibly distinct silhouettes and original Merzkava-inspired cultivation clothing.
+// The five selectable character families use visibly distinct silhouettes and original Merzkava-inspired cultivation clothing.
 const W=32,H=42;
 const DIRS=["n","ne","e","se","s","sw","w","nw"];
 const STYLES=[
@@ -85,9 +16,8 @@ function drawCharacter(c,style,dir,move,frame=0){
  const front=["s","se","sw"].includes(dir),back=["n","ne","nw"].includes(dir),side=!front&&!back,left=["w","nw","sw"].includes(dir);
  const mx=x=>left?W-1-x:x,walk=move==="walk",phase=[0,1,2,1][frame%4],bob=walk?[0,1,0,1][frame%4]:(frame===1?1:0);
  const cx=15,headTop=2+bob,headH=style.id==="chibi"?12:style.id==="painterly"?10:9,headW=style.head;
- const bodyTop=headTop+headH-1,feetY=39,legTop=style.id==="chibi"?31:style.id==="slim"?31:30,shift=walk?(phase===1?1:phase===2?-1:0):0;
+ const bodyTop=headTop+headH-1,legTop=style.id==="chibi"?31:style.id==="slim"?31:30,shift=walk?(phase===1?1:phase===2?-1:0):0;
  oval(c,15,40,7,1,"K");
- // Distinct lower-body proportions and footwear, rather than recolouring one shared body.
  if(style.id==="chibi"){
   rect(c,mx(10+shift),legTop,4,6,"K");rect(c,mx(18-shift),legTop,4,6,"K");
   rect(c,mx(9+shift),37,6,3,"B");rect(c,mx(18-shift),37,6,3,"B");
@@ -142,11 +72,10 @@ function drawCharacter(c,style,dir,move,frame=0){
   line(c,mx(cx+7),bodyTop+13,mx(cx+12),37,"d");
   rect(c,mx(cx-2),bodyTop+14,5,2,"G");
  }
- // Neck and layered crossed collar are shared as a world clothing language, not a modern shirt.
+ // Crossed inner collar and waist sash keep every silhouette within the cultivation setting.
  rect(c,mx(cx-2),bodyTop-1,4,4,"s");
  line(c,mx(cx-4),bodyTop,mx(cx),bodyTop+5,"S");
  line(c,mx(cx+4),bodyTop,mx(cx),bodyTop+5,"G");
- // Face and distinct hair masses.
  const cy=headTop+Math.floor(headH/2);
  oval(c,cx,cy,Math.floor(headW/2)+1,Math.floor(headH/2)+1,"K");
  oval(c,cx,cy,Math.floor(headW/2),Math.floor(headH/2),"s");
@@ -174,8 +103,7 @@ function drawCharacter(c,style,dir,move,frame=0){
   if(style.id==="chibi"){c.px(mx(cx-4),cy+4,"H");c.px(mx(cx+4),cy+4,"H");}
   else{c.px(mx(cx-3),cy+4,"H");c.px(mx(cx+3),cy+4,"H");}
  }else if(side)c.px(mx(left?cx-3:cx+3),cy+2,"K");
- // Cloth seams, embroidery and accessories make silhouettes readable at small map scale.
- if(style.id==="classic"||style.id==="slim"){line(c,mx(cx-2),bodyTop+5,mx(cx-5),bodyTop+11,"D");}
+ if(style.id==="classic"||style.id==="slim")line(c,mx(cx-2),bodyTop+5,mx(cx-5),bodyTop+11,"D");
  if(style.id==="ornate"){rect(c,mx(cx-1),bodyTop+5,3,2,"G");c.px(mx(cx),bodyTop+8,"S");}
  if(style.id==="painterly"){c.px(mx(cx-5),bodyTop+5,"G");c.px(mx(cx+5),bodyTop+7,"S");c.px(mx(cx-3),bodyTop+11,"C");}
  if(walk){const armY=bodyTop+4+(phase%2);c.px(mx(cx-9),armY,"S");c.px(mx(cx+9),armY+1,"s");}

@@ -163,11 +163,10 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
       "<div class='world-top-actions'><button type='button' data-world-appearance>CHARACTER</button><button type='button' data-world-build>BUILD</button></div></header>"+
       "<div class='world-statusline'><span>PRIVATE HOMESTEAD</span><span data-world-owned>3 STARTER FACILITIES</span><span>LOCAL SAVE</span></div>"+
       "<div class='world-viewport' data-world-viewport></div>"+
-      "<div class='world-toolbar'>"+
-        "<button class='world-tool-button is-active' data-world-action='places'><span class='tool-symbol'>⌂</span>PLACES</button>"+
-        "<button class='world-tool-button' data-world-action='build'><span class='tool-symbol'>＋</span>BUILD</button>"+
-        "<button class='world-tool-button' data-world-action='appearance'><span class='tool-symbol'>◇</span>STYLE</button>"+
-        "<button class='world-tool-button' data-world-action='manual'><span class='tool-symbol'>✥</span>MOVE</button>"+
+      "<div class='world-toolbar' aria-label='World actions'>"+
+        "<button class='world-tool-button is-active' data-world-action='places' aria-label='Places'><span class='tool-symbol'>⌂</span><small>PLACES</small></button>"+
+        "<button class='world-tool-button' data-world-action='build' aria-label='Build'><span class='tool-symbol'>＋</span><small>BUILD</small></button>"+
+        "<button class='world-tool-button' data-world-action='appearance' aria-label='Character style'><span class='tool-symbol'>◇</span><small>STYLE</small></button>"+
       "</div>"+
       "<section class='world-drawer' data-world-drawer><div class='world-drawer-head'><strong data-world-heading>YOUR HOMESTEAD</strong><button type='button' data-world-close aria-label='Collapse panel'>−</button></div>"+
       "<div data-world-panel></div><p class='world-feedback' data-world-feedback>"+esc(feedback)+"</p></section>"+

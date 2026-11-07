@@ -113,8 +113,10 @@ final class PocketFloatingWindow {
         int defaultHeight = Math.min(dp(720), Math.max(dp(360), Math.round(screenHeightDp * density * .70f)));
         windowWidth = activity.getPreferences(Context.MODE_PRIVATE).getInt("floating_width", defaultWidth);
         windowHeight = activity.getPreferences(Context.MODE_PRIVATE).getInt("floating_height", defaultHeight);
-        windowWidth = Math.max(dp(260), Math.min(dp(520), windowWidth));
-        windowHeight = Math.max(dp(320), Math.min(dp(760), windowHeight));
+        int screenWidthPx=activity.getResources().getDisplayMetrics().widthPixels;
+        int screenHeightPx=activity.getResources().getDisplayMetrics().heightPixels;
+        windowWidth=Math.max(dp(240),Math.min(Math.min(dp(520),screenWidthPx-dp(16)),windowWidth));
+        windowHeight=Math.max(dp(280),Math.min(Math.min(dp(760),screenHeightPx-dp(32)),windowHeight));
 
         root = new LinearLayout(activity);
         root.setOrientation(LinearLayout.VERTICAL);
