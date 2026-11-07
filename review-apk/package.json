@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/copy-catalogs.mjs && vite build",
-    "dev": "vite --host 0.0.0.0"
+    "dev": "vite --host 0.0.0.0",
+    "predev": "node scripts/copy-catalogs.mjs"
   },
   "dependencies": {
     "animejs": "4.5.0"
