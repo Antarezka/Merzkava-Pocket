@@ -3,6 +3,9 @@ on:
   push:
     branches: [main]
     paths: ["review-apk/**", ".github/workflows/pocket-design-review-apk.yml"]
+  pull_request:
+    branches: [main]
+    paths: ["review-apk/**", ".github/workflows/pocket-design-review-apk.yml"]
   workflow_dispatch:
 permissions:
   contents: read
