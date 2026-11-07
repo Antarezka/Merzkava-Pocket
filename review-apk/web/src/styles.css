@@ -155,3 +155,24 @@
 .home-base-host{width:100%;height:100dvh;overflow:hidden}
 .home-base-host .page-back{top:calc(env(safe-area-inset-top) + 7px);left:10px;z-index:40;width:32px;height:32px}
 .home-base-host .home-base-page{padding-top:calc(env(safe-area-inset-top) + 7px);padding-left:47px}
+
+/* CRT contact response: restrained phosphor flicker and warm light spill on the wall. */
+.cord-wall-glow{position:absolute;z-index:0;width:212px;height:164px;pointer-events:none;opacity:0;filter:blur(7px);background:radial-gradient(ellipse at 48% 45%,rgba(232,205,143,.18) 0%,rgba(198,164,105,.10) 34%,rgba(131,153,112,.045) 55%,transparent 76%);transition:opacity .22s ease}
+.cord-wall-glow:before{content:"";position:absolute;inset:18px 24px 4px;border-radius:50%;background:radial-gradient(ellipse,rgba(233,204,145,.16),rgba(198,164,105,.06) 42%,transparent 73%);filter:blur(12px)}
+.cord-wall-glow:after{content:"";position:absolute;left:36px;right:26px;top:34px;height:72px;border-radius:50%;background:rgba(5,9,8,.18);filter:blur(19px);transform:translate(8px,10px)}
+.pull-cord-zone.is-touched .cord-wall-glow{opacity:1}
+.cord-handle{transition:filter .18s ease,transform .18s ease}
+.cord-handle.is-touched{filter:drop-shadow(0 0 5px rgba(237,207,145,.36)) drop-shadow(0 0 15px rgba(202,168,104,.22)) drop-shadow(0 8px 8px #0009)}
+.tv-case b{overflow:hidden}
+.tv-case b:before{content:"";position:absolute;inset:1px;border-radius:3px;background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(225,221,192,.22) 2px 3px),repeating-linear-gradient(90deg,rgba(222,216,185,.0) 0 3px,rgba(222,216,185,.18) 3px 4px);mix-blend-mode:screen;opacity:0}
+.tv-case b:after{content:"";position:absolute;left:-3px;right:-3px;top:45%;height:2px;background:rgba(242,226,184,.8);box-shadow:0 0 5px rgba(236,213,160,.8);opacity:0}
+.cord-handle.is-touched .tv-case b{box-shadow:inset 0 0 7px rgba(198,219,172,.36),0 0 4px rgba(236,215,166,.5),0 0 10px rgba(214,184,122,.24)}
+.cord-handle.is-touched .tv-case b:before{opacity:.78;animation:crt-noise-flicker .105s steps(2,end) infinite}
+.cord-handle.is-touched .tv-case b:after{opacity:.86;animation:crt-scan-flicker .17s steps(2,end) infinite}
+.cord-instruction{z-index:2;opacity:0;visibility:hidden;transform:translateY(-4px);transition:opacity .16s ease,transform .16s ease,visibility .16s ease}
+.cord-instruction.is-visible{opacity:1;visibility:visible;transform:translateY(0)}
+@keyframes crt-noise-flicker{0%{transform:translate(0,0);filter:brightness(.8)}25%{transform:translate(1px,-1px);filter:brightness(1.4)}50%{transform:translate(-1px,1px);filter:brightness(.9)}75%{transform:translate(1px,0);filter:brightness(1.25)}100%{transform:translate(0,0);filter:brightness(.85)}}
+@keyframes crt-scan-flicker{0%{top:18%;opacity:.25}35%{top:65%;opacity:.85}65%{top:36%;opacity:.4}100%{top:78%;opacity:.7}}
+:root[data-theme="light"] .cord-wall-glow{background:radial-gradient(ellipse at 48% 45%,rgba(196,164,105,.11),rgba(198,164,105,.045) 40%,transparent 75%)}
+:root[data-theme="light"] .cord-handle.is-touched{filter:drop-shadow(0 0 5px rgba(198,164,105,.2)) drop-shadow(0 6px 7px #0005)}
+@media(prefers-reduced-motion:reduce){.cord-handle.is-touched .tv-case b:before,.cord-handle.is-touched .tv-case b:after{animation:none}.cord-wall-glow,.cord-instruction{transition:none}}
