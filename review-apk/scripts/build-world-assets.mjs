@@ -15,7 +15,7 @@ try{
   run("git",["-C",pxlRoot,"fetch","--depth","1","origin",PXL_REV]);
   run("git",["-C",pxlRoot,"checkout","--detach",PXL_REV]);
   mkdirSync(vendor,{recursive:true});
-  for(const name of ["traveler.px.js","crew.px.js","dress.px.js","miko.px.js"]){
+  for(const name of ["traveler.px.js","crew.px.js","dress.px.js"]){
     copyFileSync(resolve(pxlRoot,"lib/characters",name),resolve(vendor,name));
   }
   run(process.execPath,[resolve(pxlRoot,"bin/pxl.js"),"build",resolve(root,"art/world-archive.px.js"),"--out",out,"--no-preview"]);
