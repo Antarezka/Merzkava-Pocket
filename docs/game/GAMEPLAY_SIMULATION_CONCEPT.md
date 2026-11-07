@@ -448,6 +448,9 @@ The content data schemas and approval gates are indexed in [Pocket Content Catal
 - [Spirit Beast Catalogue](./catalogs/SPIRIT_BEAST_CATALOG.md)
 - [Skill and Technique Catalogue](./catalogs/SKILL_AND_TECHNIQUE_CATALOG.md)
 - [Arcanistry Catalogue](./catalogs/ARCANISTRY_CATALOG.md)
+- [Integrated Economy Catalogue — 1,000 items, 200 facilities, rates and production](./catalogs/POCKET_ECONOMY_CATALOG.md)
+- [Structured items 001–500](./catalogs/POCKET_ECONOMY_ITEMS_001_500.json) and [items 501–1000](./catalogs/POCKET_ECONOMY_ITEMS_501_1000.json)
+- [200 facility definitions](./catalogs/POCKET_FACILITIES_200.json) and [production recipes/crop links](./catalogs/POCKET_PRODUCTION_RECIPES.json)
 
 These documents are jointly mandatory. The concept describes the product and presentation; it does not override the state, gates, formula, or provenance rules. The current Android/WebView pages are navigation scaffolding only; gameplay HUD, isometric runtime, database state, mode interactions, and catalog-backed progression are not implemented by the shell placeholders.
 
