@@ -1,3 +1,6 @@
+// Merzkava Pocket — PXL pixel-art source for all map and character artwork.
+include("./.pxl-lib/characters/crew.px.js", { as: "crew" })
+
 const DIRS=["n","ne","e","se","s","sw","w","nw"];
 // Recolor the authored figures into Merzkava's cultivation wardrobe palettes.
 // Each figure retains its own modeled head, garment construction and silhouette.
