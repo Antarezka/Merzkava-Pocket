@@ -1,0 +1,65 @@
+name: Merzkava Pocket Game Build
+
+on:
+  workflow_run:
+    workflows: ["Pocket PXL pixel-art assets"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  build-pocket-game:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'feat/pxl-character-runtime-review-2026-11-08'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Pocket game branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/pxl-character-runtime-review-2026-11-08
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.18.0"
+      - name: Install Pocket game dependencies
+        working-directory: review-apk
+        run: npm install --no-audit --no-fund
+      - name: Build Pocket game
+        working-directory: review-apk
+        run: npm run build
+      - name: Verify game bundle and asset format
+        working-directory: review-apk
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s dist/index.html
+          test -s dist/game-assets/pxl/sprites/tile_grass_0.png
+          test -s dist/game-assets/pxl/anims/realm_tr_idle_s.png
+          test -s dist/game-assets/pxl/anims/realm_sai_idle_s.png
+          test -s dist/game-assets/pxl/anims/realm_dkb_idle_s.png
+          if find dist/game-assets -type f -name '*.svg' | grep -q .; then
+            echo "::error::SVG game artwork found in the built asset output."
+            exit 1
+          fi
+          if grep -R -n 'game-assets/hd/.*\.svg' web/src; then
+            echo "::error::Old SVG game-asset runtime reference found."
+            exit 1
+          fi
+          echo "Pocket Phaser 4 game bundle and PXL PNG assets verified."
+      - name: Package Pocket game bundle
+        working-directory: review-apk
+        shell: bash
+        run: |
+          set -euo pipefail
+          HASH="$(git rev-parse --short=7 "$GITHUB_SHA")"
+          ARTIFACT_NAME="Merzkava-Pocket-Game-Build-${GITHUB_RUN_NUMBER}-${HASH}"
+          echo "POCKET_ARTIFACT_NAME=$ARTIFACT_NAME" >> "$GITHUB_ENV"
+          zip -qr "$ARTIFACT_NAME.zip" dist
+          ls -lh "$ARTIFACT_NAME.zip"
+      - name: Upload Pocket game build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.POCKET_ARTIFACT_NAME }}
+          path: review-apk/${{ env.POCKET_ARTIFACT_NAME }}.zip
+          if-no-files-found: error
+          retention-days: 30
