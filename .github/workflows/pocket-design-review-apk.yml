@@ -48,12 +48,10 @@ jobs:
       - name: Prepare persistent Pocket signing key
         shell: bash
         env:
-          POCKET_STORE_PASSWORD: ${{ secrets.POCKET_STORE_PASSWORD }}
-          POCKET_KEY_PASSWORD: ${{ secrets.POCKET_KEY_PASSWORD }}
-          POCKET_KEYSTORE_ENCRYPTION_PASSWORD: ${{ secrets.POCKET_KEYSTORE_ENCRYPTION_PASSWORD }}
+          POCKET_SIGNING_PASSWORD: ${{ secrets.POCKET_SIGNING_PASSWORD }}
         run: |
           set -euo pipefail
-          if [[ -z "$POCKET_STORE_PASSWORD" || -z "$POCKET_KEY_PASSWORD" || -z "$POCKET_KEYSTORE_ENCRYPTION_PASSWORD" ]]; then
+          if [[ -z "$POCKET_SIGNING_PASSWORD" || -z "$POCKET_SIGNING_PASSWORD" || -z "$POCKET_SIGNING_PASSWORD" ]]; then
             echo "::error::Pocket signing secrets are incomplete. Add POCKET_STORE_PASSWORD, POCKET_KEY_PASSWORD, and POCKET_KEYSTORE_ENCRYPTION_PASSWORD."
             exit 1
           fi
@@ -64,12 +62,12 @@ jobs:
           PASSPHRASE_FILE="$RUNNER_TEMP/pocket-keystore-passphrase"
           KEYSTORE_FILE="$RUNNER_TEMP/merzkava-pocket-upload.jks"
           umask 077
-          printf '%s' "$POCKET_KEYSTORE_ENCRYPTION_PASSWORD" > "$PASSPHRASE_FILE"
+          printf '%s' "$POCKET_SIGNING_PASSWORD" > "$PASSPHRASE_FILE"
           gpg --batch --yes --pinentry-mode loopback --passphrase-file "$PASSPHRASE_FILE" --decrypt --output "$KEYSTORE_FILE" "signing/merzkava-pocket-upload.jks.gpg"
           rm -f "$PASSPHRASE_FILE"
           test -s "$KEYSTORE_FILE"
-          keytool -list -keystore "$KEYSTORE_FILE" -storetype JKS -storepass "$POCKET_STORE_PASSWORD" -alias "merzkava-pocket-upload" >/dev/null
-          keytool -certreq -alias "merzkava-pocket-upload" -keystore "$KEYSTORE_FILE" -storetype JKS -storepass "$POCKET_STORE_PASSWORD" -keypass "$POCKET_KEY_PASSWORD" -file "$RUNNER_TEMP/pocket-signing-check.csr" >/dev/null 2>&1
+          keytool -list -keystore "$KEYSTORE_FILE" -storetype JKS -storepass "$POCKET_SIGNING_PASSWORD" -alias "merzkava-pocket-upload" >/dev/null
+          keytool -certreq -alias "merzkava-pocket-upload" -keystore "$KEYSTORE_FILE" -storetype JKS -storepass "$POCKET_SIGNING_PASSWORD" -keypass "$POCKET_SIGNING_PASSWORD" -file "$RUNNER_TEMP/pocket-signing-check.csr" >/dev/null 2>&1
           rm -f "$RUNNER_TEMP/pocket-signing-check.csr"
           {
             echo "POCKET_KEYSTORE_PATH=$KEYSTORE_FILE"
@@ -78,8 +76,7 @@ jobs:
       - name: Build Android APK
         working-directory: review-apk
         env:
-          POCKET_STORE_PASSWORD: ${{ secrets.POCKET_STORE_PASSWORD }}
-          POCKET_KEY_PASSWORD: ${{ secrets.POCKET_KEY_PASSWORD }}
+          POCKET_SIGNING_PASSWORD: ${{ secrets.POCKET_SIGNING_PASSWORD }}
         run: gradle --no-daemon :app:assembleDebug -PpocketVersion="$POCKET_VERSION" -PpocketVersionCode="$((10000 + GITHUB_RUN_NUMBER))"
       - name: Verify APK package and signature
         run: |
