@@ -761,6 +761,8 @@ function renderGameOverview(){
       <button type="button" data-game-route="game-modes"><span>02</span><b>Mode Hub</b><small>Hunting, work, training and more</small><i>↗</i></button>
       <button type="button" data-game-route="game-inventory"><span>03</span><b>Inventory</b><small>Items, tools and materials</small><i>↗</i></button>
       <button type="button" data-game-route="game-facilities"><span>04</span><b>Facilities</b><small>Construction and production</small><i>↗</i></button>
+      <button type="button" data-game-route="game-bestiary"><span>05</span><b>Field Notes</b><small>Bestiary and discoveries</small><i>↗</i></button>
+      <button type="button" data-game-route="game-skillbook"><span>06</span><b>Skillbook</b><small>Abilities and techniques</small><i>↗</i></button>
     </div>
     <div class="game-section-heading"><div><span>ACTIVITY MODES</span><h2>Life in the world</h2></div><button type="button" data-game-route="game-modes">ALL 8 MODES ↗</button></div>
     <div class="mode-grid mode-grid-compact">\${["daily-life","jobs","socialize","cultivation"].map(modeCard).join("")}</div>
@@ -822,13 +824,13 @@ function renderBestiaryPage(){
   return `<section class="game-page-intro"><span class="game-overline">GAME / FIELD NOTES</span><h1>Bestiary<br><em>& discoveries.</em></h1><p>A character's discovered knowledge—not an omniscient copy of every world record.</p></section>
   <div class="library-count"><b>0</b><span>VERIFIED POCKET SPECIES RECORDS</span><small>Catalogue structure is ready; no species-by-species data has been imported.</small></div>
   <section class="game-panel"><div class="game-panel-heading"><span>BEAST CLASSIFICATION</span><small>UNIVERSE CATEGORIES</small></div><div class="category-list">\${["Ordinary Beast","Spirit Beast","Supreme Beast","Demonic Beast","Heavenly Beast"].map((x,i)=>`<div><i>0\${i+1}</i><b>\${x}</b><small>NO VERIFIED SPECIES ENTRY</small></div>`).join("")}</div></section>
-  <section class="game-notice"><b>DISCOVERY STAYS PERSONAL</b><p>Rumor, tracks, sighting, identification, appraisal, defeat and Ring custody are separate knowledge states. Hidden age, abilities and loot do not appear before a valid discovery.</p></section>`;
+  <section class="game-notice"><b>DISCOVERY STAYS PERSONAL</b><p>Rumor, tracks, sighting, identification, appraisal, defeat and Ring custody are separate knowledge states. Hidden age, abilities and loot do not appear before a valid discovery.</p></section><div class="game-detail-actions"><button type="button" class="game-secondary" data-game-route="game-skillbook">OPEN SKILLBOOK ↗</button><button type="button" class="game-primary" data-game-route="game-modes">MODE HUB <b>↗</b></button></div>`;
 }
 function renderSkillbookPage(){
   return `<section class="game-page-intro"><span class="game-overline">GAME / SKILLBOOK</span><h1>Knowledge<br><em>& techniques.</em></h1><p>Every ability keeps its source, character compatibility, Requirements, proficiency and verified effects.</p></section>
   <div class="library-count"><b>0</b><span>UNIVERSAL AUTO-UNLOCK LISTS</span><small>Personal abilities are added only from verified Ring, Martial Soul, teaching, combat or artifact provenance.</small></div>
   <section class="game-panel"><div class="game-panel-heading"><span>ABILITY FAMILIES</span><small>LIBRARY STRUCTURE</small></div><div class="category-list">\${["Martial Soul","Spirit Ring 1–9","Formal Techniques","Combat Training","Arcanistry & Formulations","Artifact Functions","Profession / Life Skills"].map((x,i)=>`<div><i>0\${i+1}</i><b>\${x}</b><small>PERSONAL RECORD NOT LOADED</small></div>`).join("")}</div></section>
-  <section class="game-notice"><b>NO GENERIC SKILL TREE</b><p>Realm number, Ring slot, rarity or attendance alone does not grant an ability. Draft entries cannot be equipped or used.</p></section>`;
+  <section class="game-notice"><b>NO GENERIC SKILL TREE</b><p>Realm number, Ring slot, rarity or attendance alone does not grant an ability. Draft entries cannot be equipped or used.</p></section><div class="game-detail-actions"><button type="button" class="game-secondary" data-game-route="game-bestiary">← BESTIARY</button><button type="button" class="game-primary" data-game-route="game-character">CHARACTER <b>↗</b></button></div>`;
 }
 function renderFacilitiesPage(){
   const facilities=[
@@ -920,6 +922,9 @@ function renderPage(destination, depth="") {
   const page=root.querySelector(".home-stage,.page-stage");
   if(!reducedMotion()&&page)animate(page,{opacity:[0,1],translateY:[8,0],duration:420,ease:"outCubic"});
   mountMenu();
+  if(GAME_ROUTES.has(destination)&&!reducedMotion()){
+    root.querySelectorAll(".game-reveal").forEach((item,index)=>animate(item,{opacity:[0,1],translateY:[13,0],duration:390,delay:45+Math.min(index,8)*48,ease:"outCubic"}));
+  }
 }
 
 function navigationMarkup() {
