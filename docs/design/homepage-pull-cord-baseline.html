@@ -15,8 +15,8 @@ header{height:57px;padding:0 15px;display:flex;align-items:center;justify-conten
 .tools{display:flex;gap:7px}.tool{width:28px;height:28px;border:1px solid #4a5549;border-radius:50%;display:grid;place-items:center;color:var(--lime);background:#202823}
 .pull-cord{position:absolute;z-index:12;left:70px;top:0;width:27px;height:125px;display:flex;align-items:center;flex-direction:column;filter:drop-shadow(0 2px 3px #0008)}
 .anchor{height:9px;width:13px;border:1px solid var(--lime);border-radius:0 0 5px 5px;background:var(--ink);box-shadow:0 0 7px #effe5933}
-.string{width:2px;flex:1;background:linear-gradient(90deg,var(--slate),var(--lime) 50%,var(--slate));box-shadow:0 0 5px #effe5933}
-.handle{height:24px;width:24px;border:1px solid var(--gold);border-radius:50%;background:radial-gradient(circle at 35% 30%,var(--lime),#8b873b 65%,#30352b);display:grid;place-items:center;color:var(--ink);cursor:pointer;box-shadow:0 0 0 3px var(--ink),0 0 0 4px var(--slate)}
+.string{width:2px;flex:1;background:linear-gradient(90deg,var(--slate),var(--lime) 50%,var(--slate));box-shadow:0 0 5px #effe5933;transform-origin:top;transition:transform .28s ease}
+.handle{height:24px;width:24px;border:1px solid var(--gold);border-radius:50%;background:radial-gradient(circle at 35% 30%,var(--lime),#8b873b 65%,#30352b);display:grid;place-items:center;color:var(--ink);cursor:grab;touch-action:none;user-select:none;box-shadow:0 0 0 3px var(--ink),0 0 0 4px var(--slate);transition:transform .28s ease}
 .cord-label{font-size:7px;letter-spacing:.5px;color:var(--lime);margin-top:7px;white-space:nowrap}
 main{padding:21px 16px}.kicker{font-size:9px;letter-spacing:2px;color:var(--lime);margin-left:26px}
 h1{font:600 28px Georgia,serif;margin:8px 0}.sub{font-size:11px;color:#aeb5aa}
@@ -45,7 +45,7 @@ h1{font:600 28px Georgia,serif;margin:8px 0}.sub{font-size:11px;color:#aeb5aa}
 <body>
 <div class="phone" id="phone">
  <div class="status"><span>9:41</span><span>◈　⌁　▰</span></div>
- <div class="pull-cord"><div class="anchor"></div><div class="string"></div><button class="handle" id="toggle" aria-label="Toggle navigation">✦</button><div class="cord-label" id="label">PULL CORD</div></div>
+ <div class="pull-cord"><div class="anchor"></div><div class="string" id="string"></div><button class="handle" id="toggle" aria-label="Pull to toggle navigation">✦</button><div class="cord-label" id="label">PULL A LITTLE</div></div>
  <header><div class="brand">MERZKAVA POCKET</div><div class="tools"><div class="tool">⧉</div><div class="tool">−</div><div class="tool">⟳</div></div></header>
  <main>
   <div class="kicker">YOUR WORLD AWAITS</div><h1>Welcome back.</h1><div class="sub">Your journey through Merzkava continues.</div>
@@ -61,8 +61,13 @@ h1{font:600 28px Georgia,serif;margin:8px 0}.sub{font-size:11px;color:#aeb5aa}
  </div><div class="dock-foot">MERZKAVA · NAVIGATION</div></nav></div>
 </div>
 <script>
-const phone=document.getElementById('phone'),toggle=document.getElementById('toggle'),label=document.getElementById('label');
-toggle.addEventListener('click',()=>{const folded=phone.classList.toggle('folded');label.textContent=folded?'PULL TO REVEAL':'PULL CORD'});
+const phone=document.getElementById('phone'),toggle=document.getElementById('toggle'),label=document.getElementById('label'),string=document.getElementById('string');
+let pointerStart=0,pullDistance=0,pulling=false;
+const resetCord=()=>{toggle.style.transform='translateY(0)';string.style.transform='scaleY(1)';label.style.transform='translateY(0)';pullDistance=0;};
+toggle.addEventListener('pointerdown',event=>{if(pulling)return;pulling=true;pointerStart=event.clientY;pullDistance=0;toggle.setPointerCapture(event.pointerId);label.textContent='PULL DOWN A LITTLE';});
+toggle.addEventListener('pointermove',event=>{if(!pulling)return;pullDistance=Math.max(0,Math.min(90,event.clientY-pointerStart));toggle.style.transform='translateY('+pullDistance+'px)';string.style.transform='scaleY('+(1+pullDistance/83)+')';label.style.transform='translateY('+pullDistance+'px)';label.textContent=pullDistance>=42?'RELEASE TO TOGGLE':'PULL DOWN A LITTLE';});
+const releaseCord=event=>{if(!pulling)return;pulling=false;if(pullDistance>=42){const folded=phone.classList.toggle('folded');label.textContent=folded?'PULL TO REVEAL':'PULL A LITTLE';}else label.textContent='PULL A LITTLE';resetCord();};
+toggle.addEventListener('pointerup',releaseCord);toggle.addEventListener('pointercancel',event=>{pulling=false;resetCord();label.textContent='PULL A LITTLE';});
 document.querySelectorAll('.item').forEach(item=>item.addEventListener('click',()=>{document.querySelectorAll('.item').forEach(x=>x.classList.remove('active'));item.classList.add('active')}));
 </script>
 </body>
