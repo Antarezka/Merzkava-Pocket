@@ -8,7 +8,7 @@ const CHARACTER_OPTIONS=[
   {id:"dkb",source:"crew.dkb",name:"Ironwood Hunter",description:"A rugged bearded hunter in a work vest."},
   {id:"cmp",source:"crew.cmp",name:"Jade Veil Adept",description:"A braided cultivator in a long formal dress."},
   {id:"off",source:"crew.off",name:"Grey-Robed Elder",description:"An older cultivator with silver hair tied back."},
-  {id:"mk",source:"miko.mk",name:"Spirit Shrine Keeper",description:"A shrine keeper in layered white and vermilion robes."}
+  {id:"crn",source:"crew.crn",name:"Wayfarer Guard",description:"A traveller in a flat cap and a practical vest."}
 ];
 const DIRS=["n","ne","e","se","s","sw","w","nw"];
 const DIR_VECTOR={n:[0,-1],ne:[1,-1],e:[1,0],se:[1,1],s:[0,1],sw:[-1,1],w:[-1,0],nw:[-1,-1]};
@@ -164,7 +164,7 @@ class HomeBaseScene extends Phaser.Scene{
     const residents=[
       {tile:{col:9,row:5},id:"off",source:"crew.off",dir:"s"},
       {tile:{col:10,row:8},id:"cmp",source:"crew.cmp",dir:"sw"},
-      {tile:{col:4,row:8},id:"mk",source:"miko.mk",dir:"e"}
+      {tile:{col:4,row:8},id:"crn",source:"crew.crn",dir:"e"}
     ];
     residents.forEach((record,i)=>{
       const pos=groundOf(record.tile.col,record.tile.row),texture=record.source+"_idle_"+record.dir;
