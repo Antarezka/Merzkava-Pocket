@@ -391,7 +391,9 @@ function renderLoginGate() {
 function readLocalPlayerNames() {
   if (!nativeReady()) return [];
   try {
-    const raw = native.getLocalPlayerProfiles();
+    const raw = typeof native.getLocalPlayerNames === "function"
+      ? native.getLocalPlayerNames()
+      : native.getLocalPlayerProfiles();
     const data = JSON.parse(raw || "[]");
     return Array.isArray(data) ? data.map(item=>typeof item === "string" ? item : item.name).filter(Boolean) : [];
   } catch { return []; }
