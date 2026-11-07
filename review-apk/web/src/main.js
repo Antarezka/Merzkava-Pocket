@@ -595,6 +595,8 @@ function mountMenu() {
   const tiles=[...dock.querySelectorAll("[data-destination]")];
   let pointerId=null, start={x:0,y:0}, current={x:0,y:0}, rest={x:0,y:112}, dragged=false, disposed=false, idle=null, recoil=null;
   const bounds=()=>({w:window.innerWidth,h:window.innerHeight});
+  const cordSvg=zone.querySelector(".cord-svg");
+  const syncLayout=()=>{const b=bounds();cordSvg.setAttribute("viewBox",`0 0 ${b.w} ${b.h}`);rest={x:b.w*.25,y:112};if(pointerId===null)draw(rest);};
   const clamp=(x,y)=>{const b=bounds();return{x:Math.max(25,Math.min(b.w-25,x)),y:Math.max(30,Math.min(b.h-28,y))};};
   const draw=point=>{
     current={...point};
@@ -683,8 +685,10 @@ function mountMenu() {
   menuController={setMenu,get open(){return menuOpen;},close:()=>setMenu(false)};
   dock.classList.add("is-open");scrim.classList.add("is-visible");
   tiles.forEach(tile=>{tile.inert=false;tile.tabIndex=0;});
+  syncLayout();
+  const resizeHandler=()=>syncLayout();window.addEventListener("resize",resizeHandler);
   draw(rest);startIdle();
-  currentDisposer=()=>{
+  currentDisposer=()=>{window.removeEventListener("resize",resizeHandler);
     disposed=true;idle?.pause();recoil?.pause();
     handle.removeEventListener("pointerdown",down);handle.removeEventListener("pointermove",move);
     if(pointerId!==null){try{handle.releasePointerCapture(pointerId);}catch{}}
@@ -733,6 +737,5 @@ window.addEventListener("pocket:android-back",()=>{
   backPrompt.querySelector("[data-exit]").addEventListener("click",()=>{try{native.exitApp();}catch{}});
 });
 window.addEventListener("keydown",event=>{if(event.key==="Escape")window.dispatchEvent(new Event("pocket:android-back"));});
-window.addEventListener("pocket:native-resume",()=>{if(currentRoute==="floating")renderFloatingControl();});
 applyTheme();
 renderLoginGate();

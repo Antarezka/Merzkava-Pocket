@@ -18,8 +18,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: review-apk/package-lock.json
       - uses: android-actions/setup-android@v3
         with:
           packages: "platform-tools"
@@ -39,7 +37,7 @@ jobs:
         shell: bash
         run: |
           HASH="$(git rev-parse --short=4 "$GITHUB_SHA")"
-          echo "POCKET_VERSION=v.0.01.002-$HASH" >> "$GITHUB_ENV"
+          echo "POCKET_VERSION=v.0.01.003-$HASH" >> "$GITHUB_ENV"
       - name: Build Android APK
         working-directory: review-apk
         run: gradle --no-daemon :app:assembleDebug -PpocketVersion="$POCKET_VERSION"

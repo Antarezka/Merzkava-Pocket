@@ -10,10 +10,11 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.PowerManager;
 import android.provider.Settings;
+import android.util.Base64;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
-import android.util.Base64;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
@@ -23,9 +24,12 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
 import java.security.MessageDigest;
+import java.util.Iterator;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
@@ -42,11 +46,13 @@ public final class PocketNativeBridge {
     private static final String ID_VERIFIER = "rWliJ21UojOkc2FX4QQXudntYW7NuuKB9kizB4Ih0sA=";
     private static final String PASSWORD_SALT = "0Wnvcfd3cGISdPZSyJfQZQ==";
     private static final String PASSWORD_VERIFIER = "rYGmwsLKK3El0UXvA3vyj+pe7d7uj0xJchixuRgr/IU=";
+
     private static final String PREFS = "merzkava-pocket-access";
     private static final String KEY_ALIAS = "merzkava-pocket-developer-remember-v1";
     private static final String PREF_CREDENTIALS = "developer_credentials_cipher";
     private static final String PREF_IV = "developer_credentials_iv";
     private static final String PREF_SESSION = "developer_session_authorized";
+    private static final String PREF_LOCAL_PLAYERS = "verified_local_player_profiles_v1";
     private static final String UNIVERSE = "Antarezka/merzkava-universe";
 
     private final Activity activity;
@@ -67,7 +73,7 @@ public final class PocketNativeBridge {
         boolean notifications = Build.VERSION.SDK_INT < 33 || manager.areNotificationsEnabled();
         PowerManager power = (PowerManager) activity.getSystemService(Context.POWER_SERVICE);
         boolean battery = Build.VERSION.SDK_INT < 23 || power.isIgnoringBatteryOptimizations(activity.getPackageName());
-        boolean running = activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("floating_service_running", false);
+        boolean running = prefs().getBoolean("floating_service_running", false);
         JSONObject state = new JSONObject();
         try {
             state.put("displayOverApps", overlay);
@@ -83,13 +89,14 @@ public final class PocketNativeBridge {
 
     @JavascriptInterface public void requestOverlayPermission() {
         if (Build.VERSION.SDK_INT >= 23 && !Settings.canDrawOverlays(activity)) {
-            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + activity.getPackageName()));
-            activity.startActivity(intent);
+            activity.startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:" + activity.getPackageName())));
         }
     }
 
     @JavascriptInterface public void requestNotifications() {
-        if (Build.VERSION.SDK_INT >= 33 && activity.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            activity.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
             activity.requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 7401);
         }
     }
@@ -97,8 +104,8 @@ public final class PocketNativeBridge {
     @JavascriptInterface public void requestBatteryExemption() {
         if (Build.VERSION.SDK_INT >= 23) {
             try {
-                Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:" + activity.getPackageName()));
-                activity.startActivity(intent);
+                activity.startActivity(new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                    Uri.parse("package:" + activity.getPackageName())));
             } catch (Exception ignored) {
                 activity.startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
             }
@@ -106,10 +113,10 @@ public final class PocketNativeBridge {
     }
 
     @JavascriptInterface public boolean startBubbleMode() {
-        if (!overlayGranted()) return false;
+        if (!overlayGranted() || !notificationsGranted() || !batteryExempt()) return false;
         Intent intent = new Intent(activity, PocketFloatingService.class);
         intent.setAction(PocketFloatingService.ACTION_BUBBLE);
-        startForegroundService(intent);
+        startPocketService(intent);
         return true;
     }
 
@@ -117,7 +124,7 @@ public final class PocketNativeBridge {
         if (!overlayGranted()) return false;
         Intent intent = new Intent(activity, PocketFloatingService.class);
         intent.setAction(PocketFloatingService.ACTION_MINI);
-        startForegroundService(intent);
+        startPocketService(intent);
         return true;
     }
 
@@ -125,14 +132,63 @@ public final class PocketNativeBridge {
         activity.stopService(new Intent(activity, PocketFloatingService.class));
     }
 
-    @JavascriptInterface public boolean verifyDeveloperCredentials(String identifier, String password) {
-        if (identifier == null || password == null) return false;
-        try {
-            byte[] idCandidate = pbkdf2(identifier.trim().toLowerCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8), Base64.decode(ID_SALT, Base64.DEFAULT));
-            byte[] passwordCandidate = pbkdf2(password.getBytes(StandardCharsets.UTF_8), Base64.decode(PASSWORD_SALT, Base64.DEFAULT));
-            return MessageDigest.isEqual(idCandidate, Base64.decode(ID_VERIFIER, Base64.DEFAULT))
-                && MessageDigest.isEqual(passwordCandidate, Base64.decode(PASSWORD_VERIFIER, Base64.DEFAULT));
-        } catch (Exception ignored) { return false; }
+    private void startPocketService(Intent intent) {
+        if (Build.VERSION.SDK_INT >= 26) activity.startForegroundService(intent);
+        else activity.startService(intent);
+    }
+
+    private boolean overlayGranted() {
+        return Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(activity);
+    }
+
+    private boolean notificationsGranted() {
+        if (Build.VERSION.SDK_INT < 33) return true;
+        NotificationManager manager = (NotificationManager) activity.getSystemService(Context.NOTIFICATION_SERVICE);
+        return manager.areNotificationsEnabled();
+    }
+
+    private boolean batteryExempt() {
+        if (Build.VERSION.SDK_INT < 23) return true;
+        PowerManager power = (PowerManager) activity.getSystemService(Context.POWER_SERVICE);
+        return power.isIgnoringBatteryOptimizations(activity.getPackageName());
+    }
+
+    // Uses the same Merzkava APK PBKDF2-SHA-256 verifier contract. Raw credentials are never returned to JS.
+    @JavascriptInterface public void authenticateDeveloper(String identifier, String password, boolean remember, String requestId) {
+        if (requestId == null || identifier == null || password == null) {
+            completeDeveloper(requestId, false, "", "Enter the Developer ID and password.");
+            return;
+        }
+        Thread thread = new Thread(() -> {
+            try {
+                boolean valid = verifyDeveloperCredentials(identifier, password);
+                if (!valid) {
+                    prefs().edit().putBoolean(PREF_SESSION, false).apply();
+                    completeDeveloper(requestId, false, "", "Developer ID or password is incorrect.");
+                    return;
+                }
+                if (!saveDeveloperSession(remember, identifier, password)) {
+                    prefs().edit().putBoolean(PREF_SESSION, false).apply();
+                    completeDeveloper(requestId, false, "", "Could not securely apply the Developer session on this device.");
+                    return;
+                }
+                completeDeveloper(requestId, true, identifier.trim(), "developer-verifier-v1", "");
+            } catch (Exception ignored) {
+                prefs().edit().putBoolean(PREF_SESSION, false).apply();
+                completeDeveloper(requestId, false, "", "Developer verification is unavailable on this device.");
+            }
+        }, "Pocket-Developer-Verify");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private boolean verifyDeveloperCredentials(String identifier, String password) throws Exception {
+        byte[] idCandidate = pbkdf2(identifier.trim().toLowerCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8),
+            Base64.decode(ID_SALT, Base64.DEFAULT));
+        byte[] passwordCandidate = pbkdf2(password.getBytes(StandardCharsets.UTF_8),
+            Base64.decode(PASSWORD_SALT, Base64.DEFAULT));
+        return MessageDigest.isEqual(idCandidate, Base64.decode(ID_VERIFIER, Base64.DEFAULT)) &&
+            MessageDigest.isEqual(passwordCandidate, Base64.decode(PASSWORD_VERIFIER, Base64.DEFAULT));
     }
 
     private byte[] pbkdf2(byte[] password, byte[] salt) throws Exception {
@@ -150,7 +206,7 @@ public final class PocketNativeBridge {
         return result;
     }
 
-    @JavascriptInterface public boolean authorizeDeveloperSession(boolean remember, String identifier, String password) {
+    private boolean saveDeveloperSession(boolean remember, String identifier, String password) {
         try {
             SharedPreferences.Editor editor = prefs().edit();
             if (remember) {
@@ -161,18 +217,16 @@ public final class PocketNativeBridge {
                 byte[] encrypted = encrypt(credentials.toString().getBytes(StandardCharsets.UTF_8));
                 editor.putString(PREF_CREDENTIALS, Base64.encodeToString(encrypted, Base64.NO_WRAP));
                 editor.putString(PREF_IV, lastIv);
-                editor.putBoolean(PREF_SESSION, true);
             } else {
                 editor.remove(PREF_CREDENTIALS);
                 editor.remove(PREF_IV);
-                editor.putBoolean(PREF_SESSION, false);
             }
+            // This is an active marker only. Pocket still presents Login Gate at cold start.
+            editor.putBoolean(PREF_SESSION, true);
             return editor.commit();
-        } catch (Exception ignored) { return false; }
-    }
-
-    private SharedPreferences prefs() {
-        return activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 
     private byte[] encrypt(byte[] plain) throws Exception {
@@ -214,11 +268,9 @@ public final class PocketNativeBridge {
             JSONObject object = new JSONObject(new String(plain, StandardCharsets.UTF_8));
             if (object.optInt("version") != 1) return "";
             return object.toString();
-        } catch (Exception ignored) { return ""; }
-    }
-
-    @JavascriptInterface public boolean restoreDeveloperSession() {
-        return prefs().getBoolean(PREF_SESSION, false) && !getRememberedDeveloperCredentials().isEmpty();
+        } catch (Exception ignored) {
+            return "";
+        }
     }
 
     @JavascriptInterface public void lockDeveloperSession() {
@@ -229,8 +281,46 @@ public final class PocketNativeBridge {
         prefs().edit().remove(PREF_CREDENTIALS).remove(PREF_IV).putBoolean(PREF_SESSION, false).apply();
     }
 
+    // Local index contains only identities previously verified against a pinned Universe players.md snapshot.
+    @JavascriptInterface public String getLocalPlayerProfiles() {
+        return prefs().getString(PREF_LOCAL_PLAYERS, "[]");
+    }
+
+    private void rememberVerifiedPlayer(String name, String sha, String profilePath, String profileMarkdown) {
+        try {
+            JSONArray previous = new JSONArray(prefs().getString(PREF_LOCAL_PLAYERS, "[]"));
+            JSONArray next = new JSONArray();
+            boolean inserted = false;
+            for (int i = 0; i < previous.length(); i++) {
+                JSONObject item = previous.optJSONObject(i);
+                if (item == null) continue;
+                if (name.equals(item.optString("name"))) {
+                    if (!inserted) {
+                        next.put(localPlayerRecord(name, sha, profilePath, profileMarkdown));
+                        inserted = true;
+                    }
+                } else next.put(item);
+            }
+            if (!inserted) next.put(localPlayerRecord(name, sha, profilePath, profileMarkdown));
+            prefs().edit().putString(PREF_LOCAL_PLAYERS, next.toString()).apply();
+        } catch (Exception ignored) {
+            // The verified online identity remains valid for this session even if local indexing fails.
+        }
+    }
+
+    private JSONObject localPlayerRecord(String name, String sha, String path, String markdown) throws Exception {
+        JSONObject item = new JSONObject();
+        item.put("name", name);
+        item.put("source", "universe");
+        item.put("sourceSha", sha);
+        item.put("profilePath", path);
+        item.put("profileMarkdown", markdown);
+        item.put("updatedAt", System.currentTimeMillis());
+        return item;
+    }
+
     @JavascriptInterface public void verifyPlayerIdentity(String characterName, String requestId) {
-        if (characterName == null || characterName.isEmpty() || requestId == null) {
+        if (requestId == null || characterName == null || characterName.isEmpty()) {
             completePlayer(requestId, false, "", "", "Enter the exact registered character name.");
             return;
         }
@@ -241,37 +331,64 @@ public final class PocketNativeBridge {
                 int markerIndex = readme.indexOf(marker);
                 if (markerIndex < 0) throw new Exception("The Universe source pin could not be verified.");
                 String remainder = readme.substring(markerIndex + marker.length());
-                int opening = remainder.indexOf((char) 96);
-                int closing = opening < 0 ? -1 : remainder.indexOf((char) 96, opening + 1);
+                int opening = remainder.indexOf((char)96);
+                int closing = opening < 0 ? -1 : remainder.indexOf((char)96, opening + 1);
                 if (opening < 0 || closing <= opening + 1) throw new Exception("The Universe source pin could not be verified.");
                 String shortSha = remainder.substring(opening + 1, closing).trim();
+                if (!shortSha.matches("[a-fA-F0-9]{7,40}")) throw new Exception("The Universe source pin is malformed.");
+
                 String commitJson = fetch("https://api.github.com/repos/" + UNIVERSE + "/commits/" + shortSha);
                 String fullSha = new JSONObject(commitJson).getString("sha");
-                if (fullSha.length() != 40) throw new Exception("The pinned Universe commit could not be verified.");
+                if (!fullSha.matches("[a-fA-F0-9]{40}")) throw new Exception("The pinned Universe commit could not be verified.");
+
                 String registry = fetch("https://raw.githubusercontent.com/" + UNIVERSE + "/" + fullSha + "/players.md");
                 if (cancelledRequests.contains(requestId)) return;
-                boolean found = false;
-                for (String line : registry.split("\\r?\\n")) {
-                    if (!line.startsWith("|")) continue;
-                    String[] cells = line.split("[|]", -1);
-                    if (cells.length < 3) continue;
-                    String name = cells[1].trim();
-                    String target = cells[2];
-                    if (target.contains("(players/") && characterName.equals(name)) {
-                        found = true;
+
+                String profilePath = "";
+                Pattern rowPattern = Pattern.compile("^\\|\\s*([^|]+?)\\s*\\|\\s*\\[[^\\]]+\\]\\((players/[^)]+)\\)", Pattern.MULTILINE);
+                Matcher rows = rowPattern.matcher(registry);
+                while (rows.find()) {
+                    String registeredName = rows.group(1);
+                    if (characterName.equals(registeredName)) {
+                        profilePath = rows.group(2);
                         break;
                     }
                 }
-                if (found) completePlayer(requestId, true, characterName, fullSha, "");
-                else completePlayer(requestId, false, "", fullSha, "That exact character name is not in the currently pinned Universe registry.");
+                if (profilePath.isEmpty()) {
+                    completePlayer(requestId, false, "", fullSha, "That exact character name is not in the currently pinned Universe registry.");
+                    return;
+                }
+
+                String markdown = "";
+                try {
+                    String decodedPath = java.net.URLDecoder.decode(profilePath, "UTF-8");
+                    markdown = fetch("https://raw.githubusercontent.com/" + UNIVERSE + "/" + fullSha + "/" + encodePath(decodedPath));
+                } catch (Exception ignored) {
+                    // Identity is proven by players.md. The individual profile cache is optional and never grants access.
+                }
+                if (cancelledRequests.contains(requestId)) return;
+                rememberVerifiedPlayer(characterName, fullSha, profilePath, markdown);
+                completePlayer(requestId, true, characterName, "universe:" + fullSha, "");
             } catch (Exception error) {
-                if (!cancelledRequests.contains(requestId)) completePlayer(requestId, false, "", "", "Could not verify the official player registry. Check your connection and try again.");
+                if (!cancelledRequests.contains(requestId)) {
+                    completePlayer(requestId, false, "", "", "Could not verify the active Universe pin and player registry. Check the connection and try again.");
+                }
             } finally {
                 cancelledRequests.remove(requestId);
             }
         }, "Pocket-Player-Registry");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    private String encodePath(String path) throws Exception {
+        String[] parts = path.split("/");
+        StringBuilder result = new StringBuilder();
+        for (String part : parts) {
+            if (result.length() > 0) result.append("/");
+            result.append(java.net.URLEncoder.encode(part, "UTF-8").replace("+", "%20"));
+        }
+        return result.toString();
     }
 
     @JavascriptInterface public void cancelPlayerIdentity(String requestId) {
@@ -295,24 +412,36 @@ public final class PocketNativeBridge {
         }
     }
 
-    private void completePlayer(String requestId, boolean ok, String name, String sha, String error) {
+    private void completeDeveloper(String requestId, boolean ok, String displayName, String identityRef, String error) {
         if (requestId == null || cancelledRequests.contains(requestId)) return;
-        String script = "window.PocketNativeCallbacks && window.PocketNativeCallbacks.player("
+        String script = "window.PocketNativeCallbacks && window.PocketNativeCallbacks.access("
             + JSONObject.quote(requestId) + "," + ok + ","
-            + JSONObject.quote(name) + "," + JSONObject.quote(sha) + ","
+            + JSONObject.quote(displayName) + "," + JSONObject.quote(identityRef) + ","
             + JSONObject.quote(error) + ");";
         activity.runOnUiThread(() -> {
             if (webView != null && !cancelledRequests.contains(requestId)) webView.evaluateJavascript(script, null);
         });
     }
 
-    private boolean overlayGranted() {
-        return Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(activity);
+    private void completePlayer(String requestId, boolean ok, String displayName, String identityRef, String error) {
+        if (requestId == null || cancelledRequests.contains(requestId)) return;
+        String script = "window.PocketNativeCallbacks && window.PocketNativeCallbacks.player("
+            + JSONObject.quote(requestId) + "," + ok + ","
+            + JSONObject.quote(displayName) + "," + JSONObject.quote(identityRef) + ","
+            + JSONObject.quote(error) + ");";
+        activity.runOnUiThread(() -> {
+            if (webView != null && !cancelledRequests.contains(requestId)) webView.evaluateJavascript(script, null);
+        });
     }
 
-    private void startForegroundService(Intent intent) {
-        if (Build.VERSION.SDK_INT >= 26) activity.startForegroundService(intent);
-        else activity.startService(intent);
+    @JavascriptInterface public void exitApp() {
+        activity.runOnUiThread(() -> {
+            if (Build.VERSION.SDK_INT >= 21) activity.finishAndRemoveTask();
+            else activity.finish();
+        });
     }
 
+    private SharedPreferences prefs() {
+        return activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    }
 }
