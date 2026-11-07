@@ -23,8 +23,8 @@ jobs:
               echo "::error::Missing repository secret: $name"
               exit 1
             fi
-            if [[ "${#value}" -lt 16 ]]; then
-              echo "::error::$name must contain at least 16 characters. The value itself is never printed."
+            if [[ "${#value}" -lt 24 ]]; then
+              echo "::error::$name must contain at least 24 characters. The value itself is never printed."
               exit 1
             fi
           done
