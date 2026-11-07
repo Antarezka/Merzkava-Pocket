@@ -21,5 +21,5 @@ const STUDY_SECT_GUARD = {
     leg:[1.92,1.75,1.52], tr:"RPP", farTr:"RRP", shin:"DDd", foot:"Ddl", cuff:0.46,
     drape:{ length:8.0, out:"dDl", lining:"D", hem:"D", trail:0.55, push:1.0, radius:4.45, flare:1.55, folds:6, phase:0.4 }
   },
-  back:{ type:"pack" }
+  back:{ type:"pack", material:"dDl", strap:"gG" }
 }
