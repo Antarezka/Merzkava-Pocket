@@ -41,11 +41,19 @@ jobs:
       - name: Compile Pocket Android source
         working-directory: review-apk
         run: gradle --no-daemon :app:compileDebugJavaWithJavac
-      - name: Set version
+      - name: Set version and artifact identity
         shell: bash
         run: |
-          HASH="$(git rev-parse --short=4 "$GITHUB_SHA")"
-          echo "POCKET_VERSION=v.0.01.007-$HASH" >> "$GITHUB_ENV"
+          set -euo pipefail
+          HASH="$(git rev-parse --short=7 "$GITHUB_SHA")"
+          BUILD_NUMBER="$GITHUB_RUN_NUMBER"
+          ARTIFACT_NAME="Merzkava-Pocket-Build-${BUILD_NUMBER}-${HASH}"
+          {
+            echo "POCKET_VERSION=v.0.01.007-${HASH}"
+            echo "POCKET_BUILD_NUMBER=${BUILD_NUMBER}"
+            echo "POCKET_COMMIT=${HASH}"
+            echo "POCKET_ARTIFACT_NAME=${ARTIFACT_NAME}"
+          } >> "$GITHUB_ENV"
       - name: Prepare persistent Pocket signing key
         shell: bash
         env:
@@ -89,7 +97,7 @@ jobs:
       - name: Rename APK
         run: |
           mkdir -p dist
-          cp review-apk/app/build/outputs/apk/debug/app-debug.apk "dist/Merzkava-Pocket-$POCKET_VERSION.apk"
+          cp review-apk/app/build/outputs/apk/debug/app-debug.apk "dist/$POCKET_ARTIFACT_NAME.apk"
           ls -lh dist
       - name: Clean up signing material
         if: always()
@@ -98,7 +106,7 @@ jobs:
           rm -f "$RUNNER_TEMP/merzkava-pocket-upload.jks" "$RUNNER_TEMP/pocket-keystore-passphrase" "$RUNNER_TEMP/pocket-signing-check.csr"
       - uses: actions/upload-artifact@v4
         with:
-          name: Merzkava-Pocket-Android
-          path: dist/*.apk
+          name: ${{ env.POCKET_ARTIFACT_NAME }}
+          path: dist/${{ env.POCKET_ARTIFACT_NAME }}.apk
           if-no-files-found: error
           retention-days: 30
