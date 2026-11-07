@@ -122,6 +122,8 @@ Record:
 
 ## 4. Large variation library — how to reach hundreds without fake canon
 
+Pocket content requirement: the skill programme must plan for **hundreds of distinct ability/technique variations across each of the nine Spirit Realm progression bands**, with room for Martial Soul-specific branches and Ring-specific variants. This is a catalogue-production target, not a rule that every character automatically owns hundreds of skills or that the Universe grants fixed skills at each Realm. The library should be expanded in reviewed batches and tagged by its actual prerequisite band, provenance, and character compatibility. A record remains draft/locked until its effect and requirements are approved. No filler duplicates may be counted toward the target.
+
 Pocket may build a large number of ability records by using reusable **skill families** and validated variation dimensions. Those dimensions are content-authoring tools; they are not free-form runtime bonuses.
 
 Possible ability families for sorting drafts:
