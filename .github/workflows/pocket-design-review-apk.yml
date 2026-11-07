@@ -1,4 +1,4 @@
-name: Merzkava Pocket Design Review APK
+name: Merzkava Pocket Android APK
 on:
   push:
     branches: [main]
@@ -15,9 +15,23 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: review-apk/package-lock.json
       - uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools"
+          accept-android-sdk-licenses: true
       - name: Install Android SDK platform
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+      - name: Install web dependencies
+        working-directory: review-apk
+        run: npm install
+      - name: Build Pocket web shell
+        working-directory: review-apk
+        run: npm run build
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
@@ -25,8 +39,8 @@ jobs:
         shell: bash
         run: |
           HASH="$(git rev-parse --short=4 "$GITHUB_SHA")"
-          echo "POCKET_VERSION=v.0.01.001-$HASH" >> "$GITHUB_ENV"
-      - name: Build APK
+          echo "POCKET_VERSION=v.0.01.002-$HASH" >> "$GITHUB_ENV"
+      - name: Build Android APK
         working-directory: review-apk
         run: gradle --no-daemon :app:assembleDebug -PpocketVersion="$POCKET_VERSION"
       - name: Rename APK
@@ -36,7 +50,7 @@ jobs:
           ls -lh dist
       - uses: actions/upload-artifact@v4
         with:
-          name: Merzkava-Pocket-Design-Review
+          name: Merzkava-Pocket-Android
           path: dist/*.apk
           if-no-files-found: error
           retention-days: 30
