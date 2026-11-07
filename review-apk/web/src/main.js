@@ -727,32 +727,32 @@ const GAME_MODES = {
   }
 };
 function gameNav(active){
-  return `<nav class="game-subnav" aria-label="Game sections">\${GAME_TABS.map(([route,label])=>`<button type="button" data-game-route="\${route}" class="\${active===route?"is-active":""}" \${active===route?'aria-current="page"':""}>\${label}</button>`).join("")}</nav>`;
+  return `<nav class="game-subnav" aria-label="Game sections">${GAME_TABS.map(([route,label])=>`<button type="button" data-game-route="${route}" class="${active===route?"is-active":""}" ${active===route?'aria-current="page"':""}>${label}</button>`).join("")}</nav>`;
 }
 function gameHeader(){
   const identity=accessIdentity?.role==="player"?escapeHtml(accessIdentity.displayName):"Developer preview";
-  return `<header class="game-header"><div class="game-header-brand"><span class="game-crt-mark">◈</span><div><span>MERZKAVA POCKET</span><small>THE GAME ARCHIVE</small></div></div><div class="game-session"><b>\${nativeReady()?"ANDROID NATIVE":"WEB PREVIEW"}</b><small>\${identity}</small></div></header>`;
+  return `<header class="game-header"><div class="game-header-brand"><span class="game-crt-mark">◈</span><div><span>MERZKAVA POCKET</span><small>THE GAME ARCHIVE</small></div></div><div class="game-session"><b>${nativeReady()?"ANDROID NATIVE":"WEB PREVIEW"}</b><small>${identity}</small></div></header>`;
 }
 function modeCard(id){
   const mode=GAME_MODES[id];
-  return `<button type="button" class="mode-card game-reveal" data-mode-open="\${id}"><span class="mode-card-top"><i>\${mode.mark}</i><small>\${mode.state}</small></span><strong>\${mode.title}</strong><p>\${mode.intro}</p><span class="mode-card-foot">INSPECT MODE <b>↗</b></span></button>`;
+  return `<button type="button" class="mode-card game-reveal" data-mode-open="${id}"><span class="mode-card-top"><i>${mode.mark}</i><small>${mode.state}</small></span><strong>${mode.title}</strong><p>${mode.intro}</p><span class="mode-card-foot">INSPECT MODE <b>↗</b></span></button>`;
 }
 function gameStatusCard(label,value,caption,mark){
-  return `<article class="game-stat"><span>\${mark}</span><small>\${label}</small><strong>\${value}</strong><em>\${caption}</em></article>`;
+  return `<article class="game-stat"><span>${mark}</span><small>${label}</small><strong>${value}</strong><em>${caption}</em></article>`;
 }
 function renderGameOverview(){
   const player=accessIdentity?.role==="player"?escapeHtml(accessIdentity.displayName):"Developer session";
   return `
     <section class="game-welcome game-reveal">
-      <div class="game-welcome-copy"><span class="game-overline">A LITTLE WORLD, ALWAYS WITHIN REACH</span><h1>Make a life<br><em>inside Merzkava.</em></h1><p>Your Pocket world, activities, records and slow-growing progress gather here.</p><div class="game-welcome-meta"><span>SESSION · \${player}</span><span>LOCAL SAVE · NOT CONNECTED</span></div><button type="button" class="game-primary" data-game-route="home-base">ENTER WORLD <b>↗</b></button></div>
+      <div class="game-welcome-copy"><span class="game-overline">A LITTLE WORLD, ALWAYS WITHIN REACH</span><h1>Make a life<br><em>inside Merzkava.</em></h1><p>Your Pocket world, activities, records and slow-growing progress gather here.</p><div class="game-welcome-meta"><span>SESSION · ${player}</span><span>LOCAL SAVE · NOT CONNECTED</span></div><button type="button" class="game-primary" data-game-route="home-base">ENTER WORLD <b>↗</b></button></div>
       <div class="game-world-art" aria-label="Decorative world preview. The isometric scene renderer is not connected."><div class="art-moon"></div><div class="art-mountain m1"></div><div class="art-mountain m2"></div><div class="art-river"></div><div class="art-island"><i></i><b></b><em></em></div><div class="art-lantern"></div><span class="art-stamp">FIELD<br>ARCHIVE</span><small>SCENE RENDERER · PENDING</small></div>
     </section>
     <div class="game-section-heading"><div><span>CHARACTER OVERVIEW</span><h2>Your current state</h2></div><button type="button" data-game-route="game-character">OPEN PROFILE ↗</button></div>
     <div class="game-stats-grid">
-      \${gameStatusCard("HP","— / —","Character save not loaded","✧")}
-      \${gameStatusCard("SATIETY","— / 100","Current value not loaded","◌")}
-      \${gameStatusCard("ENERGY","—","Stamina / Qi profile pending","⌁")}
-      \${gameStatusCard("SPIRIT REALM","Unknown","Realm & Stage not loaded","◇")}
+      ${gameStatusCard("HP","— / —","Character save not loaded","✧")}
+      ${gameStatusCard("SATIETY","— / 100","Current value not loaded","◌")}
+      ${gameStatusCard("ENERGY","—","Stamina / Qi profile pending","⌁")}
+      ${gameStatusCard("SPIRIT REALM","Unknown","Realm & Stage not loaded","◇")}
     </div>
     <section class="game-wallet game-reveal"><div><span>WALLET · XUAN</span><small>Balances are read from the player save.</small></div><div class="wallet-values"><b>xc <i>—</i></b><b>xs <i>—</i></b><b>xg <i>—</i></b><b>zj <i>—</i></b><b>az <i>—</i></b></div></section>
     <div class="game-section-heading"><div><span>YOUR WORLD</span><h2>Choose a place to begin</h2></div><button type="button" data-game-route="world-map">WORLD ATLAS ↗</button></div>
@@ -765,21 +765,21 @@ function renderGameOverview(){
       <button type="button" data-game-route="game-skillbook"><span>06</span><b>Skillbook</b><small>Abilities and techniques</small><i>↗</i></button>
     </div>
     <div class="game-section-heading"><div><span>ACTIVITY MODES</span><h2>Life in the world</h2></div><button type="button" data-game-route="game-modes">ALL 8 MODES ↗</button></div>
-    <div class="mode-grid mode-grid-compact">\${["daily-life","jobs","socialize","cultivation"].map(modeCard).join("")}</div>
+    <div class="mode-grid mode-grid-compact">${["daily-life","jobs","socialize","cultivation"].map(modeCard).join("")}</div>
     <p class="game-footnote">This is the Game UI shell. Character state, scene data, timers, inventory, native database and simulation services are not yet connected.</p>`;
 }
 function renderModeHub(){
   return `<section class="game-page-intro"><span class="game-overline">GAME / MODE HUB</span><h1>Choose your<br><em>next activity.</em></h1><p>Each mode shares the same character, world clock, inventory and transaction records. Access depends on the actual location and Requirements.</p></section>
-  <div class="mode-grid">\${Object.keys(GAME_MODES).map(modeCard).join("")}</div>
+  <div class="mode-grid">${Object.keys(GAME_MODES).map(modeCard).join("")}</div>
   <section class="game-notice"><b>SHARED WORLD RULE</b><p>Modes are not disconnected mini-games. A mode cannot teleport you, bypass location access, create an NPC or target, or grant an unrecorded reward.</p></section>`;
 }
 function renderModeDetail(id){
   const mode=GAME_MODES[id];
-  return `<section class="mode-detail-hero"><div class="mode-detail-symbol">\${mode.mark}</div><div><span class="game-overline">\${mode.short} / POCKET MODE</span><h1>\${mode.title}</h1><p>\${mode.intro}</p><span class="mode-state-pill">\${mode.state}</span></div></section>
-  <section class="game-panel"><div class="game-panel-heading"><span>PROCESS FLOW</span><small>DESIGN REFERENCE</small></div><ol class="mode-process">\${mode.stages.map((step,i)=>`<li><i>\${String(i+1).padStart(2,"0")}</i><span>\${step}</span></li>`).join("")}</ol></section>
-  <section class="game-panel"><div class="game-panel-heading"><span>REQUIREMENTS</span><small>NOT YET EVALUATED · SAVE DATA PENDING</small></div><ul class="requirement-list">\${mode.requirements.map(item=>`<li><i>◇</i><span>\${item}</span><b>NOT CHECKED</b></li>`).join("")}</ul></section>
-  <section class="game-notice"><b>DATA BOUNDARY</b><p>\${mode.note}</p></section>
-  <div class="game-detail-actions"><button type="button" class="game-secondary" data-game-route="game-modes">← ALL MODES</button><button type="button" class="game-primary" data-game-route="\${mode.route}">\${mode.action} <b>↗</b></button></div>`;
+  return `<section class="mode-detail-hero"><div class="mode-detail-symbol">${mode.mark}</div><div><span class="game-overline">${mode.short} / POCKET MODE</span><h1>${mode.title}</h1><p>${mode.intro}</p><span class="mode-state-pill">${mode.state}</span></div></section>
+  <section class="game-panel"><div class="game-panel-heading"><span>PROCESS FLOW</span><small>DESIGN REFERENCE</small></div><ol class="mode-process">${mode.stages.map((step,i)=>`<li><i>${String(i+1).padStart(2,"0")}</i><span>${step}</span></li>`).join("")}</ol></section>
+  <section class="game-panel"><div class="game-panel-heading"><span>REQUIREMENTS</span><small>NOT YET EVALUATED · SAVE DATA PENDING</small></div><ul class="requirement-list">${mode.requirements.map(item=>`<li><i>◇</i><span>${item}</span><b>NOT CHECKED</b></li>`).join("")}</ul></section>
+  <section class="game-notice"><b>DATA BOUNDARY</b><p>${mode.note}</p></section>
+  <div class="game-detail-actions"><button type="button" class="game-secondary" data-game-route="game-modes">← ALL MODES</button><button type="button" class="game-primary" data-game-route="${mode.route}">${mode.action} <b>↗</b></button></div>`;
 }
 function renderScenePage(){
   return `<section class="game-page-intro"><span class="game-overline">GAME / HOME BASE</span><h1>The world,<br><em>one place at a time.</em></h1><p>Pocket uses selectable isometric locations and deliberate travel—not free-roam joystick movement.</p></section>
@@ -793,14 +793,14 @@ function renderScenePage(){
 }
 function renderGeographyPage(destination){
   const city=destination==="city";
-  return `<section class="game-page-intro"><span class="game-overline">GAME / \${city?"CITY":"WORLD MAP"}</span><h1>\${city?"City routes.":"The world atlas."}</h1><p>\${city?"Move between connected area scenes only when a valid route and destination are defined.":"The world layer follows Merzkava Universe geography and Pocket travel Requirements."}</p></section>
-  <div class="atlas-placeholder"><div class="atlas-orbit orbit-a"></div><div class="atlas-orbit orbit-b"></div><div class="atlas-compass">N</div><div class="atlas-seal">M</div><span>\${city?"AREA / CITY INDEX":"WORLD / REGION INDEX"}</span></div>
-  <section class="game-panel"><div class="game-panel-heading"><span>\${city?"CONNECTED DESTINATIONS":"REGIONS & ROUTES"}</span><small>DATA NOT CONNECTED</small></div><div class="empty-state"><i>⌖</i><b>\${city?"No city scene records":"No map or route records"}</b><p>Destination names, travel methods, route duration, access, and arrival conditions will be shown only when their source data is loaded.</p></div></section>
-  <div class="game-detail-actions"><button type="button" class="game-secondary" data-game-route="\${city?"home-base":"city"}">← \${city?"SCENE":"CITY LAYER"}</button><button type="button" class="game-primary" data-game-route="game">GAME OVERVIEW <b>↗</b></button></div>`;
+  return `<section class="game-page-intro"><span class="game-overline">GAME / ${city?"CITY":"WORLD MAP"}</span><h1>${city?"City routes.":"The world atlas."}</h1><p>${city?"Move between connected area scenes only when a valid route and destination are defined.":"The world layer follows Merzkava Universe geography and Pocket travel Requirements."}</p></section>
+  <div class="atlas-placeholder"><div class="atlas-orbit orbit-a"></div><div class="atlas-orbit orbit-b"></div><div class="atlas-compass">N</div><div class="atlas-seal">M</div><span>${city?"AREA / CITY INDEX":"WORLD / REGION INDEX"}</span></div>
+  <section class="game-panel"><div class="game-panel-heading"><span>${city?"CONNECTED DESTINATIONS":"REGIONS & ROUTES"}</span><small>DATA NOT CONNECTED</small></div><div class="empty-state"><i>⌖</i><b>${city?"No city scene records":"No map or route records"}</b><p>Destination names, travel methods, route duration, access, and arrival conditions will be shown only when their source data is loaded.</p></div></section>
+  <div class="game-detail-actions"><button type="button" class="game-secondary" data-game-route="${city?"home-base":"city"}">← ${city?"SCENE":"CITY LAYER"}</button><button type="button" class="game-primary" data-game-route="game">GAME OVERVIEW <b>↗</b></button></div>`;
 }
 function renderCharacterPage(){
   return `<section class="game-page-intro"><span class="game-overline">GAME / CHARACTER</span><h1>Character<br><em>archive.</em></h1><p>Progression is separated into independent tracks. A timer or UI animation cannot award progression.</p></section>
-  <section class="character-identity-card"><span class="identity-seal">✧</span><div><small>VERIFIED LOGIN IDENTITY</small><b>\${accessIdentity?.role==="player"?escapeHtml(accessIdentity.displayName):"Developer preview"}</b><em>GAME CHARACTER SAVE · NOT LOADED</em></div></section>
+  <section class="character-identity-card"><span class="identity-seal">✧</span><div><small>VERIFIED LOGIN IDENTITY</small><b>${accessIdentity?.role==="player"?escapeHtml(accessIdentity.displayName):"Developer preview"}</b><em>GAME CHARACTER SAVE · NOT LOADED</em></div></section>
   <div class="game-section-heading"><div><span>INDEPENDENT TRACKS</span><h2>Progression records</h2></div></div>
   <div class="track-grid">
     <article><small>01 · AWAKENING</small><b>Martial Soul</b><span>Not loaded</span></article>
@@ -810,7 +810,7 @@ function renderCharacterPage(){
     <article><small>05 · ARCANISTRY</small><b>Arcanist Grade</b><span>Not loaded</span></article>
     <article><small>06 · COMBAT</small><b>Skills & Techniques</b><span>Not loaded</span></article>
   </div>
-  <section class="game-panel"><div class="game-panel-heading"><span>SPIRIT RING SLOTS</span><small>9-SLOT CAPACITY · PLAYER STATE UNKNOWN</small></div><div class="ring-slot-grid">\${Array.from({length:9},(_,i)=>`<div class="ring-slot"><b>\${i+1}</b><i>◇</i><small>NO RECORD</small></div>`).join("")}</div><p class="panel-footnote">Visible capacity does not prove a slot is open or that Requirements are met. Rings 1–9 must be successfully absorbed in sequence.</p></section>
+  <section class="game-panel"><div class="game-panel-heading"><span>SPIRIT RING SLOTS</span><small>9-SLOT CAPACITY · PLAYER STATE UNKNOWN</small></div><div class="ring-slot-grid">${Array.from({length:9},(_,i)=>`<div class="ring-slot"><b>${i+1}</b><i>◇</i><small>NO RECORD</small></div>`).join("")}</div><p class="panel-footnote">Visible capacity does not prove a slot is open or that Requirements are met. Rings 1–9 must be successfully absorbed in sequence.</p></section>
   <section class="game-notice"><b>ENERGY & ABSORPTION</b><p>Ring 1 requires Stamina; Qi is formed only after its successful absorption. Ring 2–9 uses Qi. The approved Pocket energy-cost profile is not configured, so Start Absorption must remain disabled.</p></section>`;
 }
 function renderInventoryPage(){
@@ -823,13 +823,13 @@ function renderInventoryPage(){
 function renderBestiaryPage(){
   return `<section class="game-page-intro"><span class="game-overline">GAME / FIELD NOTES</span><h1>Bestiary<br><em>& discoveries.</em></h1><p>A character's discovered knowledge—not an omniscient copy of every world record.</p></section>
   <div class="library-count"><b>0</b><span>VERIFIED POCKET SPECIES RECORDS</span><small>Catalogue structure is ready; no species-by-species data has been imported.</small></div>
-  <section class="game-panel"><div class="game-panel-heading"><span>BEAST CLASSIFICATION</span><small>UNIVERSE CATEGORIES</small></div><div class="category-list">\${["Ordinary Beast","Spirit Beast","Supreme Beast","Demonic Beast","Heavenly Beast"].map((x,i)=>`<div><i>0\${i+1}</i><b>\${x}</b><small>NO VERIFIED SPECIES ENTRY</small></div>`).join("")}</div></section>
+  <section class="game-panel"><div class="game-panel-heading"><span>BEAST CLASSIFICATION</span><small>UNIVERSE CATEGORIES</small></div><div class="category-list">${["Ordinary Beast","Spirit Beast","Supreme Beast","Demonic Beast","Heavenly Beast"].map((x,i)=>`<div><i>0${i+1}</i><b>${x}</b><small>NO VERIFIED SPECIES ENTRY</small></div>`).join("")}</div></section>
   <section class="game-notice"><b>DISCOVERY STAYS PERSONAL</b><p>Rumor, tracks, sighting, identification, appraisal, defeat and Ring custody are separate knowledge states. Hidden age, abilities and loot do not appear before a valid discovery.</p></section><div class="game-detail-actions"><button type="button" class="game-secondary" data-game-route="game-skillbook">OPEN SKILLBOOK ↗</button><button type="button" class="game-primary" data-game-route="game-modes">MODE HUB <b>↗</b></button></div>`;
 }
 function renderSkillbookPage(){
   return `<section class="game-page-intro"><span class="game-overline">GAME / SKILLBOOK</span><h1>Knowledge<br><em>& techniques.</em></h1><p>Every ability keeps its source, character compatibility, Requirements, proficiency and verified effects.</p></section>
   <div class="library-count"><b>0</b><span>UNIVERSAL AUTO-UNLOCK LISTS</span><small>Personal abilities are added only from verified Ring, Martial Soul, teaching, combat or artifact provenance.</small></div>
-  <section class="game-panel"><div class="game-panel-heading"><span>ABILITY FAMILIES</span><small>LIBRARY STRUCTURE</small></div><div class="category-list">\${["Martial Soul","Spirit Ring 1–9","Formal Techniques","Combat Training","Arcanistry & Formulations","Artifact Functions","Profession / Life Skills"].map((x,i)=>`<div><i>0\${i+1}</i><b>\${x}</b><small>PERSONAL RECORD NOT LOADED</small></div>`).join("")}</div></section>
+  <section class="game-panel"><div class="game-panel-heading"><span>ABILITY FAMILIES</span><small>LIBRARY STRUCTURE</small></div><div class="category-list">${["Martial Soul","Spirit Ring 1–9","Formal Techniques","Combat Training","Arcanistry & Formulations","Artifact Functions","Profession / Life Skills"].map((x,i)=>`<div><i>0${i+1}</i><b>${x}</b><small>PERSONAL RECORD NOT LOADED</small></div>`).join("")}</div></section>
   <section class="game-notice"><b>NO GENERIC SKILL TREE</b><p>Realm number, Ring slot, rarity or attendance alone does not grant an ability. Draft entries cannot be equipped or used.</p></section><div class="game-detail-actions"><button type="button" class="game-secondary" data-game-route="game-bestiary">← BESTIARY</button><button type="button" class="game-primary" data-game-route="game-character">CHARACTER <b>↗</b></button></div>`;
 }
 function renderFacilitiesPage(){
@@ -842,7 +842,7 @@ function renderFacilitiesPage(){
     ["06","Market / Port","Trade, jobs and local services","Actual buyer, seller, route and prices pending"]
   ];
   return `<section class="game-page-intro"><span class="game-overline">GAME / FACILITIES</span><h1>Build a place<br><em>to call home.</em></h1><p>Facilities are location-bound systems with ownership, level, capacity, condition, workers and timed processes.</p></section>
-  <section class="game-panel"><div class="game-panel-heading"><span>FACILITY CATALOGUE</span><small>CONCEPT REFERENCES</small></div><div class="facility-list">\${facilities.map(([n,title,desc,state])=>`<article><i>\${n}</i><div><b>\${title}</b><p>\${desc}</p><small>\${state}</small></div><span>—</span></article>`).join("")}</div></section>
+  <section class="game-panel"><div class="game-panel-heading"><span>FACILITY CATALOGUE</span><small>CONCEPT REFERENCES</small></div><div class="facility-list">${facilities.map(([n,title,desc,state])=>`<article><i>${n}</i><div><b>${title}</b><p>${desc}</p><small>${state}</small></div><span>—</span></article>`).join("")}</div></section>
   <section class="game-notice"><b>NO INVENTED COSTS OR OUTPUTS</b><p>Construction time, build costs, material requirements, capacity, operating cost, yields and upgrade rules must be authored per facility before it can be built or operated.</p></section>`;
 }
 function renderGamePage(destination){
@@ -858,7 +858,7 @@ function renderGamePage(destination){
   else if(destination==="game-skillbook")body=renderSkillbookPage();
   else if(destination==="game-facilities")body=renderFacilitiesPage();
   else if(destination.startsWith("mode-"))body=renderModeDetail(destination.slice(5));
-  return `<main class="page-stage game-stage">\${gameHeader()}\${gameNav(active)}<div class="game-page-content">\${body}</div><footer class="game-app-footer"><span>MERZKAVA POCKET</span><span>LOCAL GAME SHELL · DATA INTEGRATION PENDING</span></footer></main>`;
+  return `<main class="page-stage game-stage">${gameHeader()}${gameNav(active)}<div class="game-page-content">${body}</div><footer class="game-app-footer"><span>MERZKAVA POCKET</span><span>LOCAL GAME SHELL · DATA INTEGRATION PENDING</span></footer></main>`;
 }
 function mountGameInteractions(){
   root.querySelectorAll("[data-game-route]").forEach(button=>button.addEventListener("click",()=>navigate(button.dataset.gameRoute)));
