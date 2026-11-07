@@ -5,6 +5,9 @@ import android.content.Intent;
 import android.content.res.AssetManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Build;
+import android.window.OnBackInvokedCallback;
+import android.window.OnBackInvokedDispatcher;
 import android.view.Window;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -25,6 +28,7 @@ public final class MainActivity extends Activity {
     private static final String ASSET_HOST = "pocket.local";
     private WebView webView;
     private PocketFloatingWindow floatingWindow;
+    private OnBackInvokedCallback systemBackCallback;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,6 +58,11 @@ public final class MainActivity extends Activity {
         setContentView(webView);
         webView.loadUrl("https://" + ASSET_HOST + "/index.html");
         handleFloatingLaunchIntent();
+        if (Build.VERSION.SDK_INT >= 33) {
+            systemBackCallback = this::handleBackPressed;
+            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                OnBackInvokedDispatcher.PRIORITY_DEFAULT, systemBackCallback);
+        }
     }
 
     private static final class PocketAssetClient extends WebViewClient {
@@ -182,7 +191,7 @@ public final class MainActivity extends Activity {
         else stopService(new Intent(this, PocketFloatingService.class));
     }
 
-    @Override public void onBackPressed() {
+    private void handleBackPressed() {
         if (isFloatingMiniWindowOpen()) {
             restoreFloatingToActivity();
             return;
@@ -190,7 +199,15 @@ public final class MainActivity extends Activity {
         dispatchNativeEvent("pocket:android-back");
     }
 
+    @Override public void onBackPressed() {
+        handleBackPressed();
+    }
+
     @Override protected void onDestroy() {
+        if (Build.VERSION.SDK_INT >= 33 && systemBackCallback != null) {
+            getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(systemBackCallback);
+            systemBackCallback = null;
+        }
         if (floatingWindow != null) {
             floatingWindow.dispose();
             floatingWindow = null;
