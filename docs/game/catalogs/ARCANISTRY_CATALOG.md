@@ -138,7 +138,7 @@ Use exactly these labels:
 
 Condition is determined only after successful production using the Universe Condition Score formula. Production success and resulting condition are separate. Do not apply that formula to Relics, Ancient Artifacts, ordinary objects or ordinary buildings.
 
-### 3.3 Pocket Satiety
+### 3.5 Pocket Satiety
 
 Pocket workshop and Focus Satiety costs are recalculated using actual real-time awake work duration and the Pocket Satiety formula. Do not charge the Universe's full multi-hour/multi-day reference total after compressing a timer by ×48. See `POCKET_PROGRESSION_AND_HUD.md` for the current Mortal baseline preview and modifier rules.
 
