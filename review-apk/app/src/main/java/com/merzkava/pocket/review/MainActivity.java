@@ -13,6 +13,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.graphics.Color;
+import android.util.Log;
 
 import java.io.InputStream;
 import java.util.Collections;
@@ -23,6 +24,7 @@ import java.util.Map;
 public final class MainActivity extends Activity {
     private static final String ASSET_HOST = "pocket.local";
     private WebView webView;
+    private PocketFloatingWindow floatingWindow;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,9 +49,11 @@ public final class MainActivity extends Activity {
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         webView.setWebViewClient(new PocketAssetClient(getAssets()));
         webView.setWebChromeClient(new WebChromeClient());
+        floatingWindow = new PocketFloatingWindow(this, webView);
         webView.addJavascriptInterface(new PocketNativeBridge(this, webView), "PocketNative");
         setContentView(webView);
         webView.loadUrl("https://" + ASSET_HOST + "/index.html");
+        handleFloatingLaunchIntent();
     }
 
     private static final class PocketAssetClient extends WebViewClient {
@@ -132,14 +136,61 @@ public final class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
+        handleFloatingLaunchIntent();
         dispatchNativeEvent("pocket:native-resume");
     }
 
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleFloatingLaunchIntent();
+    }
+
+    private void handleFloatingLaunchIntent() {
+        Intent intent = getIntent();
+        if (intent != null && PocketFloatingService.ACTION_OPEN_WINDOW.equals(intent.getAction())) {
+            intent.setAction(null);
+            setIntent(intent);
+            openFloatingMiniWindow();
+        }
+    }
+
+    public void openFloatingMiniWindow() {
+        if (floatingWindow == null) return;
+        try {
+            floatingWindow.show();
+        } catch (Exception error) {
+            Log.e("PocketFloating", "Could not display the floating mini window", error);
+            restoreFloatingToActivity();
+        }
+    }
+
+    public boolean isFloatingMiniWindowOpen() {
+        return floatingWindow != null && floatingWindow.isShowing();
+    }
+
+    public void minimizeFloatingMiniWindowToBubble() {
+        if (floatingWindow != null) floatingWindow.minimizeToBubble();
+    }
+
+    public void restoreFloatingToActivity() {
+        if (floatingWindow != null) floatingWindow.restoreToActivity();
+        else stopService(new Intent(this, PocketFloatingService.class));
+    }
+
     @Override public void onBackPressed() {
+        if (isFloatingMiniWindowOpen()) {
+            restoreFloatingToActivity();
+            return;
+        }
         dispatchNativeEvent("pocket:android-back");
     }
 
     @Override protected void onDestroy() {
+        if (floatingWindow != null) {
+            floatingWindow.dispose();
+            floatingWindow = null;
+        }
         if (webView != null) {
             webView.removeJavascriptInterface("PocketNative");
             webView.loadUrl("about:blank");
