@@ -50,7 +50,7 @@ The dedicated GitHub Actions workflow checks and builds this entry separately fr
 - `anims/base_idle_s.png` and `anims/base_walk_s.png`
 - `anims/hanfu_idle_s.png` and `anims/hanfu_walk_s.png`
 - the equivalent idle/walk exports for `cultivator`, `long_robe`, `assassin` and `sect_guard`
-- the `merzkava_character_base_study` comparison sheet
+- compact comparison sheets: `merzkava_base_study_idle_s`, `merzkava_base_study_walk_s` and `merzkava_base_study_walk_w`
 
 Local commands, from the repository root, after PXL and its clothing helper are available:
 
