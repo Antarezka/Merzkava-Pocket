@@ -43,6 +43,14 @@ jobs:
           node "$PXL" build review-apk/art/world-archive.px.js --out "$OUT" --share 4
           test -s "$OUT/anims/classic_idle_s.png"
           test -s "$OUT/anims/classic_walk_s.png"
+          node "$PXL" check review-apk/art/characters/base-study/preview.px.js
+          node "$PXL" build review-apk/art/characters/base-study/preview.px.js --out "$OUT/character-base-study" --share 4
+          test -s "$OUT/character-base-study/anims/base_idle_s.png"
+          test -s "$OUT/character-base-study/anims/base_walk_s.png"
+          test -s "$OUT/character-base-study/anims/hanfu_idle_s.png"
+          test -s "$OUT/character-base-study/anims/hanfu_walk_s.png"
+          test -s "$OUT/character-base-study/anims/assassin_idle_s.png"
+          test -s "$OUT/character-base-study/anims/assassin_walk_s.png"
           test -s "$OUT/share/classic_idle_s.png"
 
       - name: Upload visual review assets
