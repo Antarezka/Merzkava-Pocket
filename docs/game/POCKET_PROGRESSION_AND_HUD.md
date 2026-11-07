@@ -526,7 +526,9 @@ The expanded drawer must contain:
 
 - Awakening: `core/MARTIAL_SOUL_AWAKENING.md` and `core/MARTIAL_SOUL.md`.
 - Realm, Stage, and breakthrough: `core/CULTIVATION_SYSTEM.md`.
-- Ring requirements, compatibility, Sync, Qi, and ring ability formation: `core/SPIRIT_RING_RULES.md`.
+- Ring requirements, compatibility, Sync, Qi, readiness inputs and ring ability formation: `core/SPIRIT_RING_RULES.md`.
+- Foundational physical conditioning, stamina preparation, Ring theory, and supervised field-practice subjects: `core/CULTIVATOR_ACADEMIES.md`; actual local curriculum/access must still be established.
+- Soul-Nyuma / Soul-Zoun doctrine and method boundaries: `core/SPIRIT_REALM_TRADITIONS.md`.
 - Beast target and required item: `bestiary/SPIRIT_BEAST_RULES.md` plus a specific Beast record when available.
 - Arcanist Focus, Grade, examinations, production, tools, and artifacts: `core/ARCANISTRY_AND_FORMULATION.md`.
 - HP and Satiety: `core/HP_SYSTEM.md`, `core/HUNGER_AND_METABOLISM.md`.
