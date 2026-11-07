@@ -82,6 +82,13 @@ The following wireframe is a layout reference, not a final visual asset. “Tian
 
 The isometric area remains the visual focus. The lower panel should provide context without replacing the world with a list-first interface.
 
+### Character quick-status HUD
+
+The gameplay view must also expose a compact character-status strip without taking over the isometric canvas. The persistent quick view shows **HP current/maximum**, **Satiety/100**, **Mortal or exact Spirit Realm + Stage (and Awakening state when relevant)**, **Arcanist Grade**, **Arcanist Focus**, and the five-denomination Wallet. Tapping the character strip opens the expanded character drawer with Martial Soul, Awakening record, Ring slots and requirements, Sync, Qi, injury, equipment, skills, employment, social records, and Arcanistry details.
+
+The exact states, values, and update rules are governed by [Pocket Progression and HUD](./POCKET_PROGRESSION_AND_HUD.md). The HUD is a view of validated state; it must never grant a Ring, Grade, Focus stage, ability, HP recovery, or other progression by animation or timer completion.
+
+
 ### Location panel
 
 - **Overview** — identity, purpose, description, ownership/access state, facility level, and current condition where relevant.
@@ -424,20 +431,22 @@ The simulation/data layer is responsible for:
 
 ---
 
-## 12. Mandatory formula authority
+## 12. Mandatory game authority and content catalogues
 
-All inherited Universe formulas and all Pocket-specific time adaptations are governed by **[POCKET_SIMULATION_RULES.md](./POCKET_SIMULATION_RULES.md)**.
+All runtime formulas and timer adaptations are governed by [Pocket Simulation Rules](./POCKET_SIMULATION_RULES.md).
 
-That document is the mandatory implementation source for:
-- The ×48 Pocket Simulation Clock and separate real-world UTC/Daily Login clock.
-- Spirit Ring cooldown adaptation: 20 seconds for Ring 1 → Ring 2 and 30 days for Ring 8 → Ring 9, with the full intermediate schedule.
-- Arcanist training and Artificial Artifact work timers.
-- HP, Satiety, injury recovery, and Spirit Realm progression boundaries.
-- Economy formula inheritance, wallet/item ledgers, and missing Pocket economy data.
-- Work, gathering, woodcutting, farming, facility timers, Social Link, World Events, and NPC schedules.
-- Offline timer validation, regional Daily Login locking, and time-manipulation reconciliation.
+Character progression and the character-status HUD are governed by [Pocket Progression and HUD](./POCKET_PROGRESSION_AND_HUD.md). This is the required reference for Awakening, sequential Ring gates, Spirit Realm/Stage, Arcanist Focus/Grade, HP/Satiety/Qi presentation, and progression validation.
 
-**Conflict rule:** if this concept overview or an implementation note contains a timer or formula that conflicts with `POCKET_SIMULATION_RULES.md`, the mandatory simulation rules document wins. Never change the Merzkava Universe source modules as a side effect of implementing a Pocket adaptation.
+Gameplay modes and their shared state requirements are governed by [Pocket Gameplay Modes and Catalogues](./POCKET_GAMEPLAY_MODES_AND_CATALOGS.md). This defines the requirements for Hunting, Part-time Job, Socialize, Sparring, War Zone, Cultivation/Spirit Ring, Arcanistry/Workshop, and Daily Life.
+
+The content data schemas and approval gates are indexed in [Pocket Content Catalogues](./catalogs/README.md):
+- [Spirit Beast Catalogue](./catalogs/SPIRIT_BEAST_CATALOG.md)
+- [Skill and Technique Catalogue](./catalogs/SKILL_AND_TECHNIQUE_CATALOG.md)
+- [Arcanistry Catalogue](./catalogs/ARCANISTRY_CATALOG.md)
+
+These documents are jointly mandatory. The concept describes the product and presentation; it does not override the state, gates, formula, or provenance rules. The current Android/WebView pages are navigation scaffolding only; gameplay HUD, isometric runtime, database state, mode interactions, and catalog-backed progression are not implemented by the shell placeholders.
+
+**Conflict rule:** the Pocket-specific documents govern Pocket adaptation and implementation. Merzkava Universe remains the authority for canon mechanics and facts. Do not change Universe source modules as a side effect of implementing Pocket.
 
 ## 13. Recommended implementation order
 
