@@ -392,7 +392,7 @@ These are the everyday activity systems that keep Pocket useful outside combat:
 - Travel, explore and discover locations/rumors.
 - Participate in local festivals, lessons, public services and community events.
 
-Each activity requires a Pocket data record with its requirements, timer, cost, output, item IDs, failure/interrupt conditions, location and source. An activity cannot grant an undefined reward.
+Each activity requires a Pocket data record with its Requirements, timer, cost, output, item IDs, failure/interrupt conditions, location and source. Daily Life gathering, farming, fishing, hunting, processing, trade and facilities use the mandatory [Integrated Economy Catalogue](./catalogs/POCKET_ECONOMY_CATALOG.md), structured [item records](./catalogs/POCKET_ECONOMY_ITEMS_001_500.json) and [501–1000 item records](./catalogs/POCKET_ECONOMY_ITEMS_501_1000.json), [facility build/upgrade records](./catalogs/POCKET_FACILITIES_200.json), and [production recipes](./catalogs/POCKET_PRODUCTION_RECIPES.json). Do not substitute UI labels or hard-coded rewards for these records. An activity cannot grant an undefined reward.
 
 ---
 
