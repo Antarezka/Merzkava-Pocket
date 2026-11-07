@@ -268,8 +268,7 @@ for (const style of STYLES) {
     n:8, head:headName, parts:dress(makeOutfit(style)), moves
   })
   card(style.id, {
-    is:"Merzkava wuxia field character, 8-way pixel rig, layered cultivation robe",
-    cells:{ "pocket/8-way":"✓", "pocket/idle-walk":"✓" }
+    is:"Merzkava wuxia field character, 8-way pixel rig, layered cultivation robe"
   })
 }
 
