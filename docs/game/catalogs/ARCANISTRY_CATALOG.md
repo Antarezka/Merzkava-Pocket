@@ -280,7 +280,7 @@ source_refs: []
 
 The Arcanistry hub must provide:
 
-- **My Progress:** Focus, official Grade, teacher, stage assessments, eligibility and next official gate.
+- **My Progress:** Focus, official Grade, teacher, stage assessments, next Requirements and next official gate.
 - **Education:** institutions, courses, qualified teachers, enrolment and attendance/assessment records.
 - **Examinations:** target Grade, registration, fees if established, prerequisites, artifact target, condition, cohort caps and result.
 - **Tools:** Engraver's Apprentice, personal Formation Engraver, candidate blueprint, ownership and verification.
