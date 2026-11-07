@@ -54,7 +54,7 @@ const siteCanUse=(facility,col,row)=>{
 const spriteForFacility=f=>{
   const id=f?.facility_id||"";
   if(STARTER_SPRITES[id])return STARTER_SPRITES[id];
-  return FAMILY_SPRITES.find(([pattern])=>pattern.test((f?.family||"")+" "+(f?.name||"")))?.[1]||"facility_storage";
+  return FAMILY_SPRITES.find(([pattern])=>pattern.test((f?.family||"")+" "+(f?.name||"")))?.[1]||"hd-facility-storage";
 };
 
 class HomeBaseScene extends Phaser.Scene{
