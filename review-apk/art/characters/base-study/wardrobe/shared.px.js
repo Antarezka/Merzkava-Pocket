@@ -77,7 +77,8 @@ function studyHeadAccessoryField(style) {
 }
 
 function studyHeadField(style) {
-  const skull = sdf.ellipsoid([5.7, 5.9, 5.7]).mat("zsSL")
+  const headScale = style.headScale || 1
+  const skull = sdf.ellipsoid([5.7 * headScale, 5.9 * headScale, 5.7 * headScale]).mat("zsSL")
   const fields = [skull]
   const hair = studyHairField(style)
   const accessory = studyHeadAccessoryField(style)
@@ -201,9 +202,10 @@ function studyParts(style) {
   return (j, pose) => {
     const P = painter(j, pose)
     const neckEnd = [j.head[0], j.head[1], j.head[2] - 4.45]
+    const neckWidth = style.neckWidth || 1
     return {
       ...P,
-      neck: j.limb(j.chest, neckEnd, 1.28, 1.16, "zsS"),
+      neck: j.limb(j.chest, neckEnd, 1.28 * neckWidth, 1.16 * neckWidth, "zsS"),
       ...studyBackParts(style, j, pose)
     }
   }
@@ -240,7 +242,7 @@ function renderStudyCharacter(style) {
     walk: { frames: 8, ms: 110, dirs: STUDY_DIRS, pose: (i, heading) => studyWalk(i, 180 - heading) }
   }
   rig3d(style.id, {
-    body: { ...STUDY_BASE_BODY },
+    body: { ...(style.body || STUDY_BASE_BODY) },
     w: STUDY_FRAME.w, h: STUDY_FRAME.h, pivot: STUDY_PIVOT,
     ink: "k", inner: "dark", surface: { soft: 0.55 },
     n: 8, head: headName, parts: studyParts(style), moves, blocks: style.id === "base"
