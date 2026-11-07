@@ -44,6 +44,7 @@ The following wireframe is a layout reference, not a final visual asset. “Tian
 │  Day 08 · 08:15                    │
 │  HP 180/200  ▰▰▰▰▰▰▰▰▱▱           │
 │  SAT 78/100   ▰▰▰▰▰▰▰▱▱▱           │
+│  STAMINA 72/100 ▰▰▰▰▰▰▱▱▱          │
 │  MORTAL · AWAKENED                 │
 │  ARCANIST GRADE ??? · FOCUS —      │
 │  xc   xs   xg   zj   az            │
@@ -215,7 +216,7 @@ Pocket should support multiple ways to participate in Merzkava's world, where th
 
 - Working as a market or port worker.
 - Apprenticing under an Arcanist or learning a specialist craft.
-- Pursuing the Spirit Realm path through an eligible teacher, institution, dojo, clan, or sect.
+- Pursuing the Spirit Realm path through an qualified teacher, institution, dojo, clan, or sect.
 - Joining or studying at a dojo.
 - Seeking instruction or service through a clan or sect.
 - Working in logistics, trade, gathering, agriculture, workshops, or local services.
@@ -294,12 +295,12 @@ Do not rely on one mutable timestamp field as the only proof of elapsed time. Ke
 
 ## 8. Clock integrity, synchronization, and negative-balance reconciliation
 
-Offline progress necessarily uses local device time, which the player can potentially alter. Therefore local time-based outputs must be reconcilable. **The game remains playable offline, but offline time-derived gains are subject to validation when connectivity returns.**
+Offline progress necessarily uses local device time, which the player can potentially alter. Therefore local time-based outputs must be reconcilable. **The game remains playable offline, but offline time-derived gains remain provisional until a trusted-time check runs when connectivity returns.**
 
 ### Trusted time and reconciliation
 
 - The server's timestamp is authoritative for Daily Login claims and the trusted online time anchor.
-- A successful online synchronization stores a signed/validated time checkpoint and the accepted local time-zone/area context.
+- A successful online synchronization stores a signed server-trusted time checkpoint and the accepted local time-zone/area context.
 - Offline actions can continue locally. Time-derived outputs that have not yet been checked by the server remain provisional in the ledger.
 - On reconnection, compare the device's recorded timeline with the elapsed time that can be supported by trusted checkpoints and platform timing evidence.
 - Detect unexpected forward jumps, backward jumps, rollback, inconsistent time-zone changes, duplicated completion claims, and impossible process durations.
@@ -384,7 +385,7 @@ Pocket needs its **own local database** for gameplay and simulation state. The d
 | Scene content | Artwork references, building footprints, layers, hotspots, NPC placements, and resource nodes. |
 | Player state | Current scene, HP, Satiety, equipment, inventory, materials, assets, and five-denomination wallet. |
 | Facilities | Ownership/access, level, capacity, condition, workers, construction, and upgrade processes. |
-| Work and production | Assigned tasks, start/end timestamps, inputs, outputs, wages, and completion state. |
+| Work and production | Assigned tasks, start/end timestamps, inputs, outputs, wages, energy reservations/consumption, interruption rules, and completion state. |
 | Farming and gathering | Crop/resource type, source location, growth/refresh timers, yield, and collection history. |
 | NPC simulation | Profile references, current presence, schedules, social-link state, and recorded interactions. |
 | Calendar and events | Local timeline, daily schedules, event triggers, active events, and resolved outcomes. |
@@ -398,7 +399,7 @@ Pocket needs its **own local database** for gameplay and simulation state. The d
 - The player can load available scenes, inspect locations, perform unlocked activities, manage inventory, and continue valid timed processes without internet.
 - Daily Login claim and authoritative time verification require internet.
 - When offline, queue reconciliation records locally; do not pretend the server has verified them.
-- When connectivity returns, synchronize time integrity and Daily Login eligibility without requiring the entire game to be online continuously.
+- When connectivity returns, synchronize time integrity and Daily Login claim Requirements without requiring the entire game to be online continuously.
 - Keep world definitions separate from mutable player/session state.
 - Use stable IDs for scenes, locations, NPCs, items, routes, facilities, processes, and events.
 - Make related state changes transactional and safe against duplicate execution.
@@ -460,15 +461,15 @@ Build the data, time, and interaction contracts before producing a large amount 
 | **01 — Simulation foundation** | Define Pocket's local database, stable IDs, event/transaction ledgers, dual-clock model, process scheduler, and offline save format. | A prototype can save, close, reopen, and resolve timers exactly once without losing valid state. |
 | **02 — Character progression state machine** | Model Awakening, Mortal/Awakened states, nine Spirit Realms × four Stages, sequential Ring slots/gates, Sync/Qi, Arcanist Focus, Grade 1–10 and exam records. | Every transition has explicit prerequisites, source references, valid/blocked states and no timer-only promotion. |
 | **03 — Canon and Pocket catalogues** | Build import/approval pipelines for Bestiary, abilities/techniques, Arcanistry, artifact/materials, jobs, facilities, items and NPC data. | Unknown data stays unknown; only verified or approved records can spawn, be learned, used or reward the player. |
-| **04 — HUD and interaction contract** | Implement compact HP/Satiety/progression/Arcanist/Wallet strip, expanded Character drawer, Ring slots, Skillbook, Bestiary and Mode Hub navigation. | HUD values match validated character state and every blocked action explains its unmet requirements. |
-| **05 — Engine validation** | Evaluate the game engine with one low-cost isometric scene on the target Android device. | Scene rendering, touch targets, ambient animation, memory use, and responsiveness are acceptable. |
+| **04 — HUD and interaction contract** | Implement compact HP/Satiety/progression/Arcanist/Wallet strip, expanded Character drawer, Ring slots, Skillbook, Bestiary and Mode Hub navigation. | HUD values match recorded character state and every blocked action explains its unmet requirements. |
+| **05 — Engine evaluation** | Evaluate the game engine with one low-cost isometric scene on the target Android device. | Scene rendering, touch targets, ambient animation, memory use, and responsiveness are acceptable. |
 | **06 — Scene data contract** | Define area, location, footprint, hotspot, object, resource node, layer and NPC metadata. | One test area can be described without hard-coding its contents into the interface. |
 | **07 — Isometric scene sample** | Render terrain, buildings, facilities, environment, and multiple interactive points. | Visual scale, depth order, footprints, and hit areas remain aligned. |
 | **08 — Location interactions** | Implement Overview, People, Activities and contextual Mode Hub actions. | Tapping a supported object opens the correct information and only valid actions. |
 | **09 — Core needs and first life loop** | Add HP/Satiety/injury, foraging, woodcutting, storage, and one approved resource loop. | Actions check the relevant Requirements, produce recorded outputs, and remain balanced. |
 | **10 — Micro-economy and facilities** | Add selling, material use, one Level 1 facility sample, construction/upgrade timers and ledger-based transactions. | Every cost, yield and completion has an explicit data rule and is saved once. |
 | **11 — Jobs, Arcanistry and Socialize** | Implement one data-backed job, one Focus/teacher assessment path, workshop sample, and evidence-based NPC interactions. | Job payment, Focus assessment, production, and relationship changes meet their own gates. |
-| **12 — Hunting, Skillbook and Sparring** | Implement a source-backed Beast encounter, hunt stages, Ring ownership/eligibility, sourced ability, and a controlled training example. | Hunt, combat, Ring absorption, technique learning and injury are not conflated. |
+| **12 — Hunting, Skillbook and Sparring** | Implement a source-backed Beast encounter, hunt stages, Ring custody/Requirements, sourced ability, and a controlled training example. | Hunt, combat, Ring absorption, technique learning and injury are not conflated. |
 | **13 — War Zone and persistent events** | Integrate active World Events, faction/operation access, objectives, supply and persistent consequences. | War Zone appears only for valid active events and reconciles changes to the shared world state. |
 | **14 — Daily Life, travel and World Events** | Connect schedules, NPC presence, farming/facilities, route Requirements, transport and conditional events to Pocket time. | Locations and world state evolve coherently without fabricated activities or unreachable destinations. |
 | **15 — Daily Login, security and content hardening** | Add online claims, regional time-zone lock, trusted checkpoints, reconciliation, migration/recovery, and expanding content. | Clock changes cannot grant extra rewards or retain unearned gains; long offline sessions remain stable. |
