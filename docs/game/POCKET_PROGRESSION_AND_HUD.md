@@ -416,7 +416,7 @@ The isometric gameplay screen must keep the most decision-relevant character inf
 | Row | Must display |
 |---|---|
 | Location/time | Current area/location, Pocket simulation date/time, local weather when established |
-| Needs | HP current/maximum bar; Satiety current/100 bar |
+| Needs and energy | HP current/maximum; Satiety/100; contextual energy bar labelled Stamina before Ring 1 or Qi after Ring 1. Never show Qi before the first Ring succeeds. |
 | Progression status | Mortal or exact Spirit Realm + Stage; Awakening state where still Mortal |
 | Arcanistry | Arcanist Grade and Arcanist Focus as separate values |
 | Wallet | Five Xuan denominations: xc, xs, xg, zj, az |
@@ -455,7 +455,9 @@ The expanded drawer must contain:
 
 **Condition and belongings**
 - HP and Satiety.
-- Qi only after formed; Mortal stamina only if an approved Pocket stamina mechanic exists.
+- Energy resource used by the selected action: Stamina before Ring 1; Qi after Ring 1. The detailed bar is shown only when its maximum/current value and spend/recovery rules are configured. Do not invent a Stamina cap or Qi cost.
+- Ring absorption energy: show total required cost, minimum reserve, currently reserved, already spent, and remaining amount from the approved Pocket energy-cost profile.
+- Qi only after formed; a Mortal's pre-Ring Stamina is separate and must never be labelled Qi.
 - Injury list, class, recovery progress, treatment requirement and functional effects.
 - Equipment, Inventory, Assets, Bank/Storage, active jobs/processes and current contract.
 
