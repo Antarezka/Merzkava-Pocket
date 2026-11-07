@@ -41,7 +41,7 @@ function characterFrame(style, dir, move, frame) {
   const armA = -stride * 5;
   const armB = stride * 5;
   const center = 64;
-  const robeBottom = style.shape === 0 ? 137 : style.shape === 2 ? 140 : 143;
+  const robeBottom = style.shape === 0 ? 132 : style.shape === 2 ? 137 : 135;
   const robeWide = style.shape === 3 ? 25 : style.shape === 2 ? 17 : style.shape === 4 ? 23 : 20;
   const headScale = style.shape === 0 ? 1.13 : style.shape === 2 ? 0.91 : style.shape === 3 ? 1.03 : 1;
   const face = front
@@ -52,10 +52,10 @@ function characterFrame(style, dir, move, frame) {
       ? '<path d="M58 33 Q68 28 75 36 L74 49 Q70 58 62 56 Q58 51 58 44Z" fill="url(#skin)" stroke="#775047" stroke-width="1.1"/>' +
         '<path d="M68 44 l5 1" stroke="#4c3330" stroke-width="1.8" stroke-linecap="round"/>'
       : '<path d="M51 35 Q64 28 77 35 L75 50 Q64 59 53 50Z" fill="#20232a" stroke="#171a20" stroke-width="1.2"/>';
-  const rearHair = '<path d="M48 42 Q43 22 57 15 Q73 9 81 25 Q85 38 78 52 L74 68 Q69 62 67 53 Q58 59 51 52Z" fill="url(#hair)" stroke="#11151b" stroke-width="1.5"/>' +
+  const rearHair = '<path d="M48 42 Q43 22 57 15 Q73 9 81 25 Q85 38 78 52 L74 68 Q69 62 67 53 Q58 59 51 52Z" fill="' + style.hair + '" stroke="#11151b" stroke-width="1.5"/>' +
     '<path d="M49 32 Q51 18 64 17 Q75 17 79 28" fill="none" stroke="#77717c" stroke-opacity=".42" stroke-width="2"/>';
   const bangs = back ? "" : side
-    ? '<path d="M52 35 Q48 20 62 17 Q78 17 79 32 Q73 28 68 32 Q62 38 55 38Z" fill="#25252e" stroke="#11151b" stroke-width="1.2"/>'
+    ? '<path d="M52 35 Q48 20 62 17 Q78 17 79 32 Q73 28 68 32 Q62 38 55 38Z" fill="' + style.hair + '" stroke="#11151b" stroke-width="1.2"/>'
     : '<path d="M50 36 Q47 19 61 16 Q77 14 80 30 Q73 25 68 31 Q61 35 58 39Z" fill="#25252e" stroke="#11151b" stroke-width="1.2"/>' +
       '<path d="M54 28 Q59 20 69 22" fill="none" stroke="#77717c" stroke-opacity=".45" stroke-width="1.8"/>';
   const legLeftX = left ? 55 : 58;
@@ -87,7 +87,7 @@ function characterFrame(style, dir, move, frame) {
       ? '<path d="M77 25 q8 15 2 26" fill="none" stroke="' + style.trim + '" stroke-width="2.5"/><circle cx="79" cy="51" r="2.4" fill="url(#metal)"/>'
       : '<path d="M76 22 q7 0 6 8" fill="none" stroke="url(#metal)" stroke-width="2"/>';
   const hairTail = style.shape === 2
-    ? '<path d="M76 37 Q91 52 80 75 Q78 81 71 86 Q81 57 69 48Z" fill="#24252d" stroke="#11151b" stroke-width="1"/>'
+    ? '<path d="M76 37 Q91 52 80 75 Q78 81 71 86 Q81 57 69 48Z" fill="' + style.hair + '" stroke="#11151b" stroke-width="1"/>'
     : style.shape === 4
       ? '<path d="M76 36 Q91 49 84 69 L78 82 Q81 57 68 47Z" fill="#24252d" stroke="#11151b" stroke-width="1"/>'
       : '<path d="M77 38 Q86 53 78 68 L72 77 Q75 53 67 47Z" fill="#24252d" stroke="#11151b" stroke-width="1"/>';
@@ -103,8 +103,7 @@ function characterFrame(style, dir, move, frame) {
   art += collar + embroidery;
   art += '<path d="M49 92 Q64 98 79 92 L78 99 Q64 105 50 99Z" fill="' + style.dark + '" stroke="' + style.trim + '" stroke-width="1.5"/>';
   art += '<path d="M74 99 l10 13 -4 18 -8 -3 4 -13 -8 -9Z" fill="' + style.trim + '" stroke="' + style.dark + '" stroke-width="1"/>';
-  art += '<g transform="translate(0 ' + bob + ')">' + (front ? face : side ? face : '<path d="M53 35 Q64 31 75 35 L74 51 Q64 58 54 51Z" fill="#27262a"/>') + '</g>';
-  art += '<g transform="translate(0 ' + bob + ')">' + (back ? rearHair : '') + bangs + ornament + '</g>';
+  art += '<g transform="translate(64 42) scale(' + headScale + ') translate(-64 -42) translate(0 ' + bob + ')">' + (front ? face : side ? face : '<path d="M53 35 Q64 31 75 35 L74 51 Q64 58 54 51Z" fill="' + style.hair + '"/>') + (back ? rearHair : '') + bangs + ornament + '</g>';
   if (!left) art += '</g>';
   else art += '</g></g>';
   return art;
