@@ -649,6 +649,236 @@ function showSplash() {
   currentDisposer=()=>{cancelled=true;animations.forEach(item=>item.pause());};
 }
 
+
+const GAME_ROUTES = new Set([
+  "game","home-base","city","world-map","game-modes","game-character",
+  "game-inventory","game-bestiary","game-skillbook","game-facilities",
+  "mode-hunting","mode-jobs","mode-socialize","mode-sparring",
+  "mode-war-zone","mode-cultivation","mode-arcanistry","mode-daily-life"
+]);
+const GAME_TABS = [
+  ["game","OVERVIEW"],["home-base","SCENE"],["game-modes","MODE HUB"],
+  ["game-character","CHARACTER"],["game-inventory","INVENTORY"],["game-bestiary","FIELD NOTES"]
+];
+const GAME_MODES = {
+  hunting:{
+    title:"Hunting & Expeditions",short:"HUNTING",mark:"猎",state:"WORLD DATA PENDING",
+    intro:"Track ordinary wildlife or prepare a Spirit Beast expedition through a real location, route, and encounter.",
+    stages:["Target information","Scout & prepare","Track / encounter","Combat, retreat or capture","Resolve loot & Ring custody","Ring Preparation, if eligible"],
+    requirements:["A supported local habitat and route","A verified target or grounded field evidence","Suitable equipment, supplies and character condition","Actual hunt route: supervised, Guild party or solo","Ownership and spoils agreement before claiming a Ring"],
+    note:"The current Pocket Bestiary has 0 verified species records. No target, spawn rate, loot table or hunt result is loaded.",
+    action:"OPEN BESTIARY",route:"game-bestiary"
+  },
+  jobs:{
+    title:"Jobs & Contracts",short:"JOBS",mark:"工",state:"CONTRACT DATA PENDING",
+    intro:"Find a real vacancy, review the employer's terms, complete the shift and receive a ledger-backed payment.",
+    stages:["Discover a vacancy","Inspect employer & Requirements","Apply / interview / trial","Accept explicit contract terms","Attend and complete the shift","Verify work, then settle payment"],
+    requirements:["Employer and workplace record","Vacancy count and schedule","Required skills, credentials and equipment","Pocket duration, attendance and interruption rules","Approved wage, currency, fees and payment ledger"],
+    note:"No live vacancy or approved universal wage table is connected. An example job is not an available contract.",
+    action:"VIEW FACILITIES",route:"game-facilities"
+  },
+  socialize:{
+    title:"Socialize",short:"SOCIALIZE",mark:"友",state:"NPC DATA PENDING",
+    intro:"Meet people where they actually are, learn what they are willing to share, and maintain relationships through recorded events.",
+    stages:["Find an available NPC","Review known topics","Talk, ask or offer help","Record promises, debts or favors","Review the interaction history"],
+    requirements:["NPC identity and current presence","Schedule and location availability","Character-known topics and evidence","Real agreement or favor terms"],
+    note:"No NPC roster or schedule is loaded. Pocket does not assume affection points, automatic trust, loyalty or friendship rewards.",
+    action:"OPEN SCENE",route:"home-base"
+  },
+  sparring:{
+    title:"Sparring & Training",short:"TRAINING",mark:"武",state:"VENUE DATA PENDING",
+    intro:"Practice with a real opponent, instructor or partner at a supported training place.",
+    stages:["Reach a supported venue","Confirm opponent and instructor","Agree on format and safety rules","Run a drill or spar","Record HP, injury and demonstrated result"],
+    requirements:["A supported dojo, academy or practice location","An actually available opponent / partner","Consent, restrictions and protective equipment where needed","Combat rules and injury handling"],
+    note:"Training attendance alone grants no Spirit Realm, Spirit Ring, technique, Sync, Arcanist Focus or Grade.",
+    action:"OPEN SCENE",route:"home-base"
+  },
+  "war-zone":{
+    title:"War Zone",short:"WAR ZONE",mark:"戈",state:"EVENT STATE NOT LOADED",
+    intro:"A contextual operation view for a real, active conflict—not a permanent arena or generic PvP queue.",
+    stages:["Confirm active World Event","Verify region and operation scope","Establish side, contract or credible access","Review objective, route and supplies","Operate, withdraw and record consequences"],
+    requirements:["An ACTIVE World Event in the reachable region","Established factions, actors and objective","Credible player access and valid route","Character condition, supplies and withdrawal plan"],
+    note:"The event ledger is not connected to this screen. No battle, faction reward, casualty or operation is being fabricated.",
+    action:"VIEW WORLD ATLAS",route:"world-map"
+  },
+  cultivation:{
+    title:"Cultivation & Spirit Ring",short:"SPIRIT REALM",mark:"环",state:"CHARACTER DATA PENDING",
+    intro:"A sequential progression workflow. Awakening, each Ring absorption, Realm transition and cooldown are separate recorded stages.",
+    stages:["Awakening & Martial Soul record","Spirit Realm / Stage & Sync","Next sequential Ring Requirements","Target, custody and required item","Preparation & energy reserve","Active absorption → outcome resolution"],
+    requirements:["Awakening complete before Ring 1","Rings must be absorbed sequentially; no skipped Ring","Ring 2–9: previous Ring, Realm gate, Sync gap below 10 and cooldown zero","Legitimate target Ring custody and target-specific item","Body condition, Satiety, method and readiness inputs","Approved Stamina/Qi cost profile and preparation record"],
+    note:"Requirement not configured: absorption energy cost. Ring 1 uses Stamina; Qi begins only after Ring 1 succeeds. Start Absorption stays unavailable until the full profile and save data exist.",
+    action:"OPEN CHARACTER",route:"game-character"
+  },
+  arcanistry:{
+    title:"Arcanistry & Workshop",short:"ARCANISTRY",mark:"刻",state:"STUDY DATA PENDING",
+    intro:"A separate education and professional path for Focus, recognized examinations, Formulation and artifact work.",
+    stages:["Find a qualified teacher or institution","Foundational instruction & Focus practice","Teacher assessment","Apprentice / Grade examination","Engraver, blueprint and material Requirements","Workshop process & verified artifact record"],
+    requirements:["Real teacher / institution and study record","Focus practice followed by assessment","Official registration and examination Requirements","Correct engraver, blueprint authorship and materials","Approved workshop recipe, process and outcome rules"],
+    note:"Arcanist Grade and Focus are independent from Spirit Realm. The catalogue references six known Artificial Artifact IDs, but this UI does not invent recipes, material quantities or an exam result.",
+    action:"VIEW CATALOGUE",route:"game-facilities"
+  },
+  "daily-life":{
+    title:"Daily Life & Facilities",short:"DAILY LIFE",mark:"居",state:"ACTIVITY DATA PENDING",
+    intro:"Gather, cook, farm, build, store, repair, trade and care for everyday needs through location-specific activities.",
+    stages:["Inspect a real location or resource node","Review tools, materials and Requirements","Start an immediate or timed activity","Let the saved process resolve","Collect only verified output","Record item and wallet movement"],
+    requirements:["Supported location and activity definition","Required tools, inputs and available capacity","Configured timer, costs, yields and item IDs","Interruption and completion rules","Inventory and transaction ledger"],
+    note:"Examples in the concept include a well, Level 1 wood-processing facility, farms, storage, workshops and markets. Their costs, rates, recipes and access are not configured here.",
+    action:"VIEW FACILITIES",route:"game-facilities"
+  }
+};
+function gameNav(active){
+  return `<nav class="game-subnav" aria-label="Game sections">${GAME_TABS.map(([route,label])=>`<button type="button" data-game-route="${route}" class="${active===route?"is-active":""}" ${active===route?'aria-current="page"':""}>${label}</button>`).join("")}</nav>`;
+}
+function gameHeader(){
+  const identity=accessIdentity?.role==="player"?escapeHtml(accessIdentity.displayName):"Developer preview";
+  return `<header class="game-header"><div class="game-header-brand"><span class="game-crt-mark">◈</span><div><span>MERZKAVA POCKET</span><small>THE GAME ARCHIVE</small></div></div><div class="game-session"><b>${nativeReady()?"ANDROID NATIVE":"WEB PREVIEW"}</b><small>${identity}</small></div></header>`;
+}
+function modeCard(id){
+  const mode=GAME_MODES[id];
+  return `<button type="button" class="mode-card game-reveal" data-mode-open="${id}"><span class="mode-card-top"><i>${mode.mark}</i><small>${mode.state}</small></span><strong>${mode.title}</strong><p>${mode.intro}</p><span class="mode-card-foot">INSPECT MODE <b>↗</b></span></button>`;
+}
+function gameStatusCard(label,value,caption,mark){
+  return `<article class="game-stat"><span>${mark}</span><small>${label}</small><strong>${value}</strong><em>${caption}</em></article>`;
+}
+function renderGameOverview(){
+  const player=accessIdentity?.role==="player"?escapeHtml(accessIdentity.displayName):"Developer session";
+  return `
+    <section class="game-welcome game-reveal">
+      <div class="game-welcome-copy"><span class="game-overline">A LITTLE WORLD, ALWAYS WITHIN REACH</span><h1>Make a life<br><em>inside Merzkava.</em></h1><p>Your Pocket world, activities, records and slow-growing progress gather here.</p><div class="game-welcome-meta"><span>SESSION · ${player}</span><span>LOCAL SAVE · NOT CONNECTED</span></div><button type="button" class="game-primary" data-game-route="home-base">ENTER WORLD <b>↗</b></button></div>
+      <div class="game-world-art" aria-label="Decorative world preview. The isometric scene renderer is not connected."><div class="art-moon"></div><div class="art-mountain m1"></div><div class="art-mountain m2"></div><div class="art-river"></div><div class="art-island"><i></i><b></b><em></em></div><div class="art-lantern"></div><span class="art-stamp">FIELD<br>ARCHIVE</span><small>SCENE RENDERER · PENDING</small></div>
+    </section>
+    <div class="game-section-heading"><div><span>CHARACTER OVERVIEW</span><h2>Your current state</h2></div><button type="button" data-game-route="game-character">OPEN PROFILE ↗</button></div>
+    <div class="game-stats-grid">
+      ${gameStatusCard("HP","— / —","Character save not loaded","✧")}
+      ${gameStatusCard("SATIETY","— / 100","Current value not loaded","◌")}
+      ${gameStatusCard("ENERGY","—","Stamina / Qi profile pending","⌁")}
+      ${gameStatusCard("SPIRIT REALM","Unknown","Realm & Stage not loaded","◇")}
+    </div>
+    <section class="game-wallet game-reveal"><div><span>WALLET · XUAN</span><small>Balances are read from the player save.</small></div><div class="wallet-values"><b>xc <i>—</i></b><b>xs <i>—</i></b><b>xg <i>—</i></b><b>zj <i>—</i></b><b>az <i>—</i></b></div></section>
+    <div class="game-section-heading"><div><span>YOUR WORLD</span><h2>Choose a place to begin</h2></div><button type="button" data-game-route="world-map">WORLD ATLAS ↗</button></div>
+    <div class="game-shortcuts">
+      <button type="button" data-game-route="home-base"><span>01</span><b>Current Scene</b><small>Location, people and activities</small><i>↗</i></button>
+      <button type="button" data-game-route="game-modes"><span>02</span><b>Mode Hub</b><small>Hunting, work, training and more</small><i>↗</i></button>
+      <button type="button" data-game-route="game-inventory"><span>03</span><b>Inventory</b><small>Items, tools and materials</small><i>↗</i></button>
+      <button type="button" data-game-route="game-facilities"><span>04</span><b>Facilities</b><small>Construction and production</small><i>↗</i></button>
+      <button type="button" data-game-route="game-bestiary"><span>05</span><b>Field Notes</b><small>Bestiary and discoveries</small><i>↗</i></button>
+      <button type="button" data-game-route="game-skillbook"><span>06</span><b>Skillbook</b><small>Abilities and techniques</small><i>↗</i></button>
+    </div>
+    <div class="game-section-heading"><div><span>ACTIVITY MODES</span><h2>Life in the world</h2></div><button type="button" data-game-route="game-modes">ALL 8 MODES ↗</button></div>
+    <div class="mode-grid mode-grid-compact">${["daily-life","jobs","socialize","cultivation"].map(modeCard).join("")}</div>
+    <p class="game-footnote">This is the Game UI shell. Character state, scene data, timers, inventory, native database and simulation services are not yet connected.</p>`;
+}
+function renderModeHub(){
+  return `<section class="game-page-intro"><span class="game-overline">GAME / MODE HUB</span><h1>Choose your<br><em>next activity.</em></h1><p>Each mode shares the same character, world clock, inventory and transaction records. Access depends on the actual location and Requirements.</p></section>
+  <div class="mode-grid">${Object.keys(GAME_MODES).map(modeCard).join("")}</div>
+  <section class="game-notice"><b>SHARED WORLD RULE</b><p>Modes are not disconnected mini-games. A mode cannot teleport you, bypass location access, create an NPC or target, or grant an unrecorded reward.</p></section>`;
+}
+function renderModeDetail(id){
+  const mode=GAME_MODES[id];
+  return `<section class="mode-detail-hero"><div class="mode-detail-symbol">${mode.mark}</div><div><span class="game-overline">${mode.short} / POCKET MODE</span><h1>${mode.title}</h1><p>${mode.intro}</p><span class="mode-state-pill">${mode.state}</span></div></section>
+  <section class="game-panel"><div class="game-panel-heading"><span>PROCESS FLOW</span><small>DESIGN REFERENCE</small></div><ol class="mode-process">${mode.stages.map((step,i)=>`<li><i>${String(i+1).padStart(2,"0")}</i><span>${step}</span></li>`).join("")}</ol></section>
+  <section class="game-panel"><div class="game-panel-heading"><span>REQUIREMENTS</span><small>NOT YET EVALUATED · SAVE DATA PENDING</small></div><ul class="requirement-list">${mode.requirements.map(item=>`<li><i>◇</i><span>${item}</span><b>NOT CHECKED</b></li>`).join("")}</ul></section>
+  <section class="game-notice"><b>DATA BOUNDARY</b><p>${mode.note}</p></section>
+  <div class="game-detail-actions"><button type="button" class="game-secondary" data-game-route="game-modes">← ALL MODES</button><button type="button" class="game-primary" data-game-route="${mode.route}">${mode.action} <b>↗</b></button></div>`;
+}
+function renderScenePage(){
+  return `<section class="game-page-intro"><span class="game-overline">GAME / HOME BASE</span><h1>The world,<br><em>one place at a time.</em></h1><p>Pocket uses selectable isometric locations and deliberate travel—not free-roam joystick movement.</p></section>
+  <div class="scene-placeholder"><div class="scene-placeholder-art"><div class="art-moon"></div><div class="art-mountain m1"></div><div class="art-mountain m2"></div><div class="art-river"></div><div class="art-island"><i></i><b></b><em></em></div><span>ISOMETRIC SCENE</span></div><div class="scene-placeholder-caption"><b>NO SCENE DATA LOADED</b><small>Area, buildings, hotspots, NPC placements and resource nodes will appear here when a scene dataset and renderer are connected.</small></div></div>
+  <section class="game-panel location-panel"><div class="game-panel-heading"><span>LOCATION PANEL</span><small>CONTEXTUAL VIEW</small></div><div class="location-tabs"><button class="is-active" data-location-tab="overview">OVERVIEW</button><button data-location-tab="people">PEOPLE</button><button data-location-tab="activities">ACTIVITIES</button></div>
+    <div class="location-content" data-location-panel="overview"><b>Location identity unavailable</b><p>The selected location, ownership, access and facility condition have not been loaded from a world scene.</p></div>
+    <div class="location-content" data-location-panel="people" hidden><b>No NPC presence loaded</b><p>People will appear only from real NPC profiles and their current schedules or location records.</p></div>
+    <div class="location-content" data-location-panel="activities" hidden><b>No local activities configured</b><p>Gathering, work, services and production require a supported location plus explicit activity Requirements, inputs, time and outputs.</p><button type="button" data-game-route="game-modes">OPEN MODE HUB ↗</button></div>
+  </section>
+  <div class="game-detail-actions"><button type="button" class="game-secondary" data-game-route="city">CITY LAYER</button><button type="button" class="game-primary" data-game-route="world-map">WORLD ATLAS <b>↗</b></button></div>`;
+}
+function renderGeographyPage(destination){
+  const city=destination==="city";
+  return `<section class="game-page-intro"><span class="game-overline">GAME / ${city?"CITY":"WORLD MAP"}</span><h1>${city?"City routes.":"The world atlas."}</h1><p>${city?"Move between connected area scenes only when a valid route and destination are defined.":"The world layer follows Merzkava Universe geography and Pocket travel Requirements."}</p></section>
+  <div class="atlas-placeholder"><div class="atlas-orbit orbit-a"></div><div class="atlas-orbit orbit-b"></div><div class="atlas-compass">N</div><div class="atlas-seal">M</div><span>${city?"AREA / CITY INDEX":"WORLD / REGION INDEX"}</span></div>
+  <section class="game-panel"><div class="game-panel-heading"><span>${city?"CONNECTED DESTINATIONS":"REGIONS & ROUTES"}</span><small>DATA NOT CONNECTED</small></div><div class="empty-state"><i>⌖</i><b>${city?"No city scene records":"No map or route records"}</b><p>Destination names, travel methods, route duration, access, and arrival conditions will be shown only when their source data is loaded.</p></div></section>
+  <div class="game-detail-actions"><button type="button" class="game-secondary" data-game-route="${city?"home-base":"city"}">← ${city?"SCENE":"CITY LAYER"}</button><button type="button" class="game-primary" data-game-route="game">GAME OVERVIEW <b>↗</b></button></div>`;
+}
+function renderCharacterPage(){
+  return `<section class="game-page-intro"><span class="game-overline">GAME / CHARACTER</span><h1>Character<br><em>archive.</em></h1><p>Progression is separated into independent tracks. A timer or UI animation cannot award progression.</p></section>
+  <section class="character-identity-card"><span class="identity-seal">✧</span><div><small>VERIFIED LOGIN IDENTITY</small><b>${accessIdentity?.role==="player"?escapeHtml(accessIdentity.displayName):"Developer preview"}</b><em>GAME CHARACTER SAVE · NOT LOADED</em></div></section>
+  <div class="game-section-heading"><div><span>INDEPENDENT TRACKS</span><h2>Progression records</h2></div></div>
+  <div class="track-grid">
+    <article><small>01 · AWAKENING</small><b>Martial Soul</b><span>Not loaded</span></article>
+    <article><small>02 · SPIRIT REALM</small><b>Realm & Stage</b><span>Not loaded</span></article>
+    <article><small>03 · SPIRIT RINGS</small><b>Absorption & Sync</b><span>Not loaded</span></article>
+    <article><small>04 · ARCANISTRY</small><b>Focus</b><span>Not loaded</span></article>
+    <article><small>05 · ARCANISTRY</small><b>Arcanist Grade</b><span>Not loaded</span></article>
+    <article><small>06 · COMBAT</small><b>Skills & Techniques</b><span>Not loaded</span></article>
+  </div>
+  <section class="game-panel"><div class="game-panel-heading"><span>SPIRIT RING SLOTS</span><small>9-SLOT CAPACITY · PLAYER STATE UNKNOWN</small></div><div class="ring-slot-grid">${Array.from({length:9},(_,i)=>`<div class="ring-slot"><b>${i+1}</b><i>◇</i><small>NO RECORD</small></div>`).join("")}</div><p class="panel-footnote">Visible capacity does not prove a slot is open or that Requirements are met. Rings 1–9 must be successfully absorbed in sequence.</p></section>
+  <section class="game-notice"><b>ENERGY & ABSORPTION</b><p>Ring 1 requires Stamina; Qi is formed only after its successful absorption. Ring 2–9 uses Qi. The approved Pocket energy-cost profile is not configured, so Start Absorption must remain disabled.</p></section>`;
+}
+function renderInventoryPage(){
+  return `<section class="game-page-intro"><span class="game-overline">GAME / INVENTORY</span><h1>Belongings<br><em>& materials.</em></h1><p>Items, tools, food, materials and assets share one inventory and transaction ledger across all modes.</p></section>
+  <div class="inventory-summary"><div><small>ITEMS RECORDED</small><b>—</b></div><div><small>ACTIVE PROCESSES</small><b>—</b></div><div><small>STORAGE</small><b>—</b></div></div>
+  <div class="inventory-tabs"><button class="is-active" data-inventory-tab="all">ALL</button><button data-inventory-tab="tools">TOOLS</button><button data-inventory-tab="materials">MATERIALS</button><button data-inventory-tab="food">FOOD</button><button data-inventory-tab="assets">ASSETS</button></div>
+  <section class="game-panel"><div class="game-panel-heading"><span>POCKET INVENTORY</span><small data-inventory-label>ALL CATEGORIES</small></div><div class="empty-state" data-inventory-empty><i>▧</i><b>No local inventory loaded</b><p>There are no item counts, durability values, ownership records or storage limits connected to this screen yet.</p></div></section>
+  <section class="game-notice"><b>ITEM DATA RULE</b><p>An item must have a stable ID, source, acquisition route, Requirements and valid use/output rules. Missing prices, yields or recipes are not treated as zero or free.</p></section>`;
+}
+function renderBestiaryPage(){
+  return `<section class="game-page-intro"><span class="game-overline">GAME / FIELD NOTES</span><h1>Bestiary<br><em>& discoveries.</em></h1><p>A character's discovered knowledge—not an omniscient copy of every world record.</p></section>
+  <div class="library-count"><b>0</b><span>VERIFIED POCKET SPECIES RECORDS</span><small>Catalogue structure is ready; no species-by-species data has been imported.</small></div>
+  <section class="game-panel"><div class="game-panel-heading"><span>BEAST CLASSIFICATION</span><small>UNIVERSE CATEGORIES</small></div><div class="category-list">${["Ordinary Beast","Spirit Beast","Supreme Beast","Demonic Beast","Heavenly Beast"].map((x,i)=>`<div><i>0${i+1}</i><b>${x}</b><small>NO VERIFIED SPECIES ENTRY</small></div>`).join("")}</div></section>
+  <section class="game-notice"><b>DISCOVERY STAYS PERSONAL</b><p>Rumor, tracks, sighting, identification, appraisal, defeat and Ring custody are separate knowledge states. Hidden age, abilities and loot do not appear before a valid discovery.</p></section><div class="game-detail-actions"><button type="button" class="game-secondary" data-game-route="game-skillbook">OPEN SKILLBOOK ↗</button><button type="button" class="game-primary" data-game-route="game-modes">MODE HUB <b>↗</b></button></div>`;
+}
+function renderSkillbookPage(){
+  return `<section class="game-page-intro"><span class="game-overline">GAME / SKILLBOOK</span><h1>Knowledge<br><em>& techniques.</em></h1><p>Every ability keeps its source, character compatibility, Requirements, proficiency and verified effects.</p></section>
+  <div class="library-count"><b>0</b><span>UNIVERSAL AUTO-UNLOCK LISTS</span><small>Personal abilities are added only from verified Ring, Martial Soul, teaching, combat or artifact provenance.</small></div>
+  <section class="game-panel"><div class="game-panel-heading"><span>ABILITY FAMILIES</span><small>LIBRARY STRUCTURE</small></div><div class="category-list">${["Martial Soul","Spirit Ring 1–9","Formal Techniques","Combat Training","Arcanistry & Formulations","Artifact Functions","Profession / Life Skills"].map((x,i)=>`<div><i>0${i+1}</i><b>${x}</b><small>PERSONAL RECORD NOT LOADED</small></div>`).join("")}</div></section>
+  <section class="game-notice"><b>NO GENERIC SKILL TREE</b><p>Realm number, Ring slot, rarity or attendance alone does not grant an ability. Draft entries cannot be equipped or used.</p></section><div class="game-detail-actions"><button type="button" class="game-secondary" data-game-route="game-bestiary">← BESTIARY</button><button type="button" class="game-primary" data-game-route="game-character">CHARACTER <b>↗</b></button></div>`;
+}
+function renderFacilitiesPage(){
+  const facilities=[
+    ["01","Well / Water Point","Water access and collection","Concept example · data pending"],
+    ["02","Wood Processing / Sawmill","Timber processing from gathered wood","Level 1 is a reference tier, not a configured recipe"],
+    ["03","Farm & Growing Plots","Land preparation, seeds, crop care and harvest","Crop, growth, yield and region rules pending"],
+    ["04","Storage","Capacity, access and stored materials","Storage limits and item records pending"],
+    ["05","Workshop","Crafting, repair and Arcanistry production","Recipes, tools, materials and success rules pending"],
+    ["06","Market / Port","Trade, jobs and local services","Actual buyer, seller, route and prices pending"]
+  ];
+  return `<section class="game-page-intro"><span class="game-overline">GAME / FACILITIES</span><h1>Build a place<br><em>to call home.</em></h1><p>Facilities are location-bound systems with ownership, level, capacity, condition, workers and timed processes.</p></section>
+  <section class="game-panel"><div class="game-panel-heading"><span>FACILITY CATALOGUE</span><small>CONCEPT REFERENCES</small></div><div class="facility-list">${facilities.map(([n,title,desc,state])=>`<article><i>${n}</i><div><b>${title}</b><p>${desc}</p><small>${state}</small></div><span>—</span></article>`).join("")}</div></section>
+  <section class="game-notice"><b>NO INVENTED COSTS OR OUTPUTS</b><p>Construction time, build costs, material requirements, capacity, operating cost, yields and upgrade rules must be authored per facility before it can be built or operated.</p></section>`;
+}
+function renderGamePage(destination){
+  const active=destination==="game"?"game":destination==="home-base"?"home-base":destination==="game-modes"?"game-modes":destination==="game-character"?"game-character":destination==="game-inventory"?"game-inventory":destination==="game-bestiary"||destination==="game-skillbook"?"game-bestiary":"game";
+  let body="";
+  if(destination==="game")body=renderGameOverview();
+  else if(destination==="game-modes")body=renderModeHub();
+  else if(destination==="home-base")body=renderScenePage();
+  else if(destination==="city"||destination==="world-map")body=renderGeographyPage(destination);
+  else if(destination==="game-character")body=renderCharacterPage();
+  else if(destination==="game-inventory")body=renderInventoryPage();
+  else if(destination==="game-bestiary")body=renderBestiaryPage();
+  else if(destination==="game-skillbook")body=renderSkillbookPage();
+  else if(destination==="game-facilities")body=renderFacilitiesPage();
+  else if(destination.startsWith("mode-"))body=renderModeDetail(destination.slice(5));
+  return `<main class="page-stage game-stage">${gameHeader()}${gameNav(active)}<div class="game-page-content">${body}</div><footer class="game-app-footer"><span>MERZKAVA POCKET</span><span>LOCAL GAME SHELL · DATA INTEGRATION PENDING</span></footer></main>`;
+}
+function mountGameInteractions(){
+  root.querySelectorAll("[data-game-route]").forEach(button=>button.addEventListener("click",()=>navigate(button.dataset.gameRoute)));
+  root.querySelectorAll("[data-mode-open]").forEach(button=>button.addEventListener("click",()=>navigate("mode-"+button.dataset.modeOpen)));
+  root.querySelectorAll("[data-location-tab]").forEach(button=>button.addEventListener("click",()=>{
+    const tab=button.dataset.locationTab;
+    root.querySelectorAll("[data-location-tab]").forEach(item=>item.classList.toggle("is-active",item===button));
+    root.querySelectorAll("[data-location-panel]").forEach(panel=>panel.hidden=panel.dataset.locationPanel!==tab);
+  }));
+  root.querySelectorAll("[data-inventory-tab]").forEach(button=>button.addEventListener("click",()=>{
+    root.querySelectorAll("[data-inventory-tab]").forEach(item=>item.classList.toggle("is-active",item===button));
+    const labels={all:"ALL CATEGORIES",tools:"TOOLS",materials:"MATERIALS",food:"FOOD",assets:"ASSETS"};
+    const label=root.querySelector("[data-inventory-label]");
+    const empty=root.querySelector("[data-inventory-empty]");
+    if(label)label.textContent=labels[button.dataset.inventoryTab];
+    if(empty){empty.querySelector("b").textContent="No "+(button.dataset.inventoryTab==="all"?"local inventory":labels[button.dataset.inventoryTab].toLowerCase())+" records loaded";empty.querySelector("p").textContent="This category will populate when verified item ownership and the local save database are connected.";}
+  }));
+}
+
+
 function renderHome() {
   routeHistory.length = 0;
   renderPage("home");
@@ -671,24 +901,8 @@ function renderPage(destination, depth="") {
         </section>
         <footer class="home-foot"><span>LOCAL POCKET SHELL</span><span>${accessIdentity?.role.toUpperCase()||"SESSION"}</span></footer>
       </main>`;
-  } else if(destination==="game"){
-    pageMarkup=`
-      <main class="page-stage">
-        <span class="eyebrow">GAME / WORLD ACCESS</span><h1>Enter the world.</h1><p class="page-lead">World navigation follows the Pocket hierarchy.</p>
-        <article class="destination-card"><span>01 / GAME ENTRY</span><strong>Home Base</strong><small>The starting hub for in-world navigation.</small><button type="button" data-subroute="home-base">OPEN HOME BASE ↗</button></article>
-      </main>`;
-  } else if(destination==="home-base"){
-    pageMarkup=`
-      <main class="page-stage"><span class="eyebrow">GAME / HOME BASE</span><h1>Home Base.</h1><p class="page-lead">Your local starting hub.</p>
-      <article class="destination-card"><span>02 / CITY NAVIGATION</span><strong>City</strong><small>Continue into the connected city layer.</small><button data-subroute="city">OPEN CITY ↗</button></article></main>`;
-  } else if(destination==="city"){
-    pageMarkup=`
-      <main class="page-stage"><span class="eyebrow">GAME / CITY</span><h1>City.</h1><p class="page-lead">Choose a connected destination from the city layer.</p>
-      <article class="destination-card"><span>03 / WORLD SCALE</span><strong>World Map</strong><small>World-scale geography belongs inside Game.</small><button data-subroute="world-map">OPEN WORLD MAP ↗</button></article></main>`;
-  } else if(destination==="world-map"){
-    pageMarkup=`
-      <main class="page-stage"><span class="eyebrow">GAME / WORLD MAP</span><h1>World Map.</h1><p class="page-lead">The map data is not included in this shell build.</p>
-      <article class="destination-card"><span>WORLD ATLAS</span><strong>Geographic layer</strong><small>Map content will be connected from the reviewed Universe sources; no placeholder geography is invented here.</small><button data-subroute="city">RETURN TO CITY ↗</button></article></main>`;
+  } else if (GAME_ROUTES.has(destination)) {
+    pageMarkup = renderGamePage(destination);
   } else if(destination==="daily-login"){
     pageMarkup=`
       <main class="page-stage"><span class="eyebrow">DAILY LOG-IN / RECORD</span><h1>A new day begins.</h1><p class="page-lead">Your daily check-in has its own dedicated destination.</p>
@@ -703,10 +917,14 @@ function renderPage(destination, depth="") {
   applyTheme();
   root.querySelectorAll("[data-theme-choice]").forEach(button=>button.addEventListener("click",()=>setTheme(button.dataset.themeChoice)));
   root.querySelectorAll("[data-subroute]").forEach(button=>button.addEventListener("click",()=>navigate(button.dataset.subroute)));
+  mountGameInteractions();
   root.querySelector("[data-signout]")?.addEventListener("click",()=>void signOut());
   const page=root.querySelector(".home-stage,.page-stage");
   if(!reducedMotion()&&page)animate(page,{opacity:[0,1],translateY:[8,0],duration:420,ease:"outCubic"});
   mountMenu();
+  if(GAME_ROUTES.has(destination)&&!reducedMotion()){
+    root.querySelectorAll(".game-reveal").forEach((item,index)=>animate(item,{opacity:[0,1],translateY:[13,0],duration:390,delay:45+Math.min(index,8)*48,ease:"outCubic"}));
+  }
 }
 
 function navigationMarkup() {
@@ -737,7 +955,7 @@ function mountMenu() {
   const release=zone.querySelector("[data-release-zone]");
   const instruction=zone.querySelector("[data-cord-instruction]");
   const tiles=[...dock.querySelectorAll("[data-destination]")];
-  const activeDestination=["home-base","city","world-map"].includes(currentRoute)?"game":currentRoute;
+  const activeDestination=GAME_ROUTES.has(currentRoute)?"game":currentRoute;
   tiles.forEach(tile=>{const active=tile.dataset.destination===activeDestination;tile.classList.toggle("is-active",active);if(active)tile.setAttribute("aria-current","page");else tile.removeAttribute("aria-current");});
   let pointerId=null, start={x:0,y:0}, current={x:0,y:0}, rest={x:0,y:112}, dragged=false, disposed=false, idle=null, recoil=null;
   const bounds=()=>({w:window.innerWidth,h:window.innerHeight});
@@ -843,7 +1061,7 @@ function mountMenu() {
 }
 
 function navigate(destination) {
-  if(!["home","game","daily-login","settings","home-base","city","world-map"].includes(destination))return;
+  if(!["home","daily-login","settings"].includes(destination)&&!GAME_ROUTES.has(destination))return;
   if(destination===currentRoute)return;
   routeHistory.push(currentRoute);
   renderPage(destination);
