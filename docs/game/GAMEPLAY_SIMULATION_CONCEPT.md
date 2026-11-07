@@ -383,9 +383,10 @@ Pocket needs its **own local database** for gameplay and simulation state. The d
 |---|---|
 | World definitions | Regions, scenes, routes, terrain, location identifiers, and canon references. |
 | Scene content | Artwork references, building footprints, layers, hotspots, NPC placements, and resource nodes. |
-| Player state | Current scene, HP, Satiety, equipment, inventory, materials, assets, and five-denomination wallet. |
+| Player state | Current scene, HP, Satiety, Stamina before Ring 1, Qi after Ring 1, injury, equipment, inventory, materials, assets, and five-denomination wallet. |
 | Facilities | Ownership/access, level, capacity, condition, workers, construction, and upgrade processes. |
 | Work and production | Assigned tasks, start/end timestamps, inputs, outputs, wages, energy reservations/consumption, interruption rules, and completion state. |
+| Spirit Ring preparation and absorption | Ring sequence, target Beast/specimen, custody, required item, preparation checklist, readiness inputs, active duration, inter-Ring cooldown, energy-cost profile, reserved/spent/remaining energy, interruption state, and absorption outcome. |
 | Farming and gathering | Crop/resource type, source location, growth/refresh timers, yield, and collection history. |
 | NPC simulation | Profile references, current presence, schedules, social-link state, and recorded interactions. |
 | Calendar and events | Local timeline, daily schedules, event triggers, active events, and resolved outcomes. |
