@@ -121,15 +121,8 @@ function openState(identity){
   const raw=localStorage.getItem(key);
   const saved=raw?JSON.parse(raw):null;
   const state=saved?migrateState(saved,key):createState();
-  if(identity?.role==="player"&&!state.wallet_seeded_from_profile){
-    const opening=readPinnedProfileWallet(identity);
-    if(opening){
-      state.wallet_xc=Math.round((num(state.wallet_xc)+opening.amount_xc)*100)/100;
-      state.wallet_seeded_from_profile=true;
-      state.wallet_source_sha=opening.sourceSha;
-      addLedger(state,{type:"profile_wallet_import",label:"Opening Wallet from pinned Universe profile",quantity:1,amount_xc:opening.amount_xc,source_sha:opening.sourceSha});
-    }
-  }
+  // The Universe registry authenticates the character name only. All Pocket status,
+  // Wallet, inventory, progression and gameplay data remain in this local save.
   return {key,state};
 }
 function addItems(state,rows){for(const row of rows||[]){const n=num(row.quantity);if(row.item_id&&n>0)state.inventory[row.item_id]=Math.round((qty(state,row.item_id)+n)*100)/100;}}
