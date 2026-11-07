@@ -156,7 +156,7 @@ class HomeBaseScene extends Phaser.Scene{
       }
     }
     // A softly layered shoreline rim gives the map a clear playable edge.
-    g.lineStyle(2,0x8f9d78,.18);g.strokeRect(20,12,WORLD_WIDTH-40,WORLD_HEIGHT-24);
+    g.lineStyle(2,0x8f9d78,.2);g.beginPath();g.moveTo(...Object.values(locationOf(0,0)));g.lineTo(...Object.values(locationOf(WORLD_COLS-1,0)));g.lineTo(...Object.values(locationOf(WORLD_COLS-1,WORLD_ROWS-1)));g.lineTo(...Object.values(locationOf(0,WORLD_ROWS-1)));g.closePath();g.strokePath();
   }
   addWorldDecorations(){
     for(let row=0;row<WORLD_ROWS;row++)for(let col=0;col<WORLD_COLS;col++){
