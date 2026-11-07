@@ -21,7 +21,10 @@ try{
   // through the same relative-path rule as PXL's own character library.
   copyFileSync(resolve(pxlRoot,"lib/characters/dress.px.js"),helper);
   mkdirSync(out,{recursive:true});
-  run(process.execPath,[resolve(pxlRoot,"bin/pxl.js"),"build",resolve(root,"art/world-archive.px.js"),"--out",out,"--no-preview"]);
+  const pxlCli=resolve(pxlRoot,"bin/pxl.js");
+  const source=resolve(root,"art/world-archive.px.js");
+  run(process.execPath,[pxlCli,"check",source]);
+  run(process.execPath,[pxlCli,"build",source,"--out",out,"--no-preview"]);
   console.log("World Archive PXL pixel assets built for Merzkava Pocket.");
 }finally{
   rmSync(helper,{force:true});
