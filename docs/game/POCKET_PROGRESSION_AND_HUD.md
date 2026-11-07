@@ -208,6 +208,7 @@ The character must complete a Preparation screen for every absorption attempt:
 7. Check the correct energy resource and reserve the configured absorption cost.
 8. Choose and record a legitimate absorption method and any actual teacher, guide, formation, support, or special equipment involved. Portable Ring Stasis Artifact is optional and only used when it genuinely exists and is available; it is not a universal Requirement.
 9. Record official readiness inputs and calculate the compatibility/success formula before the active process begins.
+10. For an absorption crossing meal/sleep windows, attach the approved maintenance profile: food, water, safe location, supervision/support, rest/sleep policy and continuity mode. Ring 6–9 cannot start without this profile. App closure is not sleep; do not grant free Satiety or energy recovery.
 
 **E. Official readiness score is not the energy cost**
 
@@ -456,6 +457,7 @@ The expanded drawer must contain:
 - Target ring and all missing requirements when the player inspects the next absorption.
 - Dedicated **Ring Preparation** panel with progression, cooldown, target custody, target item, body condition, Satiety, Martial Soul condition, method, energy reserve and readiness Requirements.
 - Active absorption duration and next-Ring inter-Ring cooldown shown as separate timers.
+- For multi-day absorption: maintenance profile, continuity mode, meal/water provision, sleep/rest policy, supervision and location safety.
 - Energy type: Stamina before Ring 1; Qi after Ring 1. Show configured total cost, required start reserve, reserved/spent/remaining energy, and the drain schedule. If the cost profile is missing, show the exact **Requirement not configured** state and disable Start Absorption.
 
 **Arcanistry**
