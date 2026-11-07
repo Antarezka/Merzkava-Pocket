@@ -41,9 +41,12 @@ The following wireframe is a layout reference, not a final visual asset. “Tian
 ```text
 ╭────────────────────────────────────╮
 │  TIANHAI CAMPUS (example)       ☰  ◈│
-│  Day 08 · Morning                  │
+│  Day 08 · 08:15                    │
+│  HP 180/200  ▰▰▰▰▰▰▰▰▱▱           │
+│  SAT 78/100   ▰▰▰▰▰▰▰▱▱▱           │
+│  MORTAL · AWAKENED                 │
+│  ARCANIST GRADE ??? · FOCUS —      │
 │  xc   xs   xg   zj   az            │
-│                                    │
 │                                    │
 │         ISOMETRIC WORLD            │
 │                                    │
@@ -57,7 +60,7 @@ The following wireframe is a layout reference, not a final visual asset. “Tian
 │      QUARTER           ◆           │
 │                                    │
 │          [ MAIN GATE ]             │
-│                 ◆                  │
+│                 ◆                 │
 │                                    │
 │   Forest perimeter · River         │
 │                                    │
