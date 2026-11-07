@@ -760,12 +760,13 @@ function mountMenu() {
   const renderBubbleButton=state=>{
     if(!bubbleButton)return;
     const active=state.bubbleVisible===true;
+    const serviceRunning=state.serviceRunning===true;
     const ready=state.supported&&state.displayOverApps&&state.notifications&&state.batteryExemption;
-    bubbleButton.disabled=bubbleBusy||!state.supported||(!active&&!ready);
+    bubbleButton.disabled=bubbleBusy||!state.supported||(!serviceRunning&&!ready);
     bubbleButton.classList.toggle("is-active",active);
     bubbleButton.setAttribute("aria-pressed",String(active));
     bubbleButton.setAttribute("aria-label",active?"Stop floating bubble":"Start floating bubble");
-    bubbleButton.title=active?"Stop the floating bubble":ready?"Start the floating bubble":"Complete Floating Control setup first";
+    bubbleButton.title=active?"Stop the floating bubble":serviceRunning?"Stop the floating service":"Start the floating bubble";
   };
   const refreshBubbleButton=()=>{floatingReadiness=readNativeFloatingState();renderBubbleButton(floatingReadiness);};
   const toggleFloatingBubble=async()=>{
@@ -774,10 +775,10 @@ function mountMenu() {
     if(bubbleFeedback)bubbleFeedback.textContent="";
     try{
       const state=readNativeFloatingState();floatingReadiness=state;
-      if(state.bubbleVisible){
+      if(state.serviceRunning){
         native.stopFloatingMode();
         await waitForNativeFloatingState(next=>!next.serviceRunning&&!next.bubbleVisible,1800);
-        if(bubbleFeedback)bubbleFeedback.textContent="FLOATING BUBBLE STOPPED.";
+        if(bubbleFeedback)bubbleFeedback.textContent="FLOATING SERVICE STOPPED.";
       }else{
         const ready=state.supported&&state.displayOverApps&&state.notifications&&state.batteryExemption;
         if(!ready)throw new Error("Complete the Floating Control setup before starting the bubble.");
@@ -803,7 +804,7 @@ function mountMenu() {
   const bounds=()=>({w:window.innerWidth,h:window.innerHeight});
   const cordSvg=zone.querySelector(".cord-svg");
   const syncLayout=()=>{const b=bounds();cordSvg.setAttribute("viewBox",`0 0 ${b.w} ${b.h}`);rest={x:b.w*.25+HANDLE_ANCHOR_X,y:112+TV_CASE_TOP};if(pointerId===null)draw(rest);};
-  const clamp=(x,y)=>{const b=bounds();return{x:Math.max(HANDLE_ANCHOR_X,Math.min(b.w-HANDLE_ANCHOR_X,x)),y:Math.max(48,Math.min(b.h-24,y))};};
+  const clamp=(x,y)=>{const b=bounds();return{x:Math.max(HANDLE_ANCHOR_X,Math.min(b.w-(58-HANDLE_ANCHOR_X),x)),y:Math.max(48,Math.min(b.h-(58-TV_CASE_TOP),y))};};
   const draw=point=>{
     current={...point};
     const dx=point.x-rest.x,dy=point.y,endY=point.y+CORD_HIDE_DEPTH;
