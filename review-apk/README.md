@@ -20,7 +20,11 @@ Donate is a kindness panel only. It has a calm hospital-room scene, no payment f
 
 ## Home and motion
 
-The Home shell retains Dark and White themes, the double torn-paper four-destination dock, upper-right brush strokes, and the CRT television pull-cord. The pull-cord is drag-only: a tap does nothing; release inside the lower activation zone toggles the dock; recoil and drawer choreography run in parallel. Game navigation remains nested as Home Base → City → World Map.
+The Home shell retains Dark and White themes, the double torn-paper four-destination dock, upper-right brush strokes, and the CRT television pull-cord. The pull-cord is drag-only: a tap does nothing; release inside the lower activation zone toggles the dock; recoil and drawer choreography run in parallel.
+
+Game navigation remains nested as Home Base → City → World Map. These are shell navigation destinations, not a definition of the gameplay model. The intended game is a **2D Isometric Location-Based Simulation**, not a free-roam RPG. Its scene interaction, location panel, travel between scenes (including walking and available mounts), time-based activities, world events, inventory, local persistence, and implementation sequence are defined in [Game Simulation Concept](../docs/game/GAMEPLAY_SIMULATION_CONCEPT.md).
+
+The current Game destinations are navigation scaffolding only. The isometric runtime, travel simulation, and dedicated local game database are separate implementation work and must follow the concept document rather than be inferred from the placeholder pages.
 
 Anime.js 4.x owns access pacing, the Pocket Transition, screen transitions, Splash, pull-cord and dock choreography. CSS owns surfaces and static/reduced-motion presentation. Augusto PXL remains a build-time visual-art authoring/export pipeline; it is not treated as an animation engine and no generated artwork is fabricated for this shell.
 
