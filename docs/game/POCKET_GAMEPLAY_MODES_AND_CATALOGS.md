@@ -44,7 +44,7 @@ All modes share:
 | Route | Pocket presentation | Required checks |
 |---|---|---|
 | Academy-supervised Safe Route | Expedition board, instructor, preparation, team roster, target area, return/withdrawal point | Actual academy access, instructor/leader, student readiness, area information, and planned safety procedure |
-| Temporary Spirit Hunters Guild party | Guild board, contract/party listing, roster, terms, roles, route, spoils agreement | Local Guild office availability, contract eligibility, party terms, target information, evidence/ownership agreement |
+| Temporary Spirit Hunters Guild party | Guild board, contract/party listing, roster, terms, roles, route, spoils agreement | Local Guild office availability, contract Requirements, party terms, target information, evidence/ownership agreement |
 | Solo hunt | Local map tracking/scouting action, supplies, target, escape route | Character capability, preparation, equipment, reliable information, terrain, and actual target danger |
 
 A Safe Route reduces avoidable exposure; it is not a guarantee of safety, target presence, victory, or rescue. A Guild party does not guarantee trust or success. Solo hunting is not made feasible by selecting the Solo button.
@@ -147,7 +147,7 @@ Each location's job board may show currently active vacancies such as:
 
 These are examples of Pocket job categories, not claims that every listed vacancy exists in every region. Job records are authored per employer, location, role, and availability.
 
-### 3.2 Job data and eligibility
+### 3.2 Job data and Requirements
 
 Every vacancy requires:
 - Employer ID, workplace/location, role ID and vacancy count.
@@ -261,7 +261,7 @@ Before showing an active War Zone operation, verify:
 - The factions/forces and objective are established by canon or event records.
 - The player's side, affiliation, contract, reason for entry, or credible access is known.
 - Route, supply, transport, allies, local authority and withdrawal conditions are grounded.
-- Character eligibility and actual danger are assessed. A player is not automatically a soldier or combatant because the mode exists.
+- Character Requirements and actual danger are checked. A player is not automatically a soldier or combatant because the mode exists.
 
 ### 6.2 Operation types
 
@@ -304,7 +304,7 @@ This mode is the player's dedicated progression workflow, not an automatic level
 - Beast hunt route selection.
 - Ring target research / bestiary.
 - Required item preparation.
-- Absorption eligibility check and result.
+- Absorption Requirements and result.
 - PowerScale, Qi and acquired Spirit Ability record.
 
 Every step must call the progression requirements in `POCKET_PROGRESSION_AND_HUD.md`. The UI must present exact blockers before enabling an attempt; it must never hide missing gates behind an unexplained disabled button.
@@ -368,7 +368,7 @@ Every entry shows source/provenance, character compatibility, acquisition/teachi
 
 ### 9.3 Library navigation
 
-Bestiary and Skillbook must be reachable from the character/gameplay interface without obscuring the isometric world. Provide search and filters by category, Realm band, Ring source, technique family, location, discovery state and eligibility where those fields are supported. The library must distinguish **Known to Character**, **Available to Learn**, **Locked by Requirements**, and **Unknown/Undiscovered**. Do not expose hidden data through search suggestions, icons, counts, tooltips or cached previews.
+Bestiary and Skillbook must be reachable from the character/gameplay interface without obscuring the isometric world. Provide search and filters by category, Realm band, Ring source, technique family, location, discovery state and Requirement state where those fields are supported. The library must distinguish **Known to Character**, **Available to Learn**, **Locked by Requirements**, and **Unknown/Undiscovered**. Do not expose hidden data through search suggestions, icons, counts, tooltips or cached previews.
 
 ---
 
@@ -395,7 +395,7 @@ World Events use the Universe event lifecycle and data model. Daily routines, mi
 
 A Pocket event definition must state:
 - Stable Event ID and source.
-- Trigger and eligibility.
+- Trigger and entry Requirements.
 - Region/location scope.
 - Actors and factions.
 - Start/end/duration and Pocket time mapping.
