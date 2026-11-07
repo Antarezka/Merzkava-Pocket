@@ -1,6 +1,10 @@
 name: Merzkava Pocket Game Build
 
 on:
+  push:
+    branches: [feat/pxl-character-runtime-review-2026-11-08]
+    paths:
+      - ".github/workflows/pocket-game-build.yml"
   workflow_run:
     workflows: ["Pocket PXL pixel-art assets"]
     types: [completed]
@@ -10,13 +14,13 @@ permissions:
 
 jobs:
   build-pocket-game:
-    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'feat/pxl-character-runtime-review-2026-11-08'
+    if: github.event_name == 'push' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'feat/pxl-character-runtime-review-2026-11-08')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Pocket game branch
         uses: actions/checkout@v4
         with:
-          ref: feat/pxl-character-runtime-review-2026-11-08
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
