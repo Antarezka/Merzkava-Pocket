@@ -37,7 +37,7 @@ jobs:
         shell: bash
         run: |
           HASH="$(git rev-parse --short=4 "$GITHUB_SHA")"
-          echo "POCKET_VERSION=v.0.01.004-$HASH" >> "$GITHUB_ENV"
+          echo "POCKET_VERSION=v.0.01.005-$HASH" >> "$GITHUB_ENV"
       - name: Build Android APK
         working-directory: review-apk
         run: gradle --no-daemon :app:assembleDebug -PpocketVersion="$POCKET_VERSION"
