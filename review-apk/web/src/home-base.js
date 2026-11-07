@@ -451,11 +451,11 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
     if(btn.dataset.worldZoomIn){scene.zoomBy(1.15);return;}
     else if(btn.dataset.worldZoomOut){scene.zoomBy(.87);return;}
     drawer.classList.remove("is-collapsed");
-    else if(btn.dataset.worldAction==="places"){scene.stopPlacement();renderPlaces();}
+    if(btn.dataset.worldAction==="places"){scene.stopPlacement();renderPlaces();}
     else if(btn.dataset.worldAction==="build"||btn.hasAttribute("data-world-build"))renderBuild();
     else if(btn.dataset.worldAction==="appearance"||btn.hasAttribute("data-world-appearance"))renderAppearance();
     else if(btn.dataset.worldLocation){
-      const id=btn.dataset.worldLocation,record=snapshot.facilities[id],pos=record?.map_position?locationOf(record.map_position.col,record.map_position.row):{x:200,y:154};
+      const id=btn.dataset.worldLocation,record=snapshot.facilities[id];
       const target=scene.findApproachTile(record?.map_position||{col:6,row:5});if(target)scene.walkToTile(target,()=>renderLocation(id));
     }else if(btn.dataset.worldFacility)renderFacilityDetail(btn.dataset.worldFacility);
     else if(btn.dataset.worldStartPlacement){
