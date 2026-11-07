@@ -1,5 +1,6 @@
 import { animate } from "animejs";
 import "./styles.css";
+import { economyMarkup, mountEconomy } from "./economy.js";
 
 const root = document.querySelector("#app");
 if (!root) throw new Error("Pocket root not found.");
@@ -694,11 +695,13 @@ function renderPage(destination, depth="") {
       <main class="page-stage">
         <span class="eyebrow">GAME / WORLD ACCESS</span><h1>Enter the world.</h1><p class="page-lead">World navigation follows the Pocket hierarchy.</p>
         <article class="destination-card"><span>01 / GAME ENTRY</span><strong>Home Base</strong><small>The starting hub for in-world navigation.</small><button type="button" data-subroute="home-base">OPEN HOME BASE ↗</button></article>
+        <article class="destination-card"><span>02 / DAILY LIFE</span><strong>Living Economy</strong><small>Explore the item register, local wallet, gathering, construction, facilities and defined production chains.</small><button type="button" data-subroute="economy">OPEN ECONOMY ↗</button></article>
       </main>`;
   } else if(destination==="home-base"){
     pageMarkup=`
       <main class="page-stage"><span class="eyebrow">GAME / HOME BASE</span><h1>Home Base.</h1><p class="page-lead">Your local starting hub.</p>
-      <article class="destination-card"><span>02 / CITY NAVIGATION</span><strong>City</strong><small>Continue into the connected city layer.</small><button data-subroute="city">OPEN CITY ↗</button></article></main>`;
+      <article class="destination-card"><span>02 / CITY NAVIGATION</span><strong>City</strong><small>Continue into the connected city layer.</small><button data-subroute="city">OPEN CITY ↗</button></article>
+      <article class="destination-card"><span>03 / DAILY LIFE</span><strong>Living Economy</strong><small>Manage item acquisition, inventory, facilities and local production.</small><button data-subroute="economy">OPEN ECONOMY ↗</button></article></main>`;
   } else if(destination==="city"){
     pageMarkup=`
       <main class="page-stage"><span class="eyebrow">GAME / CITY</span><h1>City.</h1><p class="page-lead">Choose a connected destination from the city layer.</p>
@@ -707,6 +710,8 @@ function renderPage(destination, depth="") {
     pageMarkup=`
       <main class="page-stage"><span class="eyebrow">GAME / WORLD MAP</span><h1>World Map.</h1><p class="page-lead">The map data is not included in this shell build.</p>
       <article class="destination-card"><span>WORLD ATLAS</span><strong>Geographic layer</strong><small>Map content will be connected from the reviewed Universe sources; no placeholder geography is invented here.</small><button data-subroute="city">RETURN TO CITY ↗</button></article></main>`;
+  } else if(destination==="economy"){
+    pageMarkup=economyMarkup();
   } else if(destination==="daily-login"){
     pageMarkup=`
       <main class="page-stage"><span class="eyebrow">DAILY LOG-IN / RECORD</span><h1>A new day begins.</h1><p class="page-lead">Your daily check-in has its own dedicated destination.</p>
@@ -725,6 +730,11 @@ function renderPage(destination, depth="") {
   const page=root.querySelector(".home-stage,.page-stage");
   if(!reducedMotion()&&page)animate(page,{opacity:[0,1],translateY:[8,0],duration:420,ease:"outCubic"});
   mountMenu();
+  if(destination==="economy"){
+    const menuCleanup=currentDisposer;
+    const economyCleanup=mountEconomy(root.querySelector("[data-economy-root]"),accessIdentity);
+    currentDisposer=()=>{menuCleanup?.();economyCleanup?.();};
+  }
 }
 
 function navigationMarkup() {
@@ -794,7 +804,7 @@ function mountMenu() {
   const bubbleResume=()=>{if(!disposed)refreshBubbleButton();};
   window.addEventListener("pocket:native-resume",bubbleResume);
   window.addEventListener("focus",bubbleResume);
-  const activeDestination=["home-base","city","world-map"].includes(currentRoute)?"game":currentRoute;
+  const activeDestination=["home-base","city","world-map","economy"].includes(currentRoute)?"game":currentRoute;
   tiles.forEach(tile=>{const active=tile.dataset.destination===activeDestination;tile.classList.toggle("is-active",active);if(active)tile.setAttribute("aria-current","page");else tile.removeAttribute("aria-current");});
   const HANDLE_ANCHOR_X=28.5;
   const TV_CASE_TOP=18;
@@ -905,7 +915,7 @@ function mountMenu() {
 }
 
 function navigate(destination) {
-  if(!["home","game","daily-login","settings","home-base","city","world-map"].includes(destination))return;
+  if(!["home","game","daily-login","settings","home-base","city","world-map","economy"].includes(destination))return;
   if(destination===currentRoute)return;
   routeHistory.push(currentRoute);
   renderPage(destination);
