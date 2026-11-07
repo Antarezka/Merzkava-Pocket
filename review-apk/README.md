@@ -58,6 +58,6 @@ The workflow stops if these secrets are missing; it must never silently generate
 
 The APK filename remains:
 
-`Merzkava-Pocket-v.0.01.005-xxxx.apk`
+`Merzkava-Pocket-v.0.01.006-xxxx.apk`
 
 CI no longer relies on a runner-generated debug key. It requires the persistent signing secrets listed above and fails before packaging if they are absent. The APK currently bundles the economy JSON catalogue data; the other catalogue and progression documents remain design/source material until their respective gameplay runtimes are implemented.
