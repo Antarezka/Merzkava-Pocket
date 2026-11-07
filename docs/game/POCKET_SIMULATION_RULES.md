@@ -258,7 +258,7 @@ The exact Realm tolerance T_R, Age Grade classification, EAG, AWR, permanent-def
 - Both timers continue while the app is closed, subject to the trusted-time and offline reconciliation rules.
 - Ring 9 / Spirit Realm 9 is the maximum. No Ring 10 may be generated.
 
-**Separate stored fields:** `active_absorption_duration`, `active_absorption_started_at`, `active_absorption_due_at`, `inter_ring_cooldown`, `inter_ring_cooldown_started_at`, `inter_ring_cooldown_due_at`, `energy_resource`, `energy_reserved`, `energy_spent`, `energy_remaining`, and `preparation_record_id`. Never reuse a field for more than one purpose.
+**Separate stored fields:** `active_absorption_duration`, `active_absorption_started_at`, `active_absorption_due_at`, `inter_ring_cooldown`, `inter_ring_cooldown_started_at`, `inter_ring_cooldown_due_at`, `energy_resource`, `energy_reserved`, `energy_spent`, `energy_remaining`, `preparation_record_id`, `maintenance_profile_id`, and `continuity_mode`. Never reuse a field for more than one purpose.
 
 ---
 
