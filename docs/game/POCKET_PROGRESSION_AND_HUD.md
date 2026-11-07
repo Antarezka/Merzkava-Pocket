@@ -10,6 +10,18 @@ This document defines Pocket's character progression and Requirement system. Poc
 
 ## 1. Character progression is multiple independent tracks
 
+### Pocket Requirement language
+
+All player-facing gates use **Requirement / Requirements** terminology. The interface presents each condition as one of:
+- **Requirement met**
+- **Requirement missing**
+- **Requirement not configured**
+- **Ready to start**
+- **Ready for outcome resolution**
+
+Do not use conversation-style "validation" wording for gameplay actions, and do not show generic eligibility language in ordinary mode cards. Use the explicit Requirements list and name the missing item/resource/state. The one exception is the official `Spirit Ring Absorption` profile field: its canonical status token must retain the exact Universe mapping (including `eligible` and `not eligible yet`) because it is a formal source field, not generic Pocket UI copy.
+
+
 The character screen must not collapse all progression into one level or one bar. At minimum, keep these tracks separate:
 
 1. **Martial Soul Awakening** — whether the character has not awakened, is undergoing the procedure, or has completed it; includes the revealed Martial Soul and its confirmed rarity/traits.
@@ -442,6 +454,9 @@ The expanded drawer must contain:
 - Current Sync progress / cap.
 - Qi state/value and relevant PowerScale/compatibility details.
 - Target ring and all missing requirements when the player inspects the next absorption.
+- Dedicated **Ring Preparation** panel with progression, cooldown, target custody, target item, body condition, Satiety, Martial Soul condition, method, energy reserve and readiness Requirements.
+- Active absorption duration and next-Ring inter-Ring cooldown shown as separate timers.
+- Energy type: Stamina before Ring 1; Qi after Ring 1. Show configured total cost, required start reserve, reserved/spent/remaining energy, and the drain schedule. If the cost profile is missing, show the exact **Requirement not configured** state and disable Start Absorption.
 
 **Arcanistry**
 - Arcanist Grade (official Grade or exactly `???` if the personal Grade is unverified).
