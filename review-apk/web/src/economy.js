@@ -26,10 +26,15 @@ export function loadPocketEconomy(){
 }
 function currency(xc,explicit=""){
   if(explicit)return explicit;
-  const v=num(xc);if(v<=0)return "0 xc";
-  const units=[[100000000,"az"],[10000000,"zj"],[10000,"xg"],[100,"xs"],[1,"xc"]];
-  const unit=units.find(x=>v>=x[0])||units.at(-1);
-  return tidy(v/unit[0])+" "+unit[1];
+  let remaining=Math.round(num(xc)*100)/100;
+  if(remaining<=0)return "0 xc";
+  const parts=[];
+  for(const [denomination,code] of [[100000000,"az"],[10000000,"zj"],[10000,"xg"],[100,"xs"]]){
+    const count=Math.floor((remaining+1e-8)/denomination);
+    if(count>0){parts.push(count+" "+code);remaining=Math.round((remaining-count*denomination)*100)/100;}
+  }
+  if(remaining>0)parts.push(tidy(remaining)+" xc");
+  return parts.join(" | ")||"0 xc";
 }
 function duration(simMinutes){
   const seconds=Math.max(0,num(simMinutes))*60/CLOCK_RATE;
@@ -100,7 +105,7 @@ function openState(identity){
   if(identity?.role==="player"&&!state.wallet_seeded_from_profile){
     const opening=readPinnedProfileWallet(identity);
     if(opening){
-      state.wallet_xc=opening.amount_xc;
+      state.wallet_xc=Math.round((num(state.wallet_xc)+opening.amount_xc)*100)/100;
       state.wallet_seeded_from_profile=true;
       state.wallet_source_sha=opening.sourceSha;
       addLedger(state,{type:"profile_wallet_import",label:"Opening Wallet from pinned Universe profile",quantity:1,amount_xc:opening.amount_xc,source_sha:opening.sourceSha});
@@ -365,7 +370,7 @@ export function mountEconomy(root,identity){
   const initialize=async()=>{
     try{
       data=await loadPocketEconomy();runtimeData=data;if(disposed)return;
-      ({key,state}=openState(identity));if(reconcile(data,state))persist();render();
+      ({key,state}=openState(identity));reconcile(data,state);persist();render();
       tick=window.setInterval(()=>{if(disposed)return;if(reconcile(data,state))persist();refreshSummary();},1000);
     }catch(error){
       if(disposed)return;
