@@ -550,7 +550,7 @@ This is an accounting correction, not an arbitrary punishment. Show the correcte
 | HP maximum and HP state | `core/HP_SYSTEM.md` | Inherit unchanged |
 | Satiety formula/modifiers/food recovery | `core/HUNGER_AND_METABOLISM.md` | Inherit numeric formula; use actual real awake time and Pocket meal windows |
 | Injury class and recovery progress | `core/INJURY_SYSTEM.md` | Inherit rates; compress recovery time by ×48 |
-| Spirit Ring active absorption | Pocket active duration curve in §3.1: Ring 1 = 20s; Ring 9 = 30d. |
+| Spirit Ring active absorption | Pocket active duration curve in §3.1 | Ring 1 = 20s; Ring 9 = 30d; intermediate durations use geometric interpolation. |
 | Spirit Ring inter-Ring cooldown | `bestiary/SPIRIT_BEAST_RULES.md`, `gameplay/TIME_AND_ACTION_RULES.md` | Universe minimum intervals converted by ×48; Ring 1→2 = 7h, Ring 8→9 = 30d. |
 | Spirit Realm/Sync/absorption Requirements | `core/CULTIVATION_SYSTEM.md`, `core/SPIRIT_RING_RULES.md` | Inherit all hard gates, readiness inputs, and outcomes; Pocket separately configures energy cost. |
 | Arcanist focus training | `core/ARCANISTRY_AND_FORMULATION.md` §13.11 | Convert hours by ×48; retain teacher assessment |
@@ -591,8 +591,10 @@ Pending values must not be replaced with random constants in code. Keep them una
 - **Simulation engine:** evaluates due activities/events deterministically and idempotently.
 - **Needs service:** applies HP/Satiety/injury rules with the correct time basis.
 - **Economy service:** computes market prices only from approved inputs and maintains transaction/item ledgers.
-- **Progression service:** applies Ring cooldown and learning/training gates without automatic rank grants.
-- **Daily Login client:** online-only server-validated claim and relocation lock.
+- **Progression service:** applies sequential Ring Requirements, Awakening, Realm/Stage, Sync, Ring records, Arcanist Focus/Grade gates, and both Ring timers without automatic rank grants.
+- **Preparation/Requirements service:** builds a per-action checklist with met/missing/not-configured states and prevents a process from starting before all mandatory Requirements are met.
+- **Energy service:** tracks pre-Ring Stamina and post-Ring Qi, per-Ring approved energy-cost profiles, reserved/spent/remaining energy, recovery, drain schedule and interruption settlement.
+- **Daily Login client:** online-only server-time-verified claim and relocation lock.
 - **Reconciliation service:** reviews provisional gains and appends corrections without destructive save resets.
 
 ### Required tests before release
@@ -600,18 +602,21 @@ Pending values must not be replaced with random constants in code. Keep them una
 1. Verify 30 real minutes advances exactly one Pocket simulation day.
 2. Verify one real day advances 48 simulation days, but only one Daily Login local day can be claimed.
 3. Verify timezone change does not change UTC elapsed time or accelerate process completion.
-4. Verify Ring 1 active absorption duration is exactly 20 seconds and Ring 9 active absorption duration is exactly 30 days.
+4. Verify Ring 1 active absorption duration is exactly 20 seconds, Ring 9 active absorption duration is exactly 30 days, and intermediate Ring durations match the geometric formula in §3.1.
 5. Verify Ring 1 → Ring 2 inter-Ring cooldown is exactly 7 real hours.
 6. Verify Ring 8 → Ring 9 inter-Ring cooldown is exactly 30 days.
-7. Verify Ring 9 has no next-Ring cooldown or tenth-Ring action.
-8. Verify each Arcanist training and artifact timer matches §4.
-9. Verify Satiety uses real awake time, not the ×48 simulation multiplier.
-10. Verify injury progress uses the Pocket-compressed timer and retains class-specific Requirements.
-11. Verify one process cannot complete or grant outputs twice after app restart, repeated sync, or duplicate callbacks.
-12. Verify invalid offline gains are reversed once, including gains already spent or consumed.
-13. Verify legitimate starting balances and progress supported by Requirements survive reconciliation.
-14. Verify unknown prices, yields, wages, construction costs, and Social Link values cannot be silently fabricated.
-15. Verify low-end Android performance and local save recovery on the target device.
+7. Verify Ring 1 uses Stamina before Qi forms, Ring 2–9 use current Qi, and Qi is never shown before Ring 1 succeeds.
+8. Verify absorption cannot start unless Preparation Requirements are complete and an approved per-Ring energy profile has reserved the required amount.
+9. Verify the readiness score P is stored separately from energy cost and energy expenditure.
+10. Verify Ring 9 has no next-Ring cooldown or tenth-Ring action.
+11. Verify each Arcanist training and artifact timer matches §4.
+12. Verify Satiety uses real awake time, not the ×48 simulation multiplier.
+13. Verify injury progress uses the Pocket-compressed timer and retains class-specific Requirements.
+14. Verify one process cannot complete or grant outputs twice after app restart, repeated sync, or duplicate callbacks.
+15. Verify invalid offline gains are reversed once, including gains already spent or consumed.
+16. Verify legitimate starting balances and progress supported by Requirements survive reconciliation.
+17. Verify unknown prices, yields, wages, construction costs, and Social Link values cannot be silently fabricated.
+18. Verify low-end Android performance and local save recovery on the target device.
 
 **Binding principle:** Pocket may accelerate waiting, but it must not skip Requirements, invent rewards, double-count transactions, or change the canon source of a mechanic.
 
