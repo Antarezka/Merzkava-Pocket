@@ -185,7 +185,7 @@ The player-facing Bestiary must distinguish **Known to the character** from **Wo
 ## 5. Hunt and absorption integration
 
 - Hunting uses the mode and combat flow in `POCKET_GAMEPLAY_MODES_AND_CATALOGS.md`.
-- Spirit Ring eligibility uses `POCKET_PROGRESSION_AND_HUD.md`.
+- Spirit Ring Requirements use `POCKET_PROGRESSION_AND_HUD.md`.
 - A hunt must not start from a Beast entry alone; the player still needs a location, valid route and actual target/encounter.
 - Defeating a Beast does not grant automatic Ring ownership or successful absorption.
 - For Ring 2–9, missing species-specific item requirements must be replaced by a concrete, clearly provisional requirement based on target Beast type/age/traits, as the Universe rule requires. Do not use a blank requirement or silently treat it as waived.
@@ -216,7 +216,7 @@ Before a species becomes active game content, verify:
 2. Region and habitat are supported.
 3. Age, Age Grade and appraisal Tier are not conflated.
 4. Abilities/behaviour have evidence and appropriate limitations.
-5. Ring eligibility and target item requirement are defined or explicitly unresolved.
+5. Ring Requirements and target item Requirement are defined or explicitly unresolved.
 6. Pocket spawn frequency, encounter and respawn settings are owner-approved and separate from canon.
 7. Drops/loot, sell value, processing and resource yield are explicit Pocket data.
 8. Source pin and Pocket content version are recorded.
