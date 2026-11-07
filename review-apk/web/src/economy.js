@@ -54,6 +54,23 @@ function hasAnyTool(data,state,requirements){
     });
   });
 }
+function hasToolGroup(data,state,alternatives){
+  return alternatives.some(term=>data.items.some(item=>item.name.toLowerCase().includes(term)&&qty(state,item.item_id)>=1));
+}
+function gatheringToolsReady(data,state,item,site){
+  const method=item.acquisition?.method;
+  if(method==="tree_felling")return hasToolGroup(data,state,["axe"]);
+  if(method==="woodland_collection_or_cut")return hasToolGroup(data,state,["basket"])&&hasToolGroup(data,state,["bucket"])&&hasToolGroup(data,state,["axe","saw"]);
+  if(method==="quarrying_or_digging"){
+    const soft=/riverbank|field|clay bank/i.test(site);
+    return hasToolGroup(data,state,soft?["shovel"]:["pickaxe"]);
+  }
+  if(method==="underground_mining")return hasToolGroup(data,state,["pickaxe"])&&hasToolGroup(data,state,["mining lamp"]);
+  if(method==="foraging_or_hand_harvest"||method==="herb_foraging")return hasToolGroup(data,state,["basket","shears"]);
+  if(method==="fishing")return hasToolGroup(data,state,["fishing rod","fishing net","cast net"]);
+  if(method==="water_drawing")return hasToolGroup(data,state,["wooden bucket","iron bucket"]);
+  return hasAnyTool(data,state,item.acquisition?.tool_requirements||[]);
+}
 function materialCost(data,materials){return (materials||[]).reduce((sum,row)=>sum+num(data.byId.get(row.item_id)?.market?.base_price_xc)*num(row.quantity),0);}
 function addLedger(state,row){state.ledger.unshift({transaction_id:uid(),at:Date.now(),...row});state.ledger=state.ledger.slice(0,250);}
 function saveState(state,key){try{localStorage.setItem(key,JSON.stringify(state));return true;}catch{return false;}}
@@ -65,9 +82,9 @@ function openState(identity){
   return {key,state:createState()};
 }
 function addItems(state,rows){for(const row of rows||[]){const n=num(row.quantity);if(row.item_id&&n>0)state.inventory[row.item_id]=Math.round((qty(state,row.item_id)+n)*100)/100;}}
-function itemPrice(item,field){const value=item.market?.[field];return Number.isFinite(Number(value))?num(value):null;}
+function itemPrice(item,field){const value=item.market?.[field];return value===null||value===undefined||value===""?null:(Number.isFinite(Number(value))?num(value):null);}
 function itemPriceLabel(item,field){
-  if(field==="typical_shop_price_xc"&&item.market?.price_lot?.price)return item.market.price_lot.price+" / lot";
+  if(item.market?.price_lot?.price)return item.market.price_lot.price+" / lot";
   return itemPrice(item,field)===null?"Not priced":currency(itemPrice(item,field));
 }
 function canBuy(item){
@@ -134,7 +151,8 @@ function gatherRecord(data,state,item){
   const locationReady=!!site&&(acq.locations||[]).includes(site),toolsReady=hasAnyTool(data,state,acq.tool_requirements||[]);
   const facilityReady=facilityRequirementsMet(data,state,acq.facility_requirements||[]),methodReady=canGather(item)&&rate>0;
   const excluded=method==="ordinary_hunting_or_skinning"||method==="plant_grow_harvest";
-  return {selectedSite:site,locationReady,toolsReady,facilityReady,methodReady,excluded,rate,ready:methodReady&&!excluded&&locationReady&&toolsReady&&facilityReady};
+  const resolvedTools=gatheringToolsReady(data,state,item,site);
+  return {selectedSite:site,locationReady,toolsReady:resolvedTools,facilityReady,methodReady,excluded,rate,ready:methodReady&&!excluded&&locationReady&&resolvedTools&&facilityReady};
 }
 function spend(state,cost){state.wallet_xc=Math.round((num(state.wallet_xc)-num(cost))*100)/100;}
 function takeItems(state,rows){for(const row of rows||[])state.inventory[row.item_id]=Math.round((qty(state,row.item_id)-num(row.quantity))*100)/100;}
@@ -182,7 +200,7 @@ export function mountEconomy(root,identity){
     return "<aside class='econ-detail'><div class='econ-detail-top'><span class='eyebrow'>ITEM / "+esc(item.item_id)+"</span><span class='econ-chip'>"+esc(item.category)+"</span></div><h2>"+esc(item.name)+"</h2><p class='econ-muted'>"+esc(item.unit)+" · Quality tier "+esc(item.quality_tier??"Unknown")+"</p>" +
       "<div class='econ-price-pair'><div><small>SHOP PRICE</small><b>"+esc(itemPriceLabel(item,"typical_shop_price_xc"))+"</b></div><div><small>MERCHANT BUYBACK</small><b>"+esc(itemPriceLabel(item,"typical_merchant_buyback_price_xc"))+"</b></div></div>" +
       (item.market?.price_lot?"<p class='econ-lot-note'>Owner price anchor: "+esc(item.market.price_lot.price||"")+"</p>":"")+
-      "<h3>Acquisition</h3><p>"+esc(String(acq.method||"Unknown").replaceAll("_"," "))+"</p><p class='econ-muted'>Locations: "+esc((acq.locations||[]).join(" · ")||"Unknown")+"</p><h3>Requirements</h3>"+formatList(item.requirements)+"<h3>Tool Requirements</h3>"+formatList(acq.tool_requirements)+"<h3>Facility Requirements</h3>"+formatList(acq.facility_requirements)+"<h3>Output rate</h3><p>"+(output?esc(tidy(output.quantity)+" "+output.unit):"No active output rate")+"</p><h3>Uses</h3>"+formatList(item.uses)+
+      "<h3>Acquisition</h3><p>"+esc(String(acq.method||"Unknown").replaceAll("_"," "))+"</p><p class='econ-muted'>Locations: "+esc((acq.locations||[]).join(" · ")||"Unknown")+"</p><h3>Requirements</h3>"+formatList(item.requirements)+"<h3>Tool Requirements</h3>"+formatList(acq.tool_requirements)+"<h3>Facility Requirements</h3>"+formatList(acq.facility_requirements)+"<h3>Output rate</h3><p>"+(output?esc(tidy(output.quantity)+" "+output.unit):"No active output rate")+"</p><p class='econ-muted'>Acquisition rates are Pocket simulation minutes, not real-world minutes. The ×48 clock is applied by the process scheduler.</p><h3>Uses</h3>"+formatList(item.uses)+
       "<div class='econ-site-form'><label>RECORD ACCESSIBLE LOCATION<select data-econ-site-select='"+esc(item.item_id)+"'>"+options+"</select></label><button type='button' data-econ-action='record-item-site' data-id='"+esc(item.item_id)+"'>RECORD LOCATION ACCESS</button></div><div class='econ-action-row'>"+
       (buy?"<button type='button' data-econ-action='buy' data-id='"+esc(item.item_id)+"'>BUY 1 · "+esc(itemPriceLabel(item,"typical_shop_price_xc"))+"</button>":"")+
       (sell?"<button type='button' data-econ-action='sell' data-id='"+esc(item.item_id)+"'>SELL 1 · "+esc(currency(itemPrice(item,"typical_merchant_buyback_price_xc")))+"</button>":"")+
