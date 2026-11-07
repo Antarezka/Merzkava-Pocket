@@ -511,29 +511,71 @@ Merzkava Pocket is not intended to be:
 
 ## 19. Home Base isometric engine and visual identity
 
-The Home Base scene currently runs in Phaser 4.2.1 inside the Pocket WebView. The selected visual direction is **2.5D HD isometric**: a lightweight, location-based simulation presented as a layered, inhabited three-dimensional world. Use a stable orthographic/isometric view, high-detail bundled artwork, visible height and depth, material-aware surfaces, soft lighting and clear object separation. The scene must remain readable and responsive on a phone.
+The Home Base prototype currently runs in Phaser 4.2.1 inside the Pocket WebView. Its selected visual direction is **2.5D HD isometric**: a lightweight, location-based simulation presented as a layered, inhabited world with convincing three-dimensional volume, height, lighting, material response and depth. The renderer must remain responsive on a phone and must not turn Pocket into unrestricted free-roam gameplay.
 
-The world is not a single flat background. Separate terrain, paths, water, elevation, buildings/facilities, vegetation, props, actors, effects and foreground occluders wherever independent placement, interaction or depth is required. Gameplay geometry, walkability, placement, occupancy and interaction hotspots remain separate from the artwork. The renderer must not infer game rules from visual shapes.
+The detailed art, animation, lighting and visibility contract is maintained in [2.5D HD Isometric Art Direction](../design/ART_DIRECTION_2_5D_HD.md). That document is the visual acceptance authority for new and replacement assets.
+
+### Expanded world and camera
+
+The current 12×10 prototype terrain is a layout seed only. The first expanded Home Base target is at least **24×20 isometric cells**, giving four times the current cell count and enough space for connected terrain, neighbourhoods, facilities, paths, water, landmarks and undiscovered areas.
+
+The map world must be larger than the phone viewport. Show a readable camera window instead of shrinking the entire map to fit. Support bounded drag-panning and deliberate zoom, with a useful Player/scene focus on entry. Camera inspection does not grant unrestricted free-roam movement.
+
+World content is assembled from separate ground, path, water, elevation, structure, facility, vegetation, prop, actor, effect and foreground-occlusion layers. Keep visual shapes separate from authoritative collision, walkability, placement, occupancy, interaction and Requirements data.
+
+### Exploration visibility and fog of war
+
+Use a strategy-map exploration layer with three distinct visibility states:
+
+1. **Unexplored:** covered in near-black fog. Do not show hidden terrain detail, buildings, characters, resources, labels, hotspots or live activities.
+2. **Explored but currently unseen:** retain the last-known map with a darkened, desaturated treatment. Do not show live NPC positions, resource condition or activities outside current vision.
+3. **Currently visible:** show the full scene, normal colours, current lighting, actors, resources and valid interaction targets.
+
+The default vision source is the Player's ground position. As the Player approaches and moves through the expanded world, a soft reveal spreads across nearby isometric cells; the edge should feel like scouting/scanning rather than a fixed UI spotlight. Vision range is configurable by area and actor, and may only gain modifiers from explicit gameplay rules. Additional vision sources such as companions, scouts, observation points or temporary scans remain gated behind approved gameplay support.
+
+Persist discovered cells/regions per Pocket character and map ID. Fog-of-war discovery is independent of day/night and weather: night can darken visible territory, but it cannot reset discovery; bright sunlight cannot reveal unexplored space. Hidden locations cannot be selected or used as movement destinations. A tap into unexplored space must not leak its name, contents or interaction options.
+
+Keep atmospheric/weather fog separate from exploration fog. Atmospheric haze affects depth and lighting inside already visible territory; fog of war controls which world information the Player is allowed to see. Update the visibility mask only when a vision source crosses cells or a visibility rule changes, not through a full-map redraw every animation frame.
 
 ### Character rendering and appearance
 
-The previous 32×42 pixel sprites and flat head/body tokens are legacy visuals. Rework the Player, NPCs and creatures as full-body, high-detail stylized martial-fantasy figures that share one consistent 2.5D rendering treatment. Each design should have a distinct silhouette, readable face/hair, layered clothing, material detail, footwear, accessories, tools or weapons where appropriate, and believable scale beside doors and buildings.
+The previous 32×42 pixel sprites and flat head/body tokens are legacy visuals. Rework the Player, NPCs and creatures as full-body, high-detail stylized martial-fantasy figures that share one consistent 2.5D rendering treatment. Each design needs a distinct silhouette, readable face and hairstyle, layered clothing, folds/material detail, footwear, accessories, tools or weapons where appropriate, and believable scale beside doors and buildings.
 
-The previous appearance values are retained as save-compatible cosmetic keys. They may map to new body/outfit presets, but they must not keep the old pixel renderer or mix incompatible art styles in one active scene. Appearance remains cosmetic and must not alter character stats, progression, requirements, wallet or economy.
+The previous appearance values remain save-compatible cosmetic keys. They may map to new body/outfit presets, but they must not keep the old pixel renderer or mix incompatible art styles in one active scene. Appearance remains cosmetic and must not change character stats, progression, requirements, Wallet or economy.
 
-Every active field character must provide eight headings: N, NE, E, SE, S, SW, W and NW. Idle and walk loops are mandatory in all directions; interaction, talk, gather, work, spar/attack and other actions are added where gameplay needs them. Use a consistent transparent frame canvas, stable bottom-centre foot pivot and separate ground shadow. Target 128×160 source pixels per frame, with 96×128 as the minimum only when the target-device preview proves the detail readable. The initial idle/walk pack should use at least four frames per heading and preserve scale between frames.
+Every active field character must provide eight separately authored headings: N, NE, E, SE, S, SW, W and NW. Idle and walk are mandatory for all eight directions. Target 8–12 frames per idle loop and 8–12 frames per walk cycle at 10–14 FPS for the first HD pack; use more frames when the motion requires it. Walk cycles must show alternating foot contact, passing and lift phases, weight transfer, counter-swinging arms, torso response and cloth/hair/accessory follow-through. Feet must stay grounded instead of skating.
 
-Character art remains a visual layer. Existing location-based movement, automatic approach to interaction points, pathing, tap targets and scene callbacks keep their current gameplay contracts.
+Use smooth idle → start → walk → deceleration → idle transitions. Direction changes should use a short turn/transition when needed rather than an abrupt sprite swap. Include talk/listen, gather/pick-up, carry, work/craft, sit/rest, spar/attack, cast/skill, hit-react, stagger and hurt clips where the corresponding gameplay action exists. Keep a stable bottom-centre foot pivot and separate ground shadow across all clips.
 
-### Lighting and interface presentation
+### RPG-quality movement while retaining Pocket controls
 
-Use consistent scene lighting, contact shadows, readable material detail and restrained atmospheric effects. Terrain, stone, wood, roof tile, fabric, metal, foliage and water should have distinct surfaces. Environment motion must be subtle and must not obscure input or status information.
+When the Player taps a valid revealed location or an NPC/facility/resource interaction, calculate a safe route on the actual walkable map graph. The character follows that route using continuous, smooth movement with eased acceleration and deceleration, correct diagonal headings, obstacle avoidance and actor occupancy. Do not move in a straight-line tween through blocked terrain, buildings or other characters.
 
-Extend the same art quality to character portraits, item illustrations, equipment, Spirit Ring frames, Martial Soul and skill icons, currency emblems, facility cards, map markers and HUD panels. Preserve the existing navigation hierarchy, one-hand mobile layout, touch-safe hit areas and Back behaviour while updating the visual language. Icons must remain legible at their actual display size.
+The walk animation must follow actual movement speed and direction. Foot contact should match the distance travelled; stop transitions should finish on a planted foot. NPCs use the same movement and animation quality when their schedules or authored behaviours move them. Existing location-based tap-to-move, automatic approach to interaction points and contextual actions remain the primary controls; this is not an approval to add a virtual joystick or unrestricted manual free-roam.
 
-### Asset delivery and mobile constraints
+### Day/night cycle, sky and weather composition
 
-All runtime assets must be packaged locally in the APK. Replace the current pixel-only output as the final visual source, while retaining the old PXL source only as a migration/prototype reference until replacement assets are verified. Pack reusable atlases, load only the active scene's assets, and keep stable asset IDs so visual changes do not alter save identities, item IDs, facility IDs or transaction records.
+The visual day cycle must read from the **authoritative Pocket Simulation Clock** defined in [Pocket Simulation Rules](./POCKET_SIMULATION_RULES.md). Pocket time runs at ×48, so one complete 24-hour in-world day equals 30 real minutes. The renderer must display the current time phase from that shared clock; it must not invent a separate visual timer or restart the cycle when a scene reopens.
 
-The final assets must be checked at actual TECNO Spark Go 1 KL4 scale. Validate map depth, character readability, animation pivots, interaction hit areas, texture memory, load time, frame pacing and offline behaviour. Source inspection or a successful web build alone is not visual or device validation.
+Lighting transitions continuously through dawn, morning, noon, afternoon, dusk and night. Each phase changes the complete scene composition—not only a small clock label or a flat screen tint:
 
+- **Dawn:** cool blue-violet ambient shadows, a warm peach horizon, low-angle sunlight, long soft shadows and visible morning mist.
+- **Morning:** gradually brighter neutral-warm daylight, moving sunlight and thinning mist.
+- **Noon:** strongest broad daylight, shorter shadows, clear material highlights and bright water reflections.
+- **Afternoon:** warmer sunlight, longer directional shadows and richer golden highlights.
+- **Dusk:** amber/coral horizon, deeper violet shadows, fading sunlight and gradually appearing lantern/window lights.
+- **Night:** deep cool-blue ambient fill, moonlit roof and water highlights, subtle stars, and warm local lanterns/windows.
+
+The sky and atmosphere must occupy the upper part of the scene composition. Clouds drift across this upper sky plane; the sun travels from the morning/eastern sky toward the afternoon/western sky. Volumetric light shafts descend from above through clouds and foliage gaps. Clouds may cast very soft moving shadows over the terrain. The day cycle also affects shadow direction/length, foliage, surface warmth, water shimmer and the visibility of warm emissive sources.
+
+Use layered mist/haze from the distant horizon toward the foreground, with density responding to weather, time and terrain such as water, valleys and forests. Weather effects and lighting effects are presentation layers driven by saved world state. They must not obscure touch targets, alter movement or change gameplay outcomes.
+
+The current Home Base economy adapter does not yet expose a shared Pocket Simulation Clock to its Phaser scene. This is an explicit integration dependency: wire the scene to the existing/approved clock authority when it is implemented, or add one shared clock service used by every simulation system. Do not create a second day/night clock inside Home Base.
+
+### Lighting, UI and asset delivery
+
+Use consistent scene lighting, contact shadows and readable material detail. Stone, wood, roof tile, fabric, metal, foliage and water should have distinct surfaces. Extend the same visual quality to character portraits, item illustrations, equipment, Spirit Ring frames, Martial Soul and skill icons, currency emblems, facility cards, map markers and HUD panels.
+
+All runtime art must be bundled locally in the APK. Replace the current pixel-only output as the final visual source, while retaining the old PXL source only as a migration/prototype reference until replacement assets are verified. Pack reusable atlases, load only active-scene assets, and keep stable IDs so art changes do not alter save identities, item IDs, facility IDs or transaction records.
+
+Validate map depth, expanded camera bounds, fog reveal/persistence, full-body character readability, eight-direction animation pivots, path movement, touch interaction, texture memory, load time, frame pacing, day/night phase restoration and offline behaviour at actual TECNO Spark Go 1 KL4 scale. Source inspection or a successful web build alone is not visual or device validation.
