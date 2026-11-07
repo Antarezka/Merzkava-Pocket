@@ -176,6 +176,8 @@ public final class PocketNativeBridge {
             } catch (Exception ignored) {
                 prefs().edit().putBoolean(PREF_SESSION, false).apply();
                 completeDeveloper(requestId, false, "", "Developer verification is unavailable on this device.");
+            } finally {
+                cancelledRequests.remove(requestId);
             }
         }, "Pocket-Developer-Verify");
         thread.setDaemon(true);

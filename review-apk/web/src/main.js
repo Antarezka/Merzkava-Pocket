@@ -593,6 +593,8 @@ function mountMenu() {
   const release=zone.querySelector("[data-release-zone]");
   const instruction=zone.querySelector("[data-cord-instruction]");
   const tiles=[...dock.querySelectorAll("[data-destination]")];
+  const activeDestination=["home-base","city","world-map"].includes(currentRoute)?"game":currentRoute;
+  tiles.forEach(tile=>{const active=tile.dataset.destination===activeDestination;tile.classList.toggle("is-active",active);if(active)tile.setAttribute("aria-current","page");else tile.removeAttribute("aria-current");});
   let pointerId=null, start={x:0,y:0}, current={x:0,y:0}, rest={x:0,y:112}, dragged=false, disposed=false, idle=null, recoil=null;
   const bounds=()=>({w:window.innerWidth,h:window.innerHeight});
   const cordSvg=zone.querySelector(".cord-svg");
