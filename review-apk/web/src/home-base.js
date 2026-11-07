@@ -218,21 +218,22 @@ class HomeBaseScene extends Phaser.Scene{
     const key=style+":"+move+":"+dir;
     sprite.play(this.anims.exists(key)?key:style+":idle:s",true);
   }
-  isTileBlocked(col,row,ignoreFacility=null){
-    if(!walkable(col,row))return true;
+  blockedCells(){
+    const blocked=new Set();
     const facilities=this.options?.session?.snapshot?.().facilities||{};
-    for(const [id,record] of Object.entries(facilities)){
-      if(id===ignoreFacility||!record?.map_position)continue;
-      if(record.map_position.col===col&&record.map_position.row===row)return true;
-    }
-    return false;
+    for(const record of Object.values(facilities))if(record?.map_position)blocked.add(tileKey(record.map_position.col,record.map_position.row));
+    return blocked;
+  }
+  isTileBlocked(col,row,blocked){
+    return !walkable(col,row)||(blocked?.has(tileKey(col,row))??false);
   }
   findApproachTile(target){
+    const blocked=this.blockedCells();
     const candidates=[];
     for(let radius=1;radius<=3;radius++)for(let dy=-radius;dy<=radius;dy++)for(let dx=-radius;dx<=radius;dx++){
       if(Math.max(Math.abs(dx),Math.abs(dy))!==radius)continue;
       const col=target.col+dx,row=target.row+dy;
-      if(!inWorld(col,row)||this.isTileBlocked(col,row))continue;
+      if(!inWorld(col,row)||this.isTileBlocked(col,row,blocked))continue;
       candidates.push({col,row,distance:Math.abs(dx)+Math.abs(dy)});
     }
     candidates.sort((a,b)=>a.distance-b.distance);
@@ -240,6 +241,7 @@ class HomeBaseScene extends Phaser.Scene{
   }
   findPath(start,target){
     if(!inWorld(start.col,start.row)||!inWorld(target.col,target.row)||this.isTileBlocked(target.col,target.row))return [];
+    const blocked=this.blockedCells();
     const startKey=tileKey(start.col,start.row),goalKey=tileKey(target.col,target.row);
     const open=[{col:start.col,row:start.row,key:startKey}];
     const came=new Map(),cost=new Map([[startKey,0]]),closed=new Set();
@@ -256,8 +258,8 @@ class HomeBaseScene extends Phaser.Scene{
       if(closed.has(current.key))continue;closed.add(current.key);
       for(const [dx,dy] of offsets){
         const col=current.col+dx,row=current.row+dy,key=tileKey(col,row);
-        if(!inWorld(col,row)||closed.has(key)||this.isTileBlocked(col,row))continue;
-        if(dx!==0&&dy!==0&&(this.isTileBlocked(current.col+dx,current.row)||this.isTileBlocked(current.col,current.row+dy)))continue;
+        if(!inWorld(col,row)||closed.has(key)||this.isTileBlocked(col,row,blocked))continue;
+        if(dx!==0&&dy!==0&&(this.isTileBlocked(current.col+dx,current.row,blocked)||this.isTileBlocked(current.col,current.row+dy,blocked)))continue;
         const next=cost.get(current.key)+(dx!==0&&dy!==0?Math.SQRT2:1);
         if(next>=(cost.get(key)??Infinity))continue;
         cost.set(key,next);came.set(key,{col:current.col,row:current.row});
@@ -269,7 +271,8 @@ class HomeBaseScene extends Phaser.Scene{
   moveToTap(x,y){
     if(!this.player||this.moving||this.placement)return;
     const tile=this.worldToTile(x,y);
-    if(!inWorld(tile.col,tile.row)||!walkable(tile.col,tile.row)||this.isTileBlocked(tile.col,tile.row)){this.options.onInvalidMove?.();return;}
+    const blocked=this.blockedCells();
+    if(!inWorld(tile.col,tile.row)||this.isTileBlocked(tile.col,tile.row,blocked)){this.options.onInvalidMove?.();return;}
     this.walkToTile(tile,null,{x,y});
   }
   showTapTrail(target,tapPoint){
@@ -282,7 +285,7 @@ class HomeBaseScene extends Phaser.Scene{
   }
   walkToTile(target,onArrive,tapPoint=null){
     if(!this.player||this.moving)return;
-    const start=this.worldToTile(this.player.x,this.player.y-8),path=this.findPath(start,target);
+    const start=this.playerTile||this.worldToTile(this.player.x,this.player.y-8),path=this.findPath(start,target);
     if(!path.length){this.options.onInvalidMove?.();return;}
     this.moving=true;this.tweens.killTweensOf(this.player);
     const targetPos=groundOf(target.col,target.row);
