@@ -56,7 +56,7 @@ class HomeBaseScene extends Phaser.Scene{
     this.anims.create({key:"water-glimmer",frames:this.anims.generateFrameNumbers("water-glimmer",{start:0,end:3}),frameRate:5,repeat:-1});
     STYLE_OPTIONS.forEach(style=>DIRS.forEach(dir=>["idle","walk"].forEach(move=>{
       const texture=style.id+"_"+move+"_"+dir;
-      this.anims.create({key:style.id+":"+move+":"+dir,frames:this.anims.generateFrameNumbers(texture,{start:0,end:3}),frameRate:move==="walk"?8:3,repeat:-1});
+      this.anims.create({key:style.id+":"+move+":"+dir,frames:this.anims.generateFrameNumbers(texture,{start:0,end:move==="walk"?7:3}),frameRate:move==="walk"?8:3,repeat:-1});
     })));
     [[344,74],[328,126],[300,169],[107,121],[134,154]].forEach(([x,y])=>this.add.sprite(x,y,"water-glimmer").setDepth(y+1).play("water-glimmer").setAlpha(.72));
     [[58,72,.9],[83,165,.82],[367,52,.9],[366,190,.8],[262,202,.74]].forEach(([x,y,scale])=>this.add.image(x,y,"world_tree").setOrigin(.5,1).setScale(scale).setDepth(y));
