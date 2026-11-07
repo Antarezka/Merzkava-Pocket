@@ -2,7 +2,10 @@ name: Merzkava Pocket Android APK
 on:
   push:
     branches: [main]
-    paths: ["review-apk/**", ".github/workflows/pocket-design-review-apk.yml"]
+    paths:
+      - "review-apk/**"
+      - "docs/game/**"
+      - ".github/workflows/pocket-design-review-apk.yml"
   workflow_dispatch:
 permissions:
   contents: read
@@ -37,10 +40,35 @@ jobs:
         shell: bash
         run: |
           HASH="$(git rev-parse --short=4 "$GITHUB_SHA")"
-          echo "POCKET_VERSION=v.0.01.005-$HASH" >> "$GITHUB_ENV"
+          echo "POCKET_VERSION=v.0.01.006-$HASH" >> "$GITHUB_ENV"
+      - name: Prepare persistent Pocket signing key
+        shell: bash
+        env:
+          POCKET_KEYSTORE_BASE64: ${{ secrets.POCKET_KEYSTORE_BASE64 }}
+          POCKET_STORE_PASSWORD: ${{ secrets.POCKET_STORE_PASSWORD }}
+          POCKET_KEY_ALIAS: ${{ secrets.POCKET_KEY_ALIAS }}
+          POCKET_KEY_PASSWORD: ${{ secrets.POCKET_KEY_PASSWORD }}
+        run: |
+          if [[ -z "$POCKET_KEYSTORE_BASE64" || -z "$POCKET_STORE_PASSWORD" || -z "$POCKET_KEY_ALIAS" || -z "$POCKET_KEY_PASSWORD" ]]; then
+            echo "::error::Persistent Pocket signing is not configured. Add all four POCKET_* GitHub Actions secrets before building."
+            exit 1
+          fi
+          printf '%s' "$POCKET_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/merzkava-pocket-upload.jks"
+          test -s "$RUNNER_TEMP/merzkava-pocket-upload.jks"
+          keytool -list -keystore "$RUNNER_TEMP/merzkava-pocket-upload.jks" -storepass "$POCKET_STORE_PASSWORD" -alias "$POCKET_KEY_ALIAS" >/dev/null
+          echo "POCKET_KEYSTORE_PATH=$RUNNER_TEMP/merzkava-pocket-upload.jks" >> "$GITHUB_ENV"
       - name: Build Android APK
         working-directory: review-apk
-        run: gradle --no-daemon :app:assembleDebug -PpocketVersion="$POCKET_VERSION"
+        env:
+          POCKET_KEYSTORE_PATH: ${{ env.POCKET_KEYSTORE_PATH }}
+          POCKET_STORE_PASSWORD: ${{ secrets.POCKET_STORE_PASSWORD }}
+          POCKET_KEY_ALIAS: ${{ secrets.POCKET_KEY_ALIAS }}
+          POCKET_KEY_PASSWORD: ${{ secrets.POCKET_KEY_PASSWORD }}
+        run: gradle --no-daemon :app:assembleDebug -PpocketVersion="$POCKET_VERSION" -PpocketVersionCode="$((10000 + GITHUB_RUN_NUMBER))"
+      - name: Verify APK package and signature
+        run: |
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "review-apk/app/build/outputs/apk/debug/app-debug.apk"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "review-apk/app/build/outputs/apk/debug/app-debug.apk" | grep -F "package: name='com.merzkava.pocket'"
       - name: Rename APK
         run: |
           mkdir -p dist
