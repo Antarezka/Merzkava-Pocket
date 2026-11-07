@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - art/isometric-pxl-character-v1
+      - workbench/ten-anatomy-pxl-study-2026-11-08
     paths:
       - "review-apk/art/characters/**"
       - "review-apk/art/world-archive.px.js"
@@ -51,6 +52,14 @@ jobs:
           test -s "$OUT/character-base-study/anims/hanfu_walk_s.png"
           test -s "$OUT/character-base-study/anims/assassin_idle_s.png"
           test -s "$OUT/character-base-study/anims/assassin_walk_s.png"
+          node "$PXL" check review-apk/art/characters/anatomy-study/anatomy-preview.px.js
+          node "$PXL" build review-apk/art/characters/anatomy-study/anatomy-preview.px.js --out "$OUT/ten-anatomy-study" --share 4
+          for id in anatomy_01_petite anatomy_02_slender anatomy_03_balanced anatomy_04_graceful anatomy_05_athletic anatomy_06_tall anatomy_07_broad anatomy_08_powerful anatomy_09_compact anatomy_10_long_limb; do
+            test -s "$OUT/ten-anatomy-study/anims/${id}_idle_s.png"
+            test -s "$OUT/ten-anatomy-study/anims/${id}_walk_s.png"
+          done
+          test -s "$OUT/ten-anatomy-study/merzkava_ten_anatomy_idle_s.png"
+          test -s "$OUT/ten-anatomy-study/merzkava_ten_anatomy_walk_s.png"
           test -s "$OUT/share/classic_idle_s.png"
 
       - name: Upload visual review assets
