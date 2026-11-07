@@ -1,6 +1,5 @@
 // Merzkava Pocket — PXL source for all world, map and character raster assets.
 include("./.pxl-lib/characters/crew.px.js", { as: "crew" })
-include("./.pxl-lib/characters/miko.px.js", { as: "miko" })
 
 const DIRS=["n","ne","e","se","s","sw","w","nw"];
 const previewCharacter=(id,source)=>sprite("character_preview_"+id,{w:26,h:40,pivot:[13,38]},c=>c.stamp(source+"_idle_s",0,0,{frame:0}));
@@ -9,7 +8,7 @@ previewCharacter("sai","crew.sai");
 previewCharacter("dkb","crew.dkb");
 previewCharacter("cmp","crew.cmp");
 previewCharacter("off","crew.off");
-previewCharacter("mk","miko.mk");
+previewCharacter("crn","crew.crn");
 
 pal({K:"#18221f",g:"#5b7956",G:"#7d9869",L:"#a9b58a",d:"#806f50",D:"#a18c65",w:"#2d7180",W:"#3b93a0",B:"#74bec0",F:"#b3d9c9",s:"#b8a47a",S:"#d6c397",r:"#6a5847",R:"#947757",h:"#31453d",H:"#49664f",y:"#dbc88e",Y:"#f0dfaa"});
 
