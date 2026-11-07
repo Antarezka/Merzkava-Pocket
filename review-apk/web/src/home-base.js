@@ -3,12 +3,12 @@ import "./home-base.css";
 import { openHomeBaseSession } from "./economy.js";
 
 const CHARACTER_OPTIONS=[
-  {id:"tr",source:"crew.tr",name:"Wandering Cultivator",description:"A travelling cultivator in a layered cloak."},
-  {id:"sai",source:"crew.sai",name:"Sword Disciple",description:"A young disciple with a tied bandana and practical robes."},
-  {id:"dkb",source:"crew.dkb",name:"Ironwood Hunter",description:"A rugged bearded hunter in a work vest."},
-  {id:"cmp",source:"crew.cmp",name:"Jade Veil Adept",description:"A braided cultivator in a long formal dress."},
-  {id:"off",source:"crew.off",name:"Grey-Robed Elder",description:"An older cultivator with silver hair tied back."},
-  {id:"crn",source:"crew.crn",name:"Wayfarer Guard",description:"A traveller in a flat cap and a practical vest."}
+  {id:"tr",source:"realm_tr",name:"Wandering Cultivator",description:"A travelling cultivator in a layered cloak."},
+  {id:"sai",source:"realm_sai",name:"Sword Disciple",description:"A young disciple with a tied bandana and practical robes."},
+  {id:"dkb",source:"realm_dkb",name:"Ironwood Hunter",description:"A rugged bearded hunter in a work vest."},
+  {id:"cmp",source:"realm_cmp",name:"Jade Veil Adept",description:"A braided cultivator in a long formal dress."},
+  {id:"off",source:"realm_off",name:"Grey-Robed Elder",description:"An older cultivator with silver hair tied back."},
+  {id:"crn",source:"realm_crn",name:"Wayfarer Guard",description:"A traveller in a flat cap and a practical vest."}
 ];
 const DIRS=["n","ne","e","se","s","sw","w","nw"];
 const DIR_VECTOR={n:[0,-1],ne:[1,-1],e:[1,0],se:[1,1],s:[0,1],sw:[-1,1],w:[-1,0],nw:[-1,-1]};
@@ -162,9 +162,9 @@ class HomeBaseScene extends Phaser.Scene{
   }
   addNpcs(){
     const residents=[
-      {tile:{col:9,row:5},id:"off",source:"crew.off",dir:"s"},
-      {tile:{col:10,row:8},id:"cmp",source:"crew.cmp",dir:"sw"},
-      {tile:{col:4,row:8},id:"crn",source:"crew.crn",dir:"e"}
+      {tile:{col:9,row:5},id:"off",source:"realm_off",dir:"s"},
+      {tile:{col:10,row:8},id:"cmp",source:"realm_cmp",dir:"sw"},
+      {tile:{col:4,row:8},id:"crn",source:"realm_crn",dir:"e"}
     ];
     residents.forEach((record,i)=>{
       const pos=groundOf(record.tile.col,record.tile.row),texture=record.source+"_idle_"+record.dir;
