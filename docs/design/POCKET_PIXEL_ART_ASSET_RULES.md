@@ -1,35 +1,35 @@
 # Pocket Pixel-Art Asset Rules
 
-These rules are mandatory for the Merzkava Pocket game world.
+These rules are mandatory for the Merzkava Pocket game.
 
 ## Visual target
 
 Use the 2D pixel-art MMORPG language established by the user's references:
 - Cổ Tiên Lộ / Cotienlo
 - Elemental: 2D MMORPG by DAERI SOFT
-- Hidden Dragon Wuxian RPG (retain the user's named reference; do not substitute a different game title)
+- Hidden Dragon Wuxian RPG (retain the user's named reference; do not substitute another title)
 
-The result should read as a cultivation MMORPG: identifiable individual characters, martial and spirit-themed clothing, class/role equipment, readable silhouettes, and a coherent tiled world.
+The game should read as a cultivation MMORPG: individual characters, martial/spirit-themed outfits, role-specific equipment, readable silhouettes, and a coherent tiled world.
 
-## Mandatory asset pipeline
+## Asset format boundary
 
-- Author character sprites, heads, garments, equipment, directional animations, map terrain, tiles, buildings, vegetation and world objects in PXL `.px.js` sources.
-- Compile them through the pinned PXL build pipeline into transparent PNG sprites, PNG sprite sheets and the associated animation metadata/GIF previews.
-- Use the resulting raster assets in the Pocket runtime. Keep nearest-neighbour rendering, pixel alignment and the authored frame dimensions.
-- Characters must be individually authored/readable, with distinct faces or headwear, hair, clothing and gear. Do not fall back to one shared generic body with five recolor-only styles.
+**Menu/UI:** SVG is permitted for menu icons, menu illustrations, decorative UI and interface-only graphics. Keep existing menu SVG assets intact when editing the game world.
 
-## SVG prohibition
+**Game artwork:** PXL is mandatory for all characters and all game-related/world assets. This includes the Player, NPCs, portraits/previews, equipment, animation frames, terrain, ground tiles, water, paths, buildings/facilities, vegetation, rocks, objects, effects and map scenes. Compile PXL `.px.js` sources into raster PNGs/sprite sheets (and related animation metadata/GIF review outputs). Do not use SVG as a substitute for any of these assets.
 
-**SVG must never be used for map or character artwork in Merzkava Pocket.**
+## Character art quality
 
-This ban includes terrain tiles, map chunks, buildings, vegetation, rocks, world props, NPCs, the player, portraits, character previews, directional sprites and animation sheets. Do not reintroduce an SVG generator or SVG runtime loader for these asset classes.
+- Each character must have an individually readable identity: face/head shape, hairstyle or headwear, garment construction, color palette, equipment and silhouette.
+- Do not fall back to one shared generic body with only minor recoloring.
+- Create directional sprites and animation frames in PXL; keep pixels aligned and use nearest-neighbour rendering.
+- Review the generated PNG artwork directly before considering a visual pass complete.
 
-SVG may only be considered for unrelated interface decoration where a raster/PXL game asset is not intended. This exception does not apply to any map or character visual.
+## Engine and runtime
 
-## Runtime safeguards
+- The Pocket game engine remains **Phaser 4** (currently pinned to `phaser: 4.2.1`).
+- The Phaser runtime must load PXL-generated PNGs for all game map and character artwork.
+- Do not add SVG game-art paths to Phaser preload or world rendering.
+- Do not restore the old SVG HD map/character generator.
+- Keep PXL source and generated raster output as the source of truth.
 
-- Do not add SVG map/character paths to Phaser preload or runtime rendering.
-- Do not restore procedural vector character/map generators.
-- Keep the PXL source and generated PNG outputs as the source of truth.
-- Review character and map PNGs directly before considering a visual pass complete.
-- This is a game asset workflow only; it does not authorize or trigger an Android/APK build.
+This is a Pocket game asset/runtime change only. It does not authorize or trigger an Android APK build.
