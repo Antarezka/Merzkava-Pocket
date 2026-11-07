@@ -53,11 +53,55 @@ Every Player and NPC should have:
 - Keep the ground shadow separate from the character body so it can be scaled and composited with the map.
 - Artwork never intercepts gameplay input. Existing scene hit areas and interaction handlers remain separate from transparent sprite pixels.
 
+### Modular character customization
+
+The character is built from a persistent base body plus independently replaceable appearance/equipment layers. Do not bake the complete outfit, hairstyle and accessories into one inseparable character sheet.
+
+**Minimum independently addressable appearance slots:**
+- Hair style, including back-hair and front/fringe layers where the design requires them.
+- Headwear and hair ornaments.
+- Face details and facial hair where applicable.
+- Inner top/undershirt.
+- Main top, robe, coat, mantle or chest armour.
+- Bottoms, trousers, skirt or lower robe.
+- Footwear.
+- Waist sash, belt, pouch and hanging ornaments.
+- Neckwear, earrings and other jewellery.
+- Gloves, bracers and hand accessories.
+- Back attachments such as capes, packs, banners or sheathed weapons.
+- Main-hand and off-hand weapon/tool attachments where supported.
+- Optional species/body traits (ears, horns, tail, wings and similar anatomy) as identity/body layers, not ordinary clothing.
+
+A one-piece robe or armour set may occupy multiple visual regions but must be represented by an explicit outfit definition that resolves its coverage and prevents incompatible pieces from clipping through one another. Slot compatibility is data-driven; do not hard-code visual assumptions from an item's name.
+
+**Layering and attachment rules:**
+- Use a stable character rig/attachment map with named anchors for head, hair, face, neck, shoulders, torso, waist, hands, back and feet.
+- Split hair into rear/front passes when needed. Headwear may hide or reshape only the hair sections it actually covers; it must not erase the entire hairstyle by default.
+- Render equipment in a direction-aware order so arms, sleeves, weapons, scabbards, capes and hair pass correctly in front of or behind the body for all eight headings.
+- Every attachable asset must declare its anchor, local offset, draw layer, coverage mask, supported directions, animation set and compatibility tags. Do not align equipment by manually nudging individual frames.
+- Clothing and accessories must inherit the body animation without detaching during turns, steps, attacks or interaction. Long sleeves, robe hems, hair, ribbons and capes receive secondary follow-through while keeping the foot pivot stable.
+- Swapping one slot must not redraw or replace unrelated slots. Reuse compatible atlas/material resources and compose the visible character from the currently equipped layers.
+- If a cosmetic asset has no compatible direction or action animation, show a deliberate compatible fallback or block that combination; never stretch, mirror an unsuitable view or silently drop the item.
+
+**Appearance versus functional equipment:**
+- Character appearance slots and functional equipment slots are separate concepts. A functional item may grant only the gameplay effects specified by its approved Pocket/Universe data.
+- A cosmetic/vanity appearance may override the visible look without changing the underlying equipped item's stats, requirements, ownership, durability or transaction record. The visible override must be saved separately.
+- Hair, clothing dyes, ornaments and costume changes are cosmetic unless a specific approved item record says otherwise. A visual change must never grant HP, defence, attack, attributes, Spirit Realm, Martial Soul, Spirit Rings, Arcanist Grade/Focus or currency.
+- Allow the Player to save and restore named outfit/appearance presets. Presets store stable asset IDs and slot choices, not flattened screenshots or copied character sprites.
+- Provide a live preview before applying changes. The preview must support front, side, back and diagonal views, and show how the selected pieces layer together during idle and movement.
+- NPC outfits use the same modular composition system, but their appearances are authored by their role, identity and schedule; changing the Player's outfit must not recolour or overwrite NPCs.
+
+**Reference fidelity and originality:**
+- Use the privately approved character reference board as a strict quality benchmark for body proportions, silhouette clarity, face/hair rendering, costume construction, armour/accessory detail, material shading, pose readability and animation polish.
+- Review reference fidelity at the same camera distance and in-game scale used by Pocket. A beautiful close-up portrait is not sufficient if the field character becomes an unreadable blob at normal zoom.
+- Translate the benchmark into original Merzkava characters, clothing patterns, ornaments, weapons and silhouettes. Do not trace, recreate or ship another game's identifiable character, exact costume, proprietary sprite, logo or artwork.
+- Keep the private source titles and links out of repository documentation, code comments, commit messages, public asset prompts and release notes.
+
 ## 4. Character appearance and save compatibility
 
 The old appearance values are legacy save data, not permission to keep the old pixel renderer. Preserve the saved appearance field and migrate each existing value to a compatible new character preset without resetting profile, economy, facilities or progress.
 
-The appearance picker may continue to offer distinct body/outfit families, but all choices must share the new rendering standard, frame scale, lighting, perspective and animation contract. Clothing, hair and equipment should be visibly different; recoloring an identical silhouette is not sufficient.
+The appearance picker must become a modular character studio rather than only a five-family style selector. Preserve legacy appearance keys for save migration, but map them into compatible body/outfit presets using the modular slot contract above. The Player can change hair, headwear, garments, bottoms, footwear, accessories, weapons/tools and other supported attachments independently, preview combinations before saving and restore saved outfit presets. Each selected asset must preserve the shared rendering, frame scale, lighting, perspective, rig anchors and eight-direction animation contract. Clothing, hair and equipment must visibly change the model silhouette and detail; recolouring an identical silhouette is not sufficient.
 
 A character's appearance is cosmetic. It must not change attributes, HP, Satiety, Stamina, Qi, Spirit Realm, Martial Soul, Spirit Rings, Arcanist Grade/Focus, economy or any other gameplay value.
 
