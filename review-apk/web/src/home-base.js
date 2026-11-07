@@ -26,7 +26,7 @@ const TERRAIN=Array.from({length:WORLD_ROWS},(_,row)=>Array.from({length:WORLD_C
   if(seed<23)return "d";
   return "g";
 }).join(""));
-const RESERVED_CELLS=new Set(["5,4","6,6","7,4","6,5","9,5","10,7","4,8"]);
+const RESERVED_CELLS=new Set(["5,4","6,6","7,4","6,5","9,5","10,7","10,8","4,8"]);
 const STARTER_SPRITES={"pocket.starter.hut":"hd-facility-hut","pocket.starter.foraging":"hd-facility-foraging","pocket.starter.well":"hd-facility-well"};
 const FAMILY_SPRITES=[
   [/farm|horticulture|garden|agriculture/i,"hd-facility-farm"],
@@ -58,7 +58,7 @@ const spriteForFacility=f=>{
 };
 
 class HomeBaseScene extends Phaser.Scene{
-  constructor(){super("HomeBase");this.style="classic";this.placement=null;this.facilityObjects=new Map();this.npcs=[];this.moving=false;this.playerTile={col:6,row:5};}
+  constructor(){super("HomeBase");this.style="classic";this.placement=null;this.facilityObjects=new Map();this.npcs=[];this.decorCells=new Set();this.moving=false;this.playerTile={col:6,row:5};}
   preload(){
     const objects=["tree","rock","facility_hut","facility_foraging","facility_well","facility_farm","facility_workshop","facility_storage","facility_market"];
     objects.forEach(id=>this.load.image("hd-"+id.replace("facility_","facility-"),"/game-assets/hd/objects/"+id+".svg"));
@@ -166,6 +166,7 @@ class HomeBaseScene extends Phaser.Scene{
       if(kind==="r"&&seed%3===0){
         this.add.image(pos.x,pos.y,"hd-rock").setOrigin(.5,1).setScale(.72+((seed%5)*.035)).setDepth(pos.y+2);
       }else if(kind==="g"&&seed%19===0&&((col<4||col>15)||(row>12))){
+        this.decorCells.add(tileKey(col,row));
         this.add.image(pos.x,pos.y,"hd-tree").setOrigin(.5,1).setScale(.68+((seed%5)*.045)).setDepth(pos.y+3);
       }
     }
@@ -232,7 +233,8 @@ class HomeBaseScene extends Phaser.Scene{
     return blocked;
   }
   isTileBlocked(col,row,blocked){
-    return !walkable(col,row)||(blocked?.has(tileKey(col,row))??false);
+    const key=tileKey(col,row);
+    return !walkable(col,row)||(blocked?.has(key)??false)||this.decorCells.has(key);
   }
   findApproachTile(target){
     const blocked=this.blockedCells();
@@ -422,7 +424,7 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
     if(disposed||!facility)return;
     const col=tile.col,row=tile.row;
     if(!inWorld(col,row)||!siteCanUse(facility,col,row)){setFeedback("That tile does not meet this facility's land/location Requirements.");return;}
-    const occupied=Object.values(session.snapshot().facilities||{}).some(v=>v?.map_position&&v.map_position.col===col&&v.map_position.row===row);
+    const occupied=scene.blockedCells().has(tileKey(col,row));
     if(occupied){setFeedback("That plot is already occupied. Choose another open tile.");return;}
     const site=facility.location_requirements?.[0]||"Owned home plot",result=session.placeFacility(facility.facility_id,site,{col,row});
     if(!result.ok){setFeedback(result.message);renderFacilityDetail(facility.facility_id);return;}
