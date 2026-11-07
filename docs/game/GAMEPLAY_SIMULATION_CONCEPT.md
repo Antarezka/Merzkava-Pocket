@@ -8,7 +8,7 @@
 
 ## 1. Product identity
 
-Merzkava Pocket is a **lightweight 2D Isometric Location-Based Life Simulation** set within the world of Merzkava Universe.
+Merzkava Pocket is a **lightweight 2.5D HD Isometric Location-Based Life Simulation** set within the world of Merzkava Universe.
 
 It is designed to be visually pleasant, atmospheric, and comfortable to leave open and check throughout the day. The player builds a life through small activities, work, resource gathering, facilities, social relationships, learning paths, and gradual economic progress.
 
@@ -411,7 +411,7 @@ Pocket needs its **own local database** for gameplay and simulation state. The d
 
 ## 11. Engine and production requirements
 
-This concept requires a **2D-capable game engine** for the isometric layer and a **local database** for simulation state. The current Android/WebView shell is not itself the game engine.
+This concept requires a lightweight **2D-capable game renderer** for the isometric layer and a **local database** for simulation state. The isometric presentation may use high-resolution layered artwork and depth-sorted sprites to create a 2.5D HD world; the renderer must remain separate from simulation authority.
 
 The engine layer is responsible for:
 
@@ -432,7 +432,7 @@ The simulation/data layer is responsible for:
 - Inventory, materials, assets, wallet, and transaction ledger.
 - Offline persistence, Daily Login integration, and time reconciliation.
 
-**Engine selection remains open.** Choose it after testing a representative isometric scene, touch interactions, asset pipeline, lightweight ambient animation, Android performance, offline persistence, and database integration. Do not select or install an engine based only on the presence of free-roam features in Merzkava APK.
+**Current implementation:** Home Base currently runs in Phaser 4.2.1 inside the Pocket WebView. The art-direction change does not by itself authorize an engine replacement. First validate the representative 2.5D HD scene, bundled asset pipeline, touch interactions, Android performance, offline persistence and database integration with the existing runtime; reconsider the renderer only when measured requirements justify it.
 
 ---
 
@@ -511,26 +511,29 @@ Merzkava Pocket is not intended to be:
 
 ## 19. Home Base isometric engine and visual identity
 
-The Home Base scene runs in Phaser 4.2.1 inside the existing Pocket WebView. It uses a low-power 2D setup, pixel-art sampling, a 30 FPS target, and bundled local assets. The default scene is a spacious private homestead with a pond, a flowing river, a modest path, and room for later construction.
+The Home Base scene currently runs in Phaser 4.2.1 inside the Pocket WebView. The selected visual direction is **2.5D HD isometric**: a lightweight, location-based simulation presented as a layered, inhabited three-dimensional world. Use a stable orthographic/isometric view, high-detail bundled artwork, visible height and depth, material-aware surfaces, soft lighting and clear object separation. The scene must remain readable and responsive on a phone.
 
-### Character style references
+The world is not a single flat background. Separate terrain, paths, water, elevation, buildings/facilities, vegetation, props, actors, effects and foreground occluders wherever independent placement, interaction or depth is required. Gameplay geometry, walkability, placement, occupancy and interaction hotspots remain separate from the artwork. The renderer must not infer game rules from visual shapes.
 
-The in-app style picker contains five original Pocket visual families: **Chibi**, **Classic**, **Elegant**, **Ornate**, and **Painterly**. Each has its own pixel proportions, clothing silhouette, and shading treatment. The selected family is applied to the player and local residents. The PXL source exports idle and walk loops for eight headings: N, NE, E, SE, S, SW, W, and NW.
+### Character rendering and appearance
 
-Character cells use a shared 22 × 30 source-pixel canvas. Small buildings are approximately 28–50 pixels high; the starter hut is visibly wider and taller than the player sprite. People must never be scaled larger than normal doorways or allowed to dominate a house.
+The previous 32×42 pixel sprites and flat head/body tokens are legacy visuals. Rework the Player, NPCs and creatures as full-body, high-detail stylized martial-fantasy figures that share one consistent 2.5D rendering treatment. Each design should have a distinct silhouette, readable face/hair, layered clothing, material detail, footwear, accessories, tools or weapons where appropriate, and believable scale beside doors and buildings.
 
-### Player interaction and movement
+The previous appearance values are retained as save-compatible cosmetic keys. They may map to new body/outfit presets, but they must not keep the old pixel renderer or mix incompatible art styles in one active scene. Appearance remains cosmetic and must not alter character stats, progression, requirements, wallet or economy.
 
-Pocket remains location based rather than a free-roam game. Selecting a building, resource, or NPC makes the player walk automatically to the interaction point, play the appropriate eight-direction walk loop, and return to idle. Tapping the player opens an optional eight-direction step control for short movements.
+Every active field character must provide eight headings: N, NE, E, SE, S, SW, W and NW. Idle and walk loops are mandatory in all directions; interaction, talk, gather, work, spar/attack and other actions are added where gameplay needs them. Use a consistent transparent frame canvas, stable bottom-centre foot pivot and separate ground shadow. Target 128×160 source pixels per frame, with 96×128 as the minimum only when the target-device preview proves the detail readable. The initial idle/walk pack should use at least four frames per heading and preserve scale between frames.
 
-### Starter facilities and placement
+Character art remains a visual layer. Existing location-based movement, automatic approach to interaction points, pathing, tap targets and scene callbacks keep their current gameplay contracts.
 
-Every new or migrated local profile receives a no-cost Level 1 **Small Hut**, **Foraging Patch**, and **Small Well**. The grant adds no Xuan currency, tools, or inventory items. Starter positions and the selected character style are stored in the profile-scoped local Economy save.
+### Lighting and interface presentation
 
-The facility archive uses the existing 200-facility catalogue. Placement is a separate map step: a player selects a facility, then taps an unoccupied tile that fits its location requirement. Existing material, tool, builder, predecessor, fee, and timed-construction Requirements remain authoritative. A construction site becomes a built facility only when its saved process completes.
+Use consistent scene lighting, contact shadows, readable material detail and restrained atmospheric effects. Terrain, stone, wood, roof tile, fabric, metal, foliage and water should have distinct surfaces. Environment motion must be subtle and must not obscure input or status information.
 
-Resting at the Small Hut accrues a Pocket-only recovery credit at 1 Satiety per real hour. This does not rewrite the Universe hunger rule. Credits apply only when a verified Satiety value is linked to the local Pocket needs record; until then, the credit remains pending and no initial Satiety value is invented.
+Extend the same art quality to character portraits, item illustrations, equipment, Spirit Ring frames, Martial Soul and skill icons, currency emblems, facility cards, map markers and HUD panels. Preserve the existing navigation hierarchy, one-hand mobile layout, touch-safe hit areas and Back behaviour while updating the visual language. Icons must remain legible at their actual display size.
 
-### Offline asset pipeline
+### Asset delivery and mobile constraints
 
-The World Archive pixel source is compiled by Augusto PXL during the app's build step. The generated map, building sprites, character animation strips, water loop, and style previews are copied into the Vite public bundle and APK. The installed game does not fetch Phaser, PXL, or visual assets from a remote server at runtime.
+All runtime assets must be packaged locally in the APK. Replace the current pixel-only output as the final visual source, while retaining the old PXL source only as a migration/prototype reference until replacement assets are verified. Pack reusable atlases, load only the active scene's assets, and keep stable asset IDs so visual changes do not alter save identities, item IDs, facility IDs or transaction records.
+
+The final assets must be checked at actual TECNO Spark Go 1 KL4 scale. Validate map depth, character readability, animation pivots, interaction hit areas, texture memory, load time, frame pacing and offline behaviour. Source inspection or a successful web build alone is not visual or device validation.
+
