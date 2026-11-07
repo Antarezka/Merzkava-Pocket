@@ -4,7 +4,7 @@
 **Canon reference pin:** Merzkava Universe `5a0348dc8f47a3c582dadaeac5ffef423d5cd62c`  
 **Related Pocket authority:** `POCKET_SIMULATION_RULES.md`
 
-This document defines how Pocket represents and validates the player's character progression. It does not invent a parallel canon system. Universe mechanics are authoritative for eligibility and results; Pocket-specific timers are authoritative only for Pocket pacing.
+This document defines Pocket's character progression and Requirement system. Pocket always presents action gates as **Requirements** with explicit met/missing states; do not use conversation-style validation language in player-facing gameplay. Universe mechanics remain the canon source for progression rules and outcomes; Pocket-specific timers govern Pocket pacing.
 
 ---
 
@@ -14,7 +14,7 @@ The character screen must not collapse all progression into one level or one bar
 
 1. **Martial Soul Awakening** — whether the character has not awakened, is undergoing the procedure, or has completed it; includes the revealed Martial Soul and its confirmed rarity/traits.
 2. **Spirit Realm progression** — Mortal or one of the nine Spirit Realms, each with its own Early, Middle, Late, and Peak Stage.
-3. **Spirit Ring collection and absorption** — number of successfully absorbed rings, open slots, current Sync progress/cap, next-ring cooldown, and eligibility.
+3. **Spirit Ring collection and absorption** — number of successfully absorbed rings, open slots, current Sync progress/cap, next-ring cooldown, and the next-Ring Requirement state.
 4. **Arcanist Focus** — the last focus stage actually assessed and passed.
 5. **Arcanist Grade** — official professional Grade 1–10, granted only by a passed official/recognized examination.
 6. **Combat and learned techniques** — abilities with verified origins, unlock requirements, costs, effects, and proficiency records.
@@ -25,7 +25,7 @@ Spirit Realm and Arcanist Grade are independent. A high Spirit Realm does not gr
 
 ## 2. Awakening state and requirements
 
-### 2.1 Eligibility and routes
+### 2.1 Age Requirements and routes
 
 - Martial Soul Awakening can take place only at age **four years or older**.
 - Awakening reveals the character's Martial Soul. It does not grant a Spirit Ring or a Spirit Realm by itself.
@@ -89,9 +89,9 @@ Pocket must preserve this sequence:
 
 ```text
 Mortal — not Awakened
-    ↓ valid awakening event (age >= 4)
+    ↓ Awakening Requirements met (age >= 4)
 Mortal — Awakening complete / Martial Soul revealed
-    ↓ valid Ring 1 acquisition + eligible absorption
+    ↓ Ring 1 Requirements met + successful absorption
 Spirit Realm 1 — Spirit Initiate
     ↓ cultivation / Sync / all breakthrough gates / Ring 2 succeeds
 Spirit Realm 2 — Spirit Adept
@@ -117,9 +117,9 @@ On successful Ring 1 absorption, create the first Ring record, initialize Qi at 
 
 ### 3.4 Ring 2 through Ring 9 — sequential hard gates
 
-Ring N may only be attempted after Rings 1 through N−1 have each been successfully absorbed in sequence. A player cannot skip a ring number, absorb a later ring because its slot is visible, or use an unfilled slot as proof of eligibility.
+Ring N may only be attempted after Rings 1 through N−1 have each been successfully absorbed in sequence. A player cannot skip a ring number, absorb a later ring because its slot is visible, or use an unfilled slot as proof that Requirements are met.
 
-For every Ring 2–9, validate **all** of the following before beginning absorption:
+For every Ring 2–9, check **all Requirements** below before starting active absorption:
 
 1. The prior Ring N−1 is recorded as successfully absorbed and all preceding Ring records are intact.
 2. The character is at the required Spirit Realm progression gate for the next transition.
@@ -132,25 +132,51 @@ For every Ring 2–9, validate **all** of the following before beginning absorpt
 
 If any hard gate fails, the absorption success chance is **0%**. Do not add a Ring, Qi, slot, power, Spirit Realm, ability, or skill. A forced attempt may only apply consequences permitted by the official deviation and injury mechanics; do not invent a punishment.
 
-### 3.5 Pocket Ring cooldowns
+### 3.5 Active absorption duration and inter-Ring cooldown
 
-Use the exact Pocket-only cooldown schedule from `POCKET_SIMULATION_RULES.md`:
+These are two independent Pocket timers. The active absorption duration controls how long the character undergoes the current Ring absorption process. The inter-Ring cooldown is the separate minimum wait inherited from Universe after the previous successful absorption.
 
-| After successful absorption | Next Ring | Pocket wait |
-|---:|---:|---:|
-| 1 | 2 | **20 seconds** |
-| 2 | 3 | 15 hours |
-| 3 | 4 | 1 day 21 hours |
-| 4 | 5 | 3 days 18 hours |
-| 5 | 6 | 7 days 12 hours |
-| 6 | 7 | 15 days |
-| 7 | 8 | 22 days 12 hours |
-| 8 | 9 | **30 days** |
-| 9 | — | Maximum reached; no timer |
+**A. Active duration — time spent absorbing the target Ring**
 
-The cooldown is one separate eligibility gate. When it reaches zero, the player still needs a legitimate target ring, item, Sync/bottleneck, body readiness, and every other requirement. Ring 9 is the cap; never create Ring 10.
+| Ring being absorbed | Active Pocket absorption duration |
+|---:|---:|
+| Ring 1 | Not yet specified |
+| Ring 2 | **20 seconds** |
+| Ring 3 | **15 hours** |
+| Ring 4 | **1 day 21 hours** |
+| Ring 5 | **3 days 18 hours** |
+| Ring 6 | **7 days 12 hours** |
+| Ring 7 | **15 days** |
+| Ring 8 | **22 days 12 hours** |
+| Ring 9 | **30 days** |
 
-**Important timer distinction:** the 20-second to 30-day table is the *post-absorption inter-Ring cooldown*, not the active time spent performing the next Ring absorption. The audited Universe source defines minimum intervals between successful absorptions but does not define a per-Ring active absorption-process duration. Pocket must store these as separate fields: `inter_ring_cooldown` and `absorption_process_duration`. The latter remains pending until the owner approves a Pocket schedule; never reuse the cooldown value as the active absorption duration.
+The Ring 2–9 active durations are Pocket process durations. They begin only after the character meets every entry Requirement and the player starts absorption. When the duration finishes, the process becomes **Ready for outcome resolution**. It does not automatically succeed or add a Ring. Ring 1's active duration remains unspecified and must not be borrowed from Ring 2.
+
+**B. Inter-Ring cooldown — wait after the previous successful Ring**
+
+Universe defines the original minimum intervals between successful absorptions. Convert those intervals through the Pocket ×48 clock:
+
+| Previous successful Ring | Next Ring | Universe minimum interval | Pocket inter-Ring cooldown |
+|---:|---:|---:|---:|
+| Ring 1 | Ring 2 | 2 weeks | **7 hours** |
+| Ring 2 | Ring 3 | 1 month | **15 hours** |
+| Ring 3 | Ring 4 | 3 months | **1 day 21 hours** |
+| Ring 4 | Ring 5 | 6 months | **3 days 18 hours** |
+| Ring 5 | Ring 6 | 1 year | **7 days 12 hours** |
+| Ring 6 | Ring 7 | 2 years | **15 days** |
+| Ring 7 | Ring 8 | 3 years | **22 days 12 hours** |
+| Ring 8 | Ring 9 | 4 years | **30 days** |
+| Ring 9 | — | No next Ring | Maximum reached; no timer |
+
+**C. Requirement and process order**
+
+1. Confirm the previous Ring sequence, Realm/Stage, Sync bottleneck, inter-Ring cooldown, target Ring, mandatory target item, body condition, Martial Soul compatibility, Satiety, Qi, and all other applicable Requirements.
+2. If any entry Requirement is missing, do not start the active absorption timer. Show the exact missing Requirement.
+3. When all Requirements are met, the player may start the active absorption process for the target Ring.
+4. When the active timer completes, show **Ready for outcome resolution**. Resolve success/failure only through the authorized absorption procedure. A completed process timer is not an automatic pass.
+5. On success, atomically record the Ring, Qi, progression changes, ability provenance and the next inter-Ring cooldown. On failure, do not grant the Ring, Qi, slot, Realm, or ability; apply only supported consequences.
+
+Keep `active_absorption_duration` and `inter_ring_cooldown` separate. The inter-Ring cooldown begins after the prior Ring succeeds; the active absorption duration begins when the next Ring process is actually started. Both timers continue offline subject to Pocket time-integrity rules. Ring 9 is the maximum; never create Ring 10.
 
 ### 3.6 Ring record and ability provenance
 
@@ -270,7 +296,7 @@ Buying, borrowing, or commissioning somebody else's blueprint does not qualify.
 
 ### 5.5 Grade 8–10 candidate-made artifact requirements
 
-All artifacts counted here must have been made by the candidate, remain currently owned by them at eligibility check, and have verified identity/series code, Tier, type, condition, and production records. Bank storage may count only when ownership and presentation can be verified.
+All artifacts counted here must have been made by the candidate, remain currently owned by them during the Requirements check, and have verified identity/series code, Tier, type, condition, and production records. Bank storage may count only when ownership and presentation can be verified.
 
 | Target Grade | Mandatory qualifying artifacts |
 |---:|---|
@@ -352,7 +378,7 @@ The isometric gameplay screen must keep the most decision-relevant character inf
 | Arcanistry | Arcanist Grade and Arcanist Focus as separate values |
 | Wallet | Five Xuan denominations: xc, xs, xg, zj, az |
 
-The layout may use a collapsible character drawer to save vertical space, but the two Arcanist fields and the main progression state must remain quickly accessible with one tap. Do not hide important eligibility behind a deep settings page.
+The layout may use a collapsible character drawer to save vertical space, but the two Arcanist fields and the main progression state must remain quickly accessible with one tap. Do not hide important Requirements behind a deep settings page.
 
 ### 6.2 Expanded character drawer
 
@@ -361,7 +387,7 @@ The expanded drawer must contain:
 **Identity and Awakening**
 - Name and age.
 - Status: Mortal / Spirit Realm N — exact canonical name and Stage.
-- Awakening state: Not eligible by age, Not awakened, Pending, or Completed; only use states the data model can prove.
+- Awakening state: Age Requirement not met, Not awakened, Pending, or Completed; only use states the data model can prove.
 - Martial Soul: known name/form, rarity, verified traits; unknown values remain visibly unknown.
 - Awakening proof/record and route where one exists.
 
@@ -375,7 +401,7 @@ The expanded drawer must contain:
 - Target ring and all missing requirements when the player inspects the next absorption.
 
 **Arcanistry**
-- Arcanist Grade (official grade or exactly `???` if personal grade is unverified).
+- Arcanist Grade (official Grade or exactly `???` if the personal Grade is unverified).
 - Arcanist Focus (last passed stage; `Belum dimulai` only when known not started; otherwise `Belum ditetapkan`).
 - Foundational teacher/institution and learning record.
 - Next Focus assessment and Apprentice/Grade examination eligibility.
