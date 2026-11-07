@@ -73,49 +73,59 @@ const isoDiamond=(c,cx,cy,top,edge,shade,seed=0)=>{
   c.hline(cx-6,cy+7,12,edge);if(seed%3===0){c.px(cx-6,cy+5,"L");c.px(cx+4,cy+10,shade);}
 };
 const TERRAIN=["ggggggggggww","gggggggggwww","ggppggggwwww","gppppgggwwwg","gpppggggwwgg","ggppddggwggg","gggggdgwwggg","ggggddwwgggg","ggggggwggggg","gggggggggggg"];
-const tilePos=(col,row)=>[200+(col-row)*16,28+(col+row)*8];
+const tilePos=(col,row)=>[200+(col-row)*16,20+(col+row)*8];
 const isWater=(col,row)=>["w","p"].includes(TERRAIN[row]?.[col]||"");
+const diamondFill=(c,cx,top,color)=>{
+  for(let y=0;y<16;y++){
+    const half=y<8?2*(y+1):2*(16-y);
+    c.hline(cx-half,top+y,half*2,color);
+  }
+};
 scene("home_base_map",{w:400,h:260,bg:"#19251f"},c=>{
-  // One broad, continuous isometric meadow: no hard tile grid across the open lawn.
+  // A spacious continuous meadow with a clean isometric shoreline.
   for(let y=20;y<=196;y++){
     const half=Math.round(2*Math.min(y-20,196-y));
     if(half<=0)continue;
     const left=200-half;
     c.hline(left,y,half*2,"g");
-    c.hline(left,y,Math.min(5,half),"h");
-    c.hline(200+half-5,y,Math.min(5,half),"h");
-    if(y%17===0&&half>36)c.hline(left+24,y,half*2-48,"G");
+    c.hline(left,y,Math.min(4,half),"h");
+    c.hline(200+half-4,y,Math.min(4,half),"h");
   }
-  // Subtle meadow patches and ground texture, placed in clusters rather than repeating tile seams.
-  for(const [x,y,rx,ry,k] of [
-    [108,78,28,12,"G"],[144,151,34,13,"G"],[257,58,30,11,"G"],
-    [281,151,33,14,"h"],[186,173,27,9,"G"],[87,111,17,8,"h"],[312,105,18,9,"G"]
-  ])c.ellipse(x,y,rx,ry,k);
-  for(let i=0;i<76;i++){
-    const x=35+(i*53)%330,y=30+(i*31)%155;
+  // Low-contrast vegetation: small clusters, never a visible repeating grid.
+  for(let i=0;i<96;i++){
+    const x=36+(i*47)%328,y=28+(i*31)%160;
     const half=2*Math.min(y-20,196-y);
-    if(half>24&&x>200-half+10&&x<200+half-10){
-      if(i%4===0){c.px(x,y,"L");c.px(x+1,y-1,"G");}
-      else if(i%4===1){c.px(x,y,"H");c.px(x+1,y,"g");}
-      else if(i%4===2)c.px(x,y,"G");
-    }
+    if(half<26||x<200-half+10||x>200+half-10)continue;
+    if(i%5===0){c.ellipse(x,y,4,2,"G");c.px(x+2,y-2,"L");}
+    else if(i%5===1){c.px(x,y,"H");c.px(x+1,y-1,"G");c.px(x+2,y,"g");}
+    else if(i%5===2){c.px(x,y,"L");c.px(x+1,y-1,"G");}
+    else if(i%5===3){c.ellipse(x,y,3,1,"h");c.px(x,y-1,"G");}
   }
-  // A curved, overlapping shoreline creates a pond and a narrow stream without square tile gaps.
+  // Dirt/stone patches and the footpath are filled diamonds rather than rounded stamps.
   for(let row=0;row<TERRAIN.length;row++)for(let col=0;col<TERRAIN[row].length;col++){
     const kind=TERRAIN[row][col],[x,y]=tilePos(col,row);
-    if(kind==="d")c.ellipse(x,y,19,11,"d");
-    else if(kind==="s"){c.ellipse(x,y,17,10,"s");c.hline(x-6,y,12,"S");}
-    if(!isWater(col,row))continue;
-    const bank=[[col+1,row],[col-1,row],[col,row+1],[col,row-1]].some(([cx,ry])=>!isWater(cx,ry));
-    if(bank)c.ellipse(x,y,21,13,"D");
-    c.ellipse(x,y,18,10,kind==="p"?"W":"w");
-    c.ellipse(x-2,y-2,10,4,"W");
-    if((col+row)%2===0)c.hline(x-7,y-3,7,"B");
-    if((col*3+row)%4===0)c.hline(x+2,y+3,6,"F");
+    if(kind==="d"){
+      diamondFill(c,x,y,"d");
+      if((col+row)%2===0)c.hline(x-5,y+8,10,"D");
+    }else if(kind==="s"){
+      diamondFill(c,x,y,"s");
+      c.hline(x-5,y+7,10,"S");
+    }
   }
-  // A soft stepping-stone path from the hut toward the foraging patch.
+  // Connected pond and winding stream: adjacent 2:1 diamonds meet without circular outlines.
+  for(let row=0;row<TERRAIN.length;row++)for(let col=0;col<TERRAIN[row].length;col++){
+    if(!isWater(col,row))continue;
+    const [x,y]=tilePos(col,row),kind=TERRAIN[row][col];
+    diamondFill(c,x,y,kind==="p"?"W":"w");
+    if((col+row)%3===0)c.hline(x-7,y+7,8,"B");
+    if((col*2+row)%4===0)c.hline(x+1,y+10,6,"F");
+    if((col+row)%4===0)c.px(x+5,y+5,"B");
+  }
+  // A quiet stepping-stone trail from the shelter area toward the garden.
   for(const [col,row] of [[4,7],[5,7],[5,6],[5,5],[4,5]]){
-    const [x,y]=tilePos(col,row);c.ellipse(x,y,12,7,"s");c.hline(x-5,y-1,9,"S");
+    const [x,y]=tilePos(col,row);
+    c.ellipse(x,y+8,5,2,"D");
+    c.hline(x-3,y+7,6,"S");
   }
   // Reeds and small shore rocks make water edges feel inhabited.
   for(const [col,row,side] of [[2,3,-1],[4,4,1],[8,2,1],[9,3,-1],[8,6,-1],[7,7,1],[2,5,-1]]){
