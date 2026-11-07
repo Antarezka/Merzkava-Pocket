@@ -75,7 +75,7 @@ class HomeBaseScene extends Phaser.Scene{
     STYLE_OPTIONS.forEach(style=>DIRS.forEach(dir=>["idle","walk"].forEach(move=>{
       const texture=style.id+"_"+move+"_"+dir;
       const key=style.id+":"+move+":"+dir;
-      if(!this.anims.exists(key))this.anims.create({key,frames:this.anims.generateFrameNumbers(texture,{start:0,end:11}),frameRate:move==="walk"?12:6,repeat:-1});
+      if(!this.anims.exists(key))this.anims.create({key,frames:this.anims.generateFrameNumbers(texture,{start:0,end:11}),frameRate:move==="walk"?12:10,repeat:-1});
     })));
     this.drawWorld();
     this.addWorldDecorations();
@@ -241,7 +241,11 @@ class HomeBaseScene extends Phaser.Scene{
       candidates.push({col,row,distance:Math.abs(dx)+Math.abs(dy)});
     }
     candidates.sort((a,b)=>a.distance-b.distance);
-    return candidates[0]||null;
+    const start=this.playerTile||{col:6,row:5};
+    for(const candidate of candidates){
+      if(this.findPath(start,candidate).length)return candidate;
+    }
+    return null;
   }
   findPath(start,target){
     const blocked=this.blockedCells();
