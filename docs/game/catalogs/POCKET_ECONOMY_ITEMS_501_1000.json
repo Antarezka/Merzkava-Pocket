@@ -21647,8 +21647,8 @@
           "Village Well L1 or accessible public well"
         ],
         "output_per_active_sim_minute": {
-          "quantity": 1.5,
-          "unit": "buckets/minute"
+          "quantity": 0.8,
+          "unit": "buckets/minute; capped by the source facility's current output and storage"
         }
       },
       "requirements": [
