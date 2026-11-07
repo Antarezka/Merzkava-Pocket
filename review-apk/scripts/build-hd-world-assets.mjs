@@ -56,7 +56,7 @@ function characterFrame(style, dir, move, frame) {
     '<path d="M49 32 Q51 18 64 17 Q75 17 79 28" fill="none" stroke="#77717c" stroke-opacity=".42" stroke-width="2"/>';
   const bangs = back ? "" : side
     ? '<path d="M52 35 Q48 20 62 17 Q78 17 79 32 Q73 28 68 32 Q62 38 55 38Z" fill="' + style.hair + '" stroke="#11151b" stroke-width="1.2"/>'
-    : '<path d="M50 36 Q47 19 61 16 Q77 14 80 30 Q73 25 68 31 Q61 35 58 39Z" fill="#25252e" stroke="#11151b" stroke-width="1.2"/>' +
+    : '<path d="M50 36 Q47 19 61 16 Q77 14 80 30 Q73 25 68 31 Q61 35 58 39Z" fill="' + style.hair + '" stroke="#11151b" stroke-width="1.2"/>' +
       '<path d="M54 28 Q59 20 69 22" fill="none" stroke="#77717c" stroke-opacity=".45" stroke-width="1.8"/>';
   const legLeftX = left ? 55 : 58;
   const legRightX = left ? 72 : 69;
@@ -89,8 +89,8 @@ function characterFrame(style, dir, move, frame) {
   const hairTail = style.shape === 2
     ? '<path d="M76 37 Q91 52 80 75 Q78 81 71 86 Q81 57 69 48Z" fill="' + style.hair + '" stroke="#11151b" stroke-width="1"/>'
     : style.shape === 4
-      ? '<path d="M76 36 Q91 49 84 69 L78 82 Q81 57 68 47Z" fill="#24252d" stroke="#11151b" stroke-width="1"/>'
-      : '<path d="M77 38 Q86 53 78 68 L72 77 Q75 53 67 47Z" fill="#24252d" stroke="#11151b" stroke-width="1"/>';
+      ? '<path d="M76 36 Q91 49 84 69 L78 82 Q81 57 68 47Z" fill="' + style.hair + '" stroke="#11151b" stroke-width="1"/>'
+      : '<path d="M77 38 Q86 53 78 68 L72 77 Q75 53 67 47Z" fill="' + style.hair + '" stroke="#11151b" stroke-width="1"/>';
   let art = '<g transform="translate(0 ' + (-bob) + ')">';
   if (left) art = '<g transform="translate(128 0) scale(-1 1)"><g transform="translate(0 ' + (-bob) + ')">';
   art += '<ellipse cx="64" cy="148" rx="24" ry="5" fill="#050a08" opacity=".36"/>';
