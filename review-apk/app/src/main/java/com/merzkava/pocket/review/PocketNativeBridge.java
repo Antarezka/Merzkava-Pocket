@@ -156,7 +156,7 @@ public final class PocketNativeBridge {
     // Uses the same Merzkava APK PBKDF2-SHA-256 verifier contract. Raw credentials are never returned to JS.
     @JavascriptInterface public void authenticateDeveloper(String identifier, String password, boolean remember, String requestId) {
         if (requestId == null || identifier == null || password == null) {
-            completeDeveloper(requestId, false, "", "Enter the Developer ID and password.");
+            completeDeveloper(requestId, false, "", "", "Enter the Developer ID and password.");
             return;
         }
         Thread thread = new Thread(() -> {
@@ -164,18 +164,18 @@ public final class PocketNativeBridge {
                 boolean valid = verifyDeveloperCredentials(identifier, password);
                 if (!valid) {
                     prefs().edit().putBoolean(PREF_SESSION, false).apply();
-                    completeDeveloper(requestId, false, "", "Developer ID or password is incorrect.");
+                    completeDeveloper(requestId, false, "", "", "Developer ID or password is incorrect.");
                     return;
                 }
                 if (!saveDeveloperSession(remember, identifier, password)) {
                     prefs().edit().putBoolean(PREF_SESSION, false).apply();
-                    completeDeveloper(requestId, false, "", "Could not securely apply the Developer session on this device.");
+                    completeDeveloper(requestId, false, "", "", "Could not securely apply the Developer session on this device.");
                     return;
                 }
                 completeDeveloper(requestId, true, identifier.trim(), "developer-verifier-v1", "");
             } catch (Exception ignored) {
                 prefs().edit().putBoolean(PREF_SESSION, false).apply();
-                completeDeveloper(requestId, false, "", "Developer verification is unavailable on this device.");
+                completeDeveloper(requestId, false, "", "", "Developer verification is unavailable on this device.");
             } finally {
                 cancelledRequests.remove(requestId);
             }
