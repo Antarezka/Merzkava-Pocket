@@ -37,7 +37,7 @@ All modes share:
 
 1. **Ordinary hunting / resource hunt** — local wildlife or harvestable fauna where a region's content data explicitly supports it. It may produce food/materials only where valid loot data exists.
 2. **Spirit Beast hunt** — a high-risk field activity using the actual Beast catalogue, region/habitat data, combat system, HP/injury, and an explicit claim/ownership resolution.
-3. **Spirit Ring expedition** — the full progression path for a character who has already awakened their Martial Soul and is eligible to pursue a ring.
+3. **Spirit Ring expedition** — the full progression path for a character who has already awakened their Martial Soul and meets the Requirements to pursue a Ring.
 
 ### 2.2 The three canon routes for Spirit Beast hunting
 
