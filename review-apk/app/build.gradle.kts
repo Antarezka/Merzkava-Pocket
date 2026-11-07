@@ -1,7 +1,7 @@
 plugins { id("com.android.application") }
 val pocketVersion = providers.gradleProperty("pocketVersion").orElse("v.0.01.003-local").get()
 android {
-    namespace = "com.merzkava.pocket"
+    namespace = "com.merzkava.pocket.review"
     compileSdk = 35
     defaultConfig {
         applicationId = "com.merzkava.pocket"
