@@ -69,5 +69,10 @@ const manifest = {
   economy_spec_sha256: sha256(specText)
 };
 const manifestPath = new URL("POCKET_CATALOGUE_MANIFEST.json", targetDir);
-await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n", "utf8");
+const manifestText = JSON.stringify(manifest, null, 2) + "\n";
+await writeFile(manifestPath, manifestText, "utf8");
+const verifiedManifest = JSON.parse(await readFile(manifestPath, "utf8"));
+if (verifiedManifest.counts.items !== 1000 || verifiedManifest.counts.facilities !== 200 || verifiedManifest.counts.recipes !== 20) {
+  throw new Error("Pocket catalogue manifest verification failed.");
+}
 process.stdout.write("Wrote " + fileURLToPath(manifestPath) + " for catalogue v" + catalogueVersion + "\n");
