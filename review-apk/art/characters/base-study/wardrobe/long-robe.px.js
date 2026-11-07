@@ -11,15 +11,15 @@ const STUDY_LONG_ROBE = {
     g:"#d0ad67", B:"#a46662", T:"#71434d", t:"#8f5262", b:"#c98891"
   },
   top: {
-    arm:[1.82,1.62,1.22], body:[4.05,4.35],
+    arm:[2.45,2.2,1.5], body:[4.45,4.8],
     sleeve:"TtBb", fore:"bB", farSleeve:"TTt", farFore:"TtB",
     inner:"vW", outer:"TtBb", belt:"gG", skirt:"vW",
-    drape:{ length:14.4, out:"TtBb", lining:"Tt", hem:"T", trail:1.9, push:1.0, radius:4.7, flare:1.9, folds:7, phase:0.35, openFront:1.0 },
-    over:[{ length:10.5, out:"vwwW", lining:"v", hem:"v", trail:1.25, push:0.75, radius:4.25, flare:1.0, folds:5, phase:1.0 }]
+    drape:{ length:15.2, out:"TtBb", lining:"Tt", hem:"T", trail:2.3, push:1.5, radius:5.5, flare:2.8, folds:7, phase:0.35 },
+    over:[{ length:10.5, out:"vwwW", lining:"v", hem:"v", trail:1.6, push:1.0, radius:5.0, flare:1.55, folds:5, phase:1.0 }]
   },
   bottom: {
     leg:[1.9,1.72,1.5], tr:"RPP", farTr:"RRP", shin:"DDd", foot:"Ddl", cuff:0.48,
-    drape:{ length:13.2, out:"TtBb", lining:"Tt", hem:"T", trail:2.0, push:1.1, radius:4.35, flare:2.75, folds:8, phase:0.5 }
+    drape:{ length:13.8, out:"TtBb", lining:"Tt", hem:"T", trail:2.5, push:1.65, radius:5.0, flare:4.8, folds:8, phase:0.5 }
   },
   back:{ type:"scroll", material:"wW" }
 }

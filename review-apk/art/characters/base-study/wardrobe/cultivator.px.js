@@ -11,15 +11,15 @@ const STUDY_CULTIVATOR = {
     g:"#c4a15a", B:"#95634f", T:"#633f39"
   },
   top: {
-    arm:[1.58,1.42,1.12], body:[4.0,4.25],
+    arm:[2.1,1.9,1.4], body:[4.35,4.6],
     sleeve:"nNc", fore:"cC", farSleeve:"NNn", farFore:"vvw",
     inner:"vW", outer:"nNcC", belt:"gG", skirt:"vW",
-    drape:{ length:13.6, out:"nNcC", lining:"Nn", hem:"N", trail:1.0, push:0.85, radius:4.5, flare:1.55, folds:6, phase:0.2, openFront:0.92 },
-    over:[{ length:9.0, out:"vwwW", lining:"v", hem:"v", trail:0.8, push:0.55, radius:4.1, flare:0.85, folds:4, phase:0.8 }]
+    drape:{ length:13.8, out:"nNcC", lining:"Nn", hem:"N", trail:1.45, push:1.25, radius:5.0, flare:2.1, folds:6, phase:0.2, openFront:0.45 },
+    over:[{ length:9.0, out:"vwwW", lining:"v", hem:"v", trail:1.0, push:0.85, radius:4.75, flare:1.2, folds:4, phase:0.8 }]
   },
   bottom: {
     leg:[1.86,1.7,1.48], tr:"RPP", farTr:"RRP", shin:"DDd", foot:"Ddl", cuff:0.5,
-    drape:{ length:12.5, out:"nNc", lining:"N", hem:"N", trail:1.15, push:1.0, radius:4.25, flare:2.0, folds:6, phase:0.55 }
+    drape:{ length:12.8, out:"nNc", lining:"N", hem:"N", trail:1.7, push:1.4, radius:4.9, flare:3.5, folds:6, phase:0.55 }
   },
   back:{ type:"sword", blade:"wW", hilt:"gG" }
 }

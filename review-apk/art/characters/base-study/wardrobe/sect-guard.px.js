@@ -11,15 +11,15 @@ const STUDY_SECT_GUARD = {
     g:"#c0a05e", B:"#8c5b48", T:"#624238"
   },
   top: {
-    arm:[1.78,1.62,1.25], body:[4.2,4.45],
+    arm:[2.2,2.0,1.5], body:[4.45,4.7],
     sleeve:"nNc", fore:"vww", farSleeve:"NNn", farFore:"vvw",
     inner:"vW", outer:"nNcC", belt:"gG", skirt:"vW",
-    drape:{ length:10.2, out:"nNcC", lining:"Nn", hem:"N", trail:0.75, push:0.85, radius:4.8, flare:1.1, folds:5, phase:0.5, openFront:1.15 },
-    over:[{ length:5.8, out:"dDl", lining:"D", hem:"D", trail:0.35, push:0.35, radius:4.55, flare:0.7, folds:6, phase:0.9 }]
+    drape:{ length:10.8, out:"nNcC", lining:"Nn", hem:"N", trail:1.0, push:1.2, radius:5.2, flare:1.8, folds:5, phase:0.5, openFront:0.4 },
+    over:[{ length:6.5, out:"dDl", lining:"D", hem:"D", trail:0.45, push:0.65, radius:5.0, flare:1.1, folds:6, phase:0.9 }]
   },
   bottom: {
     leg:[1.92,1.75,1.52], tr:"RPP", farTr:"RRP", shin:"DDd", foot:"Ddl", cuff:0.46,
-    drape:{ length:8.0, out:"dDl", lining:"D", hem:"D", trail:0.55, push:1.0, radius:4.45, flare:1.55, folds:6, phase:0.4 }
+    drape:{ length:8.7, out:"dDl", lining:"D", hem:"D", trail:0.8, push:1.35, radius:4.9, flare:2.3, folds:6, phase:0.4 }
   },
   back:{ type:"pack", material:"dDl", strap:"gG" }
 }

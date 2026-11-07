@@ -11,15 +11,15 @@ const STUDY_HANFU = {
     g:"#c4a05a", B:"#985e68", T:"#603b52"
   },
   top: {
-    arm:[1.72,1.54,1.18], body:[4.0,4.25],
+    arm:[2.35,2.1,1.45], body:[4.4,4.65],
     sleeve:"nNcC", fore:"cC", farSleeve:"NNn", farFore:"vvw",
     inner:"vW", outer:"nNcC", belt:"gG", skirt:"nNc",
-    drape:{ length:12.8, out:"nNcC", lining:"Nn", hem:"N", trail:1.35, push:0.9, radius:4.55, flare:1.35, folds:5, phase:0.35, openFront:1.05 },
-    over:[{ length:8.0, out:"vwwW", lining:"v", hem:"v", trail:0.9, push:0.65, radius:4.2, flare:0.75, folds:4, phase:1.1 }]
+    drape:{ length:13.3, out:"nNcC", lining:"Nn", hem:"N", trail:2.0, push:1.4, radius:5.35, flare:2.45, folds:5, phase:0.35 },
+    over:[{ length:8.0, out:"vwwW", lining:"v", hem:"v", trail:1.2, push:0.9, radius:4.85, flare:1.15, folds:4, phase:1.1 }]
   },
   bottom: {
     leg:[1.82,1.65,1.42], tr:"RPp", farTr:"RRP", shin:"DDd", foot:"Ddl", cuff:0.52,
-    drape:{ length:12.0, out:"vwwW", lining:"v", hem:"v", trail:1.55, push:1.05, radius:4.35, flare:2.5, folds:7, phase:0.6 }
+    drape:{ length:12.8, out:"vwwW", lining:"v", hem:"v", trail:2.25, push:1.6, radius:5.0, flare:4.0, folds:7, phase:0.6 }
   },
   back:{ type:"ribbons", material:"vW" }
 }
