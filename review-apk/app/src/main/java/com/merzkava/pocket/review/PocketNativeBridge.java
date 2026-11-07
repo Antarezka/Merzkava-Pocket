@@ -73,7 +73,7 @@ public final class PocketNativeBridge {
         boolean notifications = Build.VERSION.SDK_INT < 33 || manager.areNotificationsEnabled();
         PowerManager power = (PowerManager) activity.getSystemService(Context.POWER_SERVICE);
         boolean battery = Build.VERSION.SDK_INT < 23 || power.isIgnoringBatteryOptimizations(activity.getPackageName());
-        boolean running = prefs().getBoolean("floating_service_running", false);
+        boolean running = PocketFloatingService.isRunning();
         JSONObject state = new JSONObject();
         try {
             state.put("displayOverApps", overlay);

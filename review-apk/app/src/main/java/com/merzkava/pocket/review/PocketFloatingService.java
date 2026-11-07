@@ -28,9 +28,13 @@ public final class PocketFloatingService extends Service {
     private WindowManager windowManager;
     private View bubble;
     private View miniWindow;
+    private static volatile boolean serviceRunning = false;
+
+    static boolean isRunning() { return serviceRunning; }
 
     @Override public void onCreate() {
         super.onCreate();
+        serviceRunning = true;
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         createChannel();
         startForegroundCompat();
@@ -177,6 +181,7 @@ public final class PocketFloatingService extends Service {
     private int dp(float value) { return (int) (value * getResources().getDisplayMetrics().density + .5f); }
 
     @Override public void onDestroy() {
+        serviceRunning = false;
         if (bubble != null) { try { windowManager.removeView(bubble); } catch (Exception ignored) {} bubble = null; }
         removeMiniWindow();
         getSharedPreferences("merzkava-pocket-access", MODE_PRIVATE).edit().putBoolean("floating_service_running", false).apply();

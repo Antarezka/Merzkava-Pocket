@@ -13,6 +13,7 @@ const callbacks = new Map();
 let activeAccessAbort = null;
 let accessIdentity = null;
 let currentRoute = "login";
+const routeHistory = [];
 let currentDisposer = null;
 let theme = readTheme();
 let menuOpen = true;
@@ -180,6 +181,7 @@ async function runAccessSequence(role, operation, signal) {
 
 function renderLoginGate() {
   disposeCurrent();
+  routeHistory.length = 0;
   currentRoute = "login";
   accessIdentity = null;
   root.innerHTML = `
@@ -507,6 +509,7 @@ function showSplash() {
 }
 
 function renderHome() {
+  routeHistory.length = 0;
   renderPage("home");
 }
 function renderPage(destination, depth="") {
@@ -677,7 +680,7 @@ function mountMenu() {
   handle.addEventListener("lostpointercapture",event=>{if(pointerId===event.pointerId)up(event,true);});
   handle.addEventListener("keydown",event=>{
     if(event.key===" "&&!event.repeat&&pointerId===null){event.preventDefault();pointerId=-1;begin(current);}
-    else if(pointerId===-1){const step=event.shiftKey?90:48;const p={...current};if(event.key==="ArrowDown")p.y+=step;else if(event.key==="ArrowUp")p.y-=step;else if(event.key==="ArrowLeft")p.x-=step;else if(event.key==="ArrowRight")p.x+=step;else if(event.key===" "){event.preventDefault();const activate=p.y>=bounds().h-120;pointerId=null;snapBack(activate);return;}else return;event.preventDefault();update(p);}
+    else if(pointerId===-1){const step=event.shiftKey?90:48;const p={...current};if(event.key==="ArrowDown")p.y+=step;else if(event.key==="ArrowUp")p.y-=step;else if(event.key==="ArrowLeft")p.x-=step;else if(event.key==="ArrowRight")p.x+=step;else if(event.key===" "){event.preventDefault();const zoneHeight=Math.min(176,Math.max(112,bounds().h*.17));const activate=dragged&&p.y>=bounds().h-zoneHeight;pointerId=null;snapBack(activate);return;}else return;event.preventDefault();update(p);}
   });
   tiles.forEach(tile=>tile.addEventListener("click",()=>{
     const destination=tile.dataset.destination;
@@ -701,12 +704,22 @@ function mountMenu() {
 function navigate(destination) {
   if(!["home","game","daily-login","settings","home-base","city","world-map"].includes(destination))return;
   if(destination===currentRoute)return;
-  const previous=currentRoute;
+  routeHistory.push(currentRoute);
   renderPage(destination);
-  const dock=root.querySelector("[data-dock]");
-  if(dock&&menuController?.open)menuController.close();
-  const page=root.querySelector(".home-stage,.page-stage");
-  if(!reducedMotion()&&page)animate(page,{opacity:[0,1],translateX:[8,0],duration:360,ease:"outCubic"});
+  if(menuController?.open)menuController.close();
+}
+
+function navigateBack() {
+  const previous = routeHistory.pop();
+  if (previous) {
+    renderPage(previous);
+    if (menuController?.open) menuController.close();
+    return;
+  }
+  if (currentRoute !== "home") {
+    renderPage("home");
+    if (menuController?.open) menuController.close();
+  }
 }
 
 async function signOut() {
@@ -715,6 +728,7 @@ async function signOut() {
     try { native.lockDeveloperSession(); } catch {}
   }
   accessIdentity=null;
+  routeHistory.length=0;
   floatingReadiness={displayOverApps:false,notifications:false,batteryExemption:false,serviceRunning:false,supported:false};
   renderLoginGate();
 }
@@ -725,12 +739,7 @@ window.addEventListener("pocket:android-back",()=>{
   if(currentRoute==="splash")return;
   if(backPrompt){backPrompt.remove();backPrompt=null;return;}
   if(menuController?.open){menuController.close();return;}
-  if(currentRoute!=="home"){
-    if(currentRoute==="world-map")return navigate("city");
-    if(currentRoute==="city")return navigate("home-base");
-    if(currentRoute==="home-base")return navigate("game");
-    return navigate("home");
-  }
+  if(currentRoute!=="home") return navigateBack();
   backPrompt=document.createElement("div");
   backPrompt.className="exit-prompt";
   backPrompt.innerHTML='<section role="dialog" aria-modal="true"><span class="eyebrow">MERZKAVA POCKET</span><h2>Leave the Archive?</h2><p>Close Pocket and end this app session?</p><div><button data-stay>STAY</button><button data-exit>EXIT</button></div></section>';
