@@ -9,6 +9,15 @@ These catalogues use Merzkava Universe as their canon source and Pocket-only con
 - [Skill and Technique Catalogue](./SKILL_AND_TECHNIQUE_CATALOG.md) — Martial Soul abilities, Spirit Abilities, formal techniques, combat proficiency, Arcanistry, artifact functions, and life skills.
 - [Arcanistry Catalogue](./ARCANISTRY_CATALOG.md) — Focus, Grades, exams, Formation Engravers, materials, formulations, Artificial Artifacts, Ancient Artifacts, and Relics.
 
+## Pocket economy and production catalogue
+
+- [Integrated Economy, Items, Production & Facilities Catalogue](./POCKET_ECONOMY_CATALOG.md) — full 1,000-item listing, gathering/mining/farming/fishing rates, pricing formula, 200 facility build/upgrade specifications, and linked production loops.
+- [Items 001–500](./POCKET_ECONOMY_ITEMS_001_500.json) and [Items 501–1000](./POCKET_ECONOMY_ITEMS_501_1000.json) — structured item IDs, prices, acquisition methods, tools, facility Requirements and uses.
+- [200 Facilities](./POCKET_FACILITIES_200.json) — location, bill of materials, builder tools/workforce, construction time, upgrades, capacity and outputs.
+- [Production Recipes](./POCKET_PRODUCTION_RECIPES.json) — input/output links, processing times and crop/seed relationships.
+
+All item prices, rates, facility costs and timers are Pocket balance data. Currency denominations and the final market pricing formula remain inherited from Merzkava Universe.
+
 ## Catalogue governance
 
 1. Use source references and the pinned Universe version for inherited facts.
