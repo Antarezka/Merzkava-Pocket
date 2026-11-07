@@ -99,10 +99,11 @@ Rows:
 ### Quick Actions
 Preserve this exact order:
 1. Open game / Continue
-2. Start bubble mode
-3. Open floating mini window
-4. Stop service
-5. Donate
+2. Open floating mini window
+3. Stop service
+4. Donate
+
+The Floating Bubble toggle is not part of this screen. It is a separate antique CRT icon in the Home header; the Home control starts/stops the native overlay and reflects the real Android bubble-attachment state. Tapping the floating TV returns Pocket to the foreground.
 
 Each action is a compact row with a small icon, title, short helper line, and trailing chevron.
 
@@ -138,7 +139,7 @@ The Donate copy should eventually be localized into the exact language set alrea
 
 ## 8. Approval boundary and next work
 
-**Approved now:** the full-screen Floating Control layout, its documented structure and interaction intent, and the antique CRT television header emblem.
+**Approved now:** the full-screen Floating Control layout, its documented structure and interaction intent, and the antique CRT television header emblem. The later Home-header Floating Bubble control is a separate app-shell control and does not add a bubble action to this screen.
 
 **Still open:** the next app-screen mockup and any implementation-specific vector asset decisions.
 
