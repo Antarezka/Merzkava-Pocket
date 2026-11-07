@@ -96,7 +96,7 @@ class HomeBaseScene extends Phaser.Scene{
     });
     this.dragState=null;this.pointerConsumed=false;
     this.input.on("pointerdown",pointer=>{
-      this.pointerConsumed=false;
+      this.pointerConsumed=false;this.skipObjectTapId=null;
       this.dragState={id:pointer.id,x:pointer.x,y:pointer.y,lastX:pointer.x,lastY:pointer.y,moved:false};
     });
     this.input.on("pointermove",pointer=>{
@@ -118,6 +118,7 @@ class HomeBaseScene extends Phaser.Scene{
     });
     this.input.on("pointerup",pointer=>{
       const drag=this.dragState;this.dragState=null;
+      if(drag?.moved)this.skipObjectTapId=pointer.id;
       if(!drag||pointer.id!==drag.id||drag.moved||this.pointerConsumed)return;
       const world=cam.getWorldPoint(pointer.x,pointer.y),tile=this.worldToTile(world.x,world.y);
       if(this.placement){this.options.onPlacementTap?.(tile,this.placement);return;}
@@ -180,7 +181,7 @@ class HomeBaseScene extends Phaser.Scene{
       npc.play(record.style+":idle:"+record.dir);npc.setData("tile",record.tile);npc.setData("residentIndex",i);
       npc.on("pointerdown",()=>{this.pointerConsumed=true;});
       npc.on("pointerup",(pointer,localX,localY,event)=>{
-        if(this.dragState?.moved)return;event?.stopPropagation?.();this.pointerConsumed=true;
+        if(this.dragState?.moved||this.skipObjectTapId===pointer.id){this.skipObjectTapId=null;return;}event?.stopPropagation?.();this.pointerConsumed=true;
         const approach=this.findApproachTile(record.tile);
         if(approach)this.walkToTile(approach,()=>this.options.onNpcTap?.(i));
       });
@@ -224,6 +225,7 @@ class HomeBaseScene extends Phaser.Scene{
     const blocked=new Set();
     const facilities=this.options?.session?.snapshot?.().facilities||{};
     for(const record of Object.values(facilities))if(record?.map_position)blocked.add(tileKey(record.map_position.col,record.map_position.row));
+    for(const npc of this.npcs){const tile=npc.getData("tile");if(tile)blocked.add(tileKey(tile.col,tile.row));}
     return blocked;
   }
   isTileBlocked(col,row,blocked){
@@ -442,9 +444,9 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
   const updateClick=async event=>{
     const btn=event.target.closest("[data-world-action],[data-world-appearance],[data-world-zoom-in],[data-world-zoom-out],[data-world-build],[data-world-location],[data-world-facility],[data-world-start-placement],[data-world-open-build],[data-world-rest],[data-world-forage],[data-world-water],[data-world-gather],[data-world-style]");
     if(!btn)return;
-    drawer.classList.remove("is-collapsed");
     if(btn.dataset.worldZoomIn){scene.zoomBy(1.15);return;}
     else if(btn.dataset.worldZoomOut){scene.zoomBy(.87);return;}
+    drawer.classList.remove("is-collapsed");
     else if(btn.dataset.worldAction==="places"){scene.stopPlacement();renderPlaces();}
     else if(btn.dataset.worldAction==="build"||btn.hasAttribute("data-world-build"))renderBuild();
     else if(btn.dataset.worldAction==="appearance"||btn.hasAttribute("data-world-appearance"))renderAppearance();
