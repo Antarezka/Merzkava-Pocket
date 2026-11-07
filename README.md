@@ -11,6 +11,7 @@
 - [Game Simulation Concept — 2D Isometric Location-Based Simulation](./docs/game/GAMEPLAY_SIMULATION_CONCEPT.md)
 
 ## Design references
+- [2.5D HD Isometric Art Direction — world, characters, eight-direction motion, day/night lighting and fog-of-war](./docs/design/ART_DIRECTION_2_5D_HD.md)
 - [Floating Control — approved visual baseline](./docs/design/FLOATING_CONTROL.md)
 - [Homepage navigation icon direction](./docs/design/HOMEPAGE_NAV_ICON_DIRECTION.md)
 - [Homepage navigation panel — Torn & Painted](./docs/design/HOMEPAGE_NAV_PANEL_TORN_PAINT.md)
