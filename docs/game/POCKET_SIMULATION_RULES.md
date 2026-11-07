@@ -140,6 +140,8 @@ Do not apply both the 20-second exception and the ×48 conversion. Do not compre
 
 The special first interval is a Pocket pacing adjustment, not a change to the Universe's two-week canon interval.
 
+**Timer separation:** this table is the post-success inter-Ring cooldown only. It is not the duration of the active absorption procedure. Universe does not specify a per-Ring active absorption-process duration. Keep `inter_ring_cooldown` and `absorption_process_duration` as separate process/state fields; active absorption durations remain pending until specifically approved for Pocket.
+
 ---
 
 ## 4. Arcanist training and Artificial Artifact production timers
