@@ -75,11 +75,38 @@ function materialCost(data,materials){return (materials||[]).reduce((sum,row)=>s
 function addLedger(state,row){state.ledger.unshift({transaction_id:uid(),at:Date.now(),...row});state.ledger=state.ledger.slice(0,250);}
 function saveState(state,key){try{localStorage.setItem(key,JSON.stringify(state));return true;}catch{return false;}}
 function createState(){return {version:STATE_VERSION,wallet_xc:0,inventory:{},facilities:{},processes:[],ledger:[],item_site_access:{},facility_site_access:{},builder_records:{},qa_grant_used:false};}
+function readPinnedProfileWallet(identity){
+  if(identity?.role!=="player"||!identity?.displayName||!identity?.identityRef||!window.PocketNative?.getLocalPlayerProfiles)return null;
+  try{
+    const sourceSha=String(identity.identityRef).replace(/^universe:/,"");
+    const profiles=JSON.parse(window.PocketNative.getLocalPlayerProfiles()||"[]");
+    const profile=profiles.find(x=>x?.name===identity.displayName&&x?.sourceSha===sourceSha&&typeof x?.profileMarkdown==="string"&&x.profileMarkdown.length>0);
+    if(!profile)return null;
+    const match=profile.profileMarkdown.match(/^\\s*-\\s*\\*\\*Wallet(?:\\s*\\(wealth\\))?\\*\\*:\\s*([0-9]+(?:[.,][0-9]+)?)\\s*xc\\s*\\|\\s*([0-9]+(?:[.,][0-9]+)?)\\s*xs\\s*\\|\\s*([0-9]+(?:[.,][0-9]+)?)\\s*xg\\s*\\|\\s*([0-9]+(?:[.,][0-9]+)?)\\s*zj\\s*\\|\\s*([0-9]+(?:[.,][0-9]+)?)\\s*az/i);
+    if(!match)return null;
+    const [xc,xs,xg,zj,az]=match.slice(1).map(x=>Number(x.replace(",",".")));
+    if([xc,xs,xg,zj,az].some(x=>!Number.isFinite(x)||x<0))return null;
+    return {amount_xc:xc+xs*100+xg*10000+zj*10000000+az*100000000,sourceSha:profile.sourceSha};
+  }catch{return null;}
+}
 function openState(identity){
-  const owner=[identity?.role||"player",identity?.identityRef||identity?.displayName||"local-profile"].join(":");
+  const owner=identity?.role==="player"
+    ? ["player",identity.displayName||"unverified-character"].join(":")
+    : ["developer",identity?.identityRef||identity?.displayName||"local-developer"].join(":");
   const key="mp-economy-v1:"+encodeURIComponent(owner);
-  try{const saved=JSON.parse(localStorage.getItem(key)||"null");if(saved?.version===STATE_VERSION)return {key,state:{...createState(),...saved}};}catch{}
-  return {key,state:createState()};
+  let state=null;
+  try{const saved=JSON.parse(localStorage.getItem(key)||"null");if(saved?.version===STATE_VERSION)state={...createState(),...saved};}catch{}
+  if(!state)state=createState();
+  if(identity?.role==="player"&&!state.wallet_seeded_from_profile){
+    const opening=readPinnedProfileWallet(identity);
+    if(opening){
+      state.wallet_xc=opening.amount_xc;
+      state.wallet_seeded_from_profile=true;
+      state.wallet_source_sha=opening.sourceSha;
+      addLedger(state,{type:"profile_wallet_import",label:"Opening Wallet from pinned Universe profile",quantity:1,amount_xc:opening.amount_xc,source_sha:opening.sourceSha});
+    }
+  }
+  return {key,state};
 }
 function addItems(state,rows){for(const row of rows||[]){const n=num(row.quantity);if(row.item_id&&n>0)state.inventory[row.item_id]=Math.round((qty(state,row.item_id)+n)*100)/100;}}
 function itemPrice(item,field){const value=item.market?.[field];return value===null||value===undefined||value===""?null:(Number.isFinite(Number(value))?num(value):null);}
@@ -203,7 +230,7 @@ export function mountEconomy(root,identity){
       "<h3>Acquisition</h3><p>"+esc(String(acq.method||"Unknown").replaceAll("_"," "))+"</p><p class='econ-muted'>Locations: "+esc((acq.locations||[]).join(" · ")||"Unknown")+"</p><h3>Requirements</h3>"+formatList(item.requirements)+"<h3>Tool Requirements</h3>"+formatList(acq.tool_requirements)+"<h3>Facility Requirements</h3>"+formatList(acq.facility_requirements)+"<h3>Output rate</h3><p>"+(output?esc(tidy(output.quantity)+" "+output.unit):"No active output rate")+"</p><p class='econ-muted'>Acquisition rates are Pocket simulation minutes, not real-world minutes. The ×48 clock is applied by the process scheduler.</p><h3>Uses</h3>"+formatList(item.uses)+
       "<div class='econ-site-form'><label>RECORD ACCESSIBLE LOCATION<select data-econ-site-select='"+esc(item.item_id)+"'>"+options+"</select></label><button type='button' data-econ-action='record-item-site' data-id='"+esc(item.item_id)+"'>RECORD LOCATION ACCESS</button></div><div class='econ-action-row'>"+
       (buy?"<button type='button' data-econ-action='buy' data-id='"+esc(item.item_id)+"'>BUY 1 · "+esc(itemPriceLabel(item,"typical_shop_price_xc"))+"</button>":"")+
-      (sell?"<button type='button' data-econ-action='sell' data-id='"+esc(item.item_id)+"'>SELL 1 · "+esc(currency(itemPrice(item,"typical_merchant_buyback_price_xc")))+"</button>":"")+
+      (sell?"<button type='button' data-econ-action='sell' data-id='"+esc(item.item_id)+"'>SELL 1 · "+esc(itemPriceLabel(item,"typical_merchant_buyback_price_xc"))+"</button>":"")+
       (canGather(item)?"<button type='button' data-econ-action='gather' data-id='"+esc(item.item_id)+"' "+(g.ready?"":"disabled")+">GATHER · 60 SIM MIN</button>":"")+
       "</div><p class='econ-hint'>"+(g.ready?"Requirements are met. Gathering output is an expected rate, not a guaranteed hunting result.":"Gathering remains locked until its listed site, tool and facility Requirements are recorded. Hunting, crop growth and undefined processing are not auto-granted.")+"</p></aside>";
   };
