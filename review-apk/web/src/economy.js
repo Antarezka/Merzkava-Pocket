@@ -1,6 +1,6 @@
 import "./economy.css";
 
-const CLOCK_RATE=48, STATE_VERSION=2;
+const CLOCK_RATE=48, STATE_VERSION=3;
 const CATALOG_FILES=["POCKET_ECONOMY_ITEMS_001_500.json","POCKET_ECONOMY_ITEMS_501_1000.json","POCKET_FACILITIES_200.json","POCKET_PRODUCTION_RECIPES.json"];
 let cataloguePromise=null, runtimeData=null;
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -99,22 +99,19 @@ function migrateState(saved,key){
     updated_at:Date.now(),
     migrations:Array.isArray(saved.save_meta?.migrations)?[...saved.save_meta.migrations]:[]
   };
-  if(from<STATE_VERSION)state.save_meta.migrations.push({from,to:STATE_VERSION,at:Date.now(),note:"Preserved wallet, inventory, facilities, processes, access records, builder assignments and transaction ledger."});
+  if(from<STATE_VERSION)state.save_meta.migrations.push({from,to:STATE_VERSION,at:Date.now(),note:"Preserved Pocket inventory, facilities, processes, access records, builder assignments and transaction ledger."});
+  if(from<3){
+    const legacyGrant=state.ledger.find(x=>x?.type==="profile_wallet_import");
+    if(legacyGrant){
+      const imported=num(legacyGrant.amount_xc);
+      if(imported>0)state.wallet_xc=Math.max(0,Math.round((num(state.wallet_xc)-imported)*100)/100);
+      state.ledger=state.ledger.filter(x=>x?.type!=="profile_wallet_import");
+    }
+    delete state.wallet_seeded_from_profile;
+    delete state.wallet_source_sha;
+    state.save_meta.migrations.push({from,to:3,at:Date.now(),note:"Detached Pocket Wallet from the old Universe-profile opening balance; Pocket balance remains local."});
+  }
   return state;
-}
-function readPinnedProfileWallet(identity){
-  if(identity?.role!=="player"||!identity?.displayName||!identity?.identityRef||!window.PocketNative?.getLocalPlayerProfiles)return null;
-  try{
-    const sourceSha=String(identity.identityRef).replace(/^universe:/,"");
-    const profiles=JSON.parse(window.PocketNative.getLocalPlayerProfiles()||"[]");
-    const profile=profiles.find(x=>x?.name===identity.displayName&&x?.sourceSha===sourceSha&&typeof x?.profileMarkdown==="string"&&x.profileMarkdown.length>0);
-    if(!profile)return null;
-    const match=profile.profileMarkdown.match(/^\s*-\s*\*\*Wallet(?:\s*\(wealth\))?:\*\*\s*([0-9]+(?:[.,][0-9]+)?)\s*xc\s*\|\s*([0-9]+(?:[.,][0-9]+)?)\s*xs\s*\|\s*([0-9]+(?:[.,][0-9]+)?)\s*xg\s*\|\s*([0-9]+(?:[.,][0-9]+)?)\s*zj\s*\|\s*([0-9]+(?:[.,][0-9]+)?)\s*az/i);
-    if(!match)return null;
-    const [xc,xs,xg,zj,az]=match.slice(1).map(x=>Number(x.replace(",",".")));
-    if([xc,xs,xg,zj,az].some(x=>!Number.isFinite(x)||x<0))return null;
-    return {amount_xc:xc+xs*100+xg*10000+zj*10000000+az*100000000,sourceSha:profile.sourceSha};
-  }catch{return null;}
 }
 function openState(identity){
   const owner=identity?.role==="player"
@@ -293,10 +290,10 @@ export function mountEconomy(root,identity){
     return "<div class='econ-toolbar'><input type='search' data-econ-search placeholder='Search 200 facilities…' value='"+esc(query)+"'></div><div class='econ-browser'><div class='econ-list'><div class='econ-list-title'><b>FACILITY REGISTER</b><small>"+filtered.length+" matched · showing "+visible.length+"</small></div>"+(visible.length?visible.map(x=>facilityCard(x,state,data)).join(""):"<p class='econ-empty'>No matching facilities.</p>")+(filtered.length>visible.length?"<button type='button' class='econ-more' data-econ-action='show-more'>SHOW MORE RECORDS</button>":"")+"</div>"+facilityDetail(data.facilitiesById.get(selectedFacility))+"</div>";
   };
   const renderProduction=()=>{
-    const filtered=data.recipes.filter(x=>!query||(x.name+" "+x.recipe_id+" "+x.facility_id).toLowerCase().includes(query.toLowerCase()));
+    const filtered=data.recipes.filter(recipe=>!query||(recipe.name+" "+recipe.recipe_id+" "+recipe.facility_id).toLowerCase().includes(query.toLowerCase()));
     return "<div class='econ-toolbar'><input type='search' data-econ-search placeholder='Search 20 defined production recipes…' value='"+esc(query)+"'></div><div class='econ-list'><div class='econ-list-title'><b>DEFINED RECIPES</b><small>"+filtered.length+" records · no guessed recipes</small></div>"+filtered.map(recipe=>{
-      const r=recipeRecord(data,state,x);
-      return "<article class='econ-row econ-recipe-row'><span class='econ-row-head'><b>"+esc(x.name)+"</b><small>"+esc(x.recipe_id)+"</small></span><span class='econ-row-meta'><i>"+esc(r.facility?.name||x.facility_id)+"</i><i>"+esc(duration(x.active_process_sim_minutes))+"</i><i>"+(r.ready?"READY":"REQUIREMENTS NOT MET")+"</i></span><button type='button' class='econ-inline-action' data-econ-action='start-recipe' data-id='"+esc(x.recipe_id)+"' "+(r.ready?"":"disabled")+">START PROCESS</button></article>";
+      const r=recipeRecord(data,state,recipe);
+      return "<article class='econ-row econ-recipe-row'><span class='econ-row-head'><b>"+esc(recipe.name)+"</b><small>"+esc(recipe.recipe_id)+"</small></span><span class='econ-row-meta'><i>"+esc(r.facility?.name||recipe.facility_id)+"</i><i>"+esc(duration(recipe.active_process_sim_minutes))+"</i><i>"+(r.ready?"READY":"REQUIREMENTS NOT MET")+"</i></span><button type='button' class='econ-inline-action' data-econ-action='start-recipe' data-id='"+esc(recipe.recipe_id)+"' "+(r.ready?"":"disabled")+">START PROCESS</button></article>";
     }).join("")+"<p class='econ-hint'>Recipes run only with a built facility, exact inputs and station tools. Livestock-as-input recipes remain locked until reusable animal-asset handling is defined.</p></div>";
   };
   const renderInventory=()=>{
