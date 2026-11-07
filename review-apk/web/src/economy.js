@@ -4,7 +4,7 @@ const CLOCK_RATE=48, STATE_VERSION=4;
 const STARTER_HOME_FACILITIES={
   "pocket.starter.hut":{level:1,operational:true,starter:true,built_at:0,map_position:{col:5,row:4},family:"Shelter"},
   "pocket.starter.foraging":{level:1,operational:true,starter:true,built_at:0,map_position:{col:6,row:6},family:"Foraging"},
-  "pocket.starter.well":{level:1,operational:true,starter:true,built_at:0,map_position:{col:3,row:7},family:"Water & sanitation"}
+  "pocket.starter.well":{level:1,operational:true,starter:true,built_at:0,map_position:{col:7,row:4},family:"Water & sanitation"}
 };
 const CATALOG_FILES=["POCKET_ECONOMY_ITEMS_001_500.json","POCKET_ECONOMY_ITEMS_501_1000.json","POCKET_FACILITIES_200.json","POCKET_PRODUCTION_RECIPES.json"];
 let cataloguePromise=null, runtimeData=null;
