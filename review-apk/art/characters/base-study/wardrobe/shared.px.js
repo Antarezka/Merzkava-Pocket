@@ -243,6 +243,6 @@ function renderStudyCharacter(style) {
     body: { ...STUDY_BASE_BODY },
     w: STUDY_FRAME.w, h: STUDY_FRAME.h, pivot: STUDY_PIVOT,
     ink: "k", inner: "dark", surface: { soft: 0.55 },
-    n: 8, head: headName, parts: studyParts(style), moves, blocks: true
+    n: 8, head: headName, parts: studyParts(style), moves, blocks: style.id === "base"
   })
 }
