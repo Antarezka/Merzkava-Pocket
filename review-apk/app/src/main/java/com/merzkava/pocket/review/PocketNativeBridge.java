@@ -295,42 +295,47 @@ public final class PocketNativeBridge {
         prefs().edit().remove(PREF_CREDENTIALS).remove(PREF_IV).putBoolean(PREF_SESSION, false).apply();
     }
 
-    // Local index contains only identities previously verified against a pinned Universe players.md snapshot.
-    @JavascriptInterface public String getLocalPlayerProfiles() {
-        return prefs().getString(PREF_LOCAL_PLAYERS, "[]");
+    // Pocket stores the Universe character-name index locally; gameplay status is Pocket-owned.
+    private JSONArray readCachedPlayerNames() throws Exception {
+        JSONArray previous = new JSONArray(prefs().getString(PREF_LOCAL_PLAYERS, "[]"));
+        JSONArray names = new JSONArray();
+        Set<String> seen = ConcurrentHashMap.newKeySet();
+        for (int i = 0; i < previous.length(); i++) {
+            JSONObject record = previous.optJSONObject(i);
+            String name = record != null ? record.optString("name", "") : previous.optString(i, "");
+            name = name.trim();
+            if (!name.isEmpty() && seen.add(name)) names.put(name);
+        }
+        return names;
     }
 
-    private void rememberVerifiedPlayer(String name, String sha, String profilePath, String profileMarkdown) {
+    @JavascriptInterface public String getLocalPlayerNames() {
+        try { return readCachedPlayerNames().toString(); }
+        catch (Exception ignored) { return "[]"; }
+    }
+
+    // Backward-compatible bridge name for older web bundles; the payload is names only.
+    @JavascriptInterface public String getLocalPlayerProfiles() {
+        return getLocalPlayerNames();
+    }
+
+    private void rememberPlayerRegistry(JSONArray names, String sha) {
         try {
-            JSONArray previous = new JSONArray(prefs().getString(PREF_LOCAL_PLAYERS, "[]"));
             JSONArray next = new JSONArray();
-            boolean inserted = false;
-            for (int i = 0; i < previous.length(); i++) {
-                JSONObject item = previous.optJSONObject(i);
-                if (item == null) continue;
-                if (name.equals(item.optString("name"))) {
-                    if (!inserted) {
-                        next.put(localPlayerRecord(name, sha, profilePath, profileMarkdown));
-                        inserted = true;
-                    }
-                } else next.put(item);
+            Set<String> seen = ConcurrentHashMap.newKeySet();
+            for (int i = 0; i < names.length(); i++) {
+                String name = names.optString(i, "").trim();
+                if (name.isEmpty() || !seen.add(name)) continue;
+                JSONObject record = new JSONObject();
+                record.put("name", name);
+                record.put("source", "universe");
+                record.put("sourceSha", sha);
+                next.put(record);
             }
-            if (!inserted) next.put(localPlayerRecord(name, sha, profilePath, profileMarkdown));
             prefs().edit().putString(PREF_LOCAL_PLAYERS, next.toString()).apply();
         } catch (Exception ignored) {
-            // The verified online identity remains valid for this session even if local indexing fails.
+            // Registry verification still succeeds for this session if local indexing fails.
         }
-    }
-
-    private JSONObject localPlayerRecord(String name, String sha, String path, String markdown) throws Exception {
-        JSONObject item = new JSONObject();
-        item.put("name", name);
-        item.put("source", "universe");
-        item.put("sourceSha", sha);
-        item.put("profilePath", path);
-        item.put("profileMarkdown", markdown);
-        item.put("updatedAt", System.currentTimeMillis());
-        return item;
     }
 
     @JavascriptInterface public void verifyPlayerIdentity(String characterName, String requestId) {
@@ -358,30 +363,23 @@ public final class PocketNativeBridge {
                 String registry = fetch("https://raw.githubusercontent.com/" + UNIVERSE + "/" + fullSha + "/players.md");
                 if (cancelledRequests.contains(requestId)) return;
 
-                String profilePath = "";
-                Pattern rowPattern = Pattern.compile("^\\|\\s*([^|]+?)\\s*\\|\\s*\\[[^\\]]+\\]\\((players/[^)]+)\\)", Pattern.MULTILINE);
+                JSONArray registeredNames = new JSONArray();
+                boolean exactMatch = false;
+                Pattern rowPattern = Pattern.compile("^\\|\\s*([^|]+?)\\s*\\|\\s*\\[[^\\]]+\\]\\(players/[^)]+\\)", Pattern.MULTILINE);
                 Matcher rows = rowPattern.matcher(registry);
                 while (rows.find()) {
-                    String registeredName = rows.group(1);
-                    if (characterName.equals(registeredName)) {
-                        profilePath = rows.group(2);
-                        break;
-                    }
+                    String registeredName = rows.group(1).trim();
+                    if (registeredName.isEmpty()) continue;
+                    registeredNames.put(registeredName);
+                    if (characterName.equals(registeredName)) exactMatch = true;
                 }
-                if (profilePath.isEmpty()) {
+                if (!exactMatch) {
                     completePlayer(requestId, false, "", fullSha, "That exact character name is not in the currently pinned Universe registry.");
                     return;
                 }
 
-                String markdown = "";
-                try {
-                    String decodedPath = java.net.URLDecoder.decode(profilePath, "UTF-8");
-                    markdown = fetch("https://raw.githubusercontent.com/" + UNIVERSE + "/" + fullSha + "/" + encodePath(decodedPath));
-                } catch (Exception ignored) {
-                    // Identity is proven by players.md. The individual profile cache is optional and never grants access.
-                }
                 if (cancelledRequests.contains(requestId)) return;
-                rememberVerifiedPlayer(characterName, fullSha, profilePath, markdown);
+                rememberPlayerRegistry(registeredNames, fullSha);
                 completePlayer(requestId, true, characterName, "universe:" + fullSha, "");
             } catch (Exception error) {
                 if (!cancelledRequests.contains(requestId)) {
@@ -393,16 +391,6 @@ public final class PocketNativeBridge {
         }, "Pocket-Player-Registry");
         thread.setDaemon(true);
         thread.start();
-    }
-
-    private String encodePath(String path) throws Exception {
-        String[] parts = path.split("/");
-        StringBuilder result = new StringBuilder();
-        for (String part : parts) {
-            if (result.length() > 0) result.append("/");
-            result.append(java.net.URLEncoder.encode(part, "UTF-8").replace("+", "%20"));
-        }
-        return result.toString();
     }
 
     @JavascriptInterface public void cancelPlayerIdentity(String requestId) {
