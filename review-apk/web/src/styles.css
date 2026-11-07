@@ -269,3 +269,43 @@
 .logout-symbol:after{content:"";position:absolute;left:5px;top:3px;width:1px;height:5px;background:currentColor}
 :root[data-theme="light"] .destination-card.visual-section,:root[data-theme="light"] .destination-card.personal-section{background:linear-gradient(145deg,#fffdf7,#eee8db);box-shadow:inset 0 0 0 1px #fff9,0 8px 22px #5551}
 @media(max-width:360px){.settings-section-heading{grid-template-columns:27px 1fr}.settings-section-heading>small{grid-column:2;text-align:left;margin-top:-5px}.theme-options button{padding:0 7px;font-size:7px}}
+
+/* Spirit Bloom insignias — CSS-only lotus marks for the Settings categories. */
+.settings-symbol{
+  overflow:hidden;
+  border-color:#b99a5c99;
+  background:
+    radial-gradient(ellipse 3px 7px at 50% 20%,#d8c18a 0 48%,transparent 75%),
+    radial-gradient(ellipse 3px 7px at 50% 80%,#b99a5c 0 48%,transparent 75%),
+    radial-gradient(ellipse 7px 3px at 20% 50%,#b99a5c 0 48%,transparent 75%),
+    radial-gradient(ellipse 7px 3px at 80% 50%,#d8c18a 0 48%,transparent 75%),
+    radial-gradient(circle at 50% 50%,#e8d6a6 0 1.5px,#a98c54 2px 3px,transparent 3.5px),
+    radial-gradient(circle,#a98c5424,transparent 72%);
+  box-shadow:inset 0 0 7px #a98c5425,0 0 8px #a98c5418;
+}
+.settings-symbol:before{
+  content:"";
+  position:absolute;
+  left:50%;top:50%;
+  width:7px;height:11px;
+  border:1px solid #e0c78e;
+  border-radius:80% 80% 48% 48%;
+  background:linear-gradient(180deg,#e0c78e55,#a98c5410);
+  transform:translate(-50%,-72%);
+  box-shadow:0 0 5px #a98c5444;
+}
+.settings-symbol:after{
+  content:"";
+  position:absolute;
+  left:50%;top:50%;
+  width:5px;height:5px;
+  border:1px solid #e4d3a8;
+  border-radius:50%;
+  background:#a98c54;
+  transform:translate(-50%,-50%);
+  box-shadow:0 0 5px #d7bd7a99;
+}
+.visual-symbol{transform:none}
+.personal-symbol{transform:rotate(45deg) scale(.92)}
+.personal-symbol:before{transform:translate(-50%,-72%)}
+.personal-symbol:after{transform:translate(-50%,-50%)}
