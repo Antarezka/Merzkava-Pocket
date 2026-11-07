@@ -91,17 +91,40 @@ If a process is specified directly as a Pocket duration (for example, the specia
 
 ---
 
-## 3. Spirit Ring progression — mandatory Pocket cooldown adaptation
+## 3. Spirit Ring progression — active absorption duration and inter-Ring cooldown
 
-The Universe cooldown table remains the source for **relative progression order** and the original minimum intervals. Pocket replaces the impractical real waiting durations with a Pocket-specific schedule.
+Pocket has **two separate timers** for Spirit Ring progression:
 
-The first successful Ring absorption has no preceding cooldown. After a ring is successfully absorbed, the following interval controls the earliest next-ring eligibility. Ring availability, Martial Soul Awakening, Spirit Realm/Stage, Sync bottleneck, required items, body readiness, Beast source, and every other canon gate remain mandatory.
+1. **Active absorption duration:** the time the character spends undergoing the current Ring absorption process. The owner-approved Pocket duration table is 20 seconds for Ring 2 through 30 days for Ring 9.
+2. **Inter-Ring cooldown:** the minimum waiting interval after a successful Ring absorption before the next Ring attempt may begin. This is inherited from Universe and converted through the ×48 Pocket clock.
 
-### 3.1 Pocket cooldown table
+Never exchange, merge, or reuse one timer as the other.
 
-| Successful ring just absorbed | Next ring | Universe minimum interval | Mandatory Pocket wait |
+### 3.1 Active Ring absorption duration
+
+The listed duration belongs to the **Ring being absorbed**. It starts only after the character has met all Requirements, the target Ring is genuinely available, and the player starts the absorption process.
+
+| Ring being absorbed | Active Pocket absorption duration |
+|---:|---:|
+| Ring 1 | **Not yet specified** — first-Ring duration needs a separate approved value |
+| Ring 2 | **20 seconds** |
+| Ring 3 | **15 hours** |
+| Ring 4 | **1 day 21 hours** |
+| Ring 5 | **3 days 18 hours** |
+| Ring 6 | **7 days 12 hours** |
+| Ring 7 | **15 days** |
+| Ring 8 | **22 days 12 hours** |
+| Ring 9 | **30 days** |
+
+This table is a Pocket active-process schedule, not the Universe inter-Ring cooldown. Completing the timer does not itself guarantee successful absorption. At completion, resolve the actual absorption only if the character still meets all Requirements and the approved absorption-resolution procedure exists. Do not grant a Ring merely because a countdown reaches zero.
+
+### 3.2 Canon inter-Ring cooldown, converted to Pocket time
+
+The Universe minimum interval begins after the previous Ring was successfully absorbed. Pocket converts that interval using the ×48 simulation clock:
+
+| Previous successful Ring | Next Ring attempt | Universe minimum interval | Pocket inter-Ring cooldown |
 |---:|---:|---:|---:|
-| Ring 1 | Ring 2 | 2 weeks | **20 seconds** |
+| Ring 1 | Ring 2 | 2 weeks | **7 hours** |
 | Ring 2 | Ring 3 | 1 month | **15 hours** |
 | Ring 3 | Ring 4 | 3 months | **1 day 21 hours** |
 | Ring 4 | Ring 5 | 6 months | **3 days 18 hours** |
@@ -109,38 +132,24 @@ The first successful Ring absorption has no preceding cooldown. After a ring is 
 | Ring 6 | Ring 7 | 2 years | **15 days** |
 | Ring 7 | Ring 8 | 3 years | **22 days 12 hours** |
 | Ring 8 | Ring 9 | 4 years | **30 days** |
-| Ring 9 | — | No next ring | **No cooldown; maximum reached** |
+| Ring 9 | — | No next Ring | **No cooldown; maximum reached** |
 
-The schedule deliberately uses a **20-second first progression window** for an accessible early game and the ×48 conversion for later canon intervals. The final Ring 8 → Ring 9 wait is exactly 30 days, matching the Pocket long-progression ceiling.
+For the normal fallback calendar, one year is 360 days. Therefore the two-week interval is 14 days / 48 = 7 Pocket real hours, and the full 30-day month / 360-day year conversions follow the same ×48 clock.
 
-### 3.2 Ring cooldown formula
+### 3.3 Timer start, pause, and completion rules
 
-For Ring 2 → Ring 9, convert the Universe interval using the general Pocket ×48 rule:
+- The inter-Ring cooldown starts only after the previous absorption succeeds and the Ring result is committed to the save.
+- The active absorption duration starts only when the current Ring attempt is actually started after all entry Requirements are met.
+- The cooldown and active absorption process can be tracked independently. A player may have an active cooldown for the next Ring while not yet possessing a legitimate target or meeting the other Requirements.
+- The active absorption process must not begin while Ring sequence, Awakening, Realm/Stage, Sync/bottleneck, cooldown, target Ring, mandatory item, body condition, or other applicable Requirements are incomplete.
+- When the cooldown reaches zero, it satisfies only the time Requirement. It does not guarantee a target, hunt, ownership, successful absorption, or breakthrough.
+- When active absorption duration reaches zero, the process becomes **Ready for outcome resolution**. It does not auto-succeed, auto-fail, or grant the Ring without an authorized resolution.
+- If the process is interrupted, persist the interruption point and apply only consequences defined by approved Pocket rules or Universe mechanics. No refund, progress loss, restart, or injury may be invented.
+- Both timers continue while the app is closed, subject to the trusted-time and offline reconciliation rules.
+- Spirit Realm 9 / Ring 9 is the maximum. No tenth Ring or additional cooldown may be added.
 
-```text
-Pocket Wait = Universe Minimum Interval / 48
-```
+**Data fields:** keep separate `active_absorption_duration`, `active_absorption_started_at`, `active_absorption_due_at`, `inter_ring_cooldown`, `inter_ring_cooldown_started_at`, and `inter_ring_cooldown_due_at`. A process may not store one value in both timer fields.
 
-Ring 1 → Ring 2 is the explicit onboarding exception:
-
-```text
-Pocket Wait (Ring 1 → Ring 2) = 20 seconds
-```
-
-Do not apply both the 20-second exception and the ×48 conversion. Do not compress the 30-day Ring 8 → Ring 9 Pocket wait further.
-
-### 3.3 What the cooldown does and does not do
-
-- The wait begins only after a successful absorption is committed to the local save.
-- The cooldown timer continues while the app is closed.
-- When it reaches zero, it only opens the **time gate**. It does not guarantee a ring, a hunt, a successful absorption, or a breakthrough.
-- All non-time canon prerequisites remain in force, including Sync gap, ring availability, required item, actual Awakening, and body/compatibility conditions.
-- Cultivation time may advance its own approved Sync process only under the canon rules; it must not be used to bypass any separate Pocket time gate unless a future Pocket rule explicitly changes that gate.
-- Spirit Realm 9 and Ring 9 remain the maximum. No tenth ring or extra cooldown may be added.
-
-The special first interval is a Pocket pacing adjustment, not a change to the Universe's two-week canon interval.
-
-**Timer separation:** this table is the post-success inter-Ring cooldown only. It is not the duration of the active absorption procedure. Universe does not specify a per-Ring active absorption-process duration. Keep `inter_ring_cooldown` and `absorption_process_duration` as separate process/state fields; active absorption durations remain pending until specifically approved for Pocket.
 
 ---
 
