@@ -151,8 +151,7 @@ export function mountDailyLogin(scene,onBack){
    opacity:[0,.58,0],translateY:[5,-35-index*4],translateX:[0,(index-1)*8],scale:[.8,1.2],
    delay:index*360,duration:1760,loop:true,ease:"inOutSine"
   })));
-  trackInterior(animate(chef,{translateY:[0,-2,0],duration:1900,loop:true,ease:"inOutSine"}));
-  trackInterior(animate(scene.querySelector("[data-dl-pot]"),{translateY:[0,-1.3,0],duration:760,loop:true,ease:"inOutSine"}));
+  trackInterior(animate(chef,{translateY:[0,-1.5,0],duration:2100,loop:true,ease:"inOutSine"}));
   // CRT interference is deliberately the only thing on the TV: no login status
   // is shown until the actual local login/claim system exists.
   trackInterior(animate(tvNoise,{opacity:[.12,.32,.16,.28,.12],translateX:[0,-2,1,-1,0],duration:190,loop:true,ease:"linear"}));
@@ -289,6 +288,7 @@ export function mountDailyLogin(scene,onBack){
  const talk=()=>{
   if(!opened||leaving||disposed||choiceOpen)return;
   dialogueIndex=(dialogueIndex+1)%dialogueLines.length;
+  chef.classList.add("is-speaking");
   dialogue.hidden=false;
   dialogueText.textContent=dialogueLines[dialogueIndex];
   if(motionReduced){dialogue.style.opacity="1";dialogue.style.transform="translateY(0) scale(1)";}
@@ -312,6 +312,7 @@ export function mountDailyLogin(scene,onBack){
   choice.hidden=true;
   dialogue.hidden=true;
   choiceOpen=false;
+  chef.classList.remove("is-speaking");
   interior.inert=true;
   interiorAnimations.forEach(animation=>animation.pause?.());
   outside.style.visibility="visible";
