@@ -16,12 +16,11 @@
 ## 2. Visual direction
 
 The visual language combines:
-- **Reverse: 1999:** editorial typography, refined atmosphere, antique warmth, and restrained ornament.
-- **Harry Potter:** antique heraldic identity and mysterious institutional symbolism.
-- **Arknights:** clean, deliberate structure.
-- **Girls' Frontline:** precise, technical identity.
+- **Reverse: 1999:** editorial typography, antiquarian atmosphere, warm highlights and restrained ornament.
+- **Harry Potter:** an old institutional archive, arcane mechanisms, heraldic geometry and mysterious craftsmanship.
+- **Engineering instruments:** precise, legible controls, mechanical hierarchy and deliberate spacing.
 
-The intended character is elegant, mysterious, arcane, modern, and recognizable rather than generic.
+The refreshed palette is predominantly black. Ember orange carries the primary energy; ivory-white is reserved for fine luminous rails and readable text; verdigris remains muted and structural; bloodline red stays narrow and architectural rather than becoming a large fill. Saturated accents are surrounded by neutral dark values so they remain distinct instead of competing.
 
 ## 3. Floating Control screen palette
 
@@ -29,13 +28,13 @@ The approved screen palette remains:
 
 | Color | Hex | Intended use |
 |---|---|---|
-| Electric Lime | `#EFFE59` | Existing screen identity/accent |
-| Ink Black | `#17191B` | Main dark surface |
-| Imperial Gold | `#F0B10A` | Existing premium accent |
-| Pale Silver-Blue | `#DEE4F4` | Secondary light detail |
-| Antique Brown | `#976759` | Warm muted accent |
-| Muted Slate | `#747788` | Secondary labels and subdued text |
-| Parchment / Ivory | `#F1EBDD` | Primary light text |
+| Obsidian Black | `#07090B` | Dominant background and deep instrument recesses |
+| Forged Ink | `#111719` | Raised dark surfaces and control bodies |
+| Ember Orange | `#E47B34` | Main active accent, action emphasis and warm energy |
+| Luminous Ivory | `#F2F0E9` | Text, fine glowing light rails and reflections |
+| Bloodline Red | `#7C2937` | Fine outlines, restrained warning details and edge accents |
+| Verdigris Green | `#728C79` | Muted mechanical enamel, ready states and secondary accents |
+| Aged Brass | `#9C8058` | Engraved marks, clockwork hardware and restrained trim |
 
 The emblem has its own antique-wood color treatment described below. Its colors do not replace or silently recolor the approved screen palette.
 
