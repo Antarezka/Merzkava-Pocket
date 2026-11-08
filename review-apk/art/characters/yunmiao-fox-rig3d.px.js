@@ -5,7 +5,7 @@
 // no SVG, bitmap rotation, CSS animation, interpolation blur, or mixed pixel sizes.
 
 pal({
-  k:"#342b3d",
+  k:"#211a28",
   a:"#716b82", b:"#7f7896", c:"#b1a9c2", d:"#d9d3e0", e:"#f4f1f6",
   f:"#8c4a4a", g:"#d98f86", h:"#f5c4b0", i:"#ffe6d8",
   j:"#3b2230", J:"#7a2434", K:"#b03a48", L:"#fff8f2",
@@ -218,14 +218,14 @@ function walkPose(i,yaw){
   };
 }
 function runPose(i,yaw){
-  const g=gait(i/8,{heading:180-yaw,front:{lift:[1,3,5,2,0,2,4,2]},diagonal:{bob:[1,2,3,1,0,2,3,1]}});
+  const g=gait(i/8,{heading:180-yaw,front:{lift:[0,1,3,5,3,1,0,0]},diagonal:{bob:[0,1,2,1,0,1,2,1],lift:[0,1,3,4,3,1,0,0]}});
   const ph=2*Math.PI*i/8;
   const feet=g.feet.map(([fwd],k)=>[fwd*1.45,k?HIPW:-HIPW]);
-  const lift=g.feet.map(([,up])=>up*1.35+1);
+  const lift=g.feet.map(([,up])=>up*1.25);
   const hands=g.hands.map(([fwd,up],k)=>[fwd*1.2,k?0.9:-0.9,-7+up*1.25]);
   return {
     feet,lift,hands,down:g.bob+1.2,lean:8,turn:0,
-    sway:Math.sin(ph-1)*1.5,trail:2.2,
+    sway:Math.sin(ph-1)*1.5,trail:2.2,air:[2,3,4,5].includes(i%8),
     tail:[-14,-10,-3,7,14,10,2,-9][i%8],
     tailLift:[4,5,6,6,5,3,2,3][i%8],
     skirt:[-2,-1,1,3,2,0,-2,-3][i%8],
@@ -279,7 +279,7 @@ function jumpPose(i,yaw){
     tailLift:[0,2,4,5,5,4,2,0][i%8],
     skirt:[0,1,2,3,2,1,-1,-2][i%8],
     lantern:[0,-1,-2,-3,-3,-2,-1,0][i%8],
-    expression:"grit"
+    expression:"grit",air:true
   };
 }
 function lungePose(i,yaw){
@@ -367,7 +367,7 @@ function hitPose(i,yaw){
 }
 function knockbackPose(i,yaw){
   return {
-    down:[0,-1,-2,-1,0,1][i%6],lean:[-4,-10,-14,-9,-3,0][i%6],
+    down:[1,0,1,1,1,1][i%6],lean:[-4,-10,-14,-9,-3,0][i%6],
     turn:[0,-4,-8,-4,0,0][i%6],twist:[0,-12,-20,-10,0,0][i%6],
     feet:[[-1,-HIPW],[1,HIPW]],lift:[0,1],
     hands:[[-2,-2,-3],[2,2,-2]],
@@ -429,7 +429,7 @@ function sleepPose(i,yaw){
 }
 function victoryPose(i,yaw){
   return {
-    down:[0,-1,-2,-2,-1,0,1,0][i%8],lean:[0,2,4,3,1,0,0,0][i%8],
+    down:[0,0,1,1,0,0,0,0][i%8],lean:[0,2,4,3,1,0,0,0][i%8],
     turn:[0,3,6,8,5,2,0,0][i%8],twist:[0,4,8,6,2,0,0,0][i%8],
     feet:[[0,-HIPW],[0,HIPW]],lift:[0,0],
     hands:[[0,-1,-7],[1,1,-7+([0,2,4,7,7,6,3,0][i%8])]],
@@ -633,7 +633,7 @@ const FIG={body:{h:48,hip:HIP,torso:TORSO,neck:NECK,thigh:THIGH,shin:SHIN,upper:
 const RIG_MOVES=Object.fromEntries(Object.entries(MOVES).map(([name,M])=>[
   name,{
     frames:M.frames,ms:M.ms,dirs:ALL8,
-    pose:(i,h)=>({...M.pose(i,180-h),move:name,hit:name==="attack"||name==="skill"||name==="lunge"}),
+    pose:(i,h)=>({...M.pose(i,180-h),move:name,hit:name==="attack"||name==="skill"||name==="lunge",elbow:name==="skill"||name==="lantern_raise"?[-1,0.5,-1]:[-1,0.5,0]}),
     draw:drawFace
   }
 ]));
