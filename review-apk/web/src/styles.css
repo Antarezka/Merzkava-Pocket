@@ -1364,3 +1364,58 @@
     transition:none;
   }
 }
+
+
+/* Final theme-specific Login Gate and Floating Control accent. */
+:root .login-stage .primary-action,
+:root[data-theme="light"] .login-stage .primary-action,
+:root .floating-stage .floating-actions button.continue-action,
+:root[data-theme="light"] .floating-stage .floating-actions button.continue-action{
+  border-color:#a985d2;
+  background:linear-gradient(118deg,#4c2d69 0%,#39204f 56%,#291639 100%);
+  color:#fff;
+  text-shadow:0 0 7px rgba(240,228,255,.28);
+  box-shadow:inset 0 1px rgba(255,255,255,.12),0 5px 17px rgba(10,5,18,.28),0 0 14px rgba(146,104,188,.2);
+  animation:merzkava-violet-breathe 4.8s ease-in-out infinite;
+  transition:border-color .25s ease,box-shadow .25s ease,filter .25s ease;
+}
+:root .login-stage .primary-action span,
+:root[data-theme="light"] .login-stage .primary-action span,
+:root .floating-stage .floating-actions button.continue-action small,
+:root[data-theme="light"] .floating-stage .floating-actions button.continue-action small,
+:root .floating-stage .floating-actions button.continue-action strong,
+:root[data-theme="light"] .floating-stage .floating-actions button.continue-action strong,
+:root .floating-stage .floating-actions button.continue-action>b,
+:root[data-theme="light"] .floating-stage .floating-actions button.continue-action>b{
+  color:#fff;
+  text-shadow:0 0 7px rgba(245,237,255,.38);
+}
+:root .login-stage .primary-action:before,
+:root[data-theme="light"] .login-stage .primary-action:before,
+:root .floating-stage .floating-actions button.continue-action:before,
+:root[data-theme="light"] .floating-stage .floating-actions button.continue-action:before{
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.96),rgba(213,187,241,.65),transparent);
+  box-shadow:0 0 8px rgba(204,174,236,.46);
+}
+:root .login-stage .primary-action:active:not(:disabled),
+:root[data-theme="light"] .login-stage .primary-action:active:not(:disabled),
+:root .floating-stage .floating-actions button.continue-action:active:not(:disabled),
+:root[data-theme="light"] .floating-stage .floating-actions button.continue-action:active:not(:disabled){
+  filter:brightness(1.12);
+  box-shadow:inset 0 1px rgba(255,255,255,.16),0 0 17px rgba(160,119,199,.32);
+}
+:root .login-stage .primary-action:focus-visible,
+:root[data-theme="light"] .login-stage .primary-action:focus-visible,
+:root .floating-stage .floating-actions button.continue-action:focus-visible,
+:root[data-theme="light"] .floating-stage .floating-actions button.continue-action:focus-visible{
+  outline:2px solid #d7bdf2;
+  outline-offset:3px;
+}
+@media(prefers-reduced-motion:reduce){
+  :root .login-stage .primary-action,
+  :root[data-theme="light"] .login-stage .primary-action,
+  :root .floating-stage .floating-actions button.continue-action,
+  :root[data-theme="light"] .floating-stage .floating-actions button.continue-action{
+    animation:none;transition:none;
+  }
+}
