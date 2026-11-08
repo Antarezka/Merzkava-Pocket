@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import "./home-base.css";
 import { openHomeBaseSession } from "./economy.js";
+import { createWardrobeShopTransaction } from "./wardrobe-shop.js";
 
 const HAIR_OPTIONS=[
   {id:"long_black",name:"Long Straight",description:"Long, smooth locks with a calm centre fringe."},
