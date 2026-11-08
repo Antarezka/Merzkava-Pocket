@@ -43,20 +43,17 @@ export function dailyLoginMarkup(){
      </button>
      <span class="dl-chef-tap-note">TAP THE CHEF</span>
     </div>
-    <div class="dl-choice" data-dl-choice hidden aria-live="polite">
-     <p>WAIT HERE?</p>
-     <div class="dl-choice-actions">
-      <button type="button" data-dl-stay>STAY</button>
-      <button type="button" data-dl-leave>LEAVE SHOP</button>
-     </div>
-    </div>
     <div class="dl-retro-tv" aria-label="Televisi tabung dengan noise">
-     <div class="dl-tv-antenna"><i></i><b></b></div>
-     <div class="dl-tv-shell">
-      <div class="dl-tv-screen"><i class="dl-tv-static" data-dl-tv-static></i><i class="dl-tv-scan" data-dl-tv-scan></i><i class="dl-tv-noise" data-dl-tv-noise></i></div>
-      <div class="dl-tv-controls"><i></i><i></i><span></span></div>
-     </div>
-     <div class="dl-tv-feet"><i></i><i></i></div>
+     <img class="dl-tv-art" src="/game-assets/pxl/sprites/daily_login_retro_tv.png" alt="" draggable="false">
+     <div class="dl-tv-screen" aria-hidden="true"><i class="dl-tv-static" data-dl-tv-static></i><i class="dl-tv-scan" data-dl-tv-scan></i><i class="dl-tv-noise" data-dl-tv-noise></i></div>
+    </div>
+   </div>
+   <div class="dl-choice-dim" data-dl-choice-dim hidden aria-hidden="true"></div>
+   <div class="dl-choice" data-dl-choice hidden aria-live="polite">
+    <p>WAIT HERE?</p>
+    <div class="dl-choice-actions">
+     <button type="button" data-dl-stay>STAY</button>
+     <button type="button" data-dl-leave>LEAVE SHOP</button>
     </div>
    </div>
   </section>
@@ -97,6 +94,7 @@ export function mountDailyLogin(scene,onBack){
  const dialogue=scene.querySelector("[data-dl-dialogue]");
  const dialogueText=scene.querySelector("[data-dl-dialogue-text]");
  const choice=scene.querySelector("[data-dl-choice]");
+ const choiceDim=scene.querySelector("[data-dl-choice-dim]");
  const stay=scene.querySelector("[data-dl-stay]");
  const leave=scene.querySelector("[data-dl-leave]");
  const tvNoise=scene.querySelector("[data-dl-tv-noise]");
@@ -294,22 +292,29 @@ export function mountDailyLogin(scene,onBack){
   if(motionReduced){dialogue.style.opacity="1";dialogue.style.transform="translateY(0) scale(1)";}
   else track(animate(dialogue,{opacity:[0,1],translateY:[11,0],scale:[.96,1],duration:350,ease:"outBack(1.2)"}));
   if(dialogueIndex===2){
+   choiceDim.hidden=false;
    choice.hidden=false;
    choiceOpen=true;
-   if(motionReduced){choice.style.opacity="1";choice.style.transform="translateY(0)";}
-   else track(animate(choice,{opacity:[0,1],translateY:[8,0],delay:470,duration:360,ease:"outCubic"}));
+   if(motionReduced){choiceDim.style.opacity=".18";choice.style.opacity="1";}
+   else{
+    track(animate(choiceDim,{opacity:[0,.18],delay:250,duration:280,ease:"outCubic"}));
+    // Keep the CSS viewport-centering transform untouched while fading the text in.
+    track(animate(choice,{opacity:[0,1],delay:470,duration:360,ease:"outCubic"}));
+   }
   }
  };
  const stayInside=()=>{
   if(!choiceOpen||leaving||disposed)return;
   choiceOpen=false;
   choice.hidden=true;
+  choiceDim.hidden=true;
   dialogueIndex=-1;
  };
  const leaveShop=()=>{
   if(!opened||!choiceOpen||leaving||disposed)return;
   leaving=true;
   choice.hidden=true;
+  choiceDim.hidden=true;
   dialogue.hidden=true;
   choiceOpen=false;
   chef.classList.remove("is-speaking");

@@ -548,7 +548,7 @@ sprite("daily_login_shop_interior",{w:360,h:800,pivot:[180,799]},c=>{
   }
   rect(c,252,208,86,5,"M");rect(c,256,210,78,2,"u");
 
-  // Hanging utensils and a small kitchen clock.
+  // Hanging utensils; the right-hand wall space is reserved for the CRT.
   rect(c,23,261,97,5,"K");rect(c,25,263,93,2,"L");
   for(let i=0;i<5;i++){
     const x=33+i*17;
@@ -556,9 +556,6 @@ sprite("daily_login_shop_interior",{w:360,h:800,pivot:[180,799]},c=>{
     c.ellipse(x,291+i%2*5,4,6,"S");
     c.vline(x,270,15,"s");
   }
-  c.ellipse(302,291,20,20,"K");c.ellipse(302,291,16,16,"I");
-  c.ellipse(302,291,13,13,"w");c.vline(302,280,11,"D");c.hline(302,291,8,"D");
-  c.px(302,289,"X");c.px(301,290,"X");
 
   // Kitchen exhaust flue, copper pans, ladles and a short noren over the prep pass.
   rect(c,55,300,36,40,"K");rect(c,59,304,28,34,"D");
@@ -753,6 +750,52 @@ sprite("daily_login_shop_interior",{w:360,h:800,pivot:[180,799]},c=>{
   }
   // Footwear scuffs and a little threshold highlight.
   c.hline(14,786,332,"K");c.hline(18,783,324,"L");
+});
+
+// Compact CRT television, drawn in the same 3/4 pixel perspective as the room furniture.
+sprite("daily_login_retro_tv",{w:96,h:80,pivot:[48,78]},c=>{
+  // Wall bracket and the two thin aerial rods sit behind the cabinet.
+  rect(c,35,9,27,4,"K");rect(c,38,10,21,2,"u");
+  line(c,43,11,38,17,"K");line(c,58,11,63,17,"K");
+  line(c,78,17,86,4,"K");line(c,79,17,88,5,"L");
+  line(c,78,17,91,11,"K");line(c,79,18,90,12,"L");
+  c.ellipse(86,4,3,2,"K");c.ellipse(91,11,3,2,"K");
+
+  // Deep dark silhouette and a warm, bevelled wooden-brown casing.
+  rect(c,5,15,87,49,"K");
+  rect(c,7,14,83,47,"D");
+  rect(c,9,16,79,43,"M");
+  rect(c,11,18,75,39,"H");
+  c.hline(12,17,74,"L");c.vline(10,20,34,"J");
+  c.hline(12,57,74,"B");
+
+  // CRT glass: a slightly inset, softly skewed screen with a muted green phosphor.
+  rect(c,13,20,54,32,"K");
+  rect(c,15,22,50,28,"A");
+  rect(c,16,23,47,2,"b");
+  c.vline(16,25,23,"B");c.vline(62,25,23,"z");
+  c.hline(18,48,42,"q");
+  c.px(18,24,"G");c.px(20,24,"G");c.px(59,47,"s");
+
+  // Tapered right-hand control deck makes the cabinet read as a turned 3/4 object.
+  rect(c,68,19,15,36,"H");rect(c,70,21,11,32,"m");
+  c.hline(71,22,9,"L");c.vline(71,24,25,"J");
+  c.ellipse(76,29,4,4,"K");c.ellipse(76,28,2,2,"Y");
+  c.px(77,27,"F");
+  c.ellipse(76,41,3,3,"K");c.ellipse(76,40,1,1,"j");
+  for(let y=46;y<53;y+=3){
+    c.px(72,y,"K");c.px(75,y,"K");c.px(78,y,"K");c.px(81,y,"K");
+  }
+  // The thick right side recedes into the room's shadow.
+  rect(c,84,18,5,39,"D");rect(c,89,20,2,35,"B");
+  c.vline(87,20,34,"L");
+
+  // Small lower lip and two angled feet cast onto the wall below.
+  rect(c,13,59,73,4,"K");rect(c,16,60,66,2,"L");
+  line(c,23,62,20,73,"K");line(c,24,63,22,72,"D");
+  line(c,75,62,78,72,"K");line(c,74,63,76,72,"D");
+  rect(c,16,72,10,3,"K");rect(c,74,71,8,3,"K");
+  c.ellipse(49,76,39,2,"K");
 });
 
 // 2.5-head chibi soba cook: bold readable silhouette, rounded face, small hands and a clear chef cap.
