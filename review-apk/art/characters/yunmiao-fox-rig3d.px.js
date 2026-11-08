@@ -225,7 +225,7 @@ function runPose(i,yaw){
   const hands=g.hands.map(([fwd,up],k)=>[fwd*1.2,k?0.9:-0.9,-7+up*1.25]);
   return {
     feet,lift,hands,down:g.bob+1.2,lean:8,turn:0,
-    sway:Math.sin(ph-1)*1.5,trail:2.2,air:[2,3,4,5].includes(i%8),
+    sway:Math.sin(ph-1)*1.5,trail:2.2,air:i%8===1,
     tail:[-14,-10,-3,7,14,10,2,-9][i%8],
     tailLift:[4,5,6,6,5,3,2,3][i%8],
     skirt:[-2,-1,1,3,2,0,-2,-3][i%8],
@@ -252,8 +252,8 @@ function skillPose(i,yaw){
   const charge=[0,0.2,0.55,0.9,1,1,1,1,0.6,0.2,0,0,0,0,0,0][i%16];
   const release=[0,0,0,0,0,0,0.2,0.6,1,1,0.8,0.5,0.2,0,0,0][i%16];
   const hands=[[0,-1,-7],[0,1,-7]];
-  hands[1]=[-3+release*9,1,-7+charge*9-release*2];
-  hands[0]=[2+release*2,-1,-7+charge*3];
+  hands[1]=[2+release*6,1,-7+charge*9-release*2];
+  hands[0]=[1+release*3,-1,-7+charge*9-release*2];
   return {
     turn:[0,-2,-5,-9,-11,-10,-6,0,8,12,10,5,2,0,0,0][i%16],
     twist:[0,-8,-16,-24,-28,-25,-18,-5,15,25,18,9,2,0,0,0][i%16],
@@ -264,7 +264,7 @@ function skillPose(i,yaw){
     tailLift:[0,1,2,3,4,4,3,2,3,4,4,3,2,1,0,0][i%16],
     skirt:[0,-1,-2,-3,-3,-2,-1,1,4,5,3,1,0,-1,0,0][i%16],
     lantern:[0,-1,-2,-3,-4,-4,-3,-1,1,2,1,0,0,0,0,0][i%16],
-    expression:i>=8&&i<=10?"shout":"grit",foxfire:release
+    expression:i>=8&&i<=10?"shout":"grit",foxfire:release,elbow:charge*9-release*2>=0?[-1,0.5,-1]:[-1,0.5,0]
   };
 }
 function jumpPose(i,yaw){
@@ -328,7 +328,7 @@ function pickupPose(i,yaw){
   const reach=[0,0.4,0.8,1,0.8,0.4,0,0][i%8];
   return {
     down:reach*5,lean:reach*8,feet:[[2,-HIPW],[-1,HIPW]],lift:[0,0],
-    hands:[[0,-1,-7+reach*5],[3,1,-7+reach*10]],
+    hands:[[0,-1,-7+reach*4],[1,1,-7+reach*4]],elbow:[-1,0.5,0],
     tail:[-2,-4,-7,-8,-5,-2,0,1][i%8],tailLift:2,
     skirt:[0,1,2,2,1,0,-1,0][i%8],
     lantern:reach?8:0,expression:"calm"
@@ -405,7 +405,8 @@ function lanternPose(i,yaw,raise){
   return {
     down:0,lean:1,turn:0,twist:lift*4,
     feet:[[0,-HIPW],[0,HIPW]],lift:[0,0],
-    hands:[[0,-1,-7],[0,1,-7+lift*13]],
+    hands:[[0,-1,-7+lift*12],[1,1,-7+lift*12]],
+    elbow:lift>0.6?[-1,0.5,-1]:[-1,0.5,0],
     tail:[0,1,2,2,1,0][i%6],tailLift:1,
     lantern:-lift*8,expression:"calm",foxfire:lift
   };
@@ -633,7 +634,7 @@ const FIG={body:{h:48,hip:HIP,torso:TORSO,neck:NECK,thigh:THIGH,shin:SHIN,upper:
 const RIG_MOVES=Object.fromEntries(Object.entries(MOVES).map(([name,M])=>[
   name,{
     frames:M.frames,ms:M.ms,dirs:ALL8,
-    pose:(i,h)=>({...M.pose(i,180-h),move:name,hit:name==="attack"||name==="skill"||name==="lunge",elbow:name==="skill"||name==="lantern_raise"?[-1,0.5,-1]:[-1,0.5,0]}),
+    pose:(i,h)=>{const pose=M.pose(i,180-h);return {...pose,move:name,hit:name==="attack"||name==="skill"||name==="lunge",elbow:pose.elbow??[-1,0.5,0]};},
     draw:drawFace
   }
 ]));
