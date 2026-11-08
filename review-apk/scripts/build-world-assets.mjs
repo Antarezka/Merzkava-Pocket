@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 const root=resolve(dirname(fileURLToPath(import.meta.url)),"..");
 const pxlRoot=mkdtempSync(resolve(tmpdir(),"merzkava-pxl-"));
 const humanOut=mkdtempSync(resolve(tmpdir(),"merzkava-human-pxl-"));
-const foxOut=mkdtempSync(resolve(tmpdir(),"merzkava-yunmiao-pxl-"));
+const foxOut=mkdtempSync(resolve(tmpdir(),"merzkava-yuma-pxl-"));
 const out=resolve(root,"web/public/game-assets/pxl");
 mkdirSync(out,{recursive:true});
 const run=(command,args)=>{const result=spawnSync(command,args,{cwd:root,stdio:"inherit"});if(result.error)throw result.error;if(result.status!==0)throw new Error(command+" exited with status "+result.status);};
@@ -25,12 +25,12 @@ try{
     if(existsSync(from))cpSync(from,resolve(out,folder),{recursive:true,force:true});
   }
 
-  // Yunmiao is a separate rig3d character family. Validate the art before
+  // Yuma is a separate rig3d character family. Validate the art before
   // rendering its eight-direction movement/combat/social animation library.
-  const yunmiao=resolve(root,"art/characters/yunmiao-fox-rig3d.px.js");
+  const yuma=resolve(root,"art/characters/yuma-fox-rig3d.px.js");
   const pxl=resolve(pxlRoot,"bin/pxl.js");
-  run(process.execPath,[pxl,"check",yunmiao]);
-  run(process.execPath,[pxl,"build",yunmiao,"--out",foxOut,"--no-preview"]);
+  run(process.execPath,[pxl,"check",yuma]);
+  run(process.execPath,[pxl,"build",yuma,"--out",foxOut,"--no-preview"]);
 
   // Keep runtime textures in the same PXL namespaces as the existing player.
   for(const folder of ["sprites","anims","share"]){
@@ -39,14 +39,14 @@ try{
   }
   // Directional turnaround and tagged action sheets are also bundled for
   // preview, future UI portraits and animation review.
-  const sheetOut=resolve(out,"sheets/yunmiao");
+  const sheetOut=resolve(out,"sheets/yuma");
   mkdirSync(sheetOut,{recursive:true});
   for(const name of readdirSync(foxOut)){
-    if(/^yunmiao_.*\.(png|json|gif)$/i.test(name)){
+    if(/^yuma_.*\.(png|json|gif)$/i.test(name)){
       copyFileSync(resolve(foxOut,name),resolve(sheetOut,name));
     }
   }
-  console.log("World Archive, human base and Yunmiao 48x64 fox-spirit PXL assets built.");
+  console.log("World Archive, human base and Yuma 48x64 fox-spirit PXL assets built.");
 }finally{
   rmSync(pxlRoot,{recursive:true,force:true});
   rmSync(humanOut,{recursive:true,force:true});
