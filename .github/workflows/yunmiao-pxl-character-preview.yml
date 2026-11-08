@@ -1,0 +1,65 @@
+name: Merzkava Pocket — Yunmiao PXL Character Review
+
+on:
+  push:
+    branches:
+      - feat/fox-lantern-keeper-pxl-2026-11-08
+    paths:
+      - "review-apk/art/characters/**"
+      - "review-apk/scripts/build-world-assets.mjs"
+      - ".github/workflows/yunmiao-pxl-character-preview.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render-yunmiao:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out character source
+        uses: actions/checkout@v4
+
+      - name: Set up PXL-compatible Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.18.0"
+
+      - name: Fetch Augusto PXL
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/augusto-scarvalho/claude-pxl.git "$RUNNER_TEMP/claude-pxl"
+
+      - name: Validate detailed rig and directional animation source
+        shell: bash
+        run: |
+          set -euo pipefail
+          PXL="$RUNNER_TEMP/claude-pxl/bin/pxl.js"
+          SOURCE="review-apk/art/characters/yunmiao-fox-rig3d.px.js"
+          node "$PXL" check "$SOURCE"
+
+      - name: Render complete Yunmiao turnaround and animation library
+        shell: bash
+        run: |
+          set -euo pipefail
+          PXL="$RUNNER_TEMP/claude-pxl/bin/pxl.js"
+          OUT="$RUNNER_TEMP/yunmiao-pxl-review"
+          node "$PXL" build review-apk/art/characters/yunmiao-fox-rig3d.px.js --out "$OUT" --share 4
+
+          for asset in yunmiao_idle_s.png yunmiao_idle_n.png yunmiao_walk_s.png yunmiao_walk_ne.png yunmiao_run_s.png yunmiao_attack_s.png yunmiao_skill_s.png yunmiao_fish_s.png yunmiao_meditate_s.png; do
+            if ! find "$OUT" -type f -name "$asset" -print -quit | grep -q .; then
+              echo "::error::Expected PXL render missing: $asset"
+              exit 1
+            fi
+          done
+          find "$OUT" -type f | sort | tee "$RUNNER_TEMP/yunmiao-pxl-files.txt"
+          test -s "$RUNNER_TEMP/yunmiao-pxl-files.txt"
+
+      - name: Upload visual review and PXL sprite sheets
+        uses: actions/upload-artifact@v4
+        with:
+          name: Yunmiao-PXL-Character-Review-\${{ github.sha }}
+          path: \${{ runner.temp }}/yunmiao-pxl-review/
+          if-no-files-found: error
+          retention-days: 30
