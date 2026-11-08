@@ -76,7 +76,7 @@ export function dailyLoginMarkup(){
    </div>
   </section>
   <div class="dl-scene-vignette"></div>
- </main>\`;
+ </main>`;
 }
 function playDoorSlideChime(){
  const AudioContextClass=window.AudioContext||window.webkitAudioContext;
