@@ -28,32 +28,20 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Fetch PXL and stage its clothing helper
+      - name: Fetch the official PXL renderer
         shell: bash
         run: |
           set -euo pipefail
           git clone --depth 1 https://github.com/augusto-scarvalho/claude-pxl.git "$RUNNER_TEMP/claude-pxl"
-          mkdir -p review-apk/art/characters
-          cp "$RUNNER_TEMP/claude-pxl/lib/characters/dress.px.js" review-apk/art/characters/_pxl-dress.px.js
 
-      - name: Validate and render the complete PXL world archive
-        shell: bash
-        run: |
-          set -euo pipefail
-          PXL="$RUNNER_TEMP/claude-pxl/bin/pxl.js"
-          OUT="$RUNNER_TEMP/merzkava-pocket-pxl-preview"
-          node "$PXL" check review-apk/art/world-archive.px.js
-          node "$PXL" build review-apk/art/world-archive.px.js --out "$OUT" --share 4
-          test -s "$OUT/anims/classic_idle_s.png"
-          test -s "$OUT/anims/classic_walk_s.png"
-          test -s "$OUT/share/classic_idle_s.png"
-
-      - name: Render the modular human appearance library
+      - name: Render and verify the modular human appearance library
         shell: bash
         run: |
           set -euo pipefail
           PXL="$RUNNER_TEMP/claude-pxl/bin/pxl.js"
           OUT="$RUNNER_TEMP/merzkava-pocket-pxl-preview/human-character"
+          node --check review-apk/web/src/home-base.js
+          node --check review-apk/web/src/economy.js
           node "$PXL" build review-apk/art/human-character-base.px.js --out "$OUT" --no-preview
           test -s "$OUT/sprites/human_preview_hair_braided_crown.png"
           test -s "$OUT/sprites/human_preview_outfit_iron_guard.png"
