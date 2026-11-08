@@ -104,6 +104,7 @@ class HomeBaseScene extends Phaser.Scene{
     this.layerReady=new Set();this.layerLoading=new Map();this.queuedLayers=new Map();
     this.accessory="none";this.weapon="none";this.accessorySprite=null;this.weaponSprite=null;
     this.decorCells=new Set();this.moving=false;this.playerTile={col:6,row:5};
+    this.exploredCells=new Set();this.currentlyVisible=new Set();this.fogGraphics=null;
   }
   comboName(hair,outfit){return "human_"+hair+"_"+outfit;}
   textureName(hair,outfit,move,dir){return this.comboName(hair,outfit)+"_"+move+"_"+dir;}
@@ -180,6 +181,8 @@ class HomeBaseScene extends Phaser.Scene{
     if(this.accessory!=="none")this.accessorySprite=this.add.sprite(this.player.x,this.player.y,this.layerTextureName("accessory",this.accessory,"idle","s")).setOrigin(.5,1).setDepth(this.player.depth+2);
     if(this.weapon!=="none")this.weaponSprite=this.add.sprite(this.player.x,this.player.y,this.layerTextureName("weapon",this.weapon,"idle","s")).setOrigin(.5,1).setDepth(this.player.depth-1);
     this.syncAppearanceLayers("s","idle");this.addNpcs();this.drawFacilities();
+    this.exploredCells=new Set(this.options.session.getExploredCells?.()||[]);
+    this.refreshFogOfWar();
     const cam=this.cameras.main,el=this.options.viewport;cam.setBounds(0,0,WORLD_WIDTH,WORLD_HEIGHT);
     const fit=Math.min(el.clientWidth/320,el.clientHeight/360);cam.setZoom(Phaser.Math.Clamp(fit,.95,1.3));
     cam.centerOn(this.player.x,this.player.y-18);cam.startFollow(this.player,true,.075,.075);this.lastDirection="s";
@@ -226,11 +229,16 @@ class HomeBaseScene extends Phaser.Scene{
       this.dragState=null;if(!gesture||pointer.id!==gesture.id||gesture.moved)return;
       const world=cam.getWorldPoint(pointer.x,pointer.y),tile=this.worldToTile(world.x,world.y);
       if(this.placement){this.options.onPlacementTap?.(tile,this.placement);return;}
-      const npc=this.npcs.find(item=>item.getBounds().contains(world.x,world.y));
+      const npc=this.npcs.find(item=>{
+        const pos=item.getData("tile");
+        return pos&&this.currentlyVisible.has(tileKey(pos.col,pos.row))&&item.getBounds().contains(world.x,world.y);
+      });
       if(npc){const approach=this.findApproachTile(npc.getData("tile"));if(approach)this.walkToTile(approach,()=>this.options.onNpcTap?.(npc.getData("residentIndex")));else this.options.onInvalidMove?.();return;}
       for(const [id,item] of this.facilityObjects){
         if(!item.getBounds().contains(world.x,world.y))continue;
-        const approach=this.findApproachTile(item.getData("tile"));if(approach)this.walkToTile(approach,()=>this.options.onFacilityTap?.(id));else this.options.onInvalidMove?.();return;
+        const pos=item.getData("tile");
+        if(!pos||!this.currentlyVisible.has(tileKey(pos.col,pos.row)))continue;
+        const approach=this.findApproachTile(pos);if(approach)this.walkToTile(approach,()=>this.options.onFacilityTap?.(id));else this.options.onInvalidMove?.();return;
       }
       this.moveToTap(world.x,world.y);
     });
@@ -393,6 +401,34 @@ class HomeBaseScene extends Phaser.Scene{
     sprite.play(this.anims.exists(key)?key:this.animationName(this.hair,this.outfit,"idle","s"),true);
     if(sprite===this.player)this.syncAppearanceLayers(dir,move);
   }
+  refreshFogOfWar(){
+    const origin=this.playerTile||{col:6,row:5},visible=new Set(),exploredRadius=4.35,softRadius=5.25;
+    for(let row=0;row<WORLD_ROWS;row++)for(let col=0;col<WORLD_COLS;col++){
+      const distance=Math.hypot(col-origin.col,row-origin.row),key=tileKey(col,row);
+      if(distance<=exploredRadius)visible.add(key);
+      if(distance<=exploredRadius&&!this.exploredCells.has(key))this.exploredCells.add(key);
+    }
+    this.currentlyVisible=visible;
+    if(this.options?.session?.setExploredCells)this.options.session.setExploredCells([...this.exploredCells]);
+    if(!this.fogGraphics)this.fogGraphics=this.add.graphics().setDepth(100000);
+    else this.fogGraphics.clear();
+    const g=this.fogGraphics;
+    for(let row=0;row<WORLD_ROWS;row++)for(let col=0;col<WORLD_COLS;col++){
+      const key=tileKey(col,row),distance=Math.hypot(col-origin.col,row-origin.row);
+      if(visible.has(key))continue;
+      const pos=locationOf(col,row);
+      const remembered=this.exploredCells.has(key);
+      let alpha=remembered?.58:.985;
+      if(!remembered&&distance<=softRadius)alpha=.78;
+      g.fillStyle(remembered?0x26312a:0x030609,alpha);
+      g.fillPoints([
+        {x:pos.x,y:pos.y-22},
+        {x:pos.x+22,y:pos.y},
+        {x:pos.x,y:pos.y+22},
+        {x:pos.x-22,y:pos.y}
+      ],true);
+    }
+  }
   blockedCells(){
     const blocked=new Set();
     const facilities=this.options?.session?.snapshot?.().facilities||{};
@@ -402,7 +438,7 @@ class HomeBaseScene extends Phaser.Scene{
   }
   isTileBlocked(col,row,blocked){
     const key=tileKey(col,row);
-    return !walkable(col,row)||(blocked?.has(key)??false)||this.decorCells.has(key);
+    return !walkable(col,row)||!this.currentlyVisible.has(key)||(blocked?.has(key)??false)||this.decorCells.has(key);
   }
   findApproachTile(target){
     const blocked=this.blockedCells();
@@ -475,10 +511,11 @@ class HomeBaseScene extends Phaser.Scene{
     let index=1;
     const step=()=>{
       if(index>=path.length){
-        this.playerTile={col:target.col,row:target.row};this.moving=false;
+        this.playerTile={col:target.col,row:target.row};this.refreshFogOfWar();this.moving=false;
         this.applySprite(this.player,this.lastDirection||"s","idle");onArrive?.();return;
       }
       const tile=path[index++],pos=groundOf(tile.col,tile.row),dx=pos.x-this.player.x,dy=pos.y-this.player.y;
+      this.playerTile={col:tile.col,row:tile.row};this.refreshFogOfWar();
       this.lastDirection=directionOf(dx,dy);this.applySprite(this.player,this.lastDirection,"walk");
       const duration=Math.max(170,Math.min(390,Math.hypot(dx,dy)*10.5));
       this.tweens.add({targets:this.player,x:pos.x,y:pos.y,duration,ease:"Sine.InOut",onComplete:step});
@@ -737,7 +774,7 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
   const placeAt=(tile,facility)=>{
     if(disposed||!facility)return;
     const col=tile.col,row=tile.row;
-    if(!inWorld(col,row)||!siteCanUse(facility,col,row)){setFeedback("That tile does not meet this facility's land/location Requirements.");return;}
+    if(!inWorld(col,row)||!scene.currentlyVisible.has(tileKey(col,row))||!siteCanUse(facility,col,row)){setFeedback("That tile does not meet this facility's land/location Requirements or is not yet discovered.");return;}
     const key=tileKey(col,row),occupied=scene.blockedCells().has(key)||scene.decorCells.has(key)||(scene.playerTile.col===col&&scene.playerTile.row===row);
     if(occupied){setFeedback("That plot is already occupied. Choose another open tile.");return;}
     const site=facility.location_requirements?.[0]||"Owned home plot",result=session.placeFacility(facility.facility_id,site,{col,row});
