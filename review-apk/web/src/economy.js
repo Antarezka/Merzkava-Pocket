@@ -225,8 +225,39 @@ function formatList(values){
   if(!values?.length)return "<span class='econ-muted'>None listed</span>";
   return "<ul class='econ-requirements'>"+values.map(x=>"<li>"+esc(x)+"</li>").join("")+"</ul>";
 }
+const ITEM_PXL_ICON_ASSETS=Object.freeze({
+  "itm.0001":"item_stone_hatchet",
+  "itm.0002":"item_bronze_hatchet",
+  "itm.0003":"item_iron_axe",
+  "itm.0004":"item_steel_axe",
+  "itm.0005":"item_stone_pickaxe",
+  "itm.0006":"item_bronze_pickaxe",
+  "itm.0007":"item_iron_pickaxe",
+  "itm.0008":"item_steel_pickaxe",
+  "itm.0009":"item_wooden_shovel",
+  "itm.0010":"item_iron_shovel"
+});
+function itemFrameShape(item){
+  const category=String(item?.category||"").trim().toLowerCase();
+  const kind=String(item?.item_type||item?.type||item?.equipment_type||item?.subcategory||"").trim().toLowerCase();
+  const name=String(item?.name||"").toLowerCase();
+  const tags=Array.isArray(item?.tags)?item.tags.join(" ").toLowerCase():"";
+  const identity=[category,kind,name,tags].join(" ");
+  if(/spirit[\s_-]*ring|arcan|artificial[\s_-]*artifact|formation[\s_-]*(?:engraver|tool)|engraver/i.test(identity))return "hexagon";
+  if(item?.is_equipment===true||item?.is_weapon===true||/^(?:eqp|equipment|equip|weapon|weaponry|weaponary|armor|armour|gear)$/.test(category)||/^(?:equipment|weapon|weaponry|weaponary|armor|armour|gear)$/.test(kind))return "square";
+  return "octagon";
+}
+function itemVisualMarkup(item,detail=false){
+  const shape=itemFrameShape(item),asset=ITEM_PXL_ICON_ASSETS[item?.item_id];
+  const size=detail?"is-detail":"";
+  const art=asset
+    ? "<img class='econ-pxl-icon' src='/game-assets/pxl/"+asset+".png' alt='"+esc(item?.name||"Item")+" icon' loading='lazy' decoding='async'>"
+    : "<span class='econ-item-soon'>SOON</span>";
+  return "<span class='econ-item-frame is-"+shape+" "+size+"' aria-label='"+esc(item?.name||"Item")+" artwork'>"+art+"</span>";
+}
+
 function itemCard(item,state){
-  return "<button type='button' class='econ-row' data-econ-open-item='"+esc(item.item_id)+"'><span class='econ-row-head'><b>"+esc(item.name)+"</b><small>"+esc(item.item_id)+"</small></span><span class='econ-row-meta'><i>"+esc(item.category)+"</i><i>"+esc(item.unit)+"</i><i>"+esc(itemPriceLabel(item,"typical_shop_price_xc"))+"</i><i>Owned "+esc(tidy(qty(state,item.item_id)))+"</i></span></button>";
+  return "<button type='button' class='econ-row econ-item-row' data-econ-open-item='"+esc(item.item_id)+"'>"+itemVisualMarkup(item)+"<span class='econ-item-copy'><span class='econ-row-head'><b>"+esc(item.name)+"</b><small>"+esc(item.item_id)+"</small></span><span class='econ-row-meta'><i>"+esc(item.category)+"</i><i>"+esc(item.unit)+"</i><i>"+esc(itemPriceLabel(item,"typical_shop_price_xc"))+"</i><i>Owned "+esc(tidy(qty(state,item.item_id)))+"</i></span></span></button>";
 }
 function facilityCard(facility,state,data){
   const owned=state.facilities[facility.facility_id],cost=materialCost(data,facility.build_requirements?.materials)+num(facility.build_requirements?.cash_fee_xc);
@@ -262,7 +293,7 @@ export function mountEconomy(root,identity){
     if(!item)return "<aside class='econ-detail'><span class='eyebrow'>ITEM RECORD</span><h2>Select an item.</h2><p>Inspect its source, Requirements, tools, facilities, uses and market price.</p></aside>";
     const acq=item.acquisition||{},g=gatherRecord(data,state,item),options=(acq.locations||[]).map(x=>"<option value='"+esc(x)+"' "+(g.selectedSite===x?"selected":"")+">"+esc(x)+"</option>").join("");
     const output=acq.output_per_active_sim_minute,buy=canBuy(item),sell=qty(state,item.item_id)>=1&&itemPrice(item,"typical_merchant_buyback_price_xc")!==null;
-    return "<aside class='econ-detail'><div class='econ-detail-top'><span class='eyebrow'>ITEM / "+esc(item.item_id)+"</span><span class='econ-chip'>"+esc(item.category)+"</span></div><h2>"+esc(item.name)+"</h2><p class='econ-muted'>"+esc(item.unit)+" · Quality tier "+esc(item.quality_tier??"Unknown")+"</p>" +
+    return "<aside class='econ-detail'><div class='econ-detail-top'><span class='eyebrow'>ITEM / "+esc(item.item_id)+"</span><span class='econ-chip'>"+esc(item.category)+"</span></div><div class='econ-detail-hero'>"+itemVisualMarkup(item,true)+"<div><h2>"+esc(item.name)+"</h2><p class='econ-muted'>"+esc(item.unit)+" · Quality tier "+esc(item.quality_tier??"Unknown")+"</p></div></div>" +
       "<div class='econ-price-pair'><div><small>SHOP PRICE</small><b>"+esc(itemPriceLabel(item,"typical_shop_price_xc"))+"</b></div><div><small>MERCHANT BUYBACK</small><b>"+esc(itemPriceLabel(item,"typical_merchant_buyback_price_xc"))+"</b></div></div>" +
       (item.market?.price_lot?"<p class='econ-lot-note'>Owner price anchor: "+esc(item.market.price_lot.price||"")+"</p>":"")+
       "<h3>Acquisition</h3><p>"+esc(String(acq.method||"Unknown").replaceAll("_"," "))+"</p><p class='econ-muted'>Locations: "+esc((acq.locations||[]).join(" · ")||"Unknown")+"</p><h3>Requirements</h3>"+formatList(item.requirements)+"<h3>Tool Requirements</h3>"+formatList(acq.tool_requirements)+"<h3>Facility Requirements</h3>"+formatList(acq.facility_requirements)+"<h3>Output rate</h3><p>"+(output?esc(tidy(output.quantity)+" "+output.unit):"No active output rate")+"</p><p class='econ-muted'>Acquisition rates are Pocket simulation minutes, not real-world minutes. The ×48 clock is applied by the process scheduler.</p><h3>Uses</h3>"+formatList(item.uses)+
@@ -312,7 +343,7 @@ export function mountEconomy(root,identity){
   };
   const renderInventory=()=>{
     const rows=inventoryRows(data,state);
-    return "<div class='econ-list'><div class='econ-list-title'><b>LOCAL INVENTORY</b><small>"+rows.length+" item types · profile scoped</small></div>"+(rows.length?rows.map(x=>"<div class='econ-row econ-inventory-row'><span class='econ-row-head'><b>"+esc(x.item.name)+"</b><small>"+esc(x.item.item_id)+"</small></span><span class='econ-row-meta'><i>"+esc(x.item.unit)+"</i><i>Owned "+esc(tidy(x.quantity))+"</i><i>Buyback "+esc(itemPriceLabel(x.item,"typical_merchant_buyback_price_xc"))+"</i></span></div>").join(""):"<p class='econ-empty'>This profile has no recorded inventory yet. Nothing is granted automatically.</p>")+"</div>";
+    return "<div class='econ-list'><div class='econ-list-title'><b>LOCAL INVENTORY</b><small>"+rows.length+" item types · profile scoped</small></div>"+(rows.length?rows.map(x=>"<div class='econ-row econ-item-row econ-inventory-row'>"+itemVisualMarkup(x.item)+"<span class='econ-item-copy'><span class='econ-row-head'><b>"+esc(x.item.name)+"</b><small>"+esc(x.item.item_id)+"</small></span><span class='econ-row-meta'><i>"+esc(x.item.unit)+"</i><i>Owned "+esc(tidy(x.quantity))+"</i><i>Buyback "+esc(itemPriceLabel(x.item,"typical_merchant_buyback_price_xc"))+"</i></span></span></div>").join(""):"<p class='econ-empty'>This profile has no recorded inventory yet. Nothing is granted automatically.</p>")+"</div>";
   };
   const renderLedger=()=>{
     return "<div class='econ-list'><div class='econ-list-title'><b>TRANSACTION LEDGER</b><small>Newest first · "+state.ledger.length+" records kept</small></div>"+(state.ledger.length?state.ledger.map(x=>"<div class='econ-row econ-ledger-row'><span class='econ-row-head'><b>"+esc(x.label)+"</b><small>"+esc(new Date(x.at).toLocaleString())+"</small></span><span class='econ-row-meta'><i>"+esc(x.type)+"</i><i>"+(x.amount_xc?esc(currency(Math.abs(x.amount_xc))):x.quantity?"Qty "+esc(tidy(x.quantity)):"")+"</i></span></div>").join(""):"<p class='econ-empty'>No transactions recorded.</p>")+"</div>";

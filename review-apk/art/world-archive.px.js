@@ -237,3 +237,38 @@ sprite("world_tree",{w:30,h:38,pivot:[15,36]},c=>{
   c.px(8,7,"L");c.px(17,6,"L");c.px(20,11,"G");
 });
 sprite("world_rock",{w:16,h:10,pivot:[8,9]},c=>{c.ellipse(8,7,7,3,"K");c.ellipse(7,6,5,2,"D");c.px(5,5,"S");});
+
+
+/* Economy item thumbnails — 32px pixel-art sprites rendered by the PXL compiler. */
+pal({K:"#171421",s:"#e7d0aa",S:"#f5e5c5",h:"#6c6a72",H:"#aaa8ad",c:"#8b633f",C:"#c0925c",d:"#b77c39",D:"#e0b56b",B:"#61402d",g:"#e4c88c",G:"#f4dfad"});
+const itemRect=(c,x,y,w,h,k)=>{for(let yy=y;yy<y+h;yy++)for(let xx=x;xx<x+w;xx++)c.px(xx,yy,k);};
+const itemLine=(c,x1,y1,x2,y2,k)=>{const n=Math.max(Math.abs(x2-x1),Math.abs(y2-y1),1);for(let i=0;i<=n;i++)c.px(Math.round(x1+(x2-x1)*i/n),Math.round(y1+(y2-y1)*i/n),k);};
+const drawHatchet=(c,metal,edge)=>{
+  itemLine(c,10,27,22,10,"B");itemLine(c,11,27,23,10,"C");
+  itemRect(c,19,7,8,5,metal);itemRect(c,17,9,7,5,metal);itemRect(c,20,5,6,3,edge);
+  itemRect(c,17,11,4,4,"K");itemLine(c,20,7,26,7,edge);
+  c.px(24,10,"S");c.px(19,14,"B");c.px(12,25,"C");
+};
+const drawPickaxe=(c,metal,edge)=>{
+  itemLine(c,10,27,22,10,"B");itemLine(c,11,27,23,10,"C");
+  itemLine(c,8,10,25,7,metal);itemLine(c,9,11,24,8,edge);
+  itemRect(c,6,8,5,4,metal);itemRect(c,23,5,5,4,metal);
+  c.px(8,7,"S");c.px(25,5,"S");c.px(19,11,"K");
+};
+const drawShovel=(c,metal,edge)=>{
+  itemLine(c,13,27,20,9,"B");itemLine(c,14,27,21,9,"C");
+  itemRect(c,18,5,5,6,metal);itemRect(c,17,4,7,3,edge);
+  itemRect(c,17,10,5,4,"K");itemLine(c,18,13,13,19,metal);
+  itemRect(c,10,18,7,8,metal);itemRect(c,11,19,5,5,edge);
+  c.px(12,20,"S");c.px(15,23,"S");
+};
+sprite("item_stone_hatchet",{w:32,h:32,pivot:[16,28]},c=>drawHatchet(c,"h","H"));
+sprite("item_bronze_hatchet",{w:32,h:32,pivot:[16,28]},c=>drawHatchet(c,"d","D"));
+sprite("item_iron_axe",{w:32,h:32,pivot:[16,28]},c=>drawHatchet(c,"H","S"));
+sprite("item_steel_axe",{w:32,h:32,pivot:[16,28]},c=>drawHatchet(c,"S","G"));
+sprite("item_stone_pickaxe",{w:32,h:32,pivot:[16,28]},c=>drawPickaxe(c,"h","H"));
+sprite("item_bronze_pickaxe",{w:32,h:32,pivot:[16,28]},c=>drawPickaxe(c,"d","D"));
+sprite("item_iron_pickaxe",{w:32,h:32,pivot:[16,28]},c=>drawPickaxe(c,"H","S"));
+sprite("item_steel_pickaxe",{w:32,h:32,pivot:[16,28]},c=>drawPickaxe(c,"S","G"));
+sprite("item_wooden_shovel",{w:32,h:32,pivot:[16,28]},c=>drawShovel(c,"c","C"));
+sprite("item_iron_shovel",{w:32,h:32,pivot:[16,28]},c=>drawShovel(c,"H","S"));
