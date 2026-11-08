@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - art/isometric-pxl-character-v1
+      - feat/claude-modular-appearance-expansion-2026-11-08
     paths:
       - "review-apk/art/characters/**"
       - "review-apk/art/world-archive.px.js"
+      - "review-apk/art/human-character-base.px.js"
       - "review-apk/scripts/build-world-assets.mjs"
       - "review-apk/web/src/home-base.js"
       - ".github/workflows/pocket-character-preview.yml"
@@ -44,6 +46,38 @@ jobs:
           test -s "$OUT/anims/classic_idle_s.png"
           test -s "$OUT/anims/classic_walk_s.png"
           test -s "$OUT/share/classic_idle_s.png"
+
+      - name: Render the modular human appearance library
+        shell: bash
+        run: |
+          set -euo pipefail
+          PXL="$RUNNER_TEMP/claude-pxl/bin/pxl.js"
+          OUT="$RUNNER_TEMP/merzkava-pocket-pxl-preview/human-character"
+          node "$PXL" build review-apk/art/human-character-base.px.js --out "$OUT" --no-preview
+          test -s "$OUT/sprites/human_preview_hair_braided_crown.png"
+          test -s "$OUT/sprites/human_preview_outfit_iron_guard.png"
+          test -s "$OUT/sprites/human_preview_accessory_round_glasses.png"
+          test -s "$OUT/sprites/human_preview_weapon_closed_umbrella.png"
+          test -s "$OUT/anims/human_braided_crown_azure_artificer_walk_s.png"
+          test -s "$OUT/anims/accessory_jade_pin_walk_s.png"
+          test -s "$OUT/anims/weapon_closed_umbrella_walk_s.png"
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const checks = [
+              ["human_braided_crown_azure_artificer_walk_s.json", 8],
+              ["accessory_jade_pin_walk_s.json", 8],
+              ["weapon_closed_umbrella_walk_s.json", 8],
+              ["human_low_chignon_moon_priest_idle_ne.json", 4]
+            ];
+            for (const [file, expected] of checks) {
+              const json = JSON.parse(readFileSync(process.env.OUT + "/anims/" + file, "utf8"));
+              if (Object.keys(json.frames || {}).length !== expected) {
+                throw new Error(file + " expected " + expected + " frames, got " + Object.keys(json.frames || {}).length);
+              }
+            }
+          '
+        env:
+          OUT: ${{ runner.temp }}/merzkava-pocket-pxl-preview/human-character
 
       - name: Upload visual review assets
         uses: actions/upload-artifact@v4
