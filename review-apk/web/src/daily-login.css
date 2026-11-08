@@ -503,3 +503,9 @@
  .dl-kitchen-counter{bottom:16%;height:22%}
  .dl-retro-tv{transform:scale(.88);transform-origin:top right}
 }
+
+
+/* Final camera spacing: the shop sits a little farther back in the portrait scene. */
+.dl-art-stage{width:min(96vw,480px)}
+.dl-noren-pxl{z-index:10}
+@media(max-width:390px){.dl-art-stage{width:min(96vw,480px)}}
