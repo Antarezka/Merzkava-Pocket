@@ -309,3 +309,32 @@
 .personal-symbol{transform:rotate(45deg) scale(.92)}
 .personal-symbol:before{transform:translate(-50%,-72%)}
 .personal-symbol:after{transform:translate(-50%,-50%)}
+
+
+/* Stellar Arch Paper Light control — replaces the former straight intensity slider. */
+.stellar-paper-control{padding:10px 9px 7px;background:linear-gradient(110deg,#a98c540b,transparent 65%)}
+.paper-stellar-arc{position:relative;height:112px;margin:1px 0 0;overflow:hidden;isolation:isolate;--arc-line:#bd9b5d;--arc-glow:#e8c77f;--arc-star:#f2dba9}
+.paper-arc-curve{position:absolute;left:18%;right:18%;top:29px;height:32px;border-top:1.5px solid var(--arc-line);border-radius:50% 50% 0 0 / 100% 100% 0 0;z-index:1}
+.paper-arc-tail{position:absolute;top:45px;height:1.5px;background:var(--arc-line);z-index:1}
+.paper-arc-tail-left{left:9%;width:9%;transform:rotate(-8deg);transform-origin:right center}
+.paper-arc-tail-right{right:9%;width:9%;transform:rotate(8deg);transform-origin:left center}
+.paper-arc-glow{position:absolute;left:9%;right:9%;top:28px;height:34px;border-top:3px solid var(--arc-glow);border-radius:50% 50% 0 0 / 100% 100% 0 0;filter:blur(4px);opacity:.42;z-index:0}
+.paper-starfield{position:absolute;inset:0;pointer-events:none;z-index:2}
+.paper-starfield i{position:absolute;color:var(--arc-star);font-style:normal;line-height:1;text-shadow:0 0 3px currentColor}
+.paper-arc-knob{position:absolute;left:67%;top:29px;width:16px;height:16px;display:grid;place-items:center;transform:translate(-50%,-50%);border:1px solid #f3d79d;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff4d4,#d2a75e 60%,#614723);box-shadow:0 0 7px #f3d79d,0 0 15px #d8ad5d;z-index:4;pointer-events:none}
+.paper-arc-moon{position:absolute;width:9px;height:9px;border-radius:50%;background:#f5e5bd;box-shadow:0 0 4px #fff0c5}
+.paper-arc-moon:after{content:"";position:absolute;left:4px;top:-2px;width:9px;height:9px;border-radius:50%;background:#101116}
+.paper-arc-sun{display:none;width:7px;height:7px;border-radius:50%;background:#f5d078;box-shadow:0 -5px 0 -3px #f5d078,0 5px 0 -3px #f5d078,5px 0 0 -3px #f5d078,-5px 0 0 -3px #f5d078,3.5px 3.5px 0 -3px #f5d078,-3.5px -3.5px 0 -3px #f5d078,3.5px -3.5px 0 -3px #f5d078,-3.5px 3.5px 0 -3px #f5d078;box-shadow:0 0 5px #ffe3a0}
+.paper-arc-input{position:absolute;z-index:5;left:0;top:4px;width:100%;height:83px;margin:0;opacity:0;cursor:pointer;touch-action:pan-y;-webkit-appearance:none;appearance:none;background:transparent}
+.paper-arc-input::-webkit-slider-runnable-track{height:83px;background:transparent}
+.paper-arc-input::-webkit-slider-thumb{-webkit-appearance:none;width:34px;height:83px;background:transparent;border:0}
+.paper-arc-input::-moz-range-track{height:83px;background:transparent}
+.paper-arc-input::-moz-range-thumb{width:34px;height:83px;background:transparent;border:0}
+.paper-arc-input:focus-visible{opacity:.01;outline:1px solid var(--gold);outline-offset:2px}
+.paper-stellar-arc:has(.paper-arc-input:focus-visible) .paper-arc-knob{outline:2px solid var(--lime);outline-offset:3px}
+:root[data-theme="light"] .paper-stellar-arc{--arc-line:#a88a52;--arc-glow:#d9ae59;--arc-star:#b58b4b}
+:root[data-theme="light"] .paper-arc-knob{background:radial-gradient(circle at 35% 30%,#fff9e8,#d7aa57 60%,#8a642c);border-color:#f0d28d;box-shadow:0 0 7px #e6bd6b,0 0 15px #d8ad5d}
+:root[data-theme="light"] .paper-arc-moon{display:none}
+:root[data-theme="light"] .paper-arc-sun{display:block}
+:root[data-theme="light"] .paper-arc-moon:after{display:none}
+@media(prefers-reduced-motion:reduce){.paper-arc-knob{transition:none}}
