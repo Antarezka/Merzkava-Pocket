@@ -908,3 +908,59 @@
 @media(max-height:620px){
  .dl-chef-area{bottom:9%;transform:scale(.9);transform-origin:bottom left}
 }
+
+
+/* Chibi staff scale follows a compact 48x72 RPG character footprint. */
+.dl-chef-area{
+ left:49%;bottom:26%;width:62px;height:90px;
+}
+.dl-chef{
+ left:4px;width:48px;height:72px;
+}
+.dl-chef-nameplate{right:-6px;bottom:25%;font-size:6px;padding:2px 3px}
+.dl-chef-tap-note{left:-4px;bottom:-13px;font-size:6px;letter-spacing:.08em}
+.dl-dialogue{left:-74px;top:-68px;width:min(186px,52vw);padding:8px 10px}
+.dl-dialogue span{font-size:11px}
+@media(max-width:390px){
+ .dl-chef-area{left:48%;bottom:25%;width:60px;height:88px}
+ .dl-chef{width:46px;height:69px}
+ .dl-dialogue{left:-70px;top:-66px;width:178px}
+}
+@media(max-height:620px){
+ .dl-chef-area{left:49%;bottom:23%;transform:scale(.9);transform-origin:bottom left}
+}
+
+/* Layered practical lighting: paper lantern, warm incandescent bulb and reflected room glow. */
+.dl-interior-wall:before{
+ content:"";display:block;position:absolute;z-index:1;inset:0;pointer-events:none;
+ background:
+  radial-gradient(ellipse at 62% 9%,rgba(255,222,157,.16) 0%,rgba(230,176,103,.09) 18%,transparent 38%),
+  radial-gradient(ellipse at 14% 21%,rgba(255,212,140,.12) 0%,transparent 22%),
+  radial-gradient(ellipse at 76% 47%,rgba(234,187,115,.10) 0%,transparent 28%),
+  linear-gradient(180deg,rgba(255,227,174,.035),transparent 48%,rgba(12,9,7,.12));
+ mix-blend-mode:screen;
+}
+.dl-interior-wall:after{
+ content:"";display:block;position:absolute;z-index:2;inset:0;pointer-events:none;
+ box-shadow:inset 0 0 32px 8px rgba(12,9,7,.34),inset 0 -22px 28px rgba(8,7,6,.22);
+}
+.dl-paper-lamp{z-index:7;filter:drop-shadow(0 0 5px rgba(245,210,146,.32))}
+.dl-bulb-lamp{z-index:8}
+.dl-bulb-lamp span{animation:dl-lamp-pool-breathe 4.8s ease-in-out infinite}
+.dl-bulb-lamp i{animation:dl-bulb-core-breathe 4.8s ease-in-out infinite}
+@keyframes dl-lamp-pool-breathe{
+ 0%,100%{opacity:.55;transform:scale(.96)}
+ 50%{opacity:.9;transform:scale(1.04)}
+}
+@keyframes dl-bulb-core-breathe{
+ 0%,100%{filter:brightness(.94);box-shadow:0 0 8px #efc67b66,0 0 23px #e5b76b44}
+ 50%{filter:brightness(1.1);box-shadow:0 0 13px #ffe2a5aa,0 0 36px #e5b76b77}
+}
+.dl-paper-lamp{animation:dl-paper-lamp-breathe 3.9s ease-in-out infinite}
+@keyframes dl-paper-lamp-breathe{
+ 0%,100%{filter:brightness(.94) drop-shadow(0 0 4px #f3d79a33)}
+ 50%{filter:brightness(1.06) drop-shadow(0 0 9px #f3d79a66)}
+}
+@media(prefers-reduced-motion:reduce){
+ .dl-bulb-lamp span,.dl-bulb-lamp i,.dl-paper-lamp{animation:none}
+}
