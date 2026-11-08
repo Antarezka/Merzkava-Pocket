@@ -7,14 +7,52 @@ const HAIR_OPTIONS=[
   {id:"soft_bob",name:"Soft Bob",description:"Rounded short hair with grouped pixel ends."},
   {id:"half_up",name:"Half-up Knot",description:"A compact tied crown with long side locks."},
   {id:"high_tie",name:"High Tie",description:"A high gathered hairstyle with a short falling tail of hair."},
-  {id:"long_waves",name:"Long Waves",description:"Long layered waves with broad stepped locks."}
+  {id:"long_waves",name:"Long Waves",description:"Long layered waves with broad stepped locks."},
+  {id:"braided_crown",name:"Braided Crown",description:"A broad wrapped braid with small crown knots."},
+  {id:"low_chignon",name:"Low Chignon",description:"A compact low coil with neat side locks."},
+  {id:"side_ponytail",name:"Side Ponytail",description:"A gathered side tie with one long lock."},
+  {id:"twin_braids",name:"Twin Braids",description:"Two distinct thick braids with stepped ends."},
+  {id:"scholar_topknot",name:"Scholar Topknot",description:"A formal tied crown with a narrow ornament pin."}
 ];
 const OUTFIT_OPTIONS=[
   {id:"black_hanfu",name:"Black Hanfu",description:"Ink-black layered robe, crossed lapels and restrained gold edging."},
   {id:"ivory_layers",name:"Ivory Layers",description:"Warm ivory panels with pale jade lining."},
   {id:"jade_scholar",name:"Jade Scholar",description:"Long jade robe with a narrow scholar silhouette."},
   {id:"rose_ceremony",name:"Rose Ceremony",description:"A broad formal mantle with muted rose and antique gold."},
-  {id:"traveller_robe",name:"Traveller Robe",description:"An asymmetric layered robe with leather-toned accents."}
+  {id:"traveller_robe",name:"Traveller Robe",description:"An asymmetric layered robe with leather-toned accents."},
+  {id:"crimson_sect",name:"Crimson Sect Coat",description:"A short sect coat with split tails and a trailing sash."},
+  {id:"moon_priest",name:"Moon Priest Mantle",description:"A pale layered mantle with a moon seal and broad collar."},
+  {id:"iron_guard",name:"Iron Guard Armour",description:"A structured cuirass, shoulder plates and segmented guards."},
+  {id:"wanderer_cloak",name:"Wanderer Cloak",description:"An asymmetric weather cloak with a travel strap."},
+  {id:"azure_artificer",name:"Azure Artificer",description:"A fitted tunic, utility apron and tool pouches."}
+]; 
+const ACCESSORY_OPTIONS=[
+  {id:"jade_pin",name:"Jade Hairpin",description:"A slim jade-and-gold hairpin."},
+  {id:"phoenix_comb",name:"Phoenix Comb",description:"A warm-gold comb with a small feather crest."},
+  {id:"cloth_headband",name:"Cloth Headband",description:"A practical wrapped forehead band."},
+  {id:"scholar_crown",name:"Scholar Crown",description:"A compact formal crown and finial."},
+  {id:"round_glasses",name:"Round Glasses",description:"Small round reading glasses."},
+  {id:"half_mask",name:"Half Mask",description:"A fitted lower-face travel mask."},
+  {id:"bead_tassel",name:"Bead Tassel",description:"A jade bead chain with a silk tassel."},
+  {id:"forehead_gem",name:"Forehead Gem",description:"A small centered spirit-gem ornament."},
+  {id:"moon_veil",name:"Moon Veil",description:"A light veil falling beside the face."},
+  {id:"travel_goggles",name:"Travel Goggles",description:"Leather-rimmed travel goggles."},
+  {id:"ribbon_bow",name:"Ribbon Bow",description:"A tied silk ribbon at the side of the hair."},
+  {id:"earring_chains",name:"Earring Chains",description:"Fine chains and small jade drops."}
+];
+const WEAPON_OPTIONS=[
+  {id:"straight_sword",name:"Straight Sword",description:"A straight-backed sword carried diagonally.",layer:"back"},
+  {id:"crescent_dao",name:"Crescent Dao",description:"A single-edged dao held at the side.",layer:"front"},
+  {id:"twin_blades",name:"Twin Blades",description:"A matched pair of short back blades.",layer:"back"},
+  {id:"spear",name:"Spear",description:"A long spear with a compact metal head.",layer:"front"},
+  {id:"jade_staff",name:"Jade Staff",description:"A wood staff capped with jade.",layer:"front"},
+  {id:"recurve_bow",name:"Recurve Bow",description:"A curved bow and taut string.",layer:"back"},
+  {id:"war_fan",name:"War Fan",description:"A reinforced folding fan.",layer:"front"},
+  {id:"closed_umbrella",name:"Closed Umbrella",description:"A reinforced closed umbrella carried like a cane.",layer:"front"},
+  {id:"short_sword",name:"Short Sword",description:"A short side sword.",layer:"front"},
+  {id:"moon_polearm",name:"Moon Polearm",description:"A crescent-bladed polearm.",layer:"back"},
+  {id:"scroll_case",name:"Scroll Case",description:"A lacquered scroll case carried on the back.",layer:"back"},
+  {id:"lantern_staff",name:"Lantern Staff",description:"A staff with a small hanging lantern.",layer:"front"}
 ];
 const WORLD_SCALE=1.5;
 const CHARACTER_FRAME={width:48,height:64};
@@ -57,10 +95,36 @@ class HomeBaseScene extends Phaser.Scene{
     this.hair="long_black";this.outfit="black_hanfu";
     this.placement=null;this.facilityObjects=new Map();this.npcs=[];
     this.comboReady=new Set();this.comboLoading=new Map();
+    this.layerReady=new Set();this.layerLoading=new Map();this.queuedLayers=new Map();
+    this.accessory="none";this.weapon="none";this.accessorySprite=null;this.weaponSprite=null;
   }
   comboName(hair,outfit){return "human_"+hair+"_"+outfit;}
   textureName(hair,outfit,move,dir){return this.comboName(hair,outfit)+"_"+move+"_"+dir;}
   animationName(hair,outfit,move,dir){return this.comboName(hair,outfit)+":"+move+":"+dir;}
+  layerTextureName(slot,id,move,dir){return slot+"_"+id+"_"+move+"_"+dir;}
+  layerAnimationName(slot,id,move,dir){return slot+":"+id+":"+move+":"+dir;}
+  queueLayer(slot,id){
+    if(!id||id==="none")return;
+    const tag=slot+":"+id;if(this.queuedLayers.has(tag))return;
+    this.queuedLayers.set(tag,{slot,id});
+    DIRS.forEach(dir=>["idle","walk"].forEach(move=>{
+      const key=this.layerTextureName(slot,id,move,dir);
+      this.load.spritesheet(key,"/game-assets/pxl/anims/"+key+".png",{frameWidth:CHARACTER_FRAME.width,frameHeight:CHARACTER_FRAME.height});
+    }));
+  }
+  registerLayer(slot,id){
+    const tag=slot+":"+id;if(this.layerReady.has(tag))return;
+    DIRS.forEach(dir=>["idle","walk"].forEach(move=>{
+      const texture=this.layerTextureName(slot,id,move,dir);
+      if(!this.textures.exists(texture))return;
+      const key=this.layerAnimationName(slot,id,move,dir);
+      if(!this.anims.exists(key))this.anims.create({
+        key,frames:this.anims.generateFrameNumbers(texture,{start:0,end:move==="walk"?7:3}),
+        frameRate:move==="walk"?10:3,repeat:-1
+      });
+    }));
+    this.layerReady.add(tag);
+  }
   queueCombo(hair,outfit){
     const combo=this.comboName(hair,outfit);
     if(this.queuedCombos?.has(combo))return;
@@ -93,11 +157,14 @@ class HomeBaseScene extends Phaser.Scene{
     HAIR_OPTIONS.forEach(item=>this.load.image("preview-hair-"+item.id,"/game-assets/pxl/sprites/human_preview_hair_"+item.id+".png"));
     OUTFIT_OPTIONS.forEach(item=>this.load.image("preview-outfit-"+item.id,"/game-assets/pxl/sprites/human_preview_outfit_"+item.id+".png"));
     this.hair=this.options.session.getHair();this.outfit=this.options.session.getOutfit();
+    this.accessory=this.options.session.getAccessory();this.weapon=this.options.session.getWeapon();
     this.queueCombo(this.hair,this.outfit);
+    this.queueLayer("accessory",this.accessory);this.queueLayer("weapon",this.weapon);
     NPC_APPEARANCES.forEach(item=>this.queueCombo(item.hair,item.outfit));
   }
   create(){
     this.queuedCombos?.forEach(({hair,outfit})=>this.registerCombo(hair,outfit));
+    this.queuedLayers?.forEach(({slot,id})=>this.registerLayer(slot,id));
     this.cameras.main.setBackgroundColor("#19251f");
     this.add.image(0,0,"home-map").setOrigin(0).setScale(WORLD_SCALE).setDepth(-1000);
     this.anims.create({key:"water-glimmer",frames:this.anims.generateFrameNumbers("water-glimmer",{start:0,end:3}),frameRate:5,repeat:-1});
@@ -106,6 +173,9 @@ class HomeBaseScene extends Phaser.Scene{
     [[75,109],[116,183],[291,216],[357,142]].forEach(([x,y])=>this.add.image(x*WORLD_SCALE,y*WORLD_SCALE,"world_rock").setOrigin(.5,1).setScale(WORLD_SCALE).setDepth(y*WORLD_SCALE));
     this.player=this.add.sprite(200*WORLD_SCALE,154*WORLD_SCALE,this.textureName(this.hair,this.outfit,"idle","s")).setOrigin(.5,1).setDepth(156*WORLD_SCALE);
     this.player.play(this.animationName(this.hair,this.outfit,"idle","s"));
+    if(this.accessory!=="none")this.accessorySprite=this.add.sprite(this.player.x,this.player.y,this.layerTextureName("accessory",this.accessory,"idle","s")).setOrigin(.5,1).setDepth(this.player.depth+2);
+    if(this.weapon!=="none")this.weaponSprite=this.add.sprite(this.player.x,this.player.y,this.layerTextureName("weapon",this.weapon,"idle","s")).setOrigin(.5,1).setDepth(this.player.depth-1);
+    this.syncAppearanceLayers("s","idle");
     this.addNpcs();this.drawFacilities();
     const cam=this.cameras.main,el=this.options.viewport;
     // Preserve the former camera magnification; the world grid and every
@@ -115,7 +185,15 @@ class HomeBaseScene extends Phaser.Scene{
     cam.setZoom(Math.min(2.12,Math.max(.92,coverZoom*.77)));
     cam.centerOn(this.player.x,this.player.y-4*WORLD_SCALE);
     cam.startFollow(this.player,true,.075,.075);
-    this.events.on("update",()=>{if(this.player)this.player.setDepth(this.player.y+6*WORLD_SCALE);this.npcs.forEach(npc=>npc.setDepth(npc.y+5*WORLD_SCALE));});
+    this.events.on("update",()=>{
+      if(this.player){
+        this.player.setDepth(this.player.y+6*WORLD_SCALE);
+        this.accessorySprite?.setPosition(this.player.x,this.player.y).setDepth(this.player.depth+2);
+        const layer=WEAPON_OPTIONS.find(x=>x.id===this.weapon)?.layer||"back";
+        this.weaponSprite?.setPosition(this.player.x,this.player.y).setDepth(this.player.depth+(layer==="back"?-1:1));
+      }
+      this.npcs.forEach(npc=>npc.setDepth(npc.y+5*WORLD_SCALE));
+    });
     this.input.on("pointerdown",pointer=>{
       if(pointer.button!==0)return;
       const world=cam.getWorldPoint(pointer.x,pointer.y);
@@ -162,6 +240,51 @@ class HomeBaseScene extends Phaser.Scene{
     if(this.player)this.applySprite(this.player,this.lastDirection||"s",this.moving?"walk":"idle");
     return true;
   }
+  async ensureLayer(slot,id){
+    if(id==="none")return true;
+    const tag=slot+":"+id;if(this.layerReady.has(tag))return true;
+    if(this.layerLoading.has(tag))return this.layerLoading.get(tag);
+    const pending=new Promise((resolve,reject)=>{
+      const keys=[];
+      DIRS.forEach(dir=>["idle","walk"].forEach(move=>{
+        const key=this.layerTextureName(slot,id,move,dir);
+        if(!this.textures.exists(key)){keys.push(key);this.load.spritesheet(key,"/game-assets/pxl/anims/"+key+".png",{frameWidth:CHARACTER_FRAME.width,frameHeight:CHARACTER_FRAME.height});}
+      }));
+      if(!keys.length){this.registerLayer(slot,id);resolve(true);return;}
+      this.load.once("complete",()=>{
+        const missing=keys.filter(key=>!this.textures.exists(key));
+        if(missing.length){reject(new Error("Appearance layer failed to load: "+missing[0]));return;}
+        this.registerLayer(slot,id);resolve(true);
+      });
+      this.load.start();
+    });
+    this.layerLoading.set(tag,pending);
+    try{return await pending;}finally{this.layerLoading.delete(tag);}
+  }
+  syncAppearanceLayers(dir=this.lastDirection||"s",move=this.moving?"walk":"idle"){
+    if(this.accessory!=="none"&&this.accessorySprite){
+      this.accessorySprite.setVisible(true).play(this.layerAnimationName("accessory",this.accessory,move,dir),true);
+    }else this.accessorySprite?.setVisible(false);
+    if(this.weapon!=="none"&&this.weaponSprite){
+      this.weaponSprite.setVisible(true).play(this.layerAnimationName("weapon",this.weapon,move,dir),true);
+    }else this.weaponSprite?.setVisible(false);
+  }
+  async setAccessory(id){
+    if(id!=="none"&&!ACCESSORY_OPTIONS.some(x=>x.id===id))return false;
+    await this.ensureLayer("accessory",id);
+    this.accessory=id;
+    if(id!=="none"&&!this.accessorySprite)this.accessorySprite=this.add.sprite(this.player.x,this.player.y,this.layerTextureName("accessory",id,"idle",this.lastDirection||"s")).setOrigin(.5,1);
+    this.syncAppearanceLayers();
+    return true;
+  }
+  async setWeapon(id){
+    if(id!=="none"&&!WEAPON_OPTIONS.some(x=>x.id===id))return false;
+    await this.ensureLayer("weapon",id);
+    this.weapon=id;
+    if(id!=="none"&&!this.weaponSprite)this.weaponSprite=this.add.sprite(this.player.x,this.player.y,this.layerTextureName("weapon",id,"idle",this.lastDirection||"s")).setOrigin(.5,1);
+    this.syncAppearanceLayers();
+    return true;
+  }
   addNpcs(){
     const dirs=["s","sw","e"];
     [[245,108,0xa9b98b],[286,148,0xc6a06d],[150,175,0x9aadb1]].forEach(([x,y,tint],i)=>{
@@ -190,6 +313,7 @@ class HomeBaseScene extends Phaser.Scene{
   applySprite(sprite,dir,move){
     const key=this.animationName(this.hair,this.outfit,move,dir);
     sprite.play(this.anims.exists(key)?key:this.animationName(this.hair,this.outfit,"idle","s"),true);
+    if(sprite===this.player)this.syncAppearanceLayers(dir,move);
   }
   moveToTap(x,y){
     if(!this.player||this.moving||this.placement)return;
@@ -264,11 +388,17 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
   const renderAppearance=()=>{
     heading.textContent="HUMAN CHARACTER";
     const currentHair=session.getHair(),currentOutfit=session.getOutfit();
-    const hairCards=HAIR_OPTIONS.map(item=>"<button class='world-style-card "+(currentHair===item.id?"is-selected":"")+"' data-world-hair='"+item.id+"'><img src='/game-assets/pxl/sprites/human_preview_hair_"+item.id+".png' alt=''><span><b>"+item.name+"</b><small>"+item.description+"</small></span></button>").join("");
-    const outfitCards=OUTFIT_OPTIONS.map(item=>"<button class='world-style-card "+(currentOutfit===item.id?"is-selected":"")+"' data-world-outfit='"+item.id+"'><img src='/game-assets/pxl/sprites/human_preview_outfit_"+item.id+".png' alt=''><span><b>"+item.name+"</b><small>"+item.description+"</small></span></button>").join("");
-    worldPanel.innerHTML="<p class='world-drawer-copy'>Human base only: no animal ears and no tail. Choose hair and clothing independently; the same 48 × 64 body proportions and eight directions are preserved.</p>"+
-      "<section class='world-editor-section'><strong>HAIRSTYLE</strong><div class='world-style-grid'>"+hairCards+"</div></section>"+
-      "<section class='world-editor-section'><strong>OUTFIT</strong><div class='world-style-grid'>"+outfitCards+"</div></section>";
+    const currentAccessory=session.getAccessory(),currentWeapon=session.getWeapon();
+    const cards=(items,current,slot)=>items.map(item=>"<button class='world-style-card "+(current===item.id?"is-selected":"")+"' data-world-"+slot+"='"+item.id+"'><img src='/game-assets/pxl/sprites/human_preview_"+slot+"_"+item.id+".png' alt=''><span><b>"+item.name+"</b><small>"+item.description+"</small></span></button>").join("");
+    const hairCards=cards(HAIR_OPTIONS,currentHair,"hair");
+    const outfitCards=cards(OUTFIT_OPTIONS,currentOutfit,"outfit");
+    const accessoryCards="<button class='world-style-card "+(currentAccessory==="none"?"is-selected":"")+"' data-world-accessory='none'><span><b>None</b><small>No accessory equipped.</small></span></button>"+cards(ACCESSORY_OPTIONS,currentAccessory,"accessory");
+    const weaponCards="<button class='world-style-card "+(currentWeapon==="none"?"is-selected":"")+"' data-world-weapon='none'><span><b>Unarmed</b><small>No weapon or back equipment equipped.</small></span></button>"+cards(WEAPON_OPTIONS,currentWeapon,"weapon");
+    worldPanel.innerHTML="<p class='world-drawer-copy'>Human base only: no animal ears and no tail. Hair, outfit, accessories and weapons are independent appearance slots. The 48 × 64 body, foot pivot and eight directions stay consistent.</p>"+
+      "<section class='world-editor-section'><strong>HAIRSTYLE · 10 STYLES</strong><div class='world-style-grid'>"+hairCards+"</div></section>"+
+      "<section class='world-editor-section'><strong>OUTFIT · 10 SETS</strong><div class='world-style-grid'>"+outfitCards+"</div></section>"+
+      "<section class='world-editor-section'><strong>ACCESSORIES · 12 ITEMS</strong><div class='world-style-grid'>"+accessoryCards+"</div></section>"+
+      "<section class='world-editor-section'><strong>WEAPONS & GEAR · 12 ITEMS</strong><div class='world-style-grid'>"+weaponCards+"</div></section>";
   };
   const renderBuild=()=>{
     heading.textContent="FACILITY ARCHIVE";
@@ -391,6 +521,20 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
         session.setOutfit(nextOutfit);renderAppearance();
         setFeedback("Outfit saved. The human base proportions remain unchanged.");
       }catch(error){setFeedback("Outfit could not be loaded: "+esc(error.message));}
+    }else if(btn.dataset.worldAccessory!==undefined){
+      try{
+        const ready=await scene.setAccessory(btn.dataset.worldAccessory);
+        if(!ready)throw new Error("That accessory is not available.");
+        session.setAccessory(btn.dataset.worldAccessory);renderAppearance();
+        setFeedback("Accessory saved separately from the hairstyle and outfit.");
+      }catch(error){setFeedback("Accessory could not be loaded: "+esc(error.message));}
+    }else if(btn.dataset.worldWeapon!==undefined){
+      try{
+        const ready=await scene.setWeapon(btn.dataset.worldWeapon);
+        if(!ready)throw new Error("That weapon is not available.");
+        session.setWeapon(btn.dataset.worldWeapon);renderAppearance();
+        setFeedback("Weapon or gear saved as an independent appearance layer.");
+      }catch(error){setFeedback("Weapon could not be loaded: "+esc(error.message));}
     }
   };
   const inputChange=event=>{
