@@ -677,7 +677,22 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
     const input=event.target.closest("[data-world-builders]");if(!input)return;
     session.setBuilders(input.dataset.worldBuilders,input.value);renderFacilityDetail(input.dataset.worldBuilders);
   };
+  const dismissUnconfirmedShop=event=>{
+    if(!shopOriginal)return;
+    if(event?.type==="click"&&drawer.contains(event.target))return;
+    void exitAppearanceShop({restore:true});
+    setFeedback("Shop closed without purchase. Your original appearance has been restored.");
+  };
+  const onShopEscape=event=>{
+    if(event.key!=="Escape"||!shopOriginal)return;
+    event.preventDefault();
+    event.stopPropagation();
+    void exitAppearanceShop({restore:true});
+    setFeedback("Shop closed without purchase. Your original appearance has been restored.");
+  };
   root.addEventListener("click",updateClick);root.addEventListener("change",inputChange);
+  document.addEventListener("click",dismissUnconfirmedShop,true);
+  document.addEventListener("keydown",onShopEscape,true);
   root.querySelector("[data-world-close]")?.addEventListener("click",async()=>{
     if(shopOriginal){
       await exitAppearanceShop({restore:true,collapse:true});
@@ -696,6 +711,8 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
   return ()=>{
     disposed=true;if(tick!==null)window.clearInterval(tick);
     root.removeEventListener("click",updateClick);root.removeEventListener("change",inputChange);
+    document.removeEventListener("click",dismissUnconfirmedShop,true);
+    document.removeEventListener("keydown",onShopEscape,true);
     if(game)game.destroy(true);
   };
 }
