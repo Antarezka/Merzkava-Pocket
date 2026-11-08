@@ -237,3 +237,17 @@ sprite("world_tree",{w:30,h:38,pivot:[15,36]},c=>{
   c.px(8,7,"L");c.px(17,6,"L");c.px(20,11,"G");
 });
 sprite("world_rock",{w:16,h:10,pivot:[8,9]},c=>{c.ellipse(8,7,7,3,"K");c.ellipse(7,6,5,2,"D");c.px(5,5,"S");});
+
+// One shared pixel-art silhouette for all logs and one for all hoes; no per-tier art variants.
+pal({K:"#171715",s:"#75533b",S:"#bc9062",h:"#59645f",H:"#aeb5a6",c:"#8c613d",C:"#bd8a53",d:"#402e22",D:"#d4aa6d",B:"#291f19",g:"#d3c095",G:"#f2e4c4",m:"#4b504b",n:"#81877b",o:"#d5d1bd",p:"#e9dfc8"});
+sprite("item_wood_log",{w:32,h:32,pivot:[16,28]},c=>{
+  c.ellipse(16,27,13,2,"K");rect(c,5,10,20,14,"d");rect(c,6,9,18,13,"c");
+  c.hline(7,11,16,"S");c.vline(9,12,9,"C");c.vline(21,11,9,"s");line(c,10,12,10,21,"S");line(c,17,10,17,20,"S");
+  c.ellipse(24,15,6,7,"B");c.ellipse(24,15,5,6,"S");c.ellipse(24,15,3,4,"C");c.ellipse(24,15,2,3,"s");c.ellipse(24,15,1,1,"D");
+  c.px(7,22,"D");c.px(18,22,"S");c.hline(8,24,14,"B");
+});
+sprite("item_hoe",{w:32,h:32,pivot:[16,28]},c=>{
+  c.ellipse(16,27,10,2,"K");line(c,8,27,22,8,"B");line(c,9,26,23,8,"c");line(c,10,25,22,10,"C");
+  c.px(9,26,"D");c.px(12,22,"S");c.px(15,18,"S");c.hline(18,6,11,"B");c.vline(18,6,5,"B");c.hline(19,5,10,"h");c.vline(28,6,4,"H");
+  c.px(27,10,"h");c.px(26,9,"H");c.px(20,7,"o");c.px(22,7,"H");c.px(24,7,"o");
+});

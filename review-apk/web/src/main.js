@@ -2,6 +2,7 @@ import { animate } from "animejs";
 import "./styles.css";
 import { economyMarkup, mountEconomy } from "./economy.js";
 import { mountHomeBase } from "./home-base.js";
+import { dailyLoginMarkup, mountDailyLogin } from "./daily-login.js";
 
 const root = document.querySelector("#app");
 if (!root) throw new Error("Pocket root not found.");
@@ -722,7 +723,7 @@ function renderHome() {
   routeHistory.length = 0;
   renderPage("home");
 }
-function renderPage(destination, depth="") {
+function renderPage(destination, transitionDuration=420) {
   disposeCurrent();
   currentRoute=destination;
   let pageMarkup="";
@@ -770,9 +771,7 @@ function renderPage(destination, depth="") {
   } else if(destination==="economy"){
     pageMarkup=economyMarkup();
   } else if(destination==="daily-login"){
-    pageMarkup=`
-      <main class="page-stage"><span class="eyebrow">DAILY LOG-IN / RECORD</span><h1>A new day begins.</h1><p class="page-lead">Your daily check-in has its own dedicated destination.</p>
-      <article class="destination-card"><span>DAILY RECORD</span><strong>Log-in calendar</strong><small>Reward history and claim results will use authoritative local records.</small></article></main>`;
+    pageMarkup=dailyLoginMarkup();
   } else {
     pageMarkup=`
       <main class="page-stage"><span class="eyebrow">SETTINGS / PREFERENCES</span><h1>Make it yours.</h1><p class="page-lead">Display and account controls.</p>
@@ -783,8 +782,9 @@ function renderPage(destination, depth="") {
       <article class="destination-card personal-section"><div class="settings-section-heading"><i class="settings-symbol personal-symbol" aria-hidden="true"></i><span>PERSONAL STUFF</span><small>YOUR POCKET PROFILE</small></div><section class="personal-setting"><div class="personal-account-icon" aria-hidden="true"></div><div class="personal-account-copy"><span>ACCOUNT & ACCESS</span><strong>${escapeHtml(accessIdentity?.displayName||"Pocket User")}</strong><small>${(accessIdentity?.role||"player").toUpperCase()} SESSION</small></div><button class="logout-button" data-signout><i class="logout-symbol" aria-hidden="true"></i>LOCK / SIGN OUT</button></section></article></main>`;
   }
   if(destination==="home")pageMarkup+=accessBufferMarkup("APP RELOAD");
-  const backMarkup=destination==="home"?"":'<button type="button" class="page-back" data-page-back aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5 7.5 12l7 7M8 12h11"/></svg></button>';
-  root.innerHTML = pageMarkup + backMarkup + navigationMarkup();
+  const backMarkup=(destination==="home"||destination==="daily-login")?"":'<button type="button" class="page-back" data-page-back aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5 7.5 12l7 7M8 12h11"/></svg></button>';
+  const shellNavigation=destination==="daily-login"?"":navigationMarkup();
+  root.innerHTML = pageMarkup + backMarkup + shellNavigation;
   applyTheme();
   applyPaperGlow();
   root.querySelectorAll("[data-theme-choice]").forEach(button=>button.addEventListener("click",()=>setTheme(button.dataset.themeChoice)));
@@ -817,8 +817,8 @@ function renderPage(destination, depth="") {
     }
   });
   const page=root.querySelector(".home-stage,.page-stage");
-  if(!reducedMotion()&&page)animate(page,{opacity:[0,1],translateY:[8,0],duration:420,ease:"outCubic"});
-  mountMenu();
+  if(!reducedMotion()&&page)animate(page,{opacity:[0,1],translateY:[8,0],duration:transitionDuration,ease:"outCubic"});
+  if(destination!=="daily-login")mountMenu();
   if(destination==="economy"){
     const menuCleanup=currentDisposer;
     const economyCleanup=mountEconomy(root.querySelector("[data-economy-root]"),accessIdentity);
@@ -830,6 +830,8 @@ function renderPage(destination, depth="") {
     void mountHomeBase(root.querySelector("[data-home-base-root]"),accessIdentity,navigateBack,()=>currentRoute==="home-base")
       .then(cleanup=>{if(currentRoute==="home-base")homeBaseCleanup=cleanup;else cleanup();})
       .catch(error=>{const host=root.querySelector("[data-home-base-root]");if(host)host.textContent="Home Base error: "+error.message;});
+  }else if(destination==="daily-login"){
+    currentDisposer=mountDailyLogin(root.querySelector("[data-daily-login-root]"),()=>navigateBack(2000));
   }
 }
 
@@ -1068,15 +1070,15 @@ function navigate(destination) {
 
 }
 
-function navigateBack() {
+function navigateBack(transitionDuration=420) {
   const previous = routeHistory.pop();
   if (previous) {
-    renderPage(previous);
+    renderPage(previous,transitionDuration);
 
     return;
   }
   if (currentRoute !== "home") {
-    renderPage("home");
+    renderPage("home",transitionDuration);
 
   }
 }
