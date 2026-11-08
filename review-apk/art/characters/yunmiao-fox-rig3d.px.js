@@ -484,8 +484,6 @@ const MOVES3 = Object.fromEntries(Object.entries(MOVES).map(([name,M])=>[
     }
   }
 ]));
-const POSES = Object.fromEntries(Object.entries(MOVES3).map(([name,M])=>[name,M.pose]));
-
 // The complete PXL body: compact chibi skeleton, layered skirt, wide sleeves,
 // crossed collar, obi, hair-tail overlap and a hand-held carved lantern.
 const parts3 = (j,p) => {
@@ -639,7 +637,7 @@ const RIG_MOVES=Object.fromEntries(Object.entries(MOVES).map(([name,M])=>[
     draw:drawFace
   }
 ]));
-rig3d("yunmiao",{...FIG,n:8,head:undefined,parts:parts3,blocks:true,moves:RIG_MOVES});
+rig3d("yunmiao",{...FIG,n:16,parts:parts3,blocks:true,moves:RIG_MOVES});
 card("yunmiao",{is:"Yunmiao, a white-lavender fox-spirit lantern keeper in a layered rose-and-jade hanfu; 48 px chibi body, eight isometric headings, 24 authored actions",cells:{"pocket/48x64":"✓","iso/8-directions":"✓"},vary:{motion:"idle, walk, run, jump, attack, lunge, skill, fish, meditate, interact, gather, social and reaction clips"}});
 
 // UI and combat support art. These are independent assets, not enlarged game sprites.
