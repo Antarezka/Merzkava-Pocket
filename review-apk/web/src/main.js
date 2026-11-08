@@ -65,8 +65,39 @@ function applyPaperGlow() {
   document.documentElement.style.setProperty("--paper-glow-intensity",(value/100).toFixed(2));
   const slider=root.querySelector("[data-paper-glow]");
   const output=root.querySelector("[data-paper-glow-value]");
+  const knob=root.querySelector("[data-paper-arc-knob]");
   if(slider){slider.value=String(value);slider.style.setProperty("--glow-level",value+"%");}
   if(output)output.textContent=value+"%";
+  if(knob){
+    const t=value/100;
+    let y;
+    if(t<.12)y=49-(4*t/.12);
+    else if(t>.88)y=45+(4*(t-.88)/.12);
+    else y=45-16*Math.sin(Math.PI*((t-.12)/.76));
+    knob.style.left=(9+82*t)+"%";
+    knob.style.top=y+"px";
+  }
+}
+function paperLightControlMarkup() {
+  return `
+    <section class="visual-setting paper-light-setting">
+      <div class="paper-light-heading"><strong>Paper Light</strong><small>A soft, breathing glow rising from the paper behind your navigation dock.</small></div>
+      <div class="paper-light-control stellar-paper-control">
+        <div class="paper-light-head"><label for="paper-light-intensity">LIGHT INTENSITY</label><output data-paper-glow-value>${paperGlow}%</output></div>
+        <div class="paper-stellar-arc" data-paper-arc>
+          <div class="paper-arc-glow"></div>
+          <div class="paper-arc-tail paper-arc-tail-left"></div>
+          <div class="paper-arc-curve"></div>
+          <div class="paper-arc-tail paper-arc-tail-right"></div>
+          <div class="paper-starfield" aria-hidden="true">
+            <i style="left:4%;top:41px;font-size:3px;opacity:.35">✦</i><i style="left:16%;top:9px;font-size:2px;opacity:.7">✧</i><i style="left:24%;top:67px;font-size:2px;opacity:.25">·</i><i style="left:31%;top:25px;font-size:3px;opacity:.9">✦</i><i style="left:39%;top:83px;font-size:2px;opacity:.45">·</i><i style="left:45%;top:5px;font-size:2px;opacity:.3">✧</i><i style="left:52%;top:52px;font-size:3px;opacity:.65">✦</i><i style="left:58%;top:17px;font-size:2px;opacity:.4">·</i><i style="left:76%;top:39px;font-size:2px;opacity:.8">✧</i><i style="left:83%;top:8px;font-size:3px;opacity:.35">✦</i><i style="left:93%;top:71px;font-size:2px;opacity:.6">·</i><i style="left:11%;top:91px;font-size:2px;opacity:.5">✧</i><i style="left:19%;top:47px;font-size:2px;opacity:.85">·</i><i style="left:36%;top:58px;font-size:2px;opacity:.3">✦</i><i style="left:48%;top:95px;font-size:2px;opacity:.7">·</i><i style="left:64%;top:75px;font-size:2px;opacity:.25">✧</i><i style="left:71%;top:3px;font-size:2px;opacity:.6">·</i><i style="left:88%;top:49px;font-size:2px;opacity:.4">✦</i><i style="left:6%;top:76px;font-size:2px;opacity:.75">·</i><i style="left:28%;top:101px;font-size:2px;opacity:.35">✧</i><i style="left:42%;top:36px;font-size:2px;opacity:.55">·</i><i style="left:61%;top:91px;font-size:2px;opacity:.8">✦</i><i style="left:79%;top:84px;font-size:2px;opacity:.3">·</i><i style="left:96%;top:19px;font-size:2px;opacity:.65">✧</i><i style="left:14%;top:61px;font-size:2px;opacity:.2">·</i><i style="left:55%;top:68px;font-size:2px;opacity:.5">✧</i><i style="left:69%;top:44px;font-size:2px;opacity:.3">·</i><i style="left:90%;top:96px;font-size:2px;opacity:.75">✦</i><i style="left:34%;top:12px;font-size:2px;opacity:.4">·</i><i style="left:73%;top:99px;font-size:2px;opacity:.55">✧</i><i style="left:3%;top:15px;font-size:2px;opacity:.25">·</i><i style="left:47%;top:77px;font-size:2px;opacity:.9">·</i><i style="left:85%;top:28px;font-size:2px;opacity:.45">✧</i>
+          </div>
+          <span class="paper-arc-knob" data-paper-arc-knob aria-hidden="true"><i class="paper-arc-moon"></i><i class="paper-arc-sun"></i></span>
+          <input id="paper-light-intensity" class="paper-arc-input" data-paper-glow type="range" min="0" max="100" step="1" value="${paperGlow}" aria-label="Paper light intensity">
+        </div>
+        <div class="paper-light-scale"><span>DIM</span><span>BRIGHT</span></div>
+      </div>
+    </section>`;
 }
 function setPaperGlow(next) {
   const value=Number(next);
@@ -748,7 +779,7 @@ function renderPage(destination, depth="") {
       <main class="page-stage"><span class="eyebrow">SETTINGS / PREFERENCES</span><h1>Make it yours.</h1><p class="page-lead">Display and account controls.</p>
       <article class="destination-card visual-section"><div class="settings-section-heading"><i class="settings-symbol visual-symbol" aria-hidden="true"></i><span>VISUAL</span><small>APPEARANCE & AMBIENCE</small></div>
         <section class="visual-setting"><strong>Display Theme</strong><div class="theme-options"><button data-theme-choice="dark" aria-pressed="false">DARK THEME</button><button data-theme-choice="light" aria-pressed="false">WHITE THEME</button></div></section>
-        <section class="visual-setting paper-light-setting"><div class="paper-light-heading"><strong>Paper Light</strong><small>A soft, breathing glow rising from the paper behind your navigation dock.</small></div><div class="paper-light-control"><div class="paper-light-head"><label for="paper-light-intensity">LIGHT INTENSITY</label><output data-paper-glow-value>${paperGlow}%</output></div><input id="paper-light-intensity" class="paper-light-range" data-paper-glow type="range" min="0" max="100" step="1" value="${paperGlow}" style="--glow-level:${paperGlow}%" aria-label="Paper light intensity"><div class="paper-light-scale"><span>DIM</span><span>BRIGHT</span></div></div></section>
+        ${paperLightControlMarkup()}
       </article>
       <article class="destination-card personal-section"><div class="settings-section-heading"><i class="settings-symbol personal-symbol" aria-hidden="true"></i><span>PERSONAL STUFF</span><small>YOUR POCKET PROFILE</small></div><section class="personal-setting"><div class="personal-account-icon" aria-hidden="true"></div><div class="personal-account-copy"><span>ACCOUNT & ACCESS</span><strong>${escapeHtml(accessIdentity?.displayName||"Pocket User")}</strong><small>${(accessIdentity?.role||"player").toUpperCase()} SESSION</small></div><button class="logout-button" data-signout><i class="logout-symbol" aria-hidden="true"></i>LOCK / SIGN OUT</button></section></article></main>`;
   }
