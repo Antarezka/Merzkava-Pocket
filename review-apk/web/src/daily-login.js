@@ -4,7 +4,7 @@ import "./daily-login.css";
 const reducedMotion=()=>window.matchMedia?.("(prefers-reduced-motion: reduce)").matches??false;
 
 export function dailyLoginMarkup(){
- return \`
+ return `
  <main class="daily-login-scene" data-daily-login-root aria-label="Daily Login Japanese shop">
   <section class="dl-layer dl-outside" data-dl-outside aria-label="Bagian depan kedai Jepang">
    <div class="dl-night-sky" aria-hidden="true"><i class="dl-star dl-star-one"></i><i class="dl-star dl-star-two"></i><i class="dl-star dl-star-three"></i><span class="dl-moon"></span></div>
