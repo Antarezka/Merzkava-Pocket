@@ -351,6 +351,7 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
   if(!root)return ()=>{};
   let disposed=false,session,game=null,scene=null,snapshot=null,tick=null;
   let feedback="Tap a place to see what can be done here.";
+  let activeAppearanceTab="outfit";
   root.innerHTML="<div class='world-empty'>Opening the World Archive...</div>";
   const setFeedback=value=>{feedback=value;const node=root.querySelector("[data-world-feedback]");if(node)node.textContent=value;};
   try{session=await openHomeBaseSession(identity);}
@@ -385,20 +386,93 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
     worldPanel.innerHTML="<p class='world-drawer-copy'>A quiet, open homestead with room to grow. Tap any building on the map to inspect it.</p>"+
       "<div class='world-card-grid'>"+rows.map(row=>"<button class='world-card' data-world-location='"+row[0]+"'><b>"+row[1]+"</b><small>"+row[2]+"</small><em>OWNED · LEVEL 1</em></button>").join("")+"</div>";
   };
+  const refreshShopPreview=()=>{
+    const hair=session.getHair(),outfit=session.getOutfit(),accessory=session.getAccessory(),weapon=session.getWeapon();
+    const body=worldPanel.querySelector("[data-shop-body]");
+    const accessoryLayer=worldPanel.querySelector("[data-shop-accessory]");
+    const weaponBack=worldPanel.querySelector("[data-shop-weapon-back]");
+    const weaponFront=worldPanel.querySelector("[data-shop-weapon-front]");
+    if(body)body.style.backgroundImage="url('/game-assets/pxl/anims/human_"+hair+"_"+outfit+"_idle_s.png')";
+    if(accessoryLayer)accessoryLayer.style.backgroundImage=accessory==="none"?"none":"url('/game-assets/pxl/anims/accessory_"+accessory+"_idle_s.png')";
+    const weaponItem=WEAPON_OPTIONS.find(x=>x.id===weapon);
+    if(weaponBack)weaponBack.style.backgroundImage=weapon!=="none"&&weaponItem?.layer==="back"?"url('/game-assets/pxl/anims/weapon_"+weapon+"_idle_s.png')":"none";
+    if(weaponFront)weaponFront.style.backgroundImage=weapon!=="none"&&weaponItem?.layer!=="back"?"url('/game-assets/pxl/anims/weapon_"+weapon+"_idle_s.png')":"none";
+    const title=worldPanel.querySelector("[data-shop-character-title]");
+    if(title)title.textContent=OUTFIT_OPTIONS.find(x=>x.id===outfit)?.name||"Custom character";
+    const labels=[
+      ["hair",HAIR_OPTIONS.find(x=>x.id===hair)?.name],
+      ["outfit",OUTFIT_OPTIONS.find(x=>x.id===outfit)?.name],
+      ["accessory",ACCESSORY_OPTIONS.find(x=>x.id===accessory)?.name||"None"],
+      ["weapon",WEAPON_OPTIONS.find(x=>x.id===weapon)?.name||"Unarmed"]
+    ];
+    for(const [slot,value] of labels){const node=worldPanel.querySelector("[data-shop-current='"+slot+"']");if(node)node.textContent=value||"—";}
+  };
+  const renderShopCatalog=()=>{
+    const catalog=worldPanel.querySelector("[data-shop-catalog]");
+    if(!catalog)return;
+    const groups={
+      hair:{items:HAIR_OPTIONS,current:session.getHair(),slot:"hair"},
+      outfit:{items:OUTFIT_OPTIONS,current:session.getOutfit(),slot:"outfit"},
+      accessory:{items:ACCESSORY_OPTIONS,current:session.getAccessory(),slot:"accessory"},
+      weapon:{items:WEAPON_OPTIONS,current:session.getWeapon(),slot:"weapon"}
+    };
+    const group=groups[activeAppearanceTab]||groups.outfit;
+    const cards=group.items.map(item=>{
+      const selected=group.current===item.id;
+      const image="/game-assets/pxl/sprites/human_preview_"+group.slot+"_"+item.id+".png";
+      return "<button class='world-shop-item "+(selected?"is-selected":"")+"' data-world-"+group.slot+"='"+item.id+"' aria-pressed='"+selected+"'>"+
+        "<span class='world-shop-item-art'><img src='"+image+"' alt='' loading='lazy'></span>"+
+        "<span class='world-shop-item-copy'><b>"+item.name+"</b><small>"+item.description+"</small></span>"+
+        "<em>"+(selected?"EQUIPPED":"SELECT")+"</em></button>";
+    }).join("");
+    const none=group.slot==="accessory"||group.slot==="weapon"
+      ?"<button class='world-shop-item world-shop-none "+(group.current==="none"?"is-selected":"")+"' data-world-"+group.slot+"='none' aria-pressed='"+(group.current==="none")+"'><span class='world-shop-item-art world-shop-empty-art'>—</span><span class='world-shop-item-copy'><b>"+(group.slot==="weapon"?"Unarmed":"No accessory")+"</b><small>Leave this appearance slot empty.</small></span><em>"+(group.current==="none"?"EQUIPPED":"SELECT")+"</em></button>":"";
+    catalog.innerHTML=none+cards;
+    worldPanel.querySelectorAll("[data-world-shop-tab]").forEach(button=>{
+      const active=button.dataset.worldShopTab===activeAppearanceTab;
+      button.classList.toggle("is-active",active);
+      button.setAttribute("aria-selected",String(active));
+    });
+    const category=worldPanel.querySelector("[data-shop-category-title]");
+    if(category)category.textContent=group.slot==="outfit"?"OUTFIT COLLECTION":group.slot.toUpperCase()+" COLLECTION";
+    const count=worldPanel.querySelector("[data-shop-count]");
+    if(count)count.textContent=group.items.length+" ITEMS";
+  };
   const renderAppearance=()=>{
-    heading.textContent="HUMAN CHARACTER";
-    const currentHair=session.getHair(),currentOutfit=session.getOutfit();
-    const currentAccessory=session.getAccessory(),currentWeapon=session.getWeapon();
-    const cards=(items,current,slot)=>items.map(item=>"<button class='world-style-card "+(current===item.id?"is-selected":"")+"' data-world-"+slot+"='"+item.id+"'><img src='/game-assets/pxl/sprites/human_preview_"+slot+"_"+item.id+".png' alt=''><span><b>"+item.name+"</b><small>"+item.description+"</small></span></button>").join("");
-    const hairCards=cards(HAIR_OPTIONS,currentHair,"hair");
-    const outfitCards=cards(OUTFIT_OPTIONS,currentOutfit,"outfit");
-    const accessoryCards="<button class='world-style-card "+(currentAccessory==="none"?"is-selected":"")+"' data-world-accessory='none'><span><b>None</b><small>No accessory equipped.</small></span></button>"+cards(ACCESSORY_OPTIONS,currentAccessory,"accessory");
-    const weaponCards="<button class='world-style-card "+(currentWeapon==="none"?"is-selected":"")+"' data-world-weapon='none'><span><b>Unarmed</b><small>No weapon or back equipment equipped.</small></span></button>"+cards(WEAPON_OPTIONS,currentWeapon,"weapon");
-    worldPanel.innerHTML="<p class='world-drawer-copy'>Human base only: no animal ears and no tail. Hair, outfit, accessories and weapons are independent appearance slots. The 48 × 64 body, foot pivot and eight directions stay consistent.</p>"+
-      "<section class='world-editor-section'><strong>HAIRSTYLE · 10 STYLES</strong><div class='world-style-grid'>"+hairCards+"</div></section>"+
-      "<section class='world-editor-section'><strong>OUTFIT · 10 SETS</strong><div class='world-style-grid'>"+outfitCards+"</div></section>"+
-      "<section class='world-editor-section'><strong>ACCESSORIES · 12 ITEMS</strong><div class='world-style-grid'>"+accessoryCards+"</div></section>"+
-      "<section class='world-editor-section'><strong>WEAPONS & GEAR · 12 ITEMS</strong><div class='world-style-grid'>"+weaponCards+"</div></section>";
+    heading.textContent="WARDROBE SHOP";
+    drawer.classList.add("is-shop");
+    drawer.classList.remove("is-collapsed");
+    worldPanel.innerHTML=
+      "<div class='world-shop-layout'>"+
+        "<section class='world-shop-preview'>"+
+          "<div class='world-shop-avatar-stage' aria-label='Live full character preview'>"+
+            "<div class='world-shop-avatar-layer world-shop-avatar-weapon world-shop-avatar-back' data-shop-weapon-back></div>"+
+            "<div class='world-shop-avatar-layer world-shop-avatar-body' data-shop-body></div>"+
+            "<div class='world-shop-avatar-layer world-shop-avatar-weapon world-shop-avatar-front' data-shop-weapon-front></div>"+
+            "<div class='world-shop-avatar-layer world-shop-avatar-accessory' data-shop-accessory></div>"+
+            "<span class='world-shop-preview-label'>LIVE PREVIEW</span>"+
+          "</div>"+
+          "<div class='world-shop-preview-details'><small>YOUR CHARACTER</small><strong data-shop-character-title></strong>"+
+            "<div class='world-shop-current-grid'>"+
+              "<span>HAIR <b data-shop-current='hair'></b></span>"+
+              "<span>OUTFIT <b data-shop-current='outfit'></b></span>"+
+              "<span>ACCESSORY <b data-shop-current='accessory'></b></span>"+
+              "<span>WEAPON <b data-shop-current='weapon'></b></span>"+
+            "</div>"+
+            "<p>Changes appear on the full character immediately. All four slots save independently.</p>"+
+          "</div>"+
+        "</section>"+
+        "<nav class='world-shop-tabs' aria-label='Appearance categories' role='tablist'>"+
+          "<button type='button' data-world-shop-tab='hair' role='tab'>HAIR <small>10</small></button>"+
+          "<button type='button' data-world-shop-tab='outfit' role='tab'>OUTFITS <small>10</small></button>"+
+          "<button type='button' data-world-shop-tab='accessory' role='tab'>ACCESSORIES <small>12</small></button>"+
+          "<button type='button' data-world-shop-tab='weapon' role='tab'>WEAPONS <small>12</small></button>"+
+        "</nav>"+
+        "<div class='world-shop-catalog-head'><strong data-shop-category-title>OUTFIT COLLECTION</strong><small data-shop-count></small></div>"+
+        "<div class='world-shop-catalog' data-shop-catalog></div>"+
+      "</div>";
+    renderShopCatalog();
+    refreshShopPreview();
   };
   const renderBuild=()=>{
     heading.textContent="FACILITY ARCHIVE";
@@ -484,11 +558,14 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
     scene:[scene]
   });
   const updateClick=async event=>{
-    const btn=event.target.closest("[data-world-action],[data-world-appearance],[data-world-build],[data-world-location],[data-world-facility],[data-world-start-placement],[data-world-open-build],[data-world-rest],[data-world-forage],[data-world-water],[data-world-gather],[data-world-hair],[data-world-outfit]");
+    const btn=event.target.closest("[data-world-action],[data-world-appearance],[data-world-build],[data-world-location],[data-world-facility],[data-world-start-placement],[data-world-open-build],[data-world-rest],[data-world-forage],[data-world-water],[data-world-gather],[data-world-hair],[data-world-outfit],[data-world-accessory],[data-world-weapon],[data-world-shop-tab]");
     if(!btn)return;
     drawer.classList.remove("is-collapsed");
-    if(btn.dataset.worldAction==="places"){scene.stopPlacement();renderPlaces();}
-    else if(btn.dataset.worldAction==="build"||btn.hasAttribute("data-world-build"))renderBuild();
+    if(btn.dataset.worldShopTab){
+      activeAppearanceTab=btn.dataset.worldShopTab;
+      renderShopCatalog();
+    }else if(btn.dataset.worldAction==="places"){scene.stopPlacement();drawer.classList.remove("is-shop");renderPlaces();}
+    else if(btn.dataset.worldAction==="build"||btn.hasAttribute("data-world-build")){drawer.classList.remove("is-shop");renderBuild();}
     else if(btn.dataset.worldAction==="appearance"||btn.hasAttribute("data-world-appearance"))renderAppearance();
     else if(btn.dataset.worldLocation){
       const id=btn.dataset.worldLocation,record=snapshot.facilities[id],pos=record?.map_position?locationOf(record.map_position.col,record.map_position.row):{x:200,y:154};
@@ -511,29 +588,29 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
       try{
         const nextHair=btn.dataset.worldHair,ready=await scene.setAppearance(nextHair,session.getOutfit());
         if(!ready)throw new Error("That hairstyle is not available.");
-        session.setHair(nextHair);renderAppearance();
-        setFeedback("Hairstyle saved. All eight directions use the same human base.");
+        session.setHair(nextHair);renderShopCatalog();refreshShopPreview();
+        setFeedback("Hairstyle equipped on the live character.");
       }catch(error){setFeedback("Hairstyle could not be loaded: "+esc(error.message));}
     }else if(btn.dataset.worldOutfit){
       try{
         const nextOutfit=btn.dataset.worldOutfit,ready=await scene.setAppearance(session.getHair(),nextOutfit);
         if(!ready)throw new Error("That outfit is not available.");
-        session.setOutfit(nextOutfit);renderAppearance();
-        setFeedback("Outfit saved. The human base proportions remain unchanged.");
+        session.setOutfit(nextOutfit);renderShopCatalog();refreshShopPreview();
+        setFeedback("Outfit equipped on the live character.");
       }catch(error){setFeedback("Outfit could not be loaded: "+esc(error.message));}
     }else if(btn.dataset.worldAccessory!==undefined){
       try{
         const ready=await scene.setAccessory(btn.dataset.worldAccessory);
         if(!ready)throw new Error("That accessory is not available.");
-        session.setAccessory(btn.dataset.worldAccessory);renderAppearance();
-        setFeedback("Accessory saved separately from the hairstyle and outfit.");
+        session.setAccessory(btn.dataset.worldAccessory);renderShopCatalog();refreshShopPreview();
+        setFeedback("Accessory equipped independently from hair and outfit.");
       }catch(error){setFeedback("Accessory could not be loaded: "+esc(error.message));}
     }else if(btn.dataset.worldWeapon!==undefined){
       try{
         const ready=await scene.setWeapon(btn.dataset.worldWeapon);
         if(!ready)throw new Error("That weapon is not available.");
-        session.setWeapon(btn.dataset.worldWeapon);renderAppearance();
-        setFeedback("Weapon or gear saved as an independent appearance layer.");
+        session.setWeapon(btn.dataset.worldWeapon);renderShopCatalog();refreshShopPreview();
+        setFeedback("Weapon or gear equipped as an independent layer.");
       }catch(error){setFeedback("Weapon could not be loaded: "+esc(error.message));}
     }
   };
@@ -542,7 +619,10 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
     session.setBuilders(input.dataset.worldBuilders,input.value);renderFacilityDetail(input.dataset.worldBuilders);
   };
   root.addEventListener("click",updateClick);root.addEventListener("change",inputChange);
-  root.querySelector("[data-world-close]")?.addEventListener("click",()=>drawer.classList.toggle("is-collapsed"));
+  root.querySelector("[data-world-close]")?.addEventListener("click",()=>{
+    drawer.classList.remove("is-shop");
+    drawer.classList.toggle("is-collapsed");
+  });
   renderPlaces();
   drawer.classList.add("is-collapsed");
   tick=window.setInterval(()=>{
