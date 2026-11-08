@@ -514,6 +514,32 @@ sprite("daily_login_shop_interior",{w:360,h:800,pivot:[180,799]},c=>{
   c.ellipse(302,291,13,13,"w");c.vline(302,280,11,"D");c.hline(302,291,8,"D");
   c.px(302,289,"X");c.px(301,290,"X");
 
+  // Kitchen exhaust flue, copper pans, ladles and a short noren over the prep pass.
+  rect(c,55,300,36,40,"K");rect(c,59,304,28,34,"D");
+  rect(c,65,293,16,15,"K");rect(c,68,287,10,11,"B");
+  rect(c,71,280,4,11,"C");c.hline(67,279,12,"q");
+  rect(c,146,302,88,6,"K");rect(c,149,304,82,3,"L");
+  for(let i=0;i<3;i++){
+    const x=157+i*24;
+    c.vline(x,308,15,"q");c.ellipse(x,325,7,8,"K");
+    c.ellipse(x,323,5,6,i===1?"J":"s");
+    c.px(x,320,"F");c.vline(x,331,7,"D");
+  }
+  rect(c,239,310,92,7,"K");rect(c,242,312,86,3,"M");
+  // Hanging indigo kitchen cloth with weighted lower hems.
+  for(let i=0;i<4;i++){
+    const x=245+i*21;
+    rect(c,x,318,17,27,"K");rect(c,x+2,320,13,22,i%2===0?"A":"B");
+    c.hline(x+2,321,13,"L");c.hline(x+3,340,11,"q");
+  }
+  // Spice shelf: ceramic jars, tea canisters and a small sake flask.
+  rect(c,245,357,91,7,"K");rect(c,248,359,85,3,"L");
+  rect(c,252,339,13,18,"K");rect(c,254,341,9,14,"W");
+  rect(c,273,344,15,13,"K");rect(c,275,346,11,9,"e");
+  rect(c,296,337,12,20,"K");rect(c,298,339,8,16,"T");
+  rect(c,316,345,13,12,"K");rect(c,318,347,9,8,"J");
+  c.hline(251,343,14,"g");c.px(278,347,"Y");c.px(300,342,"t");
+
   // Stove niche, iron range and stock pot with lid.
   rect(c,20,337,116,94,"K");rect(c,25,342,106,83,"D");
   rect(c,30,347,96,72,"B");rect(c,34,351,88,64,"z");
