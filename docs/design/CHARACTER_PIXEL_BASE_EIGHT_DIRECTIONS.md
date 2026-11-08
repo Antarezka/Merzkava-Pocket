@@ -1,7 +1,7 @@
 # Merzkava Pocket — Character Pixel Base, Eight Directions & Art Style
 
-**Status:** HARD REFERENCE — character proportions, pixel-art rendering, and eight-direction coverage  
-**Scope:** Character base anatomy and sprite presentation for Merzkava Pocket  
+**Status:** TOP-PRIORITY HARD REFERENCE — supersedes the earlier 64 × 64 draft and the former five mixed body/style presets  
+**Scope:** Human character base, modular hairstyles/outfits, body proportions, eight directions, and matching world scale  
 **Authoring:** Augusto Carvalho's `pxl` (`.px.js` source; PNG, sprite-sheet JSON, and animation exports)  
 **Visual reference:** User-supplied Cotienlo “Tiểu Hồ Tiên” character sheet. Use it as a guide to proportions, pixel treatment, silhouette clarity, and directional readability. Do not copy its character identity or costume design.
 
@@ -12,54 +12,58 @@
 1. Draw character art with **Augusto Carvalho's `pxl` pixel-art workflow**. The editable source is `.px.js`; exported game art is pixel PNG/sprite sheets with JSON metadata.
 2. **No SVG for characters, character animation, or game-world character art.** Do not replace pixel sprites with vector paths, SVG illustrations, or CSS-drawn characters.
 3. Preserve a deliberately authored pixel grid. Do not blur, smooth-scale, or paint over the pixels with a soft raster brush.
-4. The reference's anatomy, pixel rendering, silhouette, and eight-direction readability are hard references. Costume design is a separate design task and must not be copied from the reference.
-5. Keep anatomy dimensions consistent in all eight directions. Hair, ears, tails, held objects, clothing, and effects are additional silhouette layers; they must not distort the underlying body proportions.
+4. The supplied Cotienlo sheet is the highest-priority visual reference for human chibi proportions, pixel-cluster rendering, silhouette clarity, and eight-direction readability.
+5. The initial Pocket base is **human only**: no animal ears, no tail, no muzzle, and no furry anatomy. Furry variants are a separate future character family and must not leak into the human base.
+6. Hairstyle and outfit are independent selections. A hairstyle must work with every outfit; an outfit must work with every hairstyle without changing the shared body anatomy.
+7. Keep anatomy dimensions consistent in all eight directions. Hair, clothing, held objects, and effects are silhouette layers; they must not distort the underlying body proportions.
 6. Review the native-size sprite and an enlarged nearest-neighbour preview before accepting it. A sprite that looks attractive only when enlarged is not approved.
 
-## 2. Standard sprite cell and anatomy measurements
+## 2. Standard sprite cell and human anatomy measurements
 
-**Working cell: 64 × 64 px per direction.** This is the recommended Pocket production grid, not a claim about the original source file's dimensions. It gives the chibi body enough breathing room for directional silhouettes, long hair, ears, and a tail.
+**Working cell: 48 × 64 px per direction.** This is the Pocket human gameplay frame. It supersedes the earlier 64 × 64 draft. The head remains large and expressive, the neck is extremely short, and the body is a compact human chibi silhouette beneath layered clothing.
 
 | Part | Working size | Placement / proportion |
 |---|---:|---|
-| Full body, excluding optional protruding accessories | about 28–32 × 58–60 px | Centered on the cell; feet share one ground line |
-| Head, hair-cap excluded; ears excluded | **24–26 × 20–22 px** | Roughly the upper third of the visible body |
-| Face area within head | about 14–17 × 12–14 px | Small, readable facial features; do not enlarge the face independently |
-| Neck | **3–4 × 2–3 px** | Very short; mostly hidden by hair, collar, or shoulder line |
-| Shoulder span | about 19–22 px | Narrow and rounded; avoid adult-proportioned shoulders |
-| Torso, shoulder to waist | **18–20 × 15–17 px** | Compact, visibly shorter than the head's height |
-| Waist / pelvis block | about 14–18 × 4–6 px | Narrow transition between torso and lower body |
-| Legs and feet together | about 14–18 × 13–15 px | Short chibi lower body; small feet, stable ground contact |
-| Optional ears | about 5–8 px each in width; height varies by character | Outside the head measurement |
-| Optional tail / large hair mass | character-specific | Separate silhouette volume; never counted as torso width |
+| Full human sprite, including hairstyle and clothing | **about 34–38 × 60–62 px** | Centered in the 48 × 64 frame; shared foot anchor |
+| Head, excluding hair | **20–21 × 19–20 px** | Rounded human head; no ears or animal features |
+| Visible face area | about 13–15 × 12–14 px | Compact eyes and tiny mouth/nose clusters |
+| Neck | **3 × 3 px** | Very short; largely covered by the collar |
+| Shoulder span | about 18–20 px | Rounded, narrow chibi shoulders |
+| Torso, shoulder to waist | **18–20 × 14–16 px** | Short, compact body core |
+| Waist / sash zone | about 16–18 × 4 px | Clear transition under crossed lapels |
+| Legs / shoes | about 16–20 × 13–16 px | Short lower body; clothing may cover most of the legs |
+| Hair silhouette | hairstyle-specific, generally within the head width plus 2–4 px | No pointed animal-ear shapes; hair remains separate from the head anatomy |
+| Clothing silhouette | outfit-specific, generally 32–38 px wide | Broad readable robe silhouette; do not widen the shoulders to fit sleeves |
 
 ### Proportion hierarchy
 
-- **Head:** large and visually dominant. The head height should read as approximately one third of the character's body height, excluding tall ears and decorative hair ornaments.
+- **Head:** visually dominant, approximately one third of the visible body height. The face is contained within the head and is not independently enlarged.
 - **Neck:** almost absent at gameplay scale. Do not draw a long exposed neck.
-- **Torso:** short, compact, and slightly narrower than the head. The waist transition is clear but not anatomically realistic.
-- **Lower body:** short. Feet remain small and close to the ground anchor.
-- **Overall read:** cute, compact, and balanced; never turn the character into a realistic human scaled down.
+- **Torso:** short and compact, with a clear shoulder-to-waist transition.
+- **Lower body:** short, with small feet and a stable shared ground anchor.
+- **Silhouette:** long hair and long robes may extend toward the ground, but the anatomical body stays the same across all styles.
+- **Human-only boundary:** no ears, tail, horns, animal muzzle, or furry body parts on this base.
 
-### Pixel-coordinate guide for the 64 × 64 cell
+### Pixel-coordinate guide for the 48 × 64 cell
 
-Use this as an initial construction guide, then adjust the silhouette without changing the target proportions:
+The following is the shared construction guide used by the initial PXL human base:
 
-- Ground / foot anchor: approximately **y = 61**.
-- Lowest body pixels: approximately **y = 59–62**.
-- Leg and foot block: approximately **y = 47–61**.
-- Pelvis / waist transition: approximately **y = 43–49**.
-- Torso: approximately **y = 27–45**.
-- Neck: approximately **y = 25–28**.
-- Head mass: approximately **y = 5–27**; ears and ornamental hair may extend above this.
-- Body centerline: approximately **x = 32**.
-- The body core should normally remain within **x = 18–46**. Hair, ears, tails, and held props may extend farther, provided they remain inside the cell or are intentionally handled by an explicitly documented oversize frame.
+- Frame size: **48 × 64 px**.
+- Body centreline: **x = 24**.
+- Ground / foot anchor: **y = 62**.
+- Lowest body pixels: **y = 60–63**.
+- Leg and shoe area: approximately **y = 46–63**.
+- Waist / sash transition: approximately **y = 37–43**.
+- Torso and sleeve area: approximately **y = 25–43**.
+- Neck: approximately **x = 22–25, y = 24–27**.
+- Head mass: approximately **x = 14–34, y = 5–25**.
+- The hair may extend beyond the head mass but must remain inside the frame; the clothing may extend to approximately **x = 7–41** while keeping the body centred.
 
-These coordinates are a shared starting template, not a demand that every costume have the same outer silhouette. Do not resize the head or torso to make a costume fit; adjust the costume layers instead.
+These coordinates are a shared starting template, not a demand that every outfit have the same outer contour. Do not resize the head, neck, or torso to fit a garment; alter the clothing layer instead.
 
 ## 3. Eight-direction hard reference
 
-Every playable character must have a complete and consistently named **eight-direction set**. The supplied sheet demonstrates the important idea: the same character can be recognized from front, diagonal, side, and rear views—not merely by mirroring one front sprite.
+Every playable human character must have a complete and consistently named **eight-direction set**. The same human must remain recognisable from front, diagonal, profile, and rear views. Do not rotate or mirror a front image to fake the other directions.
 
 Use this canonical direction order for file names, metadata, and animation tags:
 
@@ -76,22 +80,42 @@ Use this canonical direction order for file names, metadata, and animation tags:
 
 ### Direction rules
 
-- All eight views use the same 64 × 64 cell, body scale, ground anchor, head-to-body ratio, and palette logic.
-- The front view (`S`) is the facial identity reference. The back view (`N`) must retain the same head mass, hair length, ear placement, tail attachment, and costume volume.
-- Diagonal views must visibly sit between the adjacent cardinal views. Do not draw a front sprite and rotate it by 45 degrees.
-- Side views (`E`, `W`) must show a believable profile: nose/face projection, hair depth, chest-to-back contour, and tail attachment.
-- Do not automatically mirror one side to create the other when the character has asymmetric hair ornaments, clothing details, accessories, held items, or tail direction. Draw the actual opposite-facing view.
-- Keep the head and torso centered over the same foot anchor. Direction may change the visible contour, but not the character's height or apparent body size.
-- Preserve recognisable identifiers in every view: hair silhouette, ear shape, tail shape, head ornament, and major costume colour blocks.
-- Props held by the character must swap hands or disappear behind the body naturally as the view changes. They must not float at a fixed screen coordinate.
-- For isometric gameplay, map world movement to these screen-space directions consistently. Do not silently reverse `N` and `S` between characters or scenes.
+- All eight views use the same **48 × 64 px** cell, body scale, foot anchor, head-to-body ratio, and palette logic.
+- The front view (`S`) is the facial identity reference. The back view (`N`) must retain the same hair length, hair volume, and clothing silhouette.
+- Diagonal views must visibly sit between adjacent cardinal views. They must not be front sprites rotated by 45 degrees.
+- Side views (`E`, `W`) must show an actual human profile: forehead/nose/chin contour, hair depth, chest-to-back contour, and garment overlap.
+- Do not automatically mirror one side to create the other when the hairstyle, parting, hair clip, sash, sleeve, or other costume details are asymmetric.
+- Keep the head and torso centred over the same foot anchor. Direction may change the contour but not the character's height or apparent body size.
+- Hair must remain attached to the scalp and turn with the head. Long locks should layer correctly over the shoulders and back.
+- Outfit panels and sleeves must occlude the body correctly as the character turns. Crossed lapels should not swap sides arbitrarily.
+- Held props must follow the hand and disappear behind the body naturally when appropriate.
+- The eight direction tags must remain consistent with Pocket's isometric movement mapping; do not reverse `N` and `S` between actors or scenes.
+
+### Modular hairstyle and outfit system
+
+The human base uses one shared anatomy and two independent appearance selections.
+
+**Initial hairstyles:**
+- `long_black` — long straight grouped locks.
+- `soft_bob` — rounded short bob.
+- `half_up` — gathered half-up knot with long side locks.
+- `high_tie` — high gathered hairstyle.
+- `long_waves` — long stepped waves.
+
+**Initial outfits:**
+- `black_hanfu` — ink-black layered hanfu with crossed lapels and restrained antique-gold edging.
+- `ivory_layers` — warm ivory panels with pale jade lining.
+- `jade_scholar` — long jade scholar robe.
+- `rose_ceremony` — broad muted-rose ceremonial mantle with antique-gold accents.
+- `traveller_robe` — asymmetric traveller robe with leather-toned accents.
+
+Any of the five hairstyles must be compatible with any of the five outfits. This creates 25 visual combinations while keeping the anatomy and animation frame dimensions unchanged. Costume design is deliberately separate from the original Cotienlo garment; only the pixel-rendering approach is referenced.
 
 ### Animation readiness
 
-The eight standing directions are the minimum directional foundation. Walk, idle, run, attack, gather, interact, sit, and skill/action animations should be authored as named `pxl` animation tags built on the same directional rig or matching frame sets. Motion must preserve foot contact and avoid uncontrolled bobbing. A direction-specific animation must not change the character's proportions between frames.
+The standing eight-direction set is the minimum foundation. Walk, idle, run, attack, gather, interact, sit, and skill/action animations should use the same 48 × 64 frame, foot anchor, and anatomy. Motion must preserve foot contact and avoid uncontrolled bobbing. A direction-specific animation must not change body proportions between frames.
 
 ---
-
 ## 4. Detailed art-style specification
 
 ### 4.1 Overall visual identity
@@ -153,14 +177,13 @@ This palette describes the reference's rendering mood. It does **not** prescribe
 - Expressions should be readable through a few intentional pixels: neutral, happy, focused, sleepy, or determined.
 - Keep facial placement consistent across the eight directions. Profile views need a simplified side-facing eye and nose contour rather than a front face pasted onto the head.
 
-### 4.7 Hair, ears, tails, and soft accessories
+### 4.7 Hair and soft accessories
 
-- Hair should be a major part of the character silhouette. Give it a clear outer mass, a fringe shape, side locks, and a few distinct back locks.
-- Long hair should follow gravity and movement, with grouped locks and clean stepped ends.
-- Animal ears, when a character has them, are part of the head silhouette and must have consistent attachment points and inner-ear colour blocks across directions.
-- A fluffy tail is built from a broad base and a few large tuft clusters. Its root must remain anatomically attached and its shape must turn convincingly with the character.
-- Ribbons, clips, beads, flowers, and ornaments should be small accents. Do not allow decoration to overpower the face.
-- These traits are examples of the reference's shape treatment, not mandatory features for every Merzkava character.
+- Hair is a major part of the silhouette. Give it a clear outer mass, fringe shape, side locks, and distinct back locks.
+- Long hair follows gravity and movement, with grouped locks and clean stepped ends.
+- Hair ornaments, ribbons, beads, and clips are optional small accents. They must not overpower the face or create false animal-ear silhouettes.
+- The human base must not contain animal ears, a tail, a muzzle, or furry anatomy.
+- Furry characters will be authored as a separate future family using their own hard reference and body adaptation. Do not mix those features into this human base.
 
 ### 4.8 Clothing material rendering — not costume design
 
@@ -196,7 +219,7 @@ Do not replace the reference with:
 
 The supplied reference presents one character through several useful views: a prominent full-body sprite, a compact directional turnaround, and separate portrait / representative-frame artwork. Pocket may use the same **separation of asset roles**:
 
-1. **Gameplay sprite:** the native 64 × 64 directional frame set; clear silhouette and minimal detail.
+1. **Gameplay sprite:** the native 48 × 64 human directional frame set; clear silhouette and minimal detail.
 2. **Character turnaround:** all eight directions at the same scale and ground anchor for approval.
 3. **Portrait / representative image:** a separately composed, higher-detail pixel-art or illustrated presentation asset; it must not be substituted for the gameplay sprite.
 4. **Nameplate / title ornament:** a separate UI asset, not baked into the character sprite.
@@ -219,12 +242,27 @@ Use the actual `pxl` pipeline for authoring and verification:
 
 Useful project reference: https://github.com/augusto-scarvalho/claude-pxl
 
-## 7. Approval checklist
+## 7. World-scale relationship
+
+The character is the world-scale reference for Pocket's isometric scene.
+
+- The human gameplay sprite is authored at **48 × 64 px**.
+- Existing world map artwork, facility/building sprites, trees, rocks, water effects, and world-space placement coordinates use a shared **1.5× scale multiplier** relative to the former 32 × 42 human sprite baseline.
+- The map's logical facility grid and saved tile coordinates remain unchanged. Their rendered world positions are scaled together, so saved building locations do not drift.
+- Buildings and scenery must not be scaled independently against the human sprite. Preserve their former relative proportions while moving the entire scene to the new character scale.
+- Character frames are already authored at the new native size and must not receive the world-art 1.5× multiplier a second time.
+- Keep the Phaser renderer in pixel-art / nearest-neighbour mode. Do not apply blur or smooth interpolation to enlarged pixel assets.
+
+---
+
+## 8. Approval checklist
 
 A character is not ready for Pocket integration until all of these pass:
 
 - [ ] Uses `pxl` source, not SVG or CSS drawing.
-- [ ] Uses the 64 × 64 directional cell and consistent foot anchor.
+- [ ] Uses the 48 × 64 directional cell and consistent foot anchor.
+- [ ] Human base contains no animal ears, tail, muzzle, or furry body parts.
+- [ ] Hair and outfit are independently selectable and all 25 combinations use the same base anatomy.
 - [ ] Head, neck, torso, waist, and lower-body measurements remain within the defined proportion range.
 - [ ] All eight direction tags exist and are recognisable.
 - [ ] Diagonal and profile views are genuinely redrawn, not mechanically rotated front sprites.
