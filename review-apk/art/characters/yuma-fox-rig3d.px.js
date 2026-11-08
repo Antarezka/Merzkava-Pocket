@@ -465,31 +465,45 @@ function victoryPose(i,yaw){
     expression:"laugh",foxfire:i===3||i===4?1:0
   };
 }
+function smilePose(i,yaw){
+  const p=idlePose(i,yaw);
+  return {...p,head:[0,-1,-2,-1,0,1,0,0][i%8],tail:[-4,-2,1,4,5,3,0,-3][i%8],expression:"smile"};
+}
+function blinkPose(i,yaw){
+  const p=idlePose(i,yaw),closed=[7,8,9,23,24,25].includes(i%32);
+  return {...p,head:[0,0,-1,-2,-1,0,1,0][i%8],expression:closed?"blink":"smile"};
+}
+function turnaroundPose(i,yaw){return {...idlePose(3,yaw),down:0,expression:"smile"};}
+
+// Dense sub-frame animation: authored actions gain more precise arcs and secondary motion.
 const MOVES = {
-  idle:{frames:32,ms:140,pose:idlePose},
-  walk:{frames:8,ms:110,pose:walkPose},
-  run:{frames:8,ms:82,pose:runPose},
-  attack:{frames:10,ms:76,pose:attackPose},
-  skill:{frames:16,ms:90,pose:skillPose},
-  jump:{frames:8,ms:90,pose:jumpPose},
-  lunge:{frames:8,ms:75,pose:lungePose},
-  fish:{frames:8,ms:150,pose:fishPose},
-  meditate:{frames:8,ms:180,pose:meditatePose},
-  interact:{frames:8,ms:120,pose:interactPose},
-  pickup:{frames:8,ms:90,pose:pickupPose},
-  gather:{frames:8,ms:105,pose:pickupPose},
-  bow:{frames:8,ms:135,pose:bowPose},
-  laugh:{frames:8,ms:145,pose:laughPose},
-  hit:{frames:4,ms:75,pose:hitPose},
-  knockback:{frames:6,ms:90,pose:knockbackPose},
-  death:{frames:10,ms:130,pose:deathPose},
-  revive:{frames:10,ms:120,pose:revivePose},
-  lantern_raise:{frames:6,ms:120,pose:(i,h)=>lanternPose(i,h,true)},
-  lantern_lower:{frames:6,ms:120,pose:(i,h)=>lanternPose(i,h,false)},
-  sit:{frames:8,ms:180,pose:sitPose},
-  sleep:{frames:8,ms:210,pose:sleepPose},
-  victory:{frames:8,ms:125,pose:victoryPose},
-  hurt:{frames:6,ms:85,pose:hitPose}
+  idle:{frames:64,baseFrames:32,ms:70,pose:idlePose},
+  walk:{frames:48,baseFrames:8,ms:18,pose:walkPose},
+  run:{frames:48,baseFrames:8,ms:14,pose:runPose},
+  attack:{frames:60,baseFrames:10,ms:13,pose:attackPose},
+  skill:{frames:96,baseFrames:16,ms:15,pose:skillPose},
+  jump:{frames:48,baseFrames:8,ms:15,pose:jumpPose},
+  lunge:{frames:48,baseFrames:8,ms:13,pose:lungePose},
+  fish:{frames:48,baseFrames:8,ms:25,pose:fishPose},
+  meditate:{frames:48,baseFrames:8,ms:30,pose:meditatePose},
+  interact:{frames:48,baseFrames:8,ms:20,pose:interactPose},
+  pickup:{frames:48,baseFrames:8,ms:15,pose:pickupPose},
+  gather:{frames:48,baseFrames:8,ms:18,pose:pickupPose},
+  bow:{frames:48,baseFrames:8,ms:23,pose:bowPose},
+  laugh:{frames:48,baseFrames:8,ms:24,pose:laughPose},
+  hit:{frames:24,baseFrames:4,ms:13,pose:hitPose},
+  knockback:{frames:36,baseFrames:6,ms:15,pose:knockbackPose},
+  death:{frames:60,baseFrames:10,ms:22,pose:deathPose},
+  revive:{frames:60,baseFrames:10,ms:20,pose:revivePose},
+  lantern_raise:{frames:36,baseFrames:6,ms:20,pose:(i,h)=>lanternPose(i,h,true)},
+  lantern_lower:{frames:36,baseFrames:6,ms:20,pose:(i,h)=>lanternPose(i,h,false)},
+  sit:{frames:48,baseFrames:8,ms:30,pose:sitPose},
+  sleep:{frames:48,baseFrames:8,ms:35,pose:sleepPose},
+  victory:{frames:48,baseFrames:8,ms:21,pose:victoryPose},
+  hurt:{frames:36,baseFrames:6,ms:15,pose:hitPose},
+  smile:{frames:48,baseFrames:8,ms:20,pose:smilePose},
+  blink:{frames:48,baseFrames:32,ms:20,pose:blinkPose},
+  turnaround:{frames:1,baseFrames:1,ms:1000,pose:turnaroundPose}
 };
 
 // Convert each movement into a directional rig3d clip. The pose is evaluated
@@ -650,22 +664,52 @@ const drawFace=(c,j,p)=>{
   c.setSocket("lantern",...j.screen(hand));
   c.setSocket("hand",...j.screen(hand));
   c.setBox("hurt",10,10,28,50);
-  if(["attack","lunge","skill"].includes(p.move||"")&&p.hit)c.setBox("hit",17,16,29,28);
+  if(p.hitWindow)c.setBox("hit",17,16,29,28);
 };
 
 // Poses preserve the same foot anchor and proportions in every view.
 // The tail, long hair and skirt have their own delayed secondary motion.
 const FIG={body:{h:48,hip:HIP,torso:TORSO,neck:NECK,thigh:THIGH,shin:SHIN,upper:UPPER,fore:FORE,ankle:1.35,hips:HIPW,shoulders:[0,SHW,-1]},
   w:W,h:H,pivot:[OX,OY],ink:"k",surface:{soft:0.48}};
+const LOOP_MOVES=new Set(["idle","walk","run","fish","meditate","interact","laugh","sit","sleep","victory","smile","blink"]);
+const blendPoseValue=(a,b,t)=>{
+  if(typeof a==="number"&&typeof b==="number")return a+(b-a)*t;
+  if(Array.isArray(a)&&Array.isArray(b)&&a.length===b.length)return a.map((v,i)=>blendPoseValue(v,b[i],t));
+  if(a&&b&&typeof a==="object"&&typeof b==="object"&&!Array.isArray(a)&&!Array.isArray(b)){
+    const out={};for(const key of new Set([...Object.keys(a),...Object.keys(b)]))
+      out[key]=a[key]===undefined?b[key]:b[key]===undefined?a[key]:blendPoseValue(a[key],b[key],t);
+    return out;
+  }
+  return t<0.5?a:b;
+};
+const sampleMovePose=(name,M,frame,heading)=>{
+  if(M.baseFrames<=1)return M.pose(0,heading);
+  const phase=frame/M.frames*M.baseFrames,a=Math.min(M.baseFrames-1,Math.floor(phase)),t=phase-a;
+  const b=a+1<M.baseFrames?a+1:(LOOP_MOVES.has(name)?0:a);
+  return blendPoseValue(M.pose(a,heading),M.pose(b,heading),t);
+};
 const RIG_MOVES=Object.fromEntries(Object.entries(MOVES).map(([name,M])=>[
   name,{
     frames:M.frames,ms:M.ms,dirs:ALL8,
-    pose:(i,h)=>{const pose=M.pose(i,180-h);return {...pose,move:name,hit:name==="attack"||name==="skill"||name==="lunge",elbow:pose.elbow??[-1,0.5,0]};},
+    pose:(i,h)=>{
+      const pose=sampleMovePose(name,M,i,180-h);
+      const handHeight=Math.max(...(pose.hands||[]).map(hand=>hand[2]));
+      const elbow=pose.elbow??((["skill","lantern_raise","lantern_lower"].includes(name)&&handHeight>-2)?[-1,0.5,-1]:undefined);
+      const bothAir=Array.isArray(pose.lift)&&pose.lift.length===2&&pose.lift.every(v=>v>0.25);
+      const hitWindow=["attack","lunge","skill"].includes(name)&&i>=M.frames*0.25&&i<=M.frames*0.7;
+      return {...pose,frame:i,move:name,hit:["attack","skill","lunge"].includes(name),hitWindow,
+        ...(elbow?{elbow}:{}),...(bothAir?{air:true}:{})};
+    },
     draw:drawFace
   }
 ]));
-rig3d("yuma",{...FIG,n:16,parts:parts3,blocks:true,moves:RIG_MOVES});
-card("yuma",{is:"Yuma, a white-lavender fox-spirit lantern keeper in a layered rose-and-jade hanfu; 48 px chibi body, eight isometric headings, 24 authored actions",cells:{"iso/24ppm":"✓","hd2d/24ppm":"✓"},vary:{part:"hair ornaments, lantern prop and garment details"}});
+
+rig3d("yuma",{...FIG,n:8,parts:parts3,blocks:true,moves:RIG_MOVES});
+card("yuma",{is:"Yuma, a white-lavender fox-spirit lantern keeper in a richly layered rose-and-jade hanfu; 48x64 gameplay cell, eight full perspective directions, detailed movement and expression clips",cells:{"iso/24ppm":"✓","hd2d/24ppm":"✓"},vary:{part:"hair ornaments, embroidered skirt, layered sleeves, lantern and expressions"}});
+sheet("yuma_8_perspectives",[
+  "yuma_turnaround_n","yuma_turnaround_ne","yuma_turnaround_e","yuma_turnaround_se",
+  "yuma_turnaround_s","yuma_turnaround_sw","yuma_turnaround_w","yuma_turnaround_nw"
+],{cols:4,pad:4});
 
 // UI and combat support art. These are independent assets, not enlarged game sprites.
 sprite("yuma_title_banner",{w:128,h:28,pivot:[64,14]},c=>{
