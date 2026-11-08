@@ -64,7 +64,7 @@ class HomeBaseScene extends Phaser.Scene{
   queueCombo(hair,outfit){
     const combo=this.comboName(hair,outfit);
     if(this.queuedCombos?.has(combo))return;
-    this.queuedCombos??=new Set();this.queuedCombos.add(combo);
+    this.queuedCombos??=new Map();this.queuedCombos.set(combo,{hair,outfit});
     DIRS.forEach(dir=>["idle","walk"].forEach(move=>{
       const key=this.textureName(hair,outfit,move,dir);
       this.load.spritesheet(key,"/game-assets/pxl/anims/"+key+".png",{frameWidth:CHARACTER_FRAME.width,frameHeight:CHARACTER_FRAME.height});
@@ -92,10 +92,7 @@ class HomeBaseScene extends Phaser.Scene{
     NPC_APPEARANCES.forEach(item=>this.queueCombo(item.hair,item.outfit));
   }
   create(){
-    this.queuedCombos?.forEach(combo=>{
-      const [,hair,outfit]=combo.split("_");
-      this.registerCombo(hair,outfit);
-    });
+    this.queuedCombos?.forEach(({hair,outfit})=>this.registerCombo(hair,outfit));
     this.cameras.main.setBackgroundColor("#19251f");
     this.add.image(0,0,"home-map").setOrigin(0).setScale(WORLD_SCALE).setDepth(-1000);
     this.anims.create({key:"water-glimmer",frames:this.anims.generateFrameNumbers("water-glimmer",{start:0,end:3}),frameRate:5,repeat:-1});
@@ -260,10 +257,13 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
       "<div class='world-card-grid'>"+rows.map(row=>"<button class='world-card' data-world-location='"+row[0]+"'><b>"+row[1]+"</b><small>"+row[2]+"</small><em>OWNED · LEVEL 1</em></button>").join("")+"</div>";
   };
   const renderAppearance=()=>{
-    heading.textContent="CHARACTER STYLE";
-    const current=session.getAppearance();
-    worldPanel.innerHTML="<p class='world-drawer-copy'>Choose a visual family. The player and every resident use the selected proportions and animation set.</p>"+
-      "<div class='world-style-grid'>"+STYLE_OPTIONS.map(s=>"<button class='world-style-card "+(current===s.id?"is-selected":"")+"' data-world-style='"+s.id+"'><img src='/game-assets/pxl/sprites/style_preview_"+s.id+".png' alt=''><span><b>"+s.name+"</b><small>"+s.description+"</small></span></button>").join("")+"</div>";
+    heading.textContent="HUMAN CHARACTER";
+    const currentHair=session.getHair(),currentOutfit=session.getOutfit();
+    const hairCards=HAIR_OPTIONS.map(item=>"<button class='world-style-card "+(currentHair===item.id?"is-selected":"")+"' data-world-hair='"+item.id+"'><img src='/game-assets/pxl/sprites/human_preview_hair_"+item.id+".png' alt=''><span><b>"+item.name+"</b><small>"+item.description+"</small></span></button>").join("");
+    const outfitCards=OUTFIT_OPTIONS.map(item=>"<button class='world-style-card "+(currentOutfit===item.id?"is-selected":"")+"' data-world-outfit='"+item.id+"'><img src='/game-assets/pxl/sprites/human_preview_outfit_"+item.id+".png' alt=''><span><b>"+item.name+"</b><small>"+item.description+"</small></span></button>").join("");
+    worldPanel.innerHTML="<p class='world-drawer-copy'>Human base only: no animal ears and no tail. Choose hair and clothing independently; the same 48 × 64 body proportions and eight directions are preserved.</p>"+
+      "<section class='world-editor-section'><strong>HAIRSTYLE</strong><div class='world-style-grid'>"+hairCards+"</div></section>"+
+      "<section class='world-editor-section'><strong>OUTFIT</strong><div class='world-style-grid'>"+outfitCards+"</div></section>";
   };
   const renderBuild=()=>{
     heading.textContent="FACILITY ARCHIVE";
@@ -331,7 +331,7 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
   };
   scene.options={
     viewport,session,
-    onReady:s=>{s.setStyle(session.getAppearance());},
+    onReady:s=>{s.setAppearance(session.getHair(),session.getOutfit());},
     onInvalidMove:()=>setFeedback("That part of the ground is not walkable. Tap an open path or clearing."),
     onFacilityTap:id=>renderLocation(id),
     onNpcTap:i=>{
@@ -349,7 +349,7 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
     scene:[scene]
   });
   const updateClick=async event=>{
-    const btn=event.target.closest("[data-world-action],[data-world-appearance],[data-world-build],[data-world-location],[data-world-facility],[data-world-start-placement],[data-world-open-build],[data-world-rest],[data-world-forage],[data-world-water],[data-world-gather],[data-world-style]");
+    const btn=event.target.closest("[data-world-action],[data-world-appearance],[data-world-build],[data-world-location],[data-world-facility],[data-world-start-placement],[data-world-open-build],[data-world-rest],[data-world-forage],[data-world-water],[data-world-gather],[data-world-hair],[data-world-outfit]");
     if(!btn)return;
     drawer.classList.remove("is-collapsed");
     if(btn.dataset.worldAction==="places"){scene.stopPlacement();renderPlaces();}
@@ -372,9 +372,20 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
     else if(btn.dataset.worldGather){
       const site=btn.textContent.includes("DRAW WATER")?"well":"meadow",result=session.startGather(btn.dataset.worldGather,site);
       setFeedback(result.ok?"Gathering started. Output is credited when the saved process completes.":result.message);snapshot=session.snapshot();
-    }else if(btn.dataset.worldStyle){
-      session.setAppearance(btn.dataset.worldStyle);scene.setStyle(btn.dataset.worldStyle);renderAppearance();
-      setFeedback("Appearance saved for this player. Residents now use the same visual family.");
+    }else if(btn.dataset.worldHair){
+      try{
+        const nextHair=btn.dataset.worldHair,ready=await scene.setAppearance(nextHair,session.getOutfit());
+        if(!ready)throw new Error("That hairstyle is not available.");
+        session.setHair(nextHair);renderAppearance();
+        setFeedback("Hairstyle saved. All eight directions use the same human base.");
+      }catch(error){setFeedback("Hairstyle could not be loaded: "+esc(error.message));}
+    }else if(btn.dataset.worldOutfit){
+      try{
+        const nextOutfit=btn.dataset.worldOutfit,ready=await scene.setAppearance(session.getHair(),nextOutfit);
+        if(!ready)throw new Error("That outfit is not available.");
+        session.setOutfit(nextOutfit);renderAppearance();
+        setFeedback("Outfit saved. The human base proportions remain unchanged.");
+      }catch(error){setFeedback("Outfit could not be loaded: "+esc(error.message));}
     }
   };
   const inputChange=event=>{
