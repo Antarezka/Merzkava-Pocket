@@ -543,9 +543,10 @@
  position:absolute;
  z-index:12;
  right:4.5%;
- top:48.5%;
- width:clamp(54px,15vw,78px);
- aspect-ratio:64/112;
+ top:auto;
+ bottom:12%;
+ width:clamp(44px,12vw,62px);
+ aspect-ratio:64/132;
  pointer-events:none;
  filter:drop-shadow(2px 4px 3px #1119);
 }
@@ -555,8 +556,8 @@
  writing-mode:vertical-rl;pointer-events:none;color:#493225;
  text-shadow:0 1px #fff0d1;
 }
-.dl-kanban-pxl span{top:27%;font:700 clamp(12px,3.3vw,17px)/1.1 serif;letter-spacing:.08em}
-.dl-kanban-pxl small{top:57%;font:600 clamp(6px,1.7vw,9px)/1 serif;letter-spacing:.08em}
+.dl-kanban-pxl span{top:21%;font:700 clamp(12px,3.3vw,17px)/1.1 serif;letter-spacing:.08em}
+.dl-kanban-pxl small{top:49%;font:600 clamp(6px,1.7vw,9px)/1 serif;letter-spacing:.08em}
 .dl-door-frame.is-rattling{animation:dl-track-rattle-strong 58ms linear infinite}
 @keyframes dl-track-rattle-strong{
  0%,100%{transform:translate3d(0,0,0)}
@@ -570,7 +571,7 @@
 .dl-door-track-bottom{box-shadow:0 -2px 4px #08070688,inset 0 -1px #d1b27b}
 @media(max-width:390px){
  .dl-art-stage{width:100vw}
- .dl-kanban-pxl{right:3%;top:49%;width:clamp(52px,15vw,66px)}
+ .dl-kanban-pxl{right:3%;bottom:12%;width:clamp(42px,12vw,54px)}
 }
 
 /* Traditional low-watt incandescent bulb: warm pool of light, slow breathing only. */
@@ -664,3 +665,30 @@
  .dl-door-frame.is-rattling{animation:none}
  .dl-bulb-lamp{opacity:.72}
 }
+
+
+/* Soba preparation props: tools, flour and rice storage are placed on the working counter. */
+.dl-noodle-board{
+ position:absolute;z-index:9;left:10%;bottom:38%;width:76px;height:24px;
+ border:3px solid #4b3222;background:repeating-linear-gradient(90deg,#a87948 0 12px,#c89b63 12px 15px);
+ box-shadow:0 3px 3px #17120e88;
+}
+.dl-noodle-board:before{
+ content:"";position:absolute;left:12px;top:-8px;width:46px;height:6px;
+ border-radius:50%;background:#c99f69;border:1px solid #65472e;
+}
+.dl-noodle-board span{
+ position:absolute;left:13px;top:4px;width:48px;height:2px;
+ background:#f0d7a5;box-shadow:0 4px #89623e,0 8px #e0c18d;
+}
+.dl-noodle-board i{position:absolute;right:5px;top:-12px;width:3px;height:13px;background:#d6b37a;border-radius:3px}
+.dl-noodle-board b{position:absolute;left:5px;top:-12px;width:3px;height:13px;background:#d6b37a;border-radius:3px}
+.dl-rice-tub{
+ position:absolute;z-index:9;left:25%;bottom:38%;width:31px;height:27px;
+ border:3px solid #4b3223;border-radius:4px 4px 8px 8px;
+ background:repeating-linear-gradient(90deg,#9a6a3e 0 5px,#c18a50 5px 8px);
+ box-shadow:0 3px 3px #17120e88;
+}
+.dl-rice-tub:before{content:"";position:absolute;left:-4px;right:-4px;top:-5px;height:6px;border:2px solid #5a3c26;border-radius:50%;background:#d5b580}
+.dl-rice-tub i{position:absolute;left:2px;right:2px;top:8px;height:2px;background:#e1bd83}
+.dl-rice-tub b{position:absolute;left:4px;right:4px;bottom:4px;height:2px;background:#603f29}
