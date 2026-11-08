@@ -71,9 +71,8 @@ function applyPaperGlow() {
   if(knob){
     const t=value/100;
     let y;
-    if(t<.12)y=49-(4*t/.12);
-    else if(t>.88)y=45+(4*(t-.88)/.12);
-    else y=45-16*Math.sin(Math.PI*((t-.12)/.76));
+    const q=2*t-1;
+    y=49-20*Math.pow(1-q*q,2);
     knob.style.left=(9+82*t)+"%";
     knob.style.top=y+"px";
   }
