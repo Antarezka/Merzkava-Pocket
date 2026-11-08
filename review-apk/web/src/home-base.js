@@ -32,7 +32,6 @@ const ACCESSORY_OPTIONS=[
   {id:"earring_chains",name:"Earring Chains",description:"Fine chains and small jade drops."}
 ];
 const WORLD_SCALE=1.5;
-const WORLD_SCALE=1.5;
 const CHARACTER_FRAME={width:48,height:64};
 const NPC_APPEARANCES=[
   {hair:"soft_bob",outfit:"jade_scholar"},
