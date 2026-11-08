@@ -101,3 +101,126 @@
 @media(max-width:390px){.dl-shop-scene{width:98vw;height:min(70vh,540px);top:50%}.dl-roof{height:108px}.dl-shop-wall{top:138px}.dl-door-frame{width:46%;min-width:128px}.dl-kanban{height:120px;width:33px;left:calc(50% + 68px)}.dl-retro-tv{width:132px;height:94px;right:6px;top:calc(env(safe-area-inset-top) + 9px)}.dl-tv-screen{right:26px;padding:7px 4px}.dl-tv-status{font-size:9px}.dl-chef-area{left:53%;transform:scale(.9);transform-origin:bottom left}.dl-dialogue{left:-75px;width:196px}.dl-kitchen-counter{width:51%}.dl-chair{transform:scale(.85);transform-origin:bottom right}}
 @media(max-height:620px){.dl-shop-scene{height:74vh;min-height:360px;top:52%}.dl-bunting{transform:scale(.84);transform-origin:top center}.dl-roof{top:37px;height:94px}.dl-shop-wall{top:130px}.dl-door-frame{height:72%;min-height:180px}.dl-retro-tv{transform:scale(.84);transform-origin:top right}.dl-chef-area{transform:scale(.8);transform-origin:bottom left;bottom:15%}.dl-table{bottom:10%}.dl-door-hint{bottom:calc(env(safe-area-inset-bottom) + 61px)}.dl-chair{transform:scale(.78);transform-origin:bottom right}}
 @media(prefers-reduced-motion:reduce){.dl-bunting i{transform:none!important}.dl-tv-noise{opacity:.08}}
+
+
+/* Daily Login storefront — full-screen pixel-art composition. */
+.dl-outside{
+ background:
+  radial-gradient(ellipse at 50% 66%,#d3a45a29,transparent 49%),
+  linear-gradient(180deg,#101d2a 0%,#1d3037 48%,#39382f 78%,#201d19 100%);
+}
+.dl-night-sky{background:radial-gradient(ellipse at 50% 75%,#e4bd792c,transparent 50%),linear-gradient(180deg,#0b1724a8,transparent 72%)}
+.dl-shop-scene{
+ position:absolute;inset:0;width:100%;height:100%;min-height:0;max-height:none;
+ left:0;top:0;transform:none;overflow:hidden;
+}
+.dl-shop-art{
+ position:absolute;inset:0;width:100%;height:100%;display:block;
+ object-fit:fill;object-position:center;image-rendering:pixelated;
+ user-select:none;pointer-events:none;
+}
+.dl-bunting-pxl{
+ position:absolute;z-index:7;left:0;right:0;top:0;height:10.7%;
+ background-image:url("/game-assets/pxl/anims/daily_login_bunting_wave.png");
+ background-repeat:no-repeat;background-size:400% 100%;background-position:0 0;
+ image-rendering:pixelated;pointer-events:none;
+ animation:dl-pxl-breeze .8s steps(4,end) infinite;
+ filter:drop-shadow(0 2px 2px #0b1110a8);
+}
+@keyframes dl-pxl-breeze{to{background-position:100% 0}}
+.dl-lantern-glow{
+ position:absolute;z-index:3;top:38%;width:34vw;height:34vw;max-width:210px;max-height:210px;
+ border-radius:50%;pointer-events:none;filter:blur(4px);
+ background:radial-gradient(circle,#f6dfb477 0,#f2d69a3c 26%,#e9c98716 49%,transparent 72%);
+ mix-blend-mode:screen;opacity:.34;
+}
+.dl-lantern-glow-left{left:13.8%;transform:translate(-50%,-50%)}
+.dl-lantern-glow-right{right:2.5%;transform:translate(50%,-50%)}
+.dl-door-frame{
+ position:absolute;z-index:9;left:28.4%;top:34.4%;width:43.2%;height:62.3%;
+ min-width:0;min-height:0;max-height:none;
+ border:7px solid #38291f;border-bottom-width:10px;border-radius:0;
+ background:#f0d9a866;box-shadow:0 0 0 3px #9c784e,0 8px 22px #111a;
+ overflow:visible;
+}
+.dl-door-warm-light{
+ position:absolute;inset:0;opacity:.72;
+ background:radial-gradient(ellipse at 53% 47%,#fff0c2a8 0,#f4dba26b 43%,#b77f453a 100%);
+}
+.dl-door-track{left:-6px;right:-6px;height:7px;background:#493327;border:1px solid #c2a16c;z-index:6}
+.dl-door-track-top{top:-10px}.dl-door-track-bottom{bottom:-13px}
+.dl-door-panel{
+ position:absolute;z-index:5;inset:0;width:100%;height:100%;padding:0;border:0;border-radius:0;
+ background:linear-gradient(90deg,#c3ad82ed 0%,#e6d5b0ed 18%,#bda981ed 21%,#e1d0a9ed 52%,#baa47ced 55%,#dfcda7ed 100%);
+ box-shadow:inset 0 0 0 4px #876744,inset 0 0 0 7px #e8d6af;
+ touch-action:pan-y;cursor:grab;overflow:hidden;
+}
+.dl-door-panel:active,.dl-door-panel.is-dragging{cursor:grabbing}
+.dl-door-lattice{
+ position:absolute;inset:9px;
+ background:
+  repeating-linear-gradient(90deg,transparent 0 22px,#806746 22px 25px,transparent 25px 46px),
+  repeating-linear-gradient(0deg,transparent 0 22px,#917650 22px 25px,transparent 25px 46px);
+ border:2px solid #967850;box-shadow:inset 0 0 0 2px #efdfbd;
+}
+.dl-door-handle{right:8px;top:47%;width:6px;height:26px;background:#65452e;border:1px solid #e2c18a;box-shadow:0 0 0 2px #765638}
+.dl-door-caption{right:14px;bottom:12px;color:#6b5034;font:8px serif;writing-mode:vertical-rl}
+.dl-street{display:none}
+.dl-door-hint{
+ z-index:14;left:13px;right:112px;bottom:calc(env(safe-area-inset-bottom) + 17px);
+ transform:none;width:auto;max-width:none;min-height:38px;padding:9px 10px;gap:6px;
+ border:1px solid #bda477;background:#182222e8;color:#f1e2c2;font-size:7px;
+}
+.dl-door-hint.is-ready{border-color:#c0d18b;color:#dcebb0}
+.dl-back{
+ position:absolute;z-index:21;right:13px;bottom:calc(env(safe-area-inset-bottom) + 17px);
+ display:flex;align-items:center;justify-content:center;gap:7px;
+ min-width:88px;min-height:38px;padding:0 11px;
+ border:1px solid #c9ac78;background:#1b2422ed;color:#f2e2c2;
+ font:700 8px var(--ui);letter-spacing:.12em;box-shadow:0 5px 15px #0007;
+}
+.dl-back span{font-size:13px;color:#d4b77c}
+.dl-back[hidden]{display:none!important}
+.dl-scene-vignette{z-index:18;box-shadow:inset 0 0 75px #070c0b86;pointer-events:none}
+
+/* The shop interior continues to occupy the entire screen after the 2s cross-fade. */
+.dl-interior{
+ background:linear-gradient(180deg,#473f32 0,#6f6550 47%,#493a2c 48%,#2b241e 100%);
+}
+.dl-interior-wall{
+ background:linear-gradient(180deg,#615b47 0,#7a7058 48%,#78583d 49%,#362a21 100%);
+}
+.dl-interior-wall:before{
+ background:repeating-linear-gradient(90deg,transparent 0 52px,#382d2144 52px 56px),linear-gradient(180deg,#75664d,#897657);
+}
+.dl-paper-lamp{box-shadow:0 0 30px #f4dfa866}
+.dl-retro-tv{z-index:13}
+.dl-tv-screen{background:#111b20;box-shadow:inset 0 0 18px #a2c0a055}
+.dl-tv-screen:before{
+ content:"";position:absolute;z-index:1;inset:0;pointer-events:none;opacity:.25;
+ background:repeating-linear-gradient(0deg,transparent 0 2px,#e5f1d8 2px 3px,transparent 3px 5px),
+ repeating-linear-gradient(90deg,transparent 0 3px,#dbe7cc 3px 4px,transparent 4px 7px);
+ mix-blend-mode:screen;
+}
+.dl-tv-static{position:absolute;z-index:2;inset:-20%;opacity:.28;pointer-events:none;
+ background:repeating-linear-gradient(0deg,transparent 0 2px,#eef1d8 2px 3px,transparent 3px 5px),
+ repeating-linear-gradient(90deg,transparent 0 2px,#cdd9c4 2px 3px,transparent 3px 6px);
+ mix-blend-mode:screen;
+}
+.dl-tv-noise{z-index:4;opacity:.3;background:repeating-linear-gradient(90deg,transparent 0 1px,#f3f4df 1px 2px),repeating-linear-gradient(0deg,transparent 0 3px,#edf1d8 3px 4px)}
+.dl-tv-scan{z-index:3}
+.dl-dialogue{left:-68px;top:-39px;width:218px;min-height:60px}
+.dl-dialogue span{font:600 12px/1.45 Georgia,serif}
+@media(max-width:390px){
+ .dl-door-frame{left:28.4%;top:34.4%;width:43.2%;height:62.3%}
+ .dl-door-hint{left:9px;right:104px;bottom:calc(env(safe-area-inset-bottom) + 13px);font-size:6px;letter-spacing:.09em}
+ .dl-back{right:9px;bottom:calc(env(safe-area-inset-bottom) + 13px);min-width:84px;padding:0 8px}
+ .dl-retro-tv{right:6px;top:calc(env(safe-area-inset-top) + 9px)}
+ .dl-dialogue{left:-75px;width:196px}
+}
+@media(max-height:620px){
+ .dl-door-frame{top:34.4%;height:62.3%}
+ .dl-door-hint{bottom:calc(env(safe-area-inset-bottom) + 10px)}
+ .dl-back{bottom:calc(env(safe-area-inset-bottom) + 10px)}
+}
+@media(prefers-reduced-motion:reduce){.dl-bunting-pxl{animation:none;background-position:0 0}}
