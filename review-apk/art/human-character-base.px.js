@@ -45,13 +45,7 @@ function drawHair(c,hair,back,side,flip,top,bob){
  oval(c,CX,top+7,10,9,"h");
  oval(c,CX-1,top+5,8,4,"H");
  line(c,mx(CX-5),top+4,mx(CX-1),top+2,"I");
- if(!back&&!side){
-   // Soft fringe, broken into broad readable pixel locks.
-   line(c,mx(CX-9),top+7,mx(CX-4),top+12,"h");
-   line(c,mx(CX-4),top+7,mx(CX+1),top+13,"H");
-   line(c,mx(CX+2),top+6,mx(CX+7),top+11,"h");
-   p(CX-5,top+9,"I");p(CX+2,top+10,"H");
- } else {
+ if(back||side){
    oval(c,CX,top+10,10,8,"h");
    line(c,mx(CX-7),top+6,mx(CX+5),top+5,"H");
  }
@@ -94,6 +88,16 @@ function drawHair(c,hair,back,side,flip,top,bob){
    oval(c,CX-9,top+27,2,3,"h");oval(c,CX+9,top+28,2,3,"h");
    if(back){oval(c,CX,top+17,9,8,"h");line(c,mx(CX-5),top+19,mx(CX+5),top+27,"H");}
  }
+}
+function drawFringe(c,hair,dir,flip,top){
+ const mx=x=>flip?2*CX-x:x;
+ const p=(x,y,k)=>c.px(mx(x),y,k);
+ if(back||sideView(dir))return;
+ line(c,mx(CX-9),top+7,mx(CX-4),top+12,"h");
+ line(c,mx(CX-4),top+7,mx(CX+1),top+13,"H");
+ line(c,mx(CX+2),top+6,mx(CX+7),top+11,"h");
+ p(CX-5,top+9,"I");p(CX+2,top+10,"H");
+ if(hair.kind===2||hair.kind===3)p(CX,top+4,"G");
 }
 function drawOutfit(c,outfit,front,back,side,flip,bodyTop,phase){
  const mx=x=>flip?2*CX-x:x;
@@ -192,6 +196,7 @@ function drawHuman(c,hair,outfit,dir,move,frame=0){
  const bodyTop=top+19;
  drawOutfit(c,outfit,front,back,side,flip,bodyTop,phase);
  // Head has a rounded human silhouette. No animal ears, horns or tail.
+ drawHair(c,hair,back,side,flip,top,bob);
  oval(c,CX,headY,10,10,"K");
  if(back){
    oval(c,CX,headY,9,9,"h");
@@ -210,12 +215,9 @@ function drawHuman(c,hair,outfit,dir,move,frame=0){
      const eyeX=flip?CX-4:CX+4;
      rect(c,eyeX,headY+2,2,3,"K");
      c.px(flip?CX-5:CX+6,headY+6,"T");
-   }else if(dir==="se"||dir==="sw"){
-     c.px(flip?CX-4:CX+4,headY+2,"K");
-     c.px(flip?CX-3:CX+5,headY+2,"A");
    }
  }
- drawHair(c,hair,back,side,flip,top,bob);
+ drawFringe(c,hair,dir,flip,top);
  if(move==="walk"){
    // Restrained arm swing and hem movement: no uncontrolled body wobble.
    c.px(flip?CX+17:CX-17,bodyTop+21+phase,"S");
