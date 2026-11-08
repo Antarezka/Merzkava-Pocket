@@ -70,29 +70,6 @@ class HomeBaseScene extends Phaser.Scene{
       this.load.spritesheet(key,"/game-assets/pxl/anims/"+key+".png",{frameWidth:CHARACTER_FRAME.width,frameHeight:CHARACTER_FRAME.height});
     }));
   }
-  yumaTexture(move,dir){return "yuma_"+move+"_"+dir;}
-  yumaAnimation(move,dir){return "yuma:"+move+":"+dir;}
-  queueYuma(){
-    DIRS.forEach(dir=>["idle","walk"].forEach(move=>{
-      const key=this.yumaTexture(move,dir);
-      this.load.spritesheet(key,"/game-assets/pxl/anims/"+key+".png",{
-        frameWidth:CHARACTER_FRAME.width,frameHeight:CHARACTER_FRAME.height
-      });
-    }));
-  }
-  registerYuma(){
-    DIRS.forEach(dir=>["idle","walk"].forEach(move=>{
-      const texture=this.yumaTexture(move,dir);
-      if(!this.textures.exists(texture))return;
-      const key=this.yumaAnimation(move,dir);
-      if(!this.anims.exists(key))this.anims.create({
-        key,
-        frames:this.anims.generateFrameNumbers(texture,{start:0,end:move==="idle"?63:47}),
-        frameRate:move==="idle"?14:30,
-        repeat:-1
-      });
-    }));
-  }
   registerCombo(hair,outfit){
     const combo=this.comboName(hair,outfit);
     if(this.comboReady.has(combo))return;
@@ -113,7 +90,6 @@ class HomeBaseScene extends Phaser.Scene{
     this.load.image("home-map","/game-assets/pxl/scenes/home_base_map.png");
     ["facility_starter_hut","facility_starter_foraging","facility_starter_well","facility_farm","facility_workshop","facility_storage","facility_market","world_tree","world_rock"].forEach(id=>this.load.image(id,"/game-assets/pxl/sprites/"+id+".png"));
     this.load.spritesheet("water-glimmer","/game-assets/pxl/anims/water_glimmer.png",{frameWidth:32,frameHeight:16});
-    this.queueYuma();
     HAIR_OPTIONS.forEach(item=>this.load.image("preview-hair-"+item.id,"/game-assets/pxl/sprites/human_preview_hair_"+item.id+".png"));
     OUTFIT_OPTIONS.forEach(item=>this.load.image("preview-outfit-"+item.id,"/game-assets/pxl/sprites/human_preview_outfit_"+item.id+".png"));
     this.hair=this.options.session.getHair();this.outfit=this.options.session.getOutfit();
@@ -122,7 +98,6 @@ class HomeBaseScene extends Phaser.Scene{
   }
   create(){
     this.queuedCombos?.forEach(({hair,outfit})=>this.registerCombo(hair,outfit));
-    this.registerYuma();
     this.cameras.main.setBackgroundColor("#19251f");
     this.add.image(0,0,"home-map").setOrigin(0).setScale(WORLD_SCALE).setDepth(-1000);
     this.anims.create({key:"water-glimmer",frames:this.anims.generateFrameNumbers("water-glimmer",{start:0,end:3}),frameRate:5,repeat:-1});
@@ -131,7 +106,7 @@ class HomeBaseScene extends Phaser.Scene{
     [[75,109],[116,183],[291,216],[357,142]].forEach(([x,y])=>this.add.image(x*WORLD_SCALE,y*WORLD_SCALE,"world_rock").setOrigin(.5,1).setScale(WORLD_SCALE).setDepth(y*WORLD_SCALE));
     this.player=this.add.sprite(200*WORLD_SCALE,154*WORLD_SCALE,this.textureName(this.hair,this.outfit,"idle","s")).setOrigin(.5,1).setDepth(156*WORLD_SCALE);
     this.player.play(this.animationName(this.hair,this.outfit,"idle","s"));
-    this.addNpcs();this.addYumaNpc();this.drawFacilities();
+    this.addNpcs();this.drawFacilities();
     const cam=this.cameras.main,el=this.options.viewport;
     // Preserve the former camera magnification; the world grid and every
     // non-character world asset now share the same 1.5x scale as the human base.
@@ -197,18 +172,6 @@ class HomeBaseScene extends Phaser.Scene{
       npc.on("pointerdown",(pointer,localX,localY,event)=>{event?.stopPropagation?.();this.walkTo({x:px,y:py-4*WORLD_SCALE},()=>this.options.onNpcTap?.(i),{x:px,y:py-4*WORLD_SCALE});});
       this.npcs.push(npc);
     });
-  }
-  addYumaNpc(){
-    const x=218,y=190,dir="se",px=x*WORLD_SCALE,py=y*WORLD_SCALE;
-    const npc=this.add.sprite(px,py,this.yumaTexture("idle",dir)).setOrigin(.5,1).setDepth(py+3);
-    npc.play(this.yumaAnimation("idle",dir));
-    npc.setInteractive({useHandCursor:true});
-    npc.on("pointerdown",(pointer,localX,localY,event)=>{
-      event?.stopPropagation?.();
-      this.walkTo({x:px,y:py-4*WORLD_SCALE},()=>this.options.onNpcTap?.(3),{x:px,y:py-4*WORLD_SCALE});
-    });
-    this.yuma=npc;
-    this.npcs.push(npc);
   }
   worldToTile(x,y){const localX=x/WORLD_SCALE,localY=y/WORLD_SCALE,b=(localY-28)/8,a=(localX-200)/16;return {col:Math.round((a+b)/2),row:Math.round((b-a)/2)};}
   drawFacilities(){
@@ -377,11 +340,8 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
     onInvalidMove:()=>setFeedback("That part of the ground is not walkable. Tap an open path or clearing."),
     onFacilityTap:id=>renderLocation(id),
     onNpcTap:i=>{
-      heading.textContent=["RESIDENT","GARDENER","TRAVELLER","YUMA · FOX-SPIRIT"][i]||"RESIDENT";
-      const detail=i===3
-        ?"Yuma is a white-lavender fox spirit who tends a small travelling lantern. Her eight-direction pixel-art rig and expression clips are part of the local Pocket character library."
-        :"A local resident is here. Social details and NPC schedules will be connected to the character simulation records.";
-      worldPanel.innerHTML="<p class='world-drawer-copy'>"+esc(detail)+"</p>";
+      heading.textContent=["RESIDENT","GARDENER","TRAVELLER"][i]||"RESIDENT";
+      worldPanel.innerHTML="<p class='world-drawer-copy'>A local resident is here. Social details and NPC schedules will be connected to the character simulation records.</p>";
     },
     onPlacementTap:(tile,facility)=>placeAt(tile,facility)
   };
