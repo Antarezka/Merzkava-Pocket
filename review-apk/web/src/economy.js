@@ -1,6 +1,6 @@
 import "./economy.css";
 
-const CLOCK_RATE=48, STATE_VERSION=5;
+const CLOCK_RATE=48, STATE_VERSION=6;
 const STARTER_HOME_FACILITIES={
   "pocket.starter.hut":{level:1,operational:true,starter:true,built_at:0,map_position:{col:5,row:4},family:"Shelter"},
   "pocket.starter.foraging":{level:1,operational:true,starter:true,built_at:0,map_position:{col:6,row:6},family:"Foraging"},
@@ -115,15 +115,17 @@ function migrateState(saved,key){
   state.home_rest=saved.home_rest&&typeof saved.home_rest==="object"?{active:false,last_tick_at:Date.now(),pending_satiety:0,...saved.home_rest}:{active:false,last_tick_at:Date.now(),pending_satiety:0};
   state.pocket_needs=saved.pocket_needs&&typeof saved.pocket_needs==="object"?{satiety:null,...saved.pocket_needs}:{satiety:null};
   state.appearance_style=["chibi","classic","slim","ornate","painterly"].includes(saved.appearance_style)?saved.appearance_style:"classic";
-  state.appearance_hair=["long_black","soft_bob","half_up","high_tie","long_waves"].includes(saved.appearance_hair)?saved.appearance_hair:"long_black";
-  state.appearance_outfit=["black_hanfu","ivory_layers","jade_scholar","rose_ceremony","traveller_robe"].includes(saved.appearance_outfit)?saved.appearance_outfit:"black_hanfu";
+  state.appearance_hair=["long_black","soft_bob","half_up","high_tie","long_waves","braided_crown","low_chignon","side_ponytail","twin_braids","scholar_topknot"].includes(saved.appearance_hair)?saved.appearance_hair:"long_black";
+  state.appearance_outfit=["black_hanfu","ivory_layers","jade_scholar","rose_ceremony","traveller_robe","crimson_sect","moon_priest","iron_guard","wanderer_cloak","azure_artificer"].includes(saved.appearance_outfit)?saved.appearance_outfit:"black_hanfu";
+  state.appearance_accessory=["none","jade_pin","phoenix_comb","cloth_headband","scholar_crown","round_glasses","half_mask","bead_tassel","forehead_gem","moon_veil","travel_goggles","ribbon_bow","earring_chains"].includes(saved.appearance_accessory)?saved.appearance_accessory:"none";
+  state.appearance_weapon=["none","straight_sword","crescent_dao","twin_blades","spear","jade_staff","recurve_bow","war_fan","closed_umbrella","short_sword","moon_polearm","scroll_case","lantern_staff"].includes(saved.appearance_weapon)?saved.appearance_weapon:"none";
   state.save_meta={
     ...(saved.save_meta&&typeof saved.save_meta==="object"&&!Array.isArray(saved.save_meta)?saved.save_meta:{}),
     created_at:saved.save_meta?.created_at||Date.now(),
     updated_at:Date.now(),
     migrations:Array.isArray(saved.save_meta?.migrations)?[...saved.save_meta.migrations]:[]
   };
-  if(from<STATE_VERSION)state.save_meta.migrations.push({from,to:STATE_VERSION,at:Date.now(),note:"Preserved Pocket inventory, facilities, processes, access records, builder assignments and transaction ledger."});
+  if(from<STATE_VERSION)state.save_meta.migrations.push({from,to:STATE_VERSION,at:Date.now(),note:"Preserved Pocket inventory, wallet, facilities, processes, access records, builder assignments, transaction ledger and validated modular appearance slots."});
   if(from<3){
     const legacyGrant=state.ledger.find(x=>x?.type==="profile_wallet_import");
     if(legacyGrant){
