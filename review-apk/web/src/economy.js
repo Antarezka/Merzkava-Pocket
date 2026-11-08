@@ -1,6 +1,6 @@
 import "./economy.css";
 
-const CLOCK_RATE=48, STATE_VERSION=6;
+const CLOCK_RATE=48, STATE_VERSION=7;
 const STARTER_HOME_FACILITIES={
   "pocket.starter.hut":{level:1,operational:true,starter:true,built_at:0,map_position:{col:5,row:4},family:"Shelter"},
   "pocket.starter.foraging":{level:1,operational:true,starter:true,built_at:0,map_position:{col:6,row:6},family:"Foraging"},
@@ -99,7 +99,7 @@ function ensureStarterHomeFacilities(state){
   if(!["none","straight_sword","crescent_dao","twin_blades","spear","jade_staff","recurve_bow","war_fan","closed_umbrella","short_sword","moon_polearm","scroll_case","lantern_staff"].includes(state.appearance_weapon)){state.appearance_weapon="none";changed=true;}
   return changed;
 }
-function createState(){const now=Date.now();return {version:STATE_VERSION,wallet_xc:0,inventory:{},facilities:{...Object.fromEntries(Object.entries(STARTER_HOME_FACILITIES).map(([id,v])=>[id,{...v,built_at:now}]))},processes:[],ledger:[],item_site_access:{},facility_site_access:{},builder_records:{},home_rest:{active:false,last_tick_at:now,pending_satiety:0},pocket_needs:{satiety:null},appearance_style:"classic",appearance_hair:"long_black",appearance_outfit:"black_hanfu",appearance_accessory:"none",appearance_weapon:"none",qa_grant_used:false,save_meta:{created_at:now,updated_at:now,migrations:[]}};}
+function createState(){const now=Date.now();return {version:STATE_VERSION,wallet_xc:0,inventory:{},facilities:{...Object.fromEntries(Object.entries(STARTER_HOME_FACILITIES).map(([id,v])=>[id,{...v,built_at:now}]))},processes:[],ledger:[],item_site_access:{},facility_site_access:{},builder_records:{},home_rest:{active:false,last_tick_at:now,pending_satiety:0},pocket_needs:{satiety:null},world_explored_cells:{home_base:[]},appearance_style:"classic",appearance_hair:"long_black",appearance_outfit:"black_hanfu",appearance_accessory:"none",appearance_weapon:"none",qa_grant_used:false,save_meta:{created_at:now,updated_at:now,migrations:[]}};}
 function migrateState(saved,key){
   if(!saved||typeof saved!=="object"||Array.isArray(saved))throw new Error("The saved economy record is not a valid Pocket save.");
   const from=Number(saved.version??1);
@@ -114,6 +114,14 @@ function migrateState(saved,key){
   for(const field of ["processes","ledger"])state[field]=Array.isArray(saved[field])?[...saved[field]]:[];
   state.home_rest=saved.home_rest&&typeof saved.home_rest==="object"?{active:false,last_tick_at:Date.now(),pending_satiety:0,...saved.home_rest}:{active:false,last_tick_at:Date.now(),pending_satiety:0};
   state.pocket_needs=saved.pocket_needs&&typeof saved.pocket_needs==="object"?{satiety:null,...saved.pocket_needs}:{satiety:null};
+  const exploredState=saved.world_explored_cells&&typeof saved.world_explored_cells==="object"&&!Array.isArray(saved.world_explored_cells)?{...saved.world_explored_cells}:{};
+  const exploredHome=Array.isArray(exploredState.home_base)?exploredState.home_base:[];
+  exploredState.home_base=[...new Set(exploredHome.filter(value=>{
+    if(typeof value!=="string"||!/^(\d{1,2}),(\d{1,2})$/.test(value))return false;
+    const [,col,row]=value.match(/^(\d{1,2}),(\d{1,2})$/).map(Number);
+    return col>=0&&col<24&&row>=0&&row<20;
+  }))];
+  state.world_explored_cells=exploredState;
   state.appearance_style=["chibi","classic","slim","ornate","painterly"].includes(saved.appearance_style)?saved.appearance_style:"classic";
   state.appearance_hair=["long_black","soft_bob","half_up","high_tie","long_waves","braided_crown","low_chignon","side_ponytail","twin_braids","scholar_topknot"].includes(saved.appearance_hair)?saved.appearance_hair:"long_black";
   state.appearance_outfit=["black_hanfu","ivory_layers","jade_scholar","rose_ceremony","traveller_robe","crimson_sect","moon_priest","iron_guard","wanderer_cloak","azure_artificer"].includes(saved.appearance_outfit)?saved.appearance_outfit:"black_hanfu";
@@ -125,7 +133,7 @@ function migrateState(saved,key){
     updated_at:Date.now(),
     migrations:Array.isArray(saved.save_meta?.migrations)?[...saved.save_meta.migrations]:[]
   };
-  if(from<STATE_VERSION)state.save_meta.migrations.push({from,to:STATE_VERSION,at:Date.now(),note:"Preserved Pocket wallet, inventory, facilities, processes, access records, builder assignments and transaction ledger while adding modular appearance slots."});
+  if(from<STATE_VERSION)state.save_meta.migrations.push({from,to:STATE_VERSION,at:Date.now(),note:"Preserved Pocket wallet, inventory, facilities, processes, access records, builder assignments and transaction ledger while adding modular appearance and map-exploration save data."});
   if(from<3){
     const legacyGrant=state.ledger.find(x=>x?.type==="profile_wallet_import");
     if(legacyGrant){
@@ -492,6 +500,20 @@ export async function openHomeBaseSession(identity){
     getOutfit:()=>state.appearance_outfit||"black_hanfu",
     getAccessory:()=>state.appearance_accessory||"none",
     getWeapon:()=>state.appearance_weapon||"none",
+    getExploredCells:()=>[...(state.world_explored_cells?.home_base||[])],
+    setExploredCells(cells){
+      if(!Array.isArray(cells))return false;
+      const valid=[...new Set(cells.filter(value=>{
+        if(typeof value!=="string"||!/^(\d{1,2}),(\d{1,2})$/.test(value))return false;
+        const [,col,row]=value.match(/^(\d{1,2}),(\d{1,2})$/).map(Number);
+        return col>=0&&col<24&&row>=0&&row<20;
+      }))];
+      state.world_explored_cells??={home_base:[]};
+      const previous=[...(state.world_explored_cells.home_base||[])];
+      state.world_explored_cells.home_base=valid;
+      if(!persist()){state.world_explored_cells.home_base=previous;return false;}
+      return true;
+    },
     setAppearanceSlots(appearance){
       const validHair=["long_black","soft_bob","half_up","high_tie","long_waves","braided_crown","low_chignon","side_ponytail","twin_braids","scholar_topknot"];
       const validOutfit=["black_hanfu","ivory_layers","jade_scholar","rose_ceremony","traveller_robe","crimson_sect","moon_priest","iron_guard","wanderer_cloak","azure_artificer"];
