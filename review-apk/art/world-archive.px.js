@@ -270,14 +270,14 @@ pal({
 // The perspective asphalt approach widens toward the viewer.
 sprite("daily_login_shop_front",{w:360,h:640,pivot:[180,639]},c=>{
   // Low, shallow contemporary roofline with broad, calm eaves.
-  for(let y=174;y<203;y++){
-    const half=Math.min(166,Math.floor(100+(y-174)*2.35));
+  for(let y=150;y<203;y++){
+    const half=Math.min(166,Math.floor(43+(y-150)*2.35));
     c.hline(180-half,y,half*2,"K");
     if(y>177)c.hline(180-half+3,y+1,half*2-6,(y%12<6)?"C":"B");
     if(y%7===0&&half>24)c.hline(180-half+11,y+2,half*2-22,"q");
   }
-  for(let y=181;y<201;y+=5){
-    const half=Math.min(166,Math.floor(100+(y-174)*2.35));
+  for(let y=157;y<201;y+=5){
+    const half=Math.min(166,Math.floor(43+(y-150)*2.35));
     for(let x=180-half+15+(y%14);x<180+half-12;x+=24){
       c.vline(x,y,3,"c");c.px(x+1,y,"s");
     }
@@ -335,7 +335,7 @@ sprite("daily_login_shop_front",{w:360,h:640,pivot:[180,639]},c=>{
   };
   lantern(113,293);lantern(227,293);
 
-  // Covered entrance terrace and a road that opens in correct perspective.
+  // Covered entrance terrace, a broad stone step and a road that opens in correct perspective.
   rect(c,23,414,314,11,"B");rect(c,29,416,302,6,"s");
   for(let x=35;x<327;x+=27)c.vline(x,416,5,"c");
   for(let y=420;y<640;y++){
@@ -350,45 +350,48 @@ sprite("daily_login_shop_front",{w:360,h:640,pivot:[180,639]},c=>{
   }
 
   // Fine asphalt grain and gravel shoulders; sparse stones keep it natural.
-  for(let i=0;i<230;i++){
-    const x=(i*73+19)%360,y=426+(i*47)%210;
+  for(let i=0;i<1080;i++){
+    const seed=(i*73+19)%65521;
+    const x=seed%360,y=426+((i*47+Math.floor(seed/17))%210);
     const half=Math.floor(34+((y-420)/220)*205);
     if(x>180-half+7&&x<180+half-7){
-      const tone=i%5===0?"S":i%5===1?"p":i%5===2?"C":"P";
+      const tone=i%7===0?"S":i%7===1?"p":i%7===2?"C":i%7===3?"z":i%7===4?"q":"P";
       c.px(x,y,tone);
-      if(i%11===0)c.px(x+1,y,tone);
+      if(i%9===0)c.px(x+1,y,tone);
+      if(i%31===0)c.px(x,y+1,"s");
     }else if(i%2===0){
-      c.px(x,y,i%4===0?"g":"s");
+      c.px(x,y,i%4===0?"g":i%4===2?"s":"r");
       if(i%7===0)c.px(x+1,y,"r");
+      if(i%19===0)c.px(x,y+1,"D");
     }
   }
   for(const [x,y,rx] of [[29,431,4],[47,450,3],[80,443,4],[304,434,4],[324,453,3],[291,469,4],[24,501,4],[336,520,5],[46,557,4],[312,580,4],[13,612,5],[346,625,5]]){
     c.ellipse(x,y,rx,2,"s");c.px(x-1,y-1,"g");
   }
 
-  // Low, freestanding roadside kanban beside the sliding entrance.
-  rect(c,231,389,65,42,"K");rect(c,234,392,59,36,"D");
-  rect(c,238,396,51,28,"I");c.hline(238,397,51,"g");
-  const glyph={
-    D:["110","101","101","101","110"],
-    A:["010","101","111","101","101"],
-    I:["111","010","010","010","111"],
-    L:["100","100","100","100","111"],
-    Y:["101","101","010","010","010"]
-  };
-  for(let n=0;n<5;n++){
-    const rows=glyph["DAILY"[n]],xx=241+n*9;
-    for(let gy=0;gy<5;gy++)for(let gx=0;gx<3;gx++)if(rows[gy][gx]==="1")rect(c,xx+gx*2,405+gy*2,2,2,"B");
-  }
-  c.hline(238,424,51,"u");
-  line(c,236,431,231,467,"B");line(c,291,431,298,467,"B");
-  c.hline(229,466,72,"D");
-
   // Quiet planters beside the facade.
-  rect(c,46,385,26,12,"K");rect(c,49,386,20,7,"d");
-  c.ellipse(59,377,10,8,"T");c.ellipse(54,373,6,6,"t");c.ellipse(64,374,6,6,"t");c.px(58,368,"u");
-  rect(c,304,385,26,12,"K");rect(c,307,386,20,7,"d");
-  c.ellipse(317,377,10,8,"T");c.ellipse(312,373,6,6,"t");c.ellipse(322,374,6,6,"t");c.px(316,368,"u");
+  rect(c,15,385,32,15,"K");rect(c,18,387,26,9,"d");
+  c.ellipse(31,377,12,9,"T");c.ellipse(25,372,7,7,"t");c.ellipse(37,373,7,7,"t");c.px(30,366,"u");
+  rect(c,313,385,32,15,"K");rect(c,316,387,26,9,"d");
+  c.ellipse(329,377,12,9,"T");c.ellipse(323,372,7,7,"t");c.ellipse(335,373,7,7,"t");c.px(328,366,"u");
+});
+
+// Hanging wooden kanban board: independent asset so the shoji and noren cannot cover it.
+sprite("daily_login_kanban",{w:64,h:112,pivot:[32,108]},c=>{
+  c.ellipse(32,108,18,3,"K");
+  c.vline(20,0,18,"D");c.vline(43,0,18,"D");
+  c.hline(14,7,36,"K");c.hline(15,8,34,"L");
+  rect(c,8,16,48,78,"K");
+  rect(c,11,19,42,72,"D");
+  rect(c,14,22,36,66,"L");
+  rect(c,17,25,30,60,"I");
+  c.hline(17,25,30,"g");c.hline(17,84,30,"u");
+  // Painted vertical lettering strokes; the Japanese label is overlaid by the UI.
+  c.vline(24,34,37,"D");c.vline(39,34,37,"D");
+  c.hline(24,34,15,"D");c.hline(24,50,15,"D");c.hline(24,69,15,"D");
+  c.px(31,43,"u");c.px(34,58,"u");
+  rect(c,4,14,6,9,"B");rect(c,54,14,6,9,"B");
+  c.hline(6,94,52,"K");c.hline(10,96,44,"u");
 });
 
 // Four equal rectangular noren panels, attached along their top edge.
