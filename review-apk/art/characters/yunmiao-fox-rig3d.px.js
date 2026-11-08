@@ -638,7 +638,7 @@ const RIG_MOVES=Object.fromEntries(Object.entries(MOVES).map(([name,M])=>[
   }
 ]));
 rig3d("yunmiao",{...FIG,n:16,parts:parts3,blocks:true,moves:RIG_MOVES});
-card("yunmiao",{is:"Yunmiao, a white-lavender fox-spirit lantern keeper in a layered rose-and-jade hanfu; 48 px chibi body, eight isometric headings, 24 authored actions",cells:{"iso/24ppm":"✓","hd2d/24ppm":"✓"},vary:{motion:"idle, walk, run, jump, attack, lunge, skill, fish, meditate, interact, gather, social and reaction clips"}});
+card("yunmiao",{is:"Yunmiao, a white-lavender fox-spirit lantern keeper in a layered rose-and-jade hanfu; 48 px chibi body, eight isometric headings, 24 authored actions",cells:{"iso/24ppm":"✓","hd2d/24ppm":"✓"},vary:{part:"hair ornaments, lantern prop and garment details"}});
 
 // UI and combat support art. These are independent assets, not enlarged game sprites.
 sprite("yunmiao_title_banner",{w:128,h:28,pivot:[64,14]},c=>{
