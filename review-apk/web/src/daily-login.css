@@ -224,3 +224,37 @@
  .dl-back{bottom:calc(env(safe-area-inset-bottom) + 10px)}
 }
 @media(prefers-reduced-motion:reduce){.dl-bunting-pxl{animation:none;background-position:0 0}}
+
+
+/* Post-dialogue decision: modern typography only, with no panel or backdrop. */
+.dl-choice{
+ position:absolute;z-index:16;left:50%;
+ bottom:calc(env(safe-area-inset-bottom) + 76px);
+ width:min(88vw,320px);transform:translateX(-50%);
+ display:flex;flex-direction:column;align-items:center;gap:12px;
+ padding:0;margin:0;border:0;border-radius:0;background:transparent;
+ box-shadow:none;color:#f4e8ce;text-align:center;pointer-events:auto;
+}
+.dl-choice[hidden]{display:none!important}
+.dl-choice p{
+ margin:0;padding:0;border:0;background:transparent;
+ color:#f2e8d3;font:500 10px/1.35 system-ui,-apple-system,"Segoe UI",sans-serif;
+ letter-spacing:.24em;text-shadow:0 2px 7px #080c0c;
+}
+.dl-choice-actions{display:flex;align-items:center;justify-content:center;gap:36px;padding:0;margin:0;background:transparent}
+.dl-choice-actions button{
+ appearance:none;-webkit-appearance:none;display:inline-flex;align-items:center;justify-content:center;
+ min-width:0;min-height:34px;padding:7px 2px;margin:0;
+ border:0;border-radius:0;background:transparent;box-shadow:none;
+ color:#f4e8ce;font:600 11px/1 system-ui,-apple-system,"Segoe UI",sans-serif;
+ letter-spacing:.2em;text-shadow:0 2px 6px #080c0c;cursor:pointer;
+}
+.dl-choice-actions button:hover{color:#fff5d9;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:5px}
+.dl-choice-actions button:active{color:#d8bd87}
+.dl-choice-actions button:focus-visible{outline:1px solid #e5d2a7;outline-offset:5px}
+@media(max-width:390px){
+ .dl-choice{bottom:calc(env(safe-area-inset-bottom) + 68px);width:90vw;gap:10px}
+ .dl-choice p{font-size:9px;letter-spacing:.2em}
+ .dl-choice-actions{gap:28px}
+ .dl-choice-actions button{font-size:10px}
+}
