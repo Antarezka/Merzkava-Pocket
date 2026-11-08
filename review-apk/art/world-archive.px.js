@@ -331,6 +331,29 @@ sprite("daily_login_shop_front",{w:360,h:640,pivot:[180,639]},c=>{
   for(const [xx,yy] of [[157,247],[160,249],[164,247],[168,249],[174,247],[178,249],[184,247],[188,249],[194,247],[198,249]])c.px(xx,yy,"D");
   c.px(159,251,"H");c.px(180,251,"H");c.px(199,251,"H");
 
+  // Carved timber posts, visible grain, joinery pins and plaster imperfections.
+  for(let y=256;y<395;y+=18){
+    c.hline(10,y,5,"M");c.hline(345,y,5,"M");
+    c.px(12,y+3,"l");c.px(347,y+3,"l");
+  }
+  for(let i=0;i<100;i++){
+    const h=dlHash(i*37+91);
+    const x=17+h%30,y=263+dlHash(i*53+19)%125;
+    c.px(x,y,i%4===0?"i":"w");
+    c.px(360-x,y,i%5===0?"i":"W");
+  }
+  // Timber beam joints and old nail heads are small but legible at phone scale.
+  for(const x of [15,128,135,225,232,345]){
+    for(let y=261;y<391;y+=31){
+      c.px(x,y,"K");c.px(x+1,y+1,"L");
+    }
+  }
+  // Deep sill, foundation stones and small drainage grooves under the facade.
+  rect(c,0,407,360,9,"K");rect(c,4,409,352,5,"s");
+  for(let x=8;x<357;x+=23){
+    c.vline(x,409,4,"C");c.px(x+2,410,"r");
+  }
+
   // Timber lattice side bays.
   rect(c,54,265,73,117,"K");rect(c,58,269,65,109,"d");
   rect(c,61,273,59,101,"M");
