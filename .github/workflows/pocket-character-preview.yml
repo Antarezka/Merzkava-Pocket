@@ -11,6 +11,7 @@ on:
       - "review-apk/art/characters/**"
       - "review-apk/art/world-archive.px.js"
       - "review-apk/art/human-character-base.px.js"
+      - "review-apk/art/human-appearance-layers.px.js"
       - "review-apk/scripts/build-world-assets.mjs"
       - "review-apk/web/src/home-base.js"
       - "review-apk/web/src/home-base.css"
@@ -40,39 +41,51 @@ jobs:
           set -euo pipefail
           git clone --depth 1 https://github.com/augusto-scarvalho/claude-pxl.git "$RUNNER_TEMP/claude-pxl"
 
-      - name: Render and verify the modular human appearance library
+      - name: Render and verify Claude's 5x5 human base and matching accessories
         shell: bash
         run: |
           set -euo pipefail
           PXL="$RUNNER_TEMP/claude-pxl/bin/pxl.js"
-          OUT="$RUNNER_TEMP/merzkava-pocket-pxl-preview/human-character"
+          HUMAN_OUT="$RUNNER_TEMP/merzkava-pocket-pxl-preview/human-character"
+          ACCESSORY_OUT="$RUNNER_TEMP/merzkava-pocket-pxl-preview/appearance-layers"
           node --check review-apk/web/src/home-base.js
           node --check review-apk/web/src/economy.js
-          node "$PXL" build review-apk/art/human-character-base.px.js --out "$OUT" --no-preview
-          test -s "$OUT/sprites/human_preview_hair_braided_crown.png"
-          test -s "$OUT/sprites/human_preview_outfit_iron_guard.png"
-          test -s "$OUT/sprites/human_preview_accessory_round_glasses.png"
-          test -s "$OUT/sprites/human_preview_weapon_closed_umbrella.png"
-          test -s "$OUT/anims/human_braided_crown_azure_artificer_walk_s.png"
-          test -s "$OUT/anims/accessory_jade_pin_walk_s.png"
-          test -s "$OUT/anims/weapon_closed_umbrella_walk_s.png"
+          node "$PXL" build review-apk/art/human-character-base.px.js --out "$HUMAN_OUT" --no-preview
+          node "$PXL" build review-apk/art/human-appearance-layers.px.js --out "$ACCESSORY_OUT" --no-preview
+
+          for hair in long_black soft_bob half_up high_tie long_waves; do
+            test -s "$HUMAN_OUT/sprites/human_preview_hair_\${hair}.png"
+          done
+          for outfit in black_hanfu ivory_layers jade_scholar rose_ceremony traveller_robe; do
+            test -s "$HUMAN_OUT/sprites/human_preview_outfit_\${outfit}.png"
+          done
+          test -s "$HUMAN_OUT/anims/human_long_black_black_hanfu_walk_s.png"
+          test -s "$HUMAN_OUT/anims/human_long_waves_traveller_robe_idle_n.png"
+
+          for accessory in jade_pin phoenix_comb cloth_headband scholar_crown round_glasses half_mask bead_tassel forehead_gem moon_veil travel_goggles ribbon_bow earring_chains; do
+            test -s "$ACCESSORY_OUT/sprites/human_preview_accessory_\${accessory}.png"
+          done
+          test -s "$ACCESSORY_OUT/anims/accessory_round_glasses_walk_s.png"
+          test -s "$ACCESSORY_OUT/anims/accessory_moon_veil_walk_n.png"
+
           node --input-type=module -e '
             import { readFileSync } from "node:fs";
             const checks = [
-              ["human_braided_crown_azure_artificer_walk_s.json", 8],
-              ["accessory_jade_pin_walk_s.json", 8],
-              ["weapon_closed_umbrella_walk_s.json", 8],
-              ["human_low_chignon_moon_priest_idle_ne.json", 4]
+              [process.env.HUMAN_OUT + "/anims/human_long_black_black_hanfu_walk_s.json", 8],
+              [process.env.HUMAN_OUT + "/anims/human_long_waves_traveller_robe_idle_n.json", 4],
+              [process.env.ACCESSORY_OUT + "/anims/accessory_round_glasses_walk_s.json", 8],
+              [process.env.ACCESSORY_OUT + "/anims/accessory_moon_veil_walk_n.json", 8]
             ];
             for (const [file, expected] of checks) {
-              const json = JSON.parse(readFileSync(process.env.OUT + "/anims/" + file, "utf8"));
+              const json = JSON.parse(readFileSync(file, "utf8"));
               if (Object.keys(json.frames || {}).length !== expected) {
                 throw new Error(file + " expected " + expected + " frames, got " + Object.keys(json.frames || {}).length);
               }
             }
           '
         env:
-          OUT: ${{ runner.temp }}/merzkava-pocket-pxl-preview/human-character
+          HUMAN_OUT: \${{ runner.temp }}/merzkava-pocket-pxl-preview/human-character
+          ACCESSORY_OUT: \${{ runner.temp }}/merzkava-pocket-pxl-preview/appearance-layers
 
       - name: Build the Pocket web app and verify packaged appearance assets
         shell: bash
@@ -81,11 +94,20 @@ jobs:
           set -euo pipefail
           npm install --no-audit --no-fund
           npm run build
-          test -s dist/game-assets/pxl/anims/human_braided_crown_azure_artificer_walk_s.png
-          test -s dist/game-assets/pxl/anims/accessory_jade_pin_walk_s.png
-          test -s dist/game-assets/pxl/anims/weapon_closed_umbrella_walk_s.png
-          test -s dist/game-assets/pxl/sprites/human_preview_outfit_iron_guard.png
+
+          for hair in long_black soft_bob half_up high_tie long_waves; do
+            test -s "dist/game-assets/pxl/sprites/human_preview_hair_\${hair}.png"
+          done
+          for outfit in black_hanfu ivory_layers jade_scholar rose_ceremony traveller_robe; do
+            test -s "dist/game-assets/pxl/sprites/human_preview_outfit_\${outfit}.png"
+          done
+          test -s dist/game-assets/pxl/anims/human_long_black_black_hanfu_walk_s.png
+          test -s dist/game-assets/pxl/anims/accessory_round_glasses_walk_s.png
+          test -s dist/game-assets/pxl/anims/accessory_moon_veil_walk_n.png
+          test ! -e dist/game-assets/pxl/anims/human_braided_crown_azure_artificer_walk_s.png
+          test ! -e dist/game-assets/pxl/sprites/human_preview_outfit_iron_guard.png
           test -s dist/index.html
+
           mkdir -p "$RUNNER_TEMP/merzkava-pocket-pxl-preview/web-build"
           cp -a dist/. "$RUNNER_TEMP/merzkava-pocket-pxl-preview/web-build/"
           du -sh dist
@@ -93,7 +115,7 @@ jobs:
       - name: Upload visual review assets
         uses: actions/upload-artifact@v4
         with:
-          name: Merzkava-Pocket-PXL-Character-Preview-${{ github.sha }}
-          path: ${{ runner.temp }}/merzkava-pocket-pxl-preview/
+          name: Merzkava-Pocket-PXL-Character-Preview-\${{ github.sha }}
+          path: \${{ runner.temp }}/merzkava-pocket-pxl-preview/
           if-no-files-found: error
           retention-days: 30
