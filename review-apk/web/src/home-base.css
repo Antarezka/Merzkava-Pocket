@@ -36,3 +36,156 @@
 .world-style-card img{width:58px;height:76px;image-rendering:pixelated;object-fit:contain}
 .world-style-card small{line-height:1.35}
 @media(max-width:380px){.world-style-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.world-style-card{grid-template-columns:54px minmax(0,1fr);gap:4px;min-height:76px;padding:4px}.world-style-card img{width:52px;height:68px}}
+
+/* Transparent wardrobe shop — the world remains visible behind the glass panel. */
+.world-drawer.is-shop{
+  top:calc(env(safe-area-inset-top) + 53px);
+  left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom) + 8px);
+  max-height:none;min-height:0;overflow:hidden;
+  display:flex;flex-direction:column;gap:5px;
+  padding:9px 10px 7px;
+  background:rgba(10,17,16,.72);
+  border-color:#d2b47b88;
+  box-shadow:0 12px 38px #0008,inset 0 1px #fff1;
+  backdrop-filter:blur(19px) saturate(1.24);
+  -webkit-backdrop-filter:blur(19px) saturate(1.24);
+}
+.world-drawer.is-shop .world-drawer-head{flex:0 0 auto;margin-bottom:2px}
+.world-drawer.is-shop .world-drawer-head strong{font-size:10px;letter-spacing:.17em;color:#f0dfba}
+.world-drawer.is-shop [data-world-panel]{flex:1 1 auto;min-height:0;overflow:hidden}
+.world-drawer.is-shop .world-feedback{flex:0 0 auto;margin:3px 0 0;min-height:11px}
+.world-shop-layout{height:100%;min-height:0;display:grid;grid-template-rows:auto auto auto minmax(0,1fr);gap:6px}
+.world-shop-preview{
+  display:grid;grid-template-columns:minmax(126px,.82fr) minmax(0,1.18fr);
+  align-items:center;gap:9px;min-height:166px;padding:5px 8px;
+  border:1px solid #bba16c77;border-radius:7px;
+  background:linear-gradient(110deg,rgba(44,55,43,.5),rgba(13,21,19,.26));
+  box-shadow:inset 0 1px #fff1,0 5px 15px #0003;
+}
+.world-shop-avatar-stage{
+  position:relative;isolation:isolate;display:grid;place-items:center;
+  width:100%;height:156px;min-width:0;overflow:visible;
+  background:radial-gradient(ellipse at 50% 58%,#d0b77723 0,transparent 61%);
+}
+.world-shop-avatar-stage:before{
+  content:"";position:absolute;left:50%;bottom:11px;width:86px;height:13px;
+  transform:translateX(-50%);border-radius:50%;
+  background:#d5c18a20;filter:blur(5px)
+}
+.world-shop-avatar-layer{
+  position:absolute;left:50%;top:48%;width:48px;height:64px;
+  margin:-32px 0 0 -24px;transform:scale(2.45);
+  transform-origin:center;background-repeat:no-repeat;background-position:0 0;
+  background-size:192px 64px;image-rendering:pixelated;
+  animation:world-shop-avatar-idle 1.2s steps(4,end) infinite;
+  pointer-events:none
+}
+.world-shop-avatar-back{z-index:1}
+.world-shop-avatar-body{z-index:2}
+.world-shop-avatar-front{z-index:3}
+.world-shop-avatar-accessory{z-index:4}
+.world-shop-preview-label{
+  position:absolute;left:3px;bottom:1px;z-index:5;
+  padding:3px 5px;border:1px solid #b99a6655;border-radius:3px;
+  color:#d8c79e;background:#0b1412a8;font:600 6px var(--ui);letter-spacing:.16em
+}
+@keyframes world-shop-avatar-idle{
+  from{background-position:0 0}
+  to{background-position:-192px 0}
+}
+.world-shop-preview-details{display:flex;flex-direction:column;gap:5px;min-width:0}
+.world-shop-preview-details>small{font:600 7px var(--ui);letter-spacing:.18em;color:#bfa879}
+.world-shop-preview-details>strong{font:600 13px/1.2 var(--display);color:#f1e4c7;overflow-wrap:anywhere}
+.world-shop-current-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.world-shop-current-grid>span{
+  display:flex;flex-direction:column;gap:2px;min-width:0;padding:4px 5px;
+  border:1px solid #a9966a38;border-radius:3px;background:#0a1411a8;
+  color:#a99d80;font:600 6px var(--ui);letter-spacing:.1em
+}
+.world-shop-current-grid b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e9dfc5;font:500 8px var(--ui);letter-spacing:0}
+.world-shop-preview-details>p{margin:0;color:#b8bba9;font:7px/1.35 var(--ui)}
+.world-shop-tabs{
+  display:flex;gap:5px;align-items:center;overflow-x:auto;overscroll-behavior-x:contain;
+  scrollbar-width:none;padding:1px 0 3px
+}
+.world-shop-tabs::-webkit-scrollbar{display:none}
+.world-shop-tabs button{
+  flex:1 0 auto;display:flex;align-items:center;justify-content:center;gap:4px;
+  min-height:29px;padding:0 8px;border:1px solid #8f8a6b77;border-radius:4px;
+  background:rgba(24,34,29,.72);color:#c9c6b2;
+  font:600 7px var(--ui);letter-spacing:.09em;white-space:nowrap
+}
+.world-shop-tabs button small{font:600 7px var(--ui);color:#9e9a81}
+.world-shop-tabs button.is-active{
+  border-color:#dfc184;background:linear-gradient(180deg,#806b478c,#514c367d);
+  color:#fff0cc;box-shadow:inset 0 0 0 1px #dfc18430,0 2px 8px #0003
+}
+.world-shop-tabs button.is-active small{color:#f1d89c}
+.world-shop-catalog-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:1px 2px 4px;border-bottom:1px solid #b59a6544}
+.world-shop-catalog-head strong{font:600 8px var(--display);letter-spacing:.15em;color:#e4d0a6}
+.world-shop-catalog-head small{font:7px var(--ui);letter-spacing:.1em;color:#a9a48d}
+.world-shop-catalog{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-content:start;
+  gap:6px;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  padding:2px 2px 9px 0;scrollbar-width:thin;scrollbar-color:#a58b5b66 transparent;
+  -webkit-overflow-scrolling:touch
+}
+.world-shop-item{
+  position:relative;display:grid;grid-template-columns:38px minmax(0,1fr);
+  grid-template-rows:minmax(0,1fr) auto;align-items:center;gap:3px 5px;
+  min-width:0;min-height:78px;padding:5px 5px 4px;
+  border:1px solid #7d8a706b;border-radius:5px;
+  background:linear-gradient(145deg,rgba(43,53,43,.83),rgba(18,29,25,.78));
+  color:#e8e1cb;text-align:left;box-shadow:inset 0 1px #ffffff0b;
+  transition:border-color .16s ease,background .16s ease,transform .16s ease
+}
+.world-shop-item:active{transform:scale(.975)}
+.world-shop-item.is-selected{
+  border-color:#e0c082;background:linear-gradient(145deg,rgba(92,77,49,.78),rgba(31,42,33,.9));
+  box-shadow:inset 0 0 0 1px #dfc18430,0 0 12px #d6b87516
+}
+.world-shop-item-art{
+  grid-row:1;grid-column:1;display:grid;place-items:center;
+  width:38px;height:56px;overflow:hidden;border-radius:3px;
+  background:radial-gradient(ellipse,#d8c18b18,transparent 72%)
+}
+.world-shop-item-art img{
+  display:block;width:38px;height:54px;object-fit:contain;image-rendering:pixelated;
+  filter:drop-shadow(0 2px 3px #0008)
+}
+.world-shop-item-copy{grid-row:1;grid-column:2;display:flex;flex-direction:column;gap:3px;min-width:0}
+.world-shop-item-copy b{font:600 8px/1.2 var(--ui);color:#f0e6ce;overflow-wrap:anywhere}
+.world-shop-item-copy small{font:7px/1.3 var(--ui);color:#bfc4b1;overflow-wrap:anywhere}
+.world-shop-item>em{
+  grid-row:2;grid-column:1/-1;justify-self:stretch;margin-top:1px;padding:3px 4px;
+  border-top:1px solid #9b8d6244;color:#bdb18d;font:600 6px var(--ui);
+  font-style:normal;letter-spacing:.14em;text-align:right
+}
+.world-shop-item.is-selected>em{color:#f0d49a}
+.world-shop-empty-art{border:1px dashed #b49a6666;color:#d8c38f;font:16px Georgia,serif}
+.world-shop-none{background:rgba(15,25,22,.82)}
+@media(max-width:380px){
+  .world-drawer.is-shop{left:6px;right:6px;top:calc(env(safe-area-inset-top) + 50px);padding:8px}
+  .world-shop-preview{grid-template-columns:minmax(112px,.78fr) minmax(0,1.22fr);gap:6px;min-height:154px;padding:4px}
+  .world-shop-avatar-stage{height:144px}
+  .world-shop-avatar-layer{transform:scale(2.25)}
+  .world-shop-preview-details>strong{font-size:11px}
+  .world-shop-item{grid-template-columns:32px minmax(0,1fr);min-height:76px;padding:4px;gap:3px}
+  .world-shop-item-art{width:32px;height:52px}
+  .world-shop-item-art img{width:32px;height:50px}
+  .world-shop-item-copy b{font-size:7px}
+  .world-shop-item-copy small{font-size:6px}
+}
+@media(max-height:650px){
+  .world-drawer.is-shop{top:calc(env(safe-area-inset-top) + 45px);bottom:calc(env(safe-area-inset-bottom) + 5px);padding-top:6px}
+  .world-shop-preview{min-height:132px}
+  .world-shop-avatar-stage{height:124px}
+  .world-shop-avatar-layer{transform:scale(1.95)}
+  .world-shop-item{min-height:68px}
+  .world-shop-item-art{height:44px}
+  .world-shop-item-art img{height:43px}
+}
+@media(prefers-reduced-motion:reduce){
+  .world-shop-avatar-layer{animation:none}
+  .world-shop-item{transition:none}
+}
