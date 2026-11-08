@@ -20,21 +20,25 @@ The visual language combines:
 - **Harry Potter:** an old institutional archive, arcane mechanisms, heraldic geometry and mysterious craftsmanship.
 - **Engineering instruments:** precise, legible controls, mechanical hierarchy and deliberate spacing.
 
-The refreshed palette is predominantly black. Ember orange carries the primary energy; ivory-white is reserved for fine luminous rails and readable text; verdigris remains muted and structural; bloodline red stays narrow and architectural rather than becoming a large fill. Saturated accents are surrounded by neutral dark values so they remain distinct instead of competing.
+Two deliberately different themes share the same design language:
+- **Dark / Victorian Noir:** obsidian and forged ink dominate; ember orange carries active energy, luminous ivory-white is reserved for fine rails and text, verdigris structures the instrument, and bloodline red remains a fine outline.
+- **White / Porcelain Archive:** warm porcelain and vellum replace the black surfaces; charcoal ink restores text contrast, burnt copper-orange replaces the brighter ember, deeper verdigris anchors the mechanical details, and wine-red remains a fine architectural outline. White highlights are reflected as soft porcelain glints rather than disappearing into a large white glow.
+
+The two palettes use separate value structures and controlled saturation. They are not simple inversions; each keeps enough neutral separation for its orange, green and red accents to remain legible.
 
 ## 3. Floating Control screen palette
 
 The approved screen palette remains:
 
-| Color | Hex | Intended use |
-|---|---|---|
-| Obsidian Black | `#07090B` | Dominant background and deep instrument recesses |
-| Forged Ink | `#111719` | Raised dark surfaces and control bodies |
-| Ember Orange | `#E47B34` | Main active accent, action emphasis and warm energy |
-| Luminous Ivory | `#F2F0E9` | Text, fine glowing light rails and reflections |
-| Bloodline Red | `#7C2937` | Fine outlines, restrained warning details and edge accents |
-| Verdigris Green | `#728C79` | Muted mechanical enamel, ready states and secondary accents |
-| Aged Brass | `#9C8058` | Engraved marks, clockwork hardware and restrained trim |
+| Role | Dark Theme | White Theme | Intended use |
+|---|---|---|---|
+| Main surface | Obsidian `#07090B` | Warm porcelain `#F4F1E8` | Dominant screen field |
+| Raised surface | Forged ink `#111719` | Ivory enamel `#FFFDF7` | Cards and control bodies |
+| Text | Luminous ivory `#F2F0E9` | Charcoal ink `#1C2721` | Primary text and key labels |
+| Active accent | Ember orange `#E47B34` | Burnt copper `#B85D2B` | Primary action and energy |
+| Fine outline | Bloodline red `#7C2937` | Wine red `#782B3A` | Structural hairlines and restrained warnings |
+| Mechanical green | Verdigris `#728C79` | Deep verdigris `#55765F` | Status, enamel and secondary mechanism details |
+| Hardware | Aged brass `#9C8058` | Patinated brass `#8D7049` | Engraved marks and clockwork trim |
 
 The emblem has its own antique-wood color treatment described below. Its colors do not replace or silently recolor the approved screen palette.
 

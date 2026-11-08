@@ -18,7 +18,11 @@ The Pocket Transition must not skip Floating Control or silently jump from Login
 
 ## Clockwork access scene
 
-Use a cinematic Victorian horological instrument: an engraved astrolabe dial, interlocking gear trains, a small rocking escapement, a pendulum, blackened steel recesses, muted verdigris enamel, aged-brass teeth, blood-red hairline outlines and a luminous ivory reflection. Ember-orange light moves through the mechanism as if a sealed archive is waking. The centre retains the Merzkava medallion. The progress route is represented by six illuminated mechanical stations rather than a generic loading bar. Keep the entire instrument legible on narrow Android screens.
+Use the same cinematic Victorian horological instrument in both themes, with theme-specific materials:
+- Dark: blackened steel recesses, dark enamel, ember-orange drive light, verdigris secondary gears, blood-red hairline outlines and luminous ivory reflections.
+- White: warm porcelain / vellum plate, charcoal engravings, patinated brass teeth, deeper green enamel, burnt-copper drive light and wine-red hairline outlines.
+
+Both variants retain the interlocking gear trains, rocking escapement, pendulum, Merzkava medallion, scanning reflection and six mechanical progress stations. The White version is a light archival instrument, not the Dark version with the brightness raised. Keep the mechanism legible on narrow Android screens.
 
 The scene contains one active diagnostic message slot. It replaces the previous message rather than stacking a history. Each stage displays the same message in three successive frames:
 
