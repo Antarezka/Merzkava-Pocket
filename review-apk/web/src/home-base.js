@@ -77,7 +77,12 @@ class HomeBaseScene extends Phaser.Scene{
       const texture=this.textureName(hair,outfit,move,dir);
       if(!this.textures.exists(texture))return;
       const key=this.animationName(hair,outfit,move,dir);
-      if(!this.anims.exists(key))this.anims.create({key,frames:this.anims.generateFrameNumbers(texture,{start:0,end:3}),frameRate:move==="walk"?8:3,repeat:-1});
+      if(!this.anims.exists(key))this.anims.create({
+        key,
+        frames:this.anims.generateFrameNumbers(texture,{start:0,end:move==="walk"?7:3}),
+        frameRate:move==="walk"?10:3,
+        repeat:-1
+      });
     }));
     this.comboReady.add(combo);
   }
