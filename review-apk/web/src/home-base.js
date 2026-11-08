@@ -220,7 +220,7 @@ class HomeBaseScene extends Phaser.Scene{
       if(this.dragState.moved){cam.scrollX-=dx/cam.zoom;cam.scrollY-=dy/cam.zoom;return;}
       if(this.placement){
         const world=cam.getWorldPoint(pointer.x,pointer.y),tile=this.worldToTile(world.x,world.y),pos=locationOf(tile.col,tile.row);
-        this.placementGhost?.destroy();if(inWorld(tile.col,tile.row))this.placementGhost=this.add.image(pos.x,pos.y+8,"facility_storage").setOrigin(.5,1).setAlpha(.38).setTint(0xb4d7a0).setDepth(pos.y+80);
+        this.placementGhost?.destroy();if(inWorld(tile.col,tile.row)&&this.currentlyVisible.has(tileKey(tile.col,tile.row)))this.placementGhost=this.add.image(pos.x,pos.y+8,"facility_storage").setOrigin(.5,1).setAlpha(.38).setTint(0xb4d7a0).setDepth(pos.y+80);
       }
     });
     this.input.on("pointerup",pointer=>{
