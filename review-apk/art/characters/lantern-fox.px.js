@@ -30,7 +30,7 @@ pal(PALETTE);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 function px(c,x,y,k){
   x=Math.round(x);y=Math.round(y);
-  if(x>=0&&x<W&&y>=0&&y<H)c.px(x,y,k);
+  c.px(x,y,k);
 }
 function hline(c,x,y,n,k){for(let i=0;i<n;i++)px(c,x+i,y,k);}
 function vline(c,x,y,n,k){for(let i=0;i<n;i++)px(c,x,y+i,k);}
@@ -49,8 +49,8 @@ function line(c,x1,y1,x2,y2,k){
   for(let i=0;i<=n;i++)px(c,x1+(x2-x1)*i/n,y1+(y2-y1)*i/n,k);
 }
 function polygon(c,points,k){
-  const minY=Math.max(0,Math.floor(Math.min(...points.map(p=>p[1]))));
-  const maxY=Math.min(H-1,Math.ceil(Math.max(...points.map(p=>p[1]))));
+  const minY=Math.floor(Math.min(...points.map(p=>p[1])));
+  const maxY=Math.ceil(Math.max(...points.map(p=>p[1])));
   for(let y=minY;y<=maxY;y++){
     const hits=[];
     for(let i=0;i<points.length;i++){
@@ -113,7 +113,7 @@ function drawTail(c,dir,m){
   ]);
   polygon(c,inset,"C");
   // Broad, grouped light planes; the tiny end glints describe silk-soft fox fur.
-  if(faceSide(dir)==="right"){
+  if(!["ne","e","se"].includes(dir)){
     shape(c,[[33+shift,42-lift],[38+shift,41-lift],[42+shift,46-lift],[43+shift,50-lift],[39+shift,48-lift],[35+shift,47-lift]],"D","C");
     line(c,35+shift,45-lift,39+shift,48-lift,"E");
     dotCluster(c,[[41+shift,53-lift],[39+shift,56-lift],[37+shift,58-lift]],"E");
@@ -590,7 +590,7 @@ function drawCharacter(c,dir,action,frame){
   drawHairOrnaments(c,dir,m);
   if(m.rod)drawFishingRod(c,dir,frame);
   else if(m.lantern){
-    const left=dir==="e"||dir==="ne"||dir==="se";
+    const left=["w","nw","sw"].includes(dir);
     const x=left?4:34,y=37+(m.lanternY||0)+(m.crouch||0);
     drawLantern(c,x,y,frame);
   }
@@ -711,7 +711,7 @@ sheet("fox_lantern_keeper_action_atlas",[
 sprite("fox_portrait_normal",{w:96,h:96,pivot:[48,94]},c=>drawPortrait(c,"normal"));
 sprite("fox_portrait_laugh",{w:96,h:96,pivot:[48,94]},c=>drawPortrait(c,"laugh"));
 sprite("fox_title_banner",{w:128,h:28,pivot:[64,14]},c=>drawTitleBanner(c));
-sprite("fox_hand_sakura_sigIl",{w:24,h:24,pivot:[12,12]},c=>drawHandSigil(c));
+sprite("fox_hand_sakura_sigil",{w:24,h:24,pivot:[12,12]},c=>drawHandSigil(c));
 sprite("fox_footprint_trail",{w:22,h:18,pivot:[11,9]},c=>drawFootprints(c));
 anim("fox_lantern_aura",{w:16,h:20,frames:8,fps:8},c=>drawLanternAura(c,c.frame));
 anim("foxfire_burst",{w:24,h:24,frames:8,fps:10},c=>drawFoxfire(c,c.frame));
