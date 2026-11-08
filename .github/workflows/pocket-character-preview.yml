@@ -33,6 +33,7 @@ jobs:
         run: |
           set -euo pipefail
           git clone --depth 1 https://github.com/augusto-scarvalho/claude-pxl.git "$RUNNER_TEMP/claude-pxl"
+          mkdir -p review-apk/art/characters
           cp "$RUNNER_TEMP/claude-pxl/lib/characters/dress.px.js" review-apk/art/characters/_pxl-dress.px.js
 
       - name: Validate and render the complete PXL world archive
