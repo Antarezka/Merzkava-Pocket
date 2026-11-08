@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import "./home-base.css";
 import { openHomeBaseSession } from "./economy.js";
+import { createWardrobeShopTransaction } from "./wardrobe-shop.js";
 
 const HAIR_OPTIONS=[
   {id:"long_black",name:"Long Straight",description:"Long, smooth locks with a calm centre fringe."},
@@ -358,7 +359,7 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
   if(!root)return ()=>{};
   let disposed=false,session,game=null,scene=null,snapshot=null,tick=null;
   let feedback="Tap a place to see what can be done here.";
-  let shopOriginal=null,shopDraft=null,shopConfirmPending=false;
+  let shopDraft=null,shopConfirmPending=false,wardrobeShop=null,shopClosePromise=null;
   root.innerHTML="<div class='world-empty'>Opening the World Archive...</div>";
   const setFeedback=value=>{feedback=value;const node=root.querySelector("[data-world-feedback]");if(node)node.textContent=value;};
   try{session=await openHomeBaseSession(identity);}
@@ -394,11 +395,15 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
       "<div class='world-card-grid'>"+rows.map(row=>"<button class='world-card' data-world-location='"+row[0]+"'><b>"+row[1]+"</b><small>"+row[2]+"</small><em>OWNED · LEVEL 1</em></button>").join("")+"</div>";
   };
   const applyShopDraft=async appearance=>{
-    await scene.setAppearance(appearance.hair,appearance.outfit);
-    await scene.setAccessory(appearance.accessory||"none");
-    await scene.setWeapon(appearance.weapon||"none");
+    const bodyReady=await scene.setAppearance(appearance.hair,appearance.outfit);
+    const accessoryReady=await scene.setAccessory(appearance.accessory||"none");
+    const weaponReady=await scene.setWeapon(appearance.weapon||"none");
+    if(!bodyReady||!accessoryReady||!weaponReady)throw new Error("One or more appearance layers could not be applied.");
+    return true;
   };
   const refreshShopPreview=()=>{
+    shopDraft=wardrobeShop?.getDraft()??shopDraft;
+    shopConfirmPending=wardrobeShop?.isConfirmPending()??shopConfirmPending;
     if(!shopDraft)return;
     const {hair,outfit,accessory,weapon}=shopDraft;
     const body=worldPanel.querySelector("[data-shop-body]");
@@ -458,8 +463,8 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
     heading.textContent="WARDROBE SHOP";
     drawer.classList.add("is-shop");
     drawer.classList.remove("is-collapsed");
-    shopOriginal=scene.getAppearanceState();
-    shopDraft={...shopOriginal};
+    if(!wardrobeShop?.open())return;
+    shopDraft=wardrobeShop.getDraft();
     shopConfirmPending=false;
     scene.setAppearanceShopOpen(true);
     worldPanel.innerHTML=
@@ -498,28 +503,40 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
     renderShopCatalog();
     refreshShopPreview();
   };
-  const exitAppearanceShop=async({restore=true,collapse=false}={})=>{
-    if(shopOriginal&&restore){
-      try{await applyShopDraft(shopOriginal);}
-      catch(error){setFeedback("Could not restore the original appearance: "+esc(error.message));}
-    }
-    shopDraft=null;shopOriginal=null;shopConfirmPending=false;
-    scene.setAppearanceShopOpen(false);
-    drawer.classList.remove("is-shop");
-    if(collapse){drawer.classList.add("is-collapsed");}
-    else renderPlaces();
+  const exitAppearanceShop=({restore=true,collapse=false}={})=>{
+    if(shopClosePromise)return shopClosePromise;
+    shopClosePromise=(async()=>{
+      if(restore&&wardrobeShop?.isOpen()){
+        const restored=await wardrobeShop.exit();
+        if(!restored){
+          setFeedback("The original appearance could not be restored yet. The shop remains open; try EXIT again.");
+          return false;
+        }
+      }else if(!restore){
+        wardrobeShop?.abandon();
+      }
+      shopDraft=null;shopConfirmPending=false;
+      scene.setAppearanceShopOpen(false);
+      drawer.classList.remove("is-shop");
+      if(collapse){drawer.classList.add("is-collapsed");}
+      else renderPlaces();
+      return true;
+    })();
+    return shopClosePromise.finally(()=>{shopClosePromise=null;});
   };
-  const commitAppearanceShop=()=>{
-    if(!shopDraft)return;
-    session.setHair(shopDraft.hair);
-    session.setOutfit(shopDraft.outfit);
-    session.setAccessory(shopDraft.accessory);
-    session.setWeapon(shopDraft.weapon);
-    shopOriginal=null;shopDraft=null;shopConfirmPending=false;
+  const commitAppearanceShop=async()=>{
+    if(!wardrobeShop?.isOpen())return false;
+    const saved=await wardrobeShop.confirm();
+    if(!saved){
+      setFeedback("Appearance was not saved. Your preview is still open; check local storage and confirm again.");
+      return false;
+    }
+    shopDraft=null;shopConfirmPending=false;
     scene.setAppearanceShopOpen(false);
     drawer.classList.remove("is-shop");
     setFeedback("Appearance saved and equipped. No currency was charged because prices are not configured.");
     renderPlaces();
+    return true;
   };
   const renderBuild=()=>{
     heading.textContent="FACILITY ARCHIVE";
@@ -574,6 +591,11 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
       "<div class='world-action-row'><button class='world-action' data-world-gather='"+item.item_id+"' "+(!req.ready?"disabled":"")+">DRAW WATER</button></div>";
   };
   scene=new HomeBaseScene();
+  wardrobeShop=createWardrobeShopTransaction({
+    readAppearance:()=>scene.getAppearanceState(),
+    previewAppearance:applyShopDraft,
+    saveAppearance:appearance=>session.setAppearanceSlots(appearance)
+  });
   const placeAt=(tile,facility)=>{
     if(disposed||!facility)return;
     const col=tile.col,row=tile.row;
@@ -608,23 +630,25 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
     const btn=event.target.closest("[data-shop-buy],[data-shop-exit],[data-shop-confirm-buy],[data-shop-cancel-buy],[data-world-action],[data-world-appearance],[data-world-build],[data-world-location],[data-world-facility],[data-world-start-placement],[data-world-open-build],[data-world-rest],[data-world-forage],[data-world-water],[data-world-gather],[data-world-hair],[data-world-outfit],[data-world-accessory],[data-world-weapon]");
     if(!btn)return;
     if(btn.hasAttribute("data-shop-exit")){
-      await exitAppearanceShop({restore:true});
-      setFeedback("Shop closed. Your original appearance has been restored.");
+      const closed=await exitAppearanceShop({restore:true});
+      if(closed)setFeedback("Shop closed. Your original appearance has been restored.");
       return;
     }
     if(btn.hasAttribute("data-shop-buy")){
-      shopConfirmPending=true;refreshShopPreview();return;
+      if(wardrobeShop?.requestConfirmation())refreshShopPreview();
+      return;
     }
     if(btn.hasAttribute("data-shop-cancel-buy")){
-      shopConfirmPending=false;refreshShopPreview();return;
+      wardrobeShop?.cancelConfirmation();refreshShopPreview();return;
     }
     if(btn.hasAttribute("data-shop-confirm-buy")){
-      commitAppearanceShop();return;
+      await commitAppearanceShop();return;
     }
     const isShopItem=btn.dataset.worldHair!==undefined||btn.dataset.worldOutfit!==undefined||btn.dataset.worldAccessory!==undefined||btn.dataset.worldWeapon!==undefined;
     // Any route away from the open shop without a confirmed purchase is an exit.
-    if(shopOriginal&&!isShopItem){
-      await exitAppearanceShop({restore:true});
+    if(wardrobeShop?.isOpen()&&!isShopItem){
+      const closed=await exitAppearanceShop({restore:true});
+      if(!closed)return;
     }
     drawer.classList.remove("is-collapsed");
     if(btn.dataset.worldAction==="places"){scene.stopPlacement();drawer.classList.remove("is-shop");renderPlaces();}
@@ -649,26 +673,34 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
       setFeedback(result.ok?"Gathering started. Output is credited when the saved process completes.":result.message);snapshot=session.snapshot();
     }else if(btn.dataset.worldHair){
       try{
-        const nextHair=btn.dataset.worldHair,next={...shopDraft,hair:nextHair};
-        await applyShopDraft(next);shopDraft=next;renderShopCatalog();refreshShopPreview();
+        const next={...shopDraft,hair:btn.dataset.worldHair};
+        const result=await wardrobeShop.select(next);shopDraft=wardrobeShop.getDraft();
+        if(!result.ok){setFeedback("Hairstyle preview could not be loaded: "+esc(result.error?.message||"Unknown error."));return;}
+        renderShopCatalog();refreshShopPreview();
         setFeedback("Hairstyle previewed. Confirm BUY to save it.");
       }catch(error){setFeedback("Hairstyle preview could not be loaded: "+esc(error.message));}
     }else if(btn.dataset.worldOutfit){
       try{
         const next={...shopDraft,outfit:btn.dataset.worldOutfit};
-        await applyShopDraft(next);shopDraft=next;renderShopCatalog();refreshShopPreview();
+        const result=await wardrobeShop.select(next);shopDraft=wardrobeShop.getDraft();
+        if(!result.ok){setFeedback("Outfit preview could not be loaded: "+esc(result.error?.message||"Unknown error."));return;}
+        renderShopCatalog();refreshShopPreview();
         setFeedback("Outfit previewed. Confirm BUY to save it.");
       }catch(error){setFeedback("Outfit preview could not be loaded: "+esc(error.message));}
     }else if(btn.dataset.worldAccessory!==undefined){
       try{
         const next={...shopDraft,accessory:btn.dataset.worldAccessory};
-        await applyShopDraft(next);shopDraft=next;renderShopCatalog();refreshShopPreview();
+        const result=await wardrobeShop.select(next);shopDraft=wardrobeShop.getDraft();
+        if(!result.ok){setFeedback("Accessory preview could not be loaded: "+esc(result.error?.message||"Unknown error."));return;}
+        renderShopCatalog();refreshShopPreview();
         setFeedback("Accessory previewed. Confirm BUY to save it.");
       }catch(error){setFeedback("Accessory preview could not be loaded: "+esc(error.message));}
     }else if(btn.dataset.worldWeapon!==undefined){
       try{
         const next={...shopDraft,weapon:btn.dataset.worldWeapon};
-        await applyShopDraft(next);shopDraft=next;renderShopCatalog();refreshShopPreview();
+        const result=await wardrobeShop.select(next);shopDraft=wardrobeShop.getDraft();
+        if(!result.ok){setFeedback("Weapon or gear preview could not be loaded: "+esc(result.error?.message||"Unknown error."));return;}
+        renderShopCatalog();refreshShopPreview();
         setFeedback("Weapon or gear previewed. Confirm BUY to save it.");
       }catch(error){setFeedback("Weapon or gear preview could not be loaded: "+esc(error.message));}
     }
@@ -678,25 +710,27 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
     session.setBuilders(input.dataset.worldBuilders,input.value);renderFacilityDetail(input.dataset.worldBuilders);
   };
   const dismissUnconfirmedShop=event=>{
-    if(!shopOriginal)return;
+    if(!wardrobeShop?.isOpen())return;
     if(event?.type==="click"&&drawer.contains(event.target))return;
-    void exitAppearanceShop({restore:true});
-    setFeedback("Shop closed without purchase. Your original appearance has been restored.");
+    void exitAppearanceShop({restore:true}).then(closed=>{
+      if(closed)setFeedback("Shop closed without purchase. Your original appearance has been restored.");
+    });
   };
   const onShopEscape=event=>{
-    if(event.key!=="Escape"||!shopOriginal)return;
+    if(event.key!=="Escape"||!wardrobeShop?.isOpen())return;
     event.preventDefault();
     event.stopPropagation();
-    void exitAppearanceShop({restore:true});
-    setFeedback("Shop closed without purchase. Your original appearance has been restored.");
+    void exitAppearanceShop({restore:true}).then(closed=>{
+      if(closed)setFeedback("Shop closed without purchase. Your original appearance has been restored.");
+    });
   };
   root.addEventListener("click",updateClick);root.addEventListener("change",inputChange);
   document.addEventListener("click",dismissUnconfirmedShop,true);
   document.addEventListener("keydown",onShopEscape,true);
   root.querySelector("[data-world-close]")?.addEventListener("click",async()=>{
-    if(shopOriginal){
-      await exitAppearanceShop({restore:true,collapse:true});
-      setFeedback("Shop closed. Your original appearance has been restored.");
+    if(wardrobeShop?.isOpen()){
+      const closed=await exitAppearanceShop({restore:true,collapse:true});
+      if(closed)setFeedback("Shop closed. Your original appearance has been restored.");
       return;
     }
     drawer.classList.toggle("is-collapsed");
@@ -710,6 +744,7 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
   },2500);
   return ()=>{
     disposed=true;if(tick!==null)window.clearInterval(tick);
+    wardrobeShop?.abandon();
     root.removeEventListener("click",updateClick);root.removeEventListener("change",inputChange);
     document.removeEventListener("click",dismissUnconfirmedShop,true);
     document.removeEventListener("keydown",onShopEscape,true);
