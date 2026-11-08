@@ -317,7 +317,7 @@
 .world-shop-confirm>div{display:flex;flex:1 1 100%;flex-direction:column;gap:3px;min-width:0}
 .world-shop-confirm>div strong{font:600 8px var(--display);letter-spacing:.14em;color:#f0dfba}
 .world-shop-confirm>div small{font:7px/1.4 var(--ui);color:#c4c6b5}
-.world-shop-confirm[hidden],.world-shop-actions[hidden]{display:none!important}
+.world-shop-confirm[hidden],.world-shop-footer[hidden]{display:none!important}
 @media(max-width:380px){
   .world-drawer.is-shop{left:5px;right:5px;top:calc(env(safe-area-inset-top) + 45px);padding:6px}
   .world-shop-preview{grid-template-columns:minmax(108px,.78fr) minmax(0,1.22fr);gap:5px;min-height:142px;padding:4px}
