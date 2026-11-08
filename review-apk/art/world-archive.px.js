@@ -335,9 +335,9 @@ sprite("daily_login_shop_front",{w:360,h:640,pivot:[180,639]},c=>{
   };
   lantern(113,293);lantern(227,293);
 
-  // Freestanding DAILY kanban beside the roadside approach.
-  rect(c,241,387,42,65,"K");rect(c,244,390,36,58,"D");
-  rect(c,247,393,30,52,"I");c.hline(247,394,30,"g");
+  // Low, freestanding roadside kanban beside the sliding entrance.
+  rect(c,231,389,65,42,"K");rect(c,234,392,59,36,"D");
+  rect(c,238,396,51,28,"I");c.hline(238,397,51,"g");
   const glyph={
     D:["110","101","101","101","110"],
     A:["010","101","111","101","101"],
@@ -346,12 +346,12 @@ sprite("daily_login_shop_front",{w:360,h:640,pivot:[180,639]},c=>{
     Y:["101","101","010","010","010"]
   };
   for(let n=0;n<5;n++){
-    const rows=glyph["DAILY"[n]],yy=396+n*10;
-    for(let gy=0;gy<5;gy++)for(let gx=0;gx<3;gx++)if(rows[gy][gx]==="1")rect(c,259+gx*2,yy+gy*2,2,2,"B");
+    const rows=glyph["DAILY"[n]],xx=241+n*9;
+    for(let gy=0;gy<5;gy++)for(let gx=0;gx<3;gx++)if(rows[gy][gx]==="1")rect(c,xx+gx*2,405+gy*2,2,2,"B");
   }
-  c.hline(247,444,30,"u");
-  line(c,245,450,240,473,"B");line(c,279,450,285,473,"B");
-  c.hline(239,472,47,"D");
+  c.hline(238,424,51,"u");
+  line(c,236,431,231,467,"B");line(c,291,431,298,467,"B");
+  c.hline(229,466,72,"D");
 
   // Covered entrance terrace and a road that opens in correct perspective.
   rect(c,23,414,314,11,"B");rect(c,29,416,302,6,"s");
