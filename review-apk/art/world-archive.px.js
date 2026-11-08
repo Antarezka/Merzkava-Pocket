@@ -376,22 +376,24 @@ sprite("daily_login_shop_front",{w:360,h:640,pivot:[180,639]},c=>{
   c.ellipse(329,377,12,9,"T");c.ellipse(323,372,7,7,"t");c.ellipse(335,373,7,7,"t");c.px(328,366,"u");
 });
 
-// Hanging wooden kanban board: independent asset so the shoji and noren cannot cover it.
-sprite("daily_login_kanban",{w:64,h:112,pivot:[32,108]},c=>{
-  c.ellipse(32,108,18,3,"K");
-  c.vline(20,0,18,"D");c.vline(43,0,18,"D");
-  c.hline(14,7,36,"K");c.hline(15,8,34,"L");
-  rect(c,8,16,48,78,"K");
-  rect(c,11,19,42,72,"D");
-  rect(c,14,22,36,66,"L");
-  rect(c,17,25,30,60,"I");
-  c.hline(17,25,30,"g");c.hline(17,84,30,"u");
+// Freestanding roadside kanban: posts and feet are part of its own foreground sprite.
+sprite("daily_login_kanban",{w:64,h:132,pivot:[32,128]},c=>{
+  c.ellipse(32,128,23,3,"K");
+  c.vline(18,70,55,"K");c.vline(45,70,55,"K");
+  c.vline(20,72,51,"D");c.vline(43,72,51,"D");
+  c.hline(12,122,40,"K");c.hline(15,123,34,"L");
+  rect(c,5,6,54,78,"K");
+  rect(c,8,9,48,72,"D");
+  rect(c,11,12,42,66,"L");
+  rect(c,14,15,36,60,"I");
+  c.hline(14,15,36,"g");c.hline(14,74,36,"u");
   // Painted vertical lettering strokes; the Japanese label is overlaid by the UI.
-  c.vline(24,34,37,"D");c.vline(39,34,37,"D");
-  c.hline(24,34,15,"D");c.hline(24,50,15,"D");c.hline(24,69,15,"D");
-  c.px(31,43,"u");c.px(34,58,"u");
-  rect(c,4,14,6,9,"B");rect(c,54,14,6,9,"B");
-  c.hline(6,94,52,"K");c.hline(10,96,44,"u");
+  c.vline(21,24,36,"D");c.vline(36,24,36,"D");
+  c.hline(21,24,15,"D");c.hline(21,40,15,"D");c.hline(21,59,15,"D");
+  c.px(28,33,"u");c.px(31,48,"u");
+  rect(c,1,4,7,10,"B");rect(c,56,4,7,10,"B");
+  c.hline(17,87,30,"M");c.hline(20,89,24,"L");
+  c.hline(18,98,28,"D");
 });
 
 // Four equal rectangular noren panels, attached along their top edge.
