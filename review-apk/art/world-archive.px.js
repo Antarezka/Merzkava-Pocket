@@ -273,22 +273,48 @@ pal({
 // Transparent portrait canvas: empty upper pixels become live sky.
 // The perspective asphalt approach widens toward the viewer.
 sprite("daily_login_shop_front",{w:360,h:640,pivot:[180,639]},c=>{
-  // Low, shallow contemporary roofline with broad, calm eaves.
-  for(let y=150;y<203;y++){
-    const half=Math.min(166,Math.floor(43+(y-150)*2.35));
-    c.hline(180-half,y,half*2,"K");
-    if(y>177)c.hline(180-half+3,y+1,half*2-6,(y%12<6)?"C":"B");
-    if(y%7===0&&half>24)c.hline(180-half+11,y+2,half*2-22,"q");
+  // Traditional kawara roof: high ridge, deep layered tiles and gently raised eave ends.
+  for(let y=126;y<220;y++){
+    const half=Math.min(180,Math.floor(8+(y-126)*1.92));
+    const left=180-half,right=180+half;
+    const shade=y<145?"K":y%12<4?"B":y%12<8?"C":"q";
+    c.hline(left,y,right-left+1,shade);
+    if(y%6===0)c.hline(left+2,y+1,right-left-3,"K");
+    if(y%9===0)c.hline(left+7,y+2,right-left-13,"s");
   }
-  for(let y=157;y<201;y+=5){
-    const half=Math.min(166,Math.floor(43+(y-150)*2.35));
-    for(let x=180-half+15+(y%14);x<180+half-12;x+=24){
-      c.vline(x,y,3,"c");c.px(x+1,y,"s");
+  // Raised ridge cap with traditional round end ornaments.
+  c.ellipse(180,128,23,7,"K");c.ellipse(180,126,19,4,"q");
+  c.hline(158,126,44,"C");c.hline(164,124,32,"s");
+  c.ellipse(158,128,5,4,"B");c.ellipse(202,128,5,4,"B");
+  c.px(158,127,"L");c.px(202,127,"L");
+  // Individual overlapping kawara courses; every other row shifts its joints.
+  for(let row=0;row<14;row++){
+    const y=137+row*5;
+    const half=Math.min(180,Math.floor(8+(y-126)*1.92));
+    const left=180-half,right=180+half;
+    const offset=row%2?9:0;
+    for(let x=left+5+offset;x<right-8;x+=18){
+      c.hline(x,y,13,row%3===0?"q":"C");
+      c.hline(x+1,y+1,11,"B");
+      c.vline(x,y+1,3,"K");
+      c.vline(x+12,y+1,3,"s");
+      c.px(x+6,y,"l");
     }
   }
-  rect(c,12,201,336,17,"K");rect(c,18,204,324,8,"C");
-  c.hline(17,204,326,"s");c.hline(21,213,318,"D");
-  for(let x=28;x<337;x+=26)c.vline(x,205,8,"B");
+  // Deep curved eaves: fascia, under-roof rafters and ornamental tile tips.
+  c.ellipse(8,216,17,8,"K");c.ellipse(352,216,17,8,"K");
+  c.hline(0,216,360,"K");c.hline(4,218,352,"D");
+  rect(c,0,221,360,18,"K");rect(c,4,223,352,10,"D");
+  c.hline(4,224,352,"L");c.hline(4,231,352,"M");
+  for(let x=10;x<355;x+=18){
+    c.vline(x,222,10,"B");c.px(x+1,223,"l");
+    if(x%36===10)c.hline(x-3,233,7,"g");
+  }
+  for(let x=16;x<350;x+=34){
+    rect(c,x,233,7,16,"K");rect(c,x+2,235,3,12,"M");
+    c.hline(x-3,235,13,"L");
+  }
+  c.ellipse(9,222,7,5,"L");c.ellipse(351,222,7,5,"L");
 
   // Wide, low facade: white plaster, charcoal framing, natural brown timber.
   rect(c,0,215,360,202,"K");rect(c,5,219,350,190,"W");
@@ -297,6 +323,13 @@ sprite("daily_login_shop_front",{w:360,h:640,pivot:[180,639]},c=>{
   rect(c,10,226,5,179,"D");rect(c,345,226,5,179,"D");
   rect(c,15,240,330,5,"M");rect(c,15,394,330,6,"M");
   c.hline(15,241,330,"l");c.hline(15,395,330,"D");
+
+  // Small timber shop plaque beneath the eaves, centred above the noren.
+  rect(c,142,242,76,15,"K");rect(c,146,244,68,10,"D");
+  rect(c,149,246,62,6,"L");c.hline(150,246,60,"g");
+  // Compact hand-painted soba mark, kept legible as blocky sign lettering.
+  for(const [xx,yy] of [[157,247],[160,249],[164,247],[168,249],[174,247],[178,249],[184,247],[188,249],[194,247],[198,249]])c.px(xx,yy,"D");
+  c.px(159,251,"H");c.px(180,251,"H");c.px(199,251,"H");
 
   // Timber lattice side bays.
   rect(c,54,265,73,117,"K");rect(c,58,269,65,109,"d");
