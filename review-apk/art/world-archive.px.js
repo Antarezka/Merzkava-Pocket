@@ -253,110 +253,185 @@ sprite("item_hoe",{w:32,h:32,pivot:[16,28]},c=>{
 });
 
 
-// Daily Login — full-screen Japanese shop exterior.
-// The shop facade, lanterns and DAILY kanban are native PXL pixels;
-// only the draggable shoji panel and subtle glow are layered in CSS.
+// Daily Login — distant, wide Japanese-modern storefront.
 pal({
- K:"#181c1b",a:"#2a241f",b:"#403027",c:"#5b3e2c",d:"#795338",
- e:"#9c7044",f:"#bd905b",g:"#d4b27a",h:"#e8d2a5",
- i:"#f2e6c9",j:"#f7eacb",l:"#f1dba4",m:"#b77c48",
- n:"#d9bd83",o:"#f5e6bd",p:"#29352f",q:"#465448",
- r:"#70624a",s:"#a68b62",t:"#d1c39f",u:"#c4a16a"
+ K:"#191b1b",B:"#292b2a",C:"#3d3d39",c:"#554f45",
+ W:"#eeeae0",w:"#d9d5cb",I:"#f7f1e6",i:"#c6c0b3",
+ D:"#4b3326",d:"#694631",M:"#8b5c3b",m:"#a9784e",
+ L:"#c49a67",l:"#d9b987",G:"#e6d3ad",g:"#f2e4c9",
+ A:"#202a2e",a:"#35454a",b:"#576d70",
+ P:"#373a3a",p:"#494c4a",S:"#666966",s:"#858780",
+ R:"#918b7e",r:"#b0a998",T:"#48583d",t:"#718052",
+ U:"#a37a48",u:"#d4b57c",Y:"#f2dda3",y:"#fff0c9"
 });
-sprite("daily_login_shop_front",{w:180,h:400,pivot:[90,399]},c=>{
-  // Deep night behind the roof; the surrounding transparency allows the
-  // full-screen scene to retain its quiet dusk gradient.
-  // Roof silhouette and layered tile courses.
-  for(let y=47;y<126;y++){
-    const half=Math.min(89,20+Math.floor((y-47)*1.62));
-    c.hline(90-half,y,half*2,"K");
-    if(half>4)c.hline(90-half+2,y+1,half*2-4,(y%12<6)?"c":"d");
-    if(y%8===0&&half>18)c.hline(90-half+7,y+2,half*2-14,"e");
+
+// Portrait scene canvas preserves the full-screen phone framing while the
+// building itself stays broad, low and comfortably set back from the street.
+sprite("daily_login_shop_front",{w:360,h:640,pivot:[180,639]},c=>{
+  // Distant dusk environment and tree silhouettes frame the building.
+  c.ellipse(45,224,46,58,"A");c.ellipse(31,199,32,36,"a");
+  c.ellipse(69,182,30,28,"A");c.ellipse(25,239,25,26,"B");
+  c.vline(43,248,105,"D");c.vline(50,250,100,"c");
+  c.ellipse(323,219,42,58,"A");c.ellipse(338,196,30,37,"a");
+  c.ellipse(300,183,30,28,"A");c.ellipse(342,239,24,27,"B");
+  c.vline(321,247,103,"D");c.vline(328,247,102,"c");
+  // Distant low roofs give the camera a quiet residential-street context.
+  rect(c,0,298,49,33,"B");rect(c,4,304,41,26,"C");
+  for(let x=0;x<49;x+=12)c.vline(x+3,307,22,"c");
+  rect(c,315,294,45,38,"B");rect(c,320,300,40,31,"C");
+  for(let x=322;x<360;x+=12)c.vline(x,303,25,"c");
+
+  // Wide, low tiled roof with a clear eave silhouette.
+  for(let y=167;y<226;y++){
+    const inset=Math.max(0,Math.floor(Math.abs(180-y)*.19));
+    const left=12+inset,right=348-inset;
+    c.hline(left,y,right-left,"K");
+    if(y>172)c.hline(left+3,y+1,right-left-6,(y%10<5)?"C":"B");
+    if(y%8===0&&right-left>30)c.hline(left+8,y+2,right-left-16,"S");
   }
-  for(let x=11;x<170;x+=14){
-    const y=55+Math.floor(Math.abs(x-90)*.38);
-    if(y<116){c.vline(x,y,Math.max(2,116-y),"b");c.px(x+1,y+7,"f");}
+  // Roof tiles as restrained horizontal courses, not dense checkerboard.
+  for(let y=176;y<218;y+=7){
+    for(let x=22+(y%14);x<338;x+=22){
+      c.vline(x,y,4,"c");c.px(x+1,y,"s");
+    }
   }
-  rect(c,2,116,176,15,"K");rect(c,5,119,170,9,"d");
-  c.hline(6,120,168,"g");c.hline(2,129,176,"a");
+  // Deep charcoal eaves and warm timber fascia.
+  rect(c,9,220,342,14,"K");rect(c,16,222,328,7,"C");
+  c.hline(13,222,334,"s");c.hline(17,230,326,"D");
+  for(let x=22;x<342;x+=28)c.vline(x,223,8,"B");
 
-  // Timber storefront and low-lit paper wall.
-  rect(c,8,130,164,261,"K");rect(c,12,134,156,252,"b");
-  for(let y=143;y<384;y+=13)c.hline(14,y,152,(y%26===0)?"d":"c");
-  for(let x=15;x<168;x+=17){rect(c,x,135,3,248,"a");c.vline(x+1,141,234,"e");}
-  rect(c,7,386,166,10,"K");rect(c,11,388,158,5,"d");
-  c.hline(11,389,158,"g");
+  // Main building: white plaster walls, dark framing and natural brown timber.
+  rect(c,31,232,298,189,"K");rect(c,37,237,286,179,"W");
+  rect(c,37,237,286,15,"w");
+  rect(c,37,404,286,12,"i");
+  // Broad horizontal timber band and corner posts.
+  rect(c,31,232,298,9,"B");rect(c,34,238,7,178,"D");
+  rect(c,319,238,7,178,"D");rect(c,37,246,286,5,"D");
+  rect(c,43,252,4,155,"M");rect(c,313,252,4,155,"M");
+  // Natural timber slat feature panels at both sides of the entrance.
+  rect(c,55,270,78,133,"d");rect(c,59,274,70,125,"M");
+  for(let x=62;x<129;x+=8){rect(c,x,276,3,120,"D");c.vline(x+1,281,108,"m");}
+  c.hline(59,274,70,"l");c.hline(59,397,70,"c");
+  rect(c,227,270,78,133,"d");rect(c,231,274,70,125,"M");
+  for(let x=234;x<301;x+=8){rect(c,x,276,3,120,"D");c.vline(x+1,281,108,"m");}
+  c.hline(231,274,70,"l");c.hline(231,397,70,"c");
 
-  // Left shoji window. A warm, dim kitchen silhouette is only just visible.
-  rect(c,15,166,32,105,"K");rect(c,18,169,26,99,"d");rect(c,21,173,20,90,"l");
-  for(let x=24;x<41;x+=7)rect(c,x,173,2,89,"e");
-  for(let y=184;y<260;y+=15)rect(c,21,y,20,2,"e");
-  rect(c,25,239,12,15,"p");c.ellipse(31,236,8,3,"a");
-  c.hline(26,234,11,"r");rect(c,28,229,6,5,"q");
+  // White plaster piers and modern black window frames.
+  rect(c,49,258,5,148,"W");rect(c,306,258,5,148,"W");
+  rect(c,66,291,61,73,"K");rect(c,70,295,53,65,"a");
+  rect(c,74,299,45,57,"b");
+  for(let x=85;x<119;x+=15)rect(c,x,299,3,57,"D");
+  rect(c,70,328,53,3,"D");rect(c,70,346,53,3,"D");
+  c.hline(74,301,45,"g");c.px(77,306,"Y");c.px(110,311,"l");
+  rect(c,233,291,61,73,"K");rect(c,237,295,53,65,"a");
+  rect(c,241,299,45,57,"b");
+  for(let x=252;x<286;x+=15)rect(c,x,299,3,57,"D");
+  rect(c,237,328,53,3,"D");rect(c,237,346,53,3,"D");
+  c.hline(241,301,45,"g");c.px(244,306,"Y");c.px(277,311,"l");
 
-  // Central doorway cavity and the warm ivory light behind its sliding panel.
-  rect(c,51,139,78,251,"K");rect(c,56,145,68,238,"a");
-  rect(c,61,151,58,225,"j");rect(c,64,156,52,216,"l");
-  c.hline(64,157,52,"i");c.hline(64,370,52,"h");
-  for(let x=68;x<115;x+=13)rect(c,x,164,2,198,"g");
-  rect(c,53,140,5,245,"K");rect(c,122,140,6,245,"K");
-  rect(c,51,137,78,5,"g");rect(c,51,383,78,7,"K");
+  // Central entrance opening, warm glass and dim silhouette behind the shoji.
+  rect(c,137,260,86,158,"K");rect(c,142,265,76,148,"D");
+  rect(c,147,272,66,130,"A");rect(c,151,276,58,122,"a");
+  c.hline(151,276,58,"g");c.hline(151,397,58,"L");
+  // A soft-lit counter, cook silhouette and pot remain deliberately distant.
+  rect(c,157,342,47,4,"d");rect(c,161,346,39,21,"C");
+  c.ellipse(180,316,8,9,"B");rect(c,169,326,22,22,"B");
+  rect(c,166,334,5,16,"B");rect(c,190,333,5,17,"B");
+  c.ellipse(181,353,14,3,"D");rect(c,168,352,27,5,"D");
+  c.ellipse(178,343,7,4,"L");c.hline(173,340,11,"Y");
+  // Low interior pendant, not a bright glowing doorway.
+  rect(c,178,284,3,18,"D");c.ellipse(180,304,8,4,"u");
+  c.ellipse(180,304,5,2,"Y");
+  // Wooden entrance sill.
+  rect(c,132,409,96,9,"K");rect(c,137,410,86,5,"L");
+  c.hline(139,411,82,"g");
 
-  // Distant cook silhouette, pot and steam shapes behind the translucent-looking glow.
-  c.ellipse(90,235,10,13,"a");c.ellipse(90,223,12,5,"a");
-  rect(c,79,240,22,51,"a");rect(c,73,248,8,36,"a");rect(c,99,248,8,36,"a");
-  rect(c,81,287,7,28,"a");rect(c,92,287,7,28,"a");
-  c.ellipse(74,300,17,5,"a");rect(c,58,292,32,14,"a");
-  c.hline(61,293,26,"r");c.vline(59,286,8,"a");c.vline(89,286,8,"a");
-  c.vline(72,273,11,"h");c.vline(80,267,15,"i");c.vline(87,274,10,"h");
+  // Rectangular, four-panel noren rail fixed immediately above the entrance.
+  rect(c,134,253,92,5,"B");rect(c,137,254,86,2,"u");
+  for(let x=145;x<220;x+=24)c.vline(x,257,5,"D");
 
-  // Left and right low-brightness paper lanterns.
+  // Warm, restrained wall lanterns beside the door.
   const lantern=(x,y)=>{
-    rect(c,x+3,y,14,4,"a");rect(c,x,y+4,20,27,"K");
-    rect(c,x+3,y+7,14,20,"m");rect(c,x+5,y+8,10,18,"l");
-    for(let yy=y+10;yy<y+26;yy+=5)c.hline(x+5,yy,10,"n");
-    rect(c,x+2,y+31,16,3,"a");c.vline(x+9,y+34,5,"e");
+    rect(c,x+4,y,12,3,"B");rect(c,x,y+3,20,23,"K");
+    rect(c,x+3,y+6,14,15,"u");rect(c,x+5,y+7,10,13,"Y");
+    c.vline(x+4,y+7,12,"L");c.vline(x+15,y+7,12,"L");
+    rect(c,x+2,y+22,16,3,"D");c.vline(x+9,y+25,4,"D");
   };
-  lantern(15,149);lantern(144,149);
+  lantern(124,306);lantern(216,306);
 
-  // DAILY kanban board to the right of the sliding door.
-  rect(c,135,211,32,91,"K");rect(c,138,214,26,85,"e");
-  rect(c,141,217,20,79,"g");c.hline(141,219,20,"h");
-  const glyphs={
+  // Small freestanding DAILY kanban at the roadside, beside the entrance.
+  rect(c,239,378,35,67,"K");rect(c,243,382,27,54,"L");
+  rect(c,246,385,21,46,"I");c.hline(246,386,21,"g");
+  // Compact block lettering on an ivory board.
+  const glyph={
     D:["110","101","101","101","110"],
     A:["010","101","111","101","101"],
     I:["111","010","010","010","111"],
     L:["100","100","100","100","111"],
     Y:["101","101","010","010","010"]
   };
-  const word="DAILY";
-  for(let n=0;n<word.length;n++){
-    const rows=glyphs[word[n]],yy=224+n*14;
-    for(let gy=0;gy<5;gy++)for(let gx=0;gx<3;gx++)if(rows[gy][gx]==="1")c.px(149+gx,yy+gy,"b");
+  for(let n=0;n<5;n++){
+    const rows=glyph["DAILY"[n]],yy=390+n*8;
+    for(let gy=0;gy<5;gy++)for(let gx=0;gx<3;gx++)if(rows[gy][gx]==="1")c.px(255+gx,yy+gy,"B");
   }
-  c.hline(141,292,20,"u");
+  // Signboard easel legs and street-side placement.
+  line(c,243,440,238,462,"B");line(c,269,440,276,462,"B");
+  c.hline(238,461,38,"D");
 
-  // Front step and small paving stones.
-  rect(c,39,390,102,5,"K");rect(c,44,395,92,4,"c");
-  for(let x=13;x<170;x+=25){c.hline(x,398,12,"r");c.px(x+4,397,"s");}
+  // Front step, concrete apron and a short approach path.
+  rect(c,27,418,307,12,"B");rect(c,33,420,294,7,"s");
+  rect(c,122,426,116,81,"R");rect(c,127,430,106,70,"r");
+  for(let y=438;y<500;y+=18)c.hline(129,y,101,"s");
+  rect(c,0,490,360,150,"P");rect(c,0,488,360,5,"B");
+  c.hline(0,493,360,"S");c.hline(0,497,360,"p");
+  // Asphalt grain and gravel shoulders, deterministic and sparse.
+  for(let i=0;i<145;i++){
+    const x=(i*73+19)%360,y=502+(i*47)%134;
+    if(i%3===0){c.px(x,y,"S");c.px(x+1,y,"p");}
+    else if(i%3===1)c.px(x,y,"s");
+    else c.px(x,y,"C");
+  }
+  for(let i=0;i<86;i++){
+    const side=i%2===0?0:1;
+    const x=side?(304+(i*13)%56):((i*13)%56);
+    const y=463+(i*31)%177;
+    c.ellipse(x,y,2+(i%3),1,"r");
+    if(i%4===0)c.px(x+2,y-1,"g");
+  }
+  // Gravel beds and low shrubs anchor the shop without crowding the facade.
+  for(let i=0;i<11;i++){
+    const x=24+i*28,y=454+(i%3)*5;
+    if(x<116||x>282){c.ellipse(x,y,9,4,"T");c.ellipse(x-3,y-3,5,4,"t");c.px(x+3,y-4,"u");}
+  }
+  rect(c,17,468,66,6,"B");rect(c,21,463,58,5,"D");
+  for(let x=26;x<78;x+=8)c.ellipse(x,460,5,4,"T");
+  rect(c,281,468,62,6,"B");rect(c,285,463,54,5,"D");
+  for(let x=290;x<336;x+=8)c.ellipse(x,460,5,4,"T");
+
+  // A few gravel stones on the approach keep the ground texture grounded.
+  for(const [x,y] of [[116,486],[124,497],[239,481],[252,494],[109,523],[247,535],[83,557],[286,546]]){
+    c.ellipse(x,y,3,2,"r");c.px(x-1,y-1,"g");
+  }
 });
 
-anim("daily_login_bunting_wave",{w:180,h:42,frames:4,fps:5},c=>{
+// Four-frame, gentle noren flutter: four separated rectangular cloth panels.
+// Each panel is attached along its upper edge; no triangular pennants or roofline bunting.
+anim("daily_login_noren_wave",{w:120,h:40,frames:4,fps:4},c=>{
   const phase=c.frame;
-  // A hand-drawn rope and short separated cloth pennants, bending in a breeze.
-  const ropeY=x=>9+Math.round(Math.sin((x/180)*Math.PI*2+phase*.72)*2);
-  for(let x=4;x<178;x+=2)c.px(x,ropeY(x),"b");
-  const colours=["m","h","q","u","d","l","m","q"];
-  for(let i=0;i<8;i++){
-    const x=11+i*22,top=ropeY(x)+1;
-    const sway=Math.round(Math.sin(i*.78+phase*.86)*3);
-    const width=15,drop=22+(i%3)*2;
+  c.hline(3,5,114,"B");c.hline(4,6,112,"u");
+  const colors=["I","W","I","W"];
+  for(let i=0;i<4;i++){
+    const base=9+i*28;
+    const sway=Math.sin(i*.74+phase*.62);
+    const drop=25;
     for(let row=0;row<drop;row++){
-      const half=Math.max(1,Math.floor(width/2-row*.18));
-      const cx=x+Math.round(sway*row/drop);
-      c.hline(cx-half,top+row,half*2,colours[i]);
+      const bend=Math.round(sway*row*.24);
+      c.hline(base+bend,8+row,18,colors[i]);
+      if(row<drop-2)c.vline(base+bend,8+row,1,"w");
     }
-    c.hline(x-2,top,18,"n");
-    c.px(x,top+3,"i");c.px(x+1,top+5,"n");
+    c.vline(base+2,9,20,"i");
+    c.vline(base+16,9,20,"i");
+    c.hline(base+3,10,13,"g");
+    c.hline(base+3,30,13,"w");
   }
 });
