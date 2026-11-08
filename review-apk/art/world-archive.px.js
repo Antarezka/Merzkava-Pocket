@@ -251,3 +251,112 @@ sprite("item_hoe",{w:32,h:32,pivot:[16,28]},c=>{
   c.px(9,26,"D");c.px(12,22,"S");c.px(15,18,"S");c.hline(18,6,11,"B");c.vline(18,6,5,"B");c.hline(19,5,10,"h");c.vline(28,6,4,"H");
   c.px(27,10,"h");c.px(26,9,"H");c.px(20,7,"o");c.px(22,7,"H");c.px(24,7,"o");
 });
+
+
+// Daily Login — full-screen Japanese shop exterior.
+// The shop facade, lanterns and DAILY kanban are native PXL pixels;
+// only the draggable shoji panel and subtle glow are layered in CSS.
+pal({
+ K:"#181c1b",a:"#2a241f",b:"#403027",c:"#5b3e2c",d:"#795338",
+ e:"#9c7044",f:"#bd905b",g:"#d4b27a",h:"#e8d2a5",
+ i:"#f2e6c9",j:"#f7eacb",l:"#f1dba4",m:"#b77c48",
+ n:"#d9bd83",o:"#f5e6bd",p:"#29352f",q:"#465448",
+ r:"#70624a",s:"#a68b62",t:"#d1c39f",u:"#c4a16a"
+});
+sprite("daily_login_shop_front",{w:180,h:400,pivot:[90,399]},c=>{
+  // Deep night behind the roof; the surrounding transparency allows the
+  // full-screen scene to retain its quiet dusk gradient.
+  // Roof silhouette and layered tile courses.
+  for(let y=47;y<126;y++){
+    const half=Math.min(89,20+Math.floor((y-47)*1.62));
+    c.hline(90-half,y,half*2,"K");
+    if(half>4)c.hline(90-half+2,y+1,half*2-4,(y%12<6)?"c":"d");
+    if(y%8===0&&half>18)c.hline(90-half+7,y+2,half*2-14,"e");
+  }
+  for(let x=11;x<170;x+=14){
+    const y=55+Math.floor(Math.abs(x-90)*.38);
+    if(y<116){c.vline(x,y,Math.max(2,116-y),"b");c.px(x+1,y+7,"f");}
+  }
+  rect(c,2,116,176,15,"K");rect(c,5,119,170,9,"d");
+  c.hline(6,120,168,"g");c.hline(2,129,176,"a");
+
+  // Timber storefront and low-lit paper wall.
+  rect(c,8,130,164,261,"K");rect(c,12,134,156,252,"b");
+  for(let y=143;y<384;y+=13)c.hline(14,y,152,(y%26===0)?"d":"c");
+  for(let x=15;x<168;x+=17){rect(c,x,135,3,248,"a");c.vline(x+1,141,234,"e");}
+  rect(c,7,386,166,10,"K");rect(c,11,388,158,5,"d");
+  c.hline(11,389,158,"g");
+
+  // Left shoji window. A warm, dim kitchen silhouette is only just visible.
+  rect(c,15,166,32,105,"K");rect(c,18,169,26,99,"d");rect(c,21,173,20,90,"l");
+  for(let x=24;x<41;x+=7)rect(c,x,173,2,89,"e");
+  for(let y=184;y<260;y+=15)rect(c,21,y,20,2,"e");
+  rect(c,25,239,12,15,"p");c.ellipse(31,236,8,3,"a");
+  c.hline(26,234,11,"r");rect(c,28,229,6,5,"q");
+
+  // Central doorway cavity and the warm ivory light behind its sliding panel.
+  rect(c,51,139,78,251,"K");rect(c,56,145,68,238,"a");
+  rect(c,61,151,58,225,"j");rect(c,64,156,52,216,"l");
+  c.hline(64,157,52,"i");c.hline(64,370,52,"h");
+  for(let x=68;x<115;x+=13)rect(c,x,164,2,198,"g");
+  rect(c,53,140,5,245,"K");rect(c,122,140,6,245,"K");
+  rect(c,51,137,78,5,"g");rect(c,51,383,78,7,"K");
+
+  // Distant cook silhouette, pot and steam shapes behind the translucent-looking glow.
+  c.ellipse(90,235,10,13,"a");c.ellipse(90,223,12,5,"a");
+  rect(c,79,240,22,51,"a");rect(c,73,248,8,36,"a");rect(c,99,248,8,36,"a");
+  rect(c,81,287,7,28,"a");rect(c,92,287,7,28,"a");
+  c.ellipse(74,300,17,5,"a");rect(c,58,292,32,14,"a");
+  c.hline(61,293,26,"r");c.vline(59,286,8,"a");c.vline(89,286,8,"a");
+  c.vline(72,273,11,"h");c.vline(80,267,15,"i");c.vline(87,274,10,"h");
+
+  // Left and right low-brightness paper lanterns.
+  const lantern=(x,y)=>{
+    rect(c,x+3,y,14,4,"a");rect(c,x,y+4,20,27,"K");
+    rect(c,x+3,y+7,14,20,"m");rect(c,x+5,y+8,10,18,"l");
+    for(let yy=y+10;yy<y+26;yy+=5)c.hline(x+5,yy,10,"n");
+    rect(c,x+2,y+31,16,3,"a");c.vline(x+9,y+34,5,"e");
+  };
+  lantern(15,149);lantern(144,149);
+
+  // DAILY kanban board to the right of the sliding door.
+  rect(c,135,211,32,91,"K");rect(c,138,214,26,85,"e");
+  rect(c,141,217,20,79,"g");c.hline(141,219,20,"h");
+  const glyphs={
+    D:["110","101","101","101","110"],
+    A:["010","101","111","101","101"],
+    I:["111","010","010","010","111"],
+    L:["100","100","100","100","111"],
+    Y:["101","101","010","010","010"]
+  };
+  const word="DAILY";
+  for(let n=0;n<word.length;n++){
+    const rows=glyphs[word[n]],yy=224+n*14;
+    for(let gy=0;gy<5;gy++)for(let gx=0;gx<3;gx++)if(rows[gy][gx]==="1")c.px(149+gx,yy+gy,"b");
+  }
+  c.hline(141,292,20,"u");
+
+  // Front step and small paving stones.
+  rect(c,39,390,102,5,"K");rect(c,44,395,92,4,"c");
+  for(let x=13;x<170;x+=25){c.hline(x,398,12,"r");c.px(x+4,397,"s");}
+});
+
+anim("daily_login_bunting_wave",{w:180,h:42,frames:4,fps:5},c=>{
+  const phase=c.frame;
+  // A hand-drawn rope and short separated cloth pennants, bending in a breeze.
+  const ropeY=x=>9+Math.round(Math.sin((x/180)*Math.PI*2+phase*.72)*2);
+  for(let x=4;x<178;x+=2)c.px(x,ropeY(x),"b");
+  const colours=["m","h","q","u","d","l","m","q"];
+  for(let i=0;i<8;i++){
+    const x=11+i*22,top=ropeY(x)+1;
+    const sway=Math.round(Math.sin(i*.78+phase*.86)*3);
+    const width=15,drop=22+(i%3)*2;
+    for(let row=0;row<drop;row++){
+      const half=Math.max(1,Math.floor(width/2-row*.18));
+      const cx=x+Math.round(sway*row/drop);
+      c.hline(cx-half,top+row,half*2,colours[i]);
+    }
+    c.hline(x-2,top,18,"n");
+    c.px(x,top+3,"i");c.px(x+1,top+5,"n");
+  }
+});
