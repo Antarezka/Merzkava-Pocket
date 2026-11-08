@@ -816,7 +816,7 @@ function renderPage(destination, transitionDuration=420) {
       if(reloadButton.isConnected){reloadButton.disabled=false;reloadButton.classList.remove("is-loading");}
     }
   });
-  const page=root.querySelector(".home-stage,.page-stage");
+  const page=root.querySelector(".home-stage,.page-stage,.home-base-host");
   if(!reducedMotion()&&page)animate(page,{opacity:[0,1],translateY:[8,0],duration:transitionDuration,ease:"outCubic"});
   if(destination!=="daily-login")mountMenu();
   if(destination==="economy"){
