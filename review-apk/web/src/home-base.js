@@ -2,12 +2,26 @@ import Phaser from "phaser";
 import "./home-base.css";
 import { openHomeBaseSession } from "./economy.js";
 
-const STYLE_OPTIONS=[
-  {id:"chibi",name:"Chibi",description:"A round, expressive silhouette in a short layered cultivation robe."},
-  {id:"classic",name:"Classic",description:"Balanced proportions, crossed collar, sash and long everyday robe."},
-  {id:"slim",name:"Scholar",description:"Tall flowing scholar silhouette with long sleeves and hanging ribbons."},
-  {id:"ornate",name:"Ceremonial",description:"Broad layered mantle, ornamental hairpiece and formal robe details."},
-  {id:"painterly",name:"Wanderer",description:"Asymmetric travelling mantle with textured fabric and rugged layers."}
+const HAIR_OPTIONS=[
+  {id:"long_black",name:"Long Straight",description:"Long, smooth locks with a calm centre fringe."},
+  {id:"soft_bob",name:"Soft Bob",description:"Rounded short hair with grouped pixel ends."},
+  {id:"half_up",name:"Half-up Knot",description:"A compact tied crown with long side locks."},
+  {id:"high_tie",name:"High Tie",description:"A high gathered hairstyle with a short falling tail of hair."},
+  {id:"long_waves",name:"Long Waves",description:"Long layered waves with broad stepped locks."}
+];
+const OUTFIT_OPTIONS=[
+  {id:"black_hanfu",name:"Black Hanfu",description:"Ink-black layered robe, crossed lapels and restrained gold edging."},
+  {id:"ivory_layers",name:"Ivory Layers",description:"Warm ivory panels with pale jade lining."},
+  {id:"jade_scholar",name:"Jade Scholar",description:"Long jade robe with a narrow scholar silhouette."},
+  {id:"rose_ceremony",name:"Rose Ceremony",description:"A broad formal mantle with muted rose and antique gold."},
+  {id:"traveller_robe",name:"Traveller Robe",description:"An asymmetric layered robe with leather-toned accents."}
+];
+const WORLD_SCALE=1.5;
+const CHARACTER_FRAME={width:48,height:64};
+const NPC_APPEARANCES=[
+  {hair:"soft_bob",outfit:"jade_scholar"},
+  {hair:"half_up",outfit:"ivory_layers"},
+  {hair:"long_waves",outfit:"traveller_robe"}
 ];
 const DIRS=["n","ne","e","se","s","sw","w","nw"];
 const DIR_VECTOR={n:[0,-1],ne:[1,-1],e:[1,0],se:[1,1],s:[0,1],sw:[-1,1],w:[-1,0],nw:[-1,-1]};
@@ -21,7 +35,7 @@ const FAMILY_SPRITES=[
   [/workshop|processing|textile|ceramic|medicine|herb/i,"facility_workshop"]
 ];
 const esc=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const locationOf=(col,row)=>({x:200+(col-row)*16,y:20+(col+row)*8+8});
+const locationOf=(col,row)=>({x:(200+(col-row)*16)*WORLD_SCALE,y:(20+(col+row)*8+8)*WORLD_SCALE});
 const directionOf=(dx,dy)=>DIRS[Math.round((((Math.atan2(dx,-dy)+Math.PI*2)%(Math.PI*2))/(Math.PI/4)))%8];
 const siteCanUse=(facility,col,row)=>{
   const req=(facility.location_requirements||[]).join(" ").toLowerCase(),tile=TERRAIN[row]?.[col]||"";
@@ -38,40 +52,68 @@ const spriteForFacility=f=>{
 };
 
 class HomeBaseScene extends Phaser.Scene{
-  constructor(){super("HomeBase");this.style="classic";this.placement=null;this.facilityObjects=new Map();this.npcs=[];}
+  constructor(){
+    super("HomeBase");
+    this.hair="long_black";this.outfit="black_hanfu";
+    this.placement=null;this.facilityObjects=new Map();this.npcs=[];
+    this.comboReady=new Set();this.comboLoading=new Map();
+  }
+  comboName(hair,outfit){return "human_"+hair+"_"+outfit;}
+  textureName(hair,outfit,move,dir){return this.comboName(hair,outfit)+"_"+move+"_"+dir;}
+  animationName(hair,outfit,move,dir){return this.comboName(hair,outfit)+":"+move+":"+dir;}
+  queueCombo(hair,outfit){
+    const combo=this.comboName(hair,outfit);
+    if(this.queuedCombos?.has(combo))return;
+    this.queuedCombos??=new Set();this.queuedCombos.add(combo);
+    DIRS.forEach(dir=>["idle","walk"].forEach(move=>{
+      const key=this.textureName(hair,outfit,move,dir);
+      this.load.spritesheet(key,"/game-assets/pxl/anims/"+key+".png",{frameWidth:CHARACTER_FRAME.width,frameHeight:CHARACTER_FRAME.height});
+    }));
+  }
+  registerCombo(hair,outfit){
+    const combo=this.comboName(hair,outfit);
+    if(this.comboReady.has(combo))return;
+    DIRS.forEach(dir=>["idle","walk"].forEach(move=>{
+      const texture=this.textureName(hair,outfit,move,dir);
+      if(!this.textures.exists(texture))return;
+      const key=this.animationName(hair,outfit,move,dir);
+      if(!this.anims.exists(key))this.anims.create({key,frames:this.anims.generateFrameNumbers(texture,{start:0,end:3}),frameRate:move==="walk"?8:3,repeat:-1});
+    }));
+    this.comboReady.add(combo);
+  }
   preload(){
     this.load.image("home-map","/game-assets/pxl/scenes/home_base_map.png");
     ["facility_starter_hut","facility_starter_foraging","facility_starter_well","facility_farm","facility_workshop","facility_storage","facility_market","world_tree","world_rock"].forEach(id=>this.load.image(id,"/game-assets/pxl/sprites/"+id+".png"));
     this.load.spritesheet("water-glimmer","/game-assets/pxl/anims/water_glimmer.png",{frameWidth:32,frameHeight:16});
-    STYLE_OPTIONS.forEach(style=>{
-      this.load.image("preview-"+style.id,"/game-assets/pxl/sprites/style_preview_"+style.id+".png");
-      DIRS.forEach(dir=>["idle","walk"].forEach(move=>{
-        const key=style.id+"_"+move+"_"+dir;
-        this.load.spritesheet(key,"/game-assets/pxl/anims/"+key+".png",{frameWidth:32,frameHeight:42});
-      }));
-    });
+    HAIR_OPTIONS.forEach(item=>this.load.image("preview-hair-"+item.id,"/game-assets/pxl/sprites/human_preview_hair_"+item.id+".png"));
+    OUTFIT_OPTIONS.forEach(item=>this.load.image("preview-outfit-"+item.id,"/game-assets/pxl/sprites/human_preview_outfit_"+item.id+".png"));
+    this.hair=this.options.session.getHair();this.outfit=this.options.session.getOutfit();
+    this.queueCombo(this.hair,this.outfit);
+    NPC_APPEARANCES.forEach(item=>this.queueCombo(item.hair,item.outfit));
   }
   create(){
+    this.queuedCombos?.forEach(combo=>{
+      const [,hair,outfit]=combo.split("_");
+      this.registerCombo(hair,outfit);
+    });
     this.cameras.main.setBackgroundColor("#19251f");
-    this.add.image(0,0,"home-map").setOrigin(0).setDepth(-1000);
+    this.add.image(0,0,"home-map").setOrigin(0).setScale(WORLD_SCALE).setDepth(-1000);
     this.anims.create({key:"water-glimmer",frames:this.anims.generateFrameNumbers("water-glimmer",{start:0,end:3}),frameRate:5,repeat:-1});
-    STYLE_OPTIONS.forEach(style=>DIRS.forEach(dir=>["idle","walk"].forEach(move=>{
-      const texture=style.id+"_"+move+"_"+dir;
-      this.anims.create({key:style.id+":"+move+":"+dir,frames:this.anims.generateFrameNumbers(texture,{start:0,end:3}),frameRate:move==="walk"?8:3,repeat:-1});
-    })));
-    [[344,74],[328,126],[300,169],[107,121],[134,154]].forEach(([x,y])=>this.add.sprite(x,y,"water-glimmer").setDepth(y+1).play("water-glimmer").setAlpha(.72));
-    [[58,72,.9],[83,165,.82],[367,52,.9],[366,190,.8],[262,202,.74]].forEach(([x,y,scale])=>this.add.image(x,y,"world_tree").setOrigin(.5,1).setScale(scale).setDepth(y));
-    [[75,109],[116,183],[291,216],[357,142]].forEach(([x,y])=>this.add.image(x,y,"world_rock").setOrigin(.5,1).setDepth(y));
-    this.player=this.add.sprite(200,154,"classic_idle_s").setOrigin(.5,1).setDepth(156);
-    this.player.play("classic:idle:s");
+    [[344,74],[328,126],[300,169],[107,121],[134,154]].forEach(([x,y])=>this.add.sprite(x*WORLD_SCALE,y*WORLD_SCALE,"water-glimmer").setScale(WORLD_SCALE).setDepth(y*WORLD_SCALE+1).play("water-glimmer").setAlpha(.72));
+    [[58,72,.9],[83,165,.82],[367,52,.9],[366,190,.8],[262,202,.74]].forEach(([x,y,scale])=>this.add.image(x*WORLD_SCALE,y*WORLD_SCALE,"world_tree").setOrigin(.5,1).setScale(scale*WORLD_SCALE).setDepth(y*WORLD_SCALE));
+    [[75,109],[116,183],[291,216],[357,142]].forEach(([x,y])=>this.add.image(x*WORLD_SCALE,y*WORLD_SCALE,"world_rock").setOrigin(.5,1).setScale(WORLD_SCALE).setDepth(y*WORLD_SCALE));
+    this.player=this.add.sprite(200*WORLD_SCALE,154*WORLD_SCALE,this.textureName(this.hair,this.outfit,"idle","s")).setOrigin(.5,1).setDepth(156*WORLD_SCALE);
+    this.player.play(this.animationName(this.hair,this.outfit,"idle","s"));
     this.addNpcs();this.drawFacilities();
     const cam=this.cameras.main,el=this.options.viewport;
+    // Preserve the former camera magnification; the world grid and every
+    // non-character world asset now share the same 1.5x scale as the human base.
     const coverZoom=Math.max(el.clientWidth/400,el.clientHeight/260);
-    cam.setBounds(0,0,400,260);
+    cam.setBounds(0,0,400*WORLD_SCALE,260*WORLD_SCALE);
     cam.setZoom(Math.min(2.12,Math.max(.92,coverZoom*.77)));
-    cam.centerOn(this.player.x,this.player.y-4);
+    cam.centerOn(this.player.x,this.player.y-4*WORLD_SCALE);
     cam.startFollow(this.player,true,.075,.075);
-    this.events.on("update",()=>{if(this.player)this.player.setDepth(this.player.y+6);this.npcs.forEach(npc=>npc.setDepth(npc.y+5));});
+    this.events.on("update",()=>{if(this.player)this.player.setDepth(this.player.y+6*WORLD_SCALE);this.npcs.forEach(npc=>npc.setDepth(npc.y+5*WORLD_SCALE));});
     this.input.on("pointerdown",pointer=>{
       if(pointer.button!==0)return;
       const world=cam.getWorldPoint(pointer.x,pointer.y);
@@ -82,20 +124,54 @@ class HomeBaseScene extends Phaser.Scene{
       if(!this.placement)return;
       const world=cam.getWorldPoint(pointer.x,pointer.y),tile=this.worldToTile(world.x,world.y),pos=locationOf(tile.col,tile.row);
       this.placementGhost?.destroy();
-      this.placementGhost=this.add.image(pos.x,pos.y,"facility_storage").setOrigin(.5,1).setAlpha(.38).setTint(0xb4d7a0).setDepth(pos.y+80);
+      this.placementGhost=this.add.image(pos.x,pos.y,"facility_storage").setOrigin(.5,1).setScale(WORLD_SCALE).setAlpha(.38).setTint(0xb4d7a0).setDepth(pos.y+80*WORLD_SCALE);
     });
     this.events.once("shutdown",()=>this.placementGhost?.destroy());
     this.options.onReady?.(this);
   }
+  async ensureCombo(hair,outfit){
+    const combo=this.comboName(hair,outfit);
+    if(this.comboReady.has(combo))return true;
+    if(this.comboLoading.has(combo))return this.comboLoading.get(combo);
+    const pending=new Promise((resolve,reject)=>{
+      const keys=[];
+      DIRS.forEach(dir=>["idle","walk"].forEach(move=>{
+        const key=this.textureName(hair,outfit,move,dir);
+        if(!this.textures.exists(key)){
+          keys.push(key);
+          this.load.spritesheet(key,"/game-assets/pxl/anims/"+key+".png",{frameWidth:CHARACTER_FRAME.width,frameHeight:CHARACTER_FRAME.height});
+        }
+      }));
+      if(keys.length===0){this.registerCombo(hair,outfit);resolve(true);return;}
+      this.load.once("complete",()=>{
+        const missing=keys.filter(key=>!this.textures.exists(key));
+        if(missing.length){reject(new Error("Character variant failed to load: "+missing[0]));return;}
+        this.registerCombo(hair,outfit);resolve(true);
+      });
+      this.load.start();
+    });
+    this.comboLoading.set(combo,pending);
+    try{return await pending;}finally{this.comboLoading.delete(combo);}
+  }
+  async setAppearance(hair,outfit){
+    if(!HAIR_OPTIONS.some(x=>x.id===hair)||!OUTFIT_OPTIONS.some(x=>x.id===outfit))return false;
+    await this.ensureCombo(hair,outfit);
+    this.hair=hair;this.outfit=outfit;
+    if(this.player)this.applySprite(this.player,this.lastDirection||"s",this.moving?"walk":"idle");
+    return true;
+  }
   addNpcs(){
+    const dirs=["s","sw","e"];
     [[245,108,0xa9b98b],[286,148,0xc6a06d],[150,175,0x9aadb1]].forEach(([x,y,tint],i)=>{
-      const npc=this.add.sprite(x,y,"classic_idle_s").setOrigin(.5,1).setDepth(y+2).setScale(.9).setTint(tint).setInteractive({useHandCursor:true});
-      npc.play("classic:idle:"+["s","sw","e"][i]);
-      npc.on("pointerdown",(pointer,localX,localY,event)=>{event?.stopPropagation?.();this.walkTo({x,y:y-4},()=>this.options.onNpcTap?.(i),{x,y:y-4});});
+      const appearance=NPC_APPEARANCES[i],dir=dirs[i],px=x*WORLD_SCALE,py=y*WORLD_SCALE;
+      const npc=this.add.sprite(px,py,this.textureName(appearance.hair,appearance.outfit,"idle",dir)).setOrigin(.5,1).setDepth(py+2);
+      npc.play(this.animationName(appearance.hair,appearance.outfit,"idle",dir));
+      npc.setTint(tint).setInteractive({useHandCursor:true});
+      npc.on("pointerdown",(pointer,localX,localY,event)=>{event?.stopPropagation?.();this.walkTo({x:px,y:py-4*WORLD_SCALE},()=>this.options.onNpcTap?.(i),{x:px,y:py-4*WORLD_SCALE});});
       this.npcs.push(npc);
     });
   }
-  worldToTile(x,y){const b=(y-28)/8,a=(x-200)/16;return {col:Math.round((a+b)/2),row:Math.round((b-a)/2)};}
+  worldToTile(x,y){const localX=x/WORLD_SCALE,localY=y/WORLD_SCALE,b=(localY-28)/8,a=(localX-200)/16;return {col:Math.round((a+b)/2),row:Math.round((b-a)/2)};}
   drawFacilities(){
     if(!this.options?.session||!this.player)return;
     const facilities=this.options.session.snapshot().facilities||{};
@@ -104,17 +180,15 @@ class HomeBaseScene extends Phaser.Scene{
       const pos=locationOf(record.map_position.col,record.map_position.row),key=spriteForFacility(this.options.session.getFacility(id));
       const existing=this.facilityObjects.get(id);
       if(existing){existing.setPosition(pos.x,pos.y).setDepth(pos.y+1);continue;}
-      const item=this.add.image(pos.x,pos.y,key).setOrigin(.5,1).setDepth(pos.y+1).setInteractive({useHandCursor:true});
-      item.setData("facilityId",id);item.on("pointerdown",(pointer,localX,localY,event)=>{event?.stopPropagation?.();this.walkTo({x:pos.x,y:pos.y-7},()=>this.options.onFacilityTap?.(id),{x:pos.x,y:pos.y-7});});
+      const item=this.add.image(pos.x,pos.y,key).setOrigin(.5,1).setScale(WORLD_SCALE).setDepth(pos.y+1).setInteractive({useHandCursor:true});
+      item.setData("facilityId",id);item.on("pointerdown",(pointer,localX,localY,event)=>{event?.stopPropagation?.();this.walkTo({x:pos.x,y:pos.y-7*WORLD_SCALE},()=>this.options.onFacilityTap?.(id),{x:pos.x,y:pos.y-7*WORLD_SCALE});});
       this.facilityObjects.set(id,item);
     }
   }
-  setStyle(style){
-    if(!STYLE_OPTIONS.some(x=>x.id===style))return;
-    this.style=style;if(this.player)this.applySprite(this.player,this.lastDirection||"s",this.moving?"walk":"idle");
-    this.npcs.forEach((npc,i)=>{const dir=["s","sw","e"][i];npc.setTexture(style+"_idle_"+dir).setTint([0xa9b98b,0xc6a06d,0x9aadb1][i]);npc.play(style+":idle:"+dir);});
+  applySprite(sprite,dir,move){
+    const key=this.animationName(this.hair,this.outfit,move,dir);
+    sprite.play(this.anims.exists(key)?key:this.animationName(this.hair,this.outfit,"idle","s"),true);
   }
-  applySprite(sprite,dir,move){const key=this.style+":"+move+":"+dir;sprite.play(this.anims.exists(key)?key:this.style+":idle:s",true);}
   moveToTap(x,y){
     if(!this.player||this.moving||this.placement)return;
     const tile=this.worldToTile(x,y),kind=TERRAIN[tile.row]?.[tile.col];
