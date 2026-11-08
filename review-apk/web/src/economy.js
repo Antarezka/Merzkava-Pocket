@@ -1,6 +1,6 @@
 import "./economy.css";
 
-const CLOCK_RATE=48, STATE_VERSION=4;
+const CLOCK_RATE=48, STATE_VERSION=5;
 const STARTER_HOME_FACILITIES={
   "pocket.starter.hut":{level:1,operational:true,starter:true,built_at:0,map_position:{col:5,row:4},family:"Shelter"},
   "pocket.starter.foraging":{level:1,operational:true,starter:true,built_at:0,map_position:{col:6,row:6},family:"Foraging"},
@@ -93,9 +93,11 @@ function ensureStarterHomeFacilities(state){
   if(!state.home_rest)state.home_rest={active:false,last_tick_at:now,pending_satiety:0};
   if(!state.pocket_needs)state.pocket_needs={satiety:null};
   if(!state.appearance_style)state.appearance_style="classic";
+  if(!["long_black","soft_bob","half_up","high_tie","long_waves"].includes(state.appearance_hair)){state.appearance_hair="long_black";changed=true;}
+  if(!["black_hanfu","ivory_layers","jade_scholar","rose_ceremony","traveller_robe"].includes(state.appearance_outfit)){state.appearance_outfit="black_hanfu";changed=true;}
   return changed;
 }
-function createState(){const now=Date.now();return {version:STATE_VERSION,wallet_xc:0,inventory:{},facilities:{...Object.fromEntries(Object.entries(STARTER_HOME_FACILITIES).map(([id,v])=>[id,{...v,built_at:now}]))},processes:[],ledger:[],item_site_access:{},facility_site_access:{},builder_records:{},home_rest:{active:false,last_tick_at:now,pending_satiety:0},pocket_needs:{satiety:null},appearance_style:"classic",qa_grant_used:false,save_meta:{created_at:now,updated_at:now,migrations:[]}};}
+function createState(){const now=Date.now();return {version:STATE_VERSION,wallet_xc:0,inventory:{},facilities:{...Object.fromEntries(Object.entries(STARTER_HOME_FACILITIES).map(([id,v])=>[id,{...v,built_at:now}]))},processes:[],ledger:[],item_site_access:{},facility_site_access:{},builder_records:{},home_rest:{active:false,last_tick_at:now,pending_satiety:0},pocket_needs:{satiety:null},appearance_style:"classic",appearance_hair:"long_black",appearance_outfit:"black_hanfu",qa_grant_used:false,save_meta:{created_at:now,updated_at:now,migrations:[]}};}
 function migrateState(saved,key){
   if(!saved||typeof saved!=="object"||Array.isArray(saved))throw new Error("The saved economy record is not a valid Pocket save.");
   const from=Number(saved.version??1);
@@ -111,6 +113,8 @@ function migrateState(saved,key){
   state.home_rest=saved.home_rest&&typeof saved.home_rest==="object"?{active:false,last_tick_at:Date.now(),pending_satiety:0,...saved.home_rest}:{active:false,last_tick_at:Date.now(),pending_satiety:0};
   state.pocket_needs=saved.pocket_needs&&typeof saved.pocket_needs==="object"?{satiety:null,...saved.pocket_needs}:{satiety:null};
   state.appearance_style=["chibi","classic","slim","ornate","painterly"].includes(saved.appearance_style)?saved.appearance_style:"classic";
+  state.appearance_hair=["long_black","soft_bob","half_up","high_tie","long_waves"].includes(saved.appearance_hair)?saved.appearance_hair:"long_black";
+  state.appearance_outfit=["black_hanfu","ivory_layers","jade_scholar","rose_ceremony","traveller_robe"].includes(saved.appearance_outfit)?saved.appearance_outfit:"black_hanfu";
   state.save_meta={
     ...(saved.save_meta&&typeof saved.save_meta==="object"&&!Array.isArray(saved.save_meta)?saved.save_meta:{}),
     created_at:saved.save_meta?.created_at||Date.now(),
@@ -454,6 +458,16 @@ export async function openHomeBaseSession(identity){
     setAppearance(style){
       if(!["chibi","classic","slim","ornate","painterly"].includes(style))return false;
       state.appearance_style=style;persist();return true;
+    },
+    getHair:()=>state.appearance_hair||"long_black",
+    getOutfit:()=>state.appearance_outfit||"black_hanfu",
+    setHair(hair){
+      if(!["long_black","soft_bob","half_up","high_tie","long_waves"].includes(hair))return false;
+      state.appearance_hair=hair;persist();return true;
+    },
+    setOutfit(outfit){
+      if(!["black_hanfu","ivory_layers","jade_scholar","rose_ceremony","traveller_robe"].includes(outfit))return false;
+      state.appearance_outfit=outfit;persist();return true;
     },
     getFacility(id){
       if(STARTER_HOME_FACILITIES[id])return {facility_id:id,name:id==="pocket.starter.hut"?"Small Hut":id==="pocket.starter.foraging"?"Foraging Patch":"Small Well",family:STARTER_HOME_FACILITIES[id].family};
