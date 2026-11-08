@@ -163,11 +163,37 @@ const FACE_SHOUT = {
   s:FACE_CALM.s.replace("........ff............",".......fKKKf.........."),
   sw:FACE_CALM.sw.replace("........fff............","......fKKKf............")
 };
+const FACE_BLINK = {
+  ...FACE_CALM,
+  s:FACE_CALM.s
+    .replace("...fjjj...jjjif......","...fppp...pppif......")
+    .replace("...fJKK...KKJif......","...fjjj...jjjif......")
+    .replace("...fJKKL..LKKJf......","...fppp...pppJf......"),
+  sw:FACE_CALM.sw
+    .replace("..fjjj...jjJf.........","..fppp...ppJf.........")
+    .replace("..fJKK...KKJf.........","..fjjj...jjJf.........")
+    .replace("..fJKKL..LJf..........","..fppp...ppJf.........."),
+  w:FACE_CALM.w
+    .replace("..fjjj...jjJf..........","..fppp...ppJf..........")
+    .replace("..fJKK...KKJf..........","..fjjj...jjJf.........."),
+  nw:FACE_CALM.nw
+    .replace(".......fJjJ...jjjf....",".......fppp...pppf....")
+    .replace(".......fJKK...KKJf....",".......fjjj...jjJf....")
+};
+const FACE_SMILE = {
+  ...FACE_CALM,
+  s:FACE_CALM.s.replace("........ff............",".......fJpf..........."),
+  sw:FACE_CALM.sw.replace("........fff............",".......fJpf............"),
+  w:FACE_CALM.w.replace(".......ff...............","......fJpf.............."),
+  nw:FACE_CALM.nw.replace("............ff........","...........fJpf.......")
+};
 const HEAD_OPTS = {
   pitch:12,light:LIGHT3,ink:"k",
   anchor:{s:[10,9],sw:[10,9],w:[10,9],nw:[10,9],n:[10,9]}
 };
 views("_yunmiao_head_calm",FOX_HEAD,{...HEAD_OPTS,retouch:FACE_CALM});
+views("_yunmiao_head_smile",FOX_HEAD,{...HEAD_OPTS,retouch:FACE_SMILE});
+views("_yunmiao_head_blink",FOX_HEAD,{...HEAD_OPTS,retouch:FACE_BLINK});
 views("_yunmiao_head_laugh",FOX_HEAD,{...HEAD_OPTS,retouch:FACE_LAUGH});
 views("_yunmiao_head_shout",FOX_HEAD,{...HEAD_OPTS,retouch:FACE_SHOUT});
 
@@ -198,7 +224,7 @@ function idlePose(i,yaw){
     hands:[[0,-1,-7],[0,1,-7]],
     tail,tailLift:[0,0.3,0.8,1.1,0.9,0.5,0.1,0][i%8],
     skirt:[0,0.2,0.5,0.3,0,-0.2,-0.3,0][i%8],
-    lantern:[0,0,-0.3,-0.6,-0.2,0,0.3,0][i%8],expression:"calm"
+    lantern:[0,0,-0.3,-0.6,-0.2,0,0.3,0][i%8],expression:i%32===25?"blink":"smile"
   };
 }
 function walkPose(i,yaw){
@@ -214,7 +240,7 @@ function walkPose(i,yaw){
     tailLift:[1,2,3,3,2,1,0,0][i%8],
     skirt:[-1,-0.3,0.8,1.6,1,0,-1,-1.5][i%8],
     lantern:[0,-0.2,-0.6,-0.2,0,0.3,0.5,0.2][i%8],
-    expression:"calm"
+    expression:"smile"
   };
 }
 function runPose(i,yaw){
@@ -440,7 +466,7 @@ function victoryPose(i,yaw){
   };
 }
 const MOVES = {
-  idle:{frames:8,ms:170,pose:idlePose},
+  idle:{frames:32,ms:140,pose:idlePose},
   walk:{frames:8,ms:110,pose:walkPose},
   run:{frames:8,ms:82,pose:runPose},
   attack:{frames:10,ms:76,pose:attackPose},
@@ -617,7 +643,7 @@ const parts3 = (j,p) => {
 // The face stamp is kept crisp. The rig's volume handles all five views;
 // hand-painted pixel clusters hold the eyes, hime fringe edge and expression.
 const drawFace=(c,j,p)=>{
-  const face=p.expression==="laugh"?"_yunmiao_head_laugh":p.expression==="shout"||p.expression==="grit"?"_yunmiao_head_shout":"_yunmiao_head_calm";
+  const face=p.expression==="blink"?"_yunmiao_head_blink":p.expression==="smile"?"_yunmiao_head_smile":p.expression==="laugh"?"_yunmiao_head_laugh":p.expression==="shout"||p.expression==="grit"?"_yunmiao_head_shout":"_yunmiao_head_calm";
   const [x,y]=j.screen(j.head).map(Math.round);
   c.stamp(face,x,y,{heading:j.hd.heading});
   const hand=j.arms[j.heading>180?0:1].hand;
