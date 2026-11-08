@@ -469,6 +469,7 @@ class HomeBaseScene extends Phaser.Scene{
     const start=this.playerTile||this.worldToTile(this.player.x,this.player.y-8),path=this.findPath(start,target);
     if(!path.length){this.options.onInvalidMove?.();return;}
     this.moving=true;this.tweens.killTweensOf(this.player);
+    this.cameras.main.startFollow(this.player,true,.075,.075);
     const targetPos=groundOf(target.col,target.row);
     if(tapPoint)this.showTapTrail(targetPos,tapPoint);
     let index=1;
@@ -537,13 +538,7 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
     worldPanel.innerHTML="<p class='world-drawer-copy'>A quiet, open homestead with room to grow. Tap any building on the map to inspect it.</p>"+
       "<div class='world-card-grid'>"+rows.map(row=>"<button class='world-card' data-world-location='"+row[0]+"'><b>"+row[1]+"</b><small>"+row[2]+"</small><em>OWNED · LEVEL 1</em></button>").join("")+"</div>";
   };
-  const applyShopDraft=async appearance=>{
-    const bodyReady=await scene.setAppearance(appearance.hair,appearance.outfit);
-    const accessoryReady=await scene.setAccessory(appearance.accessory||"none");
-    const weaponReady=await scene.setWeapon(appearance.weapon||"none");
-    if(!bodyReady||!accessoryReady||!weaponReady)throw new Error("One or more appearance layers could not be applied.");
-    return true;
-  };
+
   const refreshShopPreview=()=>{
     shopDraft=wardrobeShop?.getDraft()??shopDraft;
     shopConfirmPending=wardrobeShop?.isConfirmPending()??shopConfirmPending;
