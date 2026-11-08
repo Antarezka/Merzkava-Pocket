@@ -119,13 +119,18 @@ export function mountDailyLogin(scene,onBack){
  const tvNoise=scene.querySelector("[data-dl-tv-noise]");
  const tvScan=scene.querySelector("[data-dl-tv-scan]");
  const puffs=[...scene.querySelectorAll(".dl-steam")];
- const animations=new Set(),motionReduced=reducedMotion();
+ const animations=new Set(),interiorAnimations=new Set(),motionReduced=reducedMotion();
  const dialogueLines=["Ai-yo!","Makanan masih dipersiapkan!","Mohon tunggu!"];
+ let interiorMotionStarted=false;
  let opened=false,leaving=false,disposed=false,drag=null,dragOffset=0,dialogueIndex=-1,choiceOpen=false;
 
  const track=animation=>{
   if(animation){animations.add(animation);animation.then?.(()=>animations.delete(animation));}
   return animation;
+ };
+ const trackInterior=animation=>{
+  if(animation)interiorAnimations.add(animation);
+  return track(animation);
  };
  const animateUnlessReduced=(target,params)=>{
   if(!motionReduced)track(animate(target,params));
@@ -144,17 +149,19 @@ export function mountDailyLogin(scene,onBack){
   interior.inert=false;
   interior.setAttribute("aria-hidden","false");
   if(motionReduced)return;
-  puffs.forEach((puff,index)=>track(animate(puff,{
+  if(interiorMotionStarted){interiorAnimations.forEach(animation=>animation.play?.());return;}
+  interiorMotionStarted=true;
+  puffs.forEach((puff,index)=>trackInterior(animate(puff,{
    opacity:[0,.58,0],translateY:[5,-35-index*4],translateX:[0,(index-1)*8],scale:[.8,1.2],
    delay:index*360,duration:1760,loop:true,ease:"inOutSine"
   })));
-  track(animate(chef,{translateY:[0,-2,0],duration:1900,loop:true,ease:"inOutSine"}));
-  track(animate(scene.querySelector("[data-dl-pot]"),{translateY:[0,-1.3,0],duration:760,loop:true,ease:"inOutSine"}));
+  trackInterior(animate(chef,{translateY:[0,-2,0],duration:1900,loop:true,ease:"inOutSine"}));
+  trackInterior(animate(scene.querySelector("[data-dl-pot]"),{translateY:[0,-1.3,0],duration:760,loop:true,ease:"inOutSine"}));
   // CRT interference is deliberately the only thing on the TV: no login status
   // is shown until the actual local login/claim system exists.
-  track(animate(tvNoise,{opacity:[.12,.32,.16,.28,.12],translateX:[0,-2,1,-1,0],duration:190,loop:true,ease:"linear"}));
-  track(animate(tvScan,{translateY:["-100%","100%"],opacity:[.28,.78,.28],duration:1250,loop:true,ease:"linear"}));
-  track(animate(scene.querySelector(".dl-paper-lamp"),{opacity:[.84,1,.9],duration:2100,loop:true,ease:"inOutSine"}));
+  trackInterior(animate(tvNoise,{opacity:[.12,.32,.16,.28,.12],translateX:[0,-2,1,-1,0],duration:190,loop:true,ease:"linear"}));
+  trackInterior(animate(tvScan,{translateY:["-100%","100%"],opacity:[.28,.78,.28],duration:1250,loop:true,ease:"linear"}));
+  trackInterior(animate(scene.querySelector(".dl-paper-lamp"),{opacity:[.84,1,.9],duration:2100,loop:true,ease:"inOutSine"}));
  };
 
  const openShop=()=>{
@@ -243,9 +250,41 @@ export function mountDailyLogin(scene,onBack){
  const leaveShop=()=>{
   if(!opened||!choiceOpen||leaving||disposed)return;
   leaving=true;
-  scene.inert=true;
-  if(motionReduced){scene.style.opacity="0";onBack?.();return;}
-  track(animate(scene,{opacity:[1,0],duration:2000,ease:"inOutCubic",onComplete:()=>onBack?.()}));
+  choice.hidden=true;
+  dialogue.hidden=true;
+  choiceOpen=false;
+  interior.inert=true;
+  interiorAnimations.forEach(animation=>animation.pause?.());
+  outside.style.visibility="visible";
+  outside.style.opacity="0";
+  back.hidden=true;
+  door.disabled=true;
+  hint.hidden=true;
+
+  const finishOutside=()=>{
+   interior.classList.remove("is-active");
+   interior.style.visibility="hidden";
+   interior.style.opacity="0";
+   interior.setAttribute("aria-hidden","true");
+   outside.style.visibility="visible";
+   outside.style.opacity="1";
+   door.disabled=false;
+   door.style.transform="translateX(0)";
+   door.style.opacity="1";
+   dragOffset=0;
+   hint.classList.remove("is-ready");
+   hint.innerHTML='<span class="dl-hint-arrow">←</span> GESER PINTU UNTUK MASUK <span class="dl-hint-arrow">→</span>';
+   hint.hidden=false;
+   back.hidden=false;
+   back.disabled=false;
+   opened=false;
+   leaving=false;
+   dialogueIndex=-1;
+  };
+
+  if(motionReduced){finishOutside();return;}
+  track(animate(interior,{opacity:[1,0],duration:2000,ease:"inOutCubic"}));
+  track(animate(outside,{opacity:[0,1],duration:2000,ease:"inOutCubic",onComplete:finishOutside}));
  };
  chef.addEventListener("click",talk);
  stay.addEventListener("click",stayInside);
