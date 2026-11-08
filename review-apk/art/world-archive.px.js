@@ -719,6 +719,31 @@ sprite("daily_login_shop_interior",{w:360,h:800,pivot:[180,799]},c=>{
   rect(c,49,561,17,13,"K");rect(c,52,563,11,8,"S");c.hline(53,564,9,"q");
   rect(c,70,565,12,9,"D");rect(c,72,567,8,5,"F");
 
+  // A second low dining table fills the left seating bay, with a built-in bench.
+  rect(c,22,599,91,12,"K");rect(c,26,601,83,7,"M");
+  c.hline(28,602,79,"L");c.hline(28,606,79,"D");
+  for(let x=31;x<109;x+=16){c.vline(x,603,3,"m");c.px(x+1,604,"l");}
+  rect(c,31,611,7,37,"K");rect(c,33,613,3,33,"D");
+  rect(c,95,611,7,37,"K");rect(c,97,613,3,33,"D");
+  rect(c,36,640,60,5,"K");rect(c,39,641,54,2,"M");
+  // Two soba bowls, chopsticks, a tea pot and a small red condiment jar.
+  c.ellipse(48,594,11,5,"K");c.ellipse(48,592,9,4,"I");c.ellipse(48,591,6,2,"J");
+  c.px(45,590,"F");c.px(51,590,"G");
+  c.ellipse(77,594,11,5,"K");c.ellipse(77,592,9,4,"e");c.ellipse(77,591,6,2,"x");
+  rect(c,91,588,9,10,"K");rect(c,93,590,5,7,"w");c.px(95,590,"G");
+  line(c,58,588,69,586,"D");line(c,59,591,70,589,"M");
+  rect(c,26,584,7,10,"D");rect(c,28,582,3,3,"M");
+  // Three stools with visible woven seats and feet, aligned to the dining floor grid.
+  rect(c,18,625,22,16,"K");rect(c,21,628,16,4,"L");rect(c,22,633,14,3,"m");
+  rect(c,22,636,3,12,"D");rect(c,34,636,3,12,"D");
+  rect(c,83,650,24,16,"K");rect(c,86,653,18,4,"L");rect(c,87,658,16,3,"m");
+  rect(c,88,661,3,10,"D");rect(c,100,661,3,10,"D");
+  // Floor-level shoe rack near the entrance and a little umbrella stand.
+  rect(c,270,676,65,9,"K");rect(c,274,678,57,4,"M");
+  for(let x=278;x<327;x+=12){rect(c,x,666,8,10,"D");rect(c,x+2,668,4,6,"J");}
+  rect(c,328,680,13,23,"K");rect(c,331,683,7,16,"B");
+  c.vline(334,658,25,"D");c.ellipse(334,657,4,3,"L");c.px(335,655,"G");
+
   // Scattered floor reflections and small wood wear marks.
   for(let i=0;i<180;i++){
     const x=16+(i*37)%328,y=558+(i*53)%225;
