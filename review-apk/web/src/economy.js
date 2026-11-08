@@ -467,6 +467,30 @@ export async function openHomeBaseSession(identity){
     getOutfit:()=>state.appearance_outfit||"black_hanfu",
     getAccessory:()=>state.appearance_accessory||"none",
     getWeapon:()=>state.appearance_weapon||"none",
+    setAppearanceSlots(appearance){
+      const validHair=["long_black","soft_bob","half_up","high_tie","long_waves","braided_crown","low_chignon","side_ponytail","twin_braids","scholar_topknot"];
+      const validOutfit=["black_hanfu","ivory_layers","jade_scholar","rose_ceremony","traveller_robe","crimson_sect","moon_priest","iron_guard","wanderer_cloak","azure_artificer"];
+      const validAccessory=["none","jade_pin","phoenix_comb","cloth_headband","scholar_crown","round_glasses","half_mask","bead_tassel","forehead_gem","moon_veil","travel_goggles","ribbon_bow","earring_chains"];
+      const validWeapon=["none","straight_sword","crescent_dao","twin_blades","spear","jade_staff","recurve_bow","war_fan","closed_umbrella","short_sword","moon_polearm","scroll_case","lantern_staff"];
+      if(!appearance||!validHair.includes(appearance.hair)||!validOutfit.includes(appearance.outfit)||!validAccessory.includes(appearance.accessory)||!validWeapon.includes(appearance.weapon))return false;
+      const previous={
+        appearance_hair:state.appearance_hair,
+        appearance_outfit:state.appearance_outfit,
+        appearance_accessory:state.appearance_accessory,
+        appearance_weapon:state.appearance_weapon
+      };
+      const previousUpdatedAt=state.save_meta?.updated_at;
+      state.appearance_hair=appearance.hair;
+      state.appearance_outfit=appearance.outfit;
+      state.appearance_accessory=appearance.accessory;
+      state.appearance_weapon=appearance.weapon;
+      if(!persist()){
+        Object.assign(state,previous);
+        if(state.save_meta&&previousUpdatedAt!==undefined)state.save_meta.updated_at=previousUpdatedAt;
+        return false;
+      }
+      return true;
+    },
     setHair(hair){
       if(!["long_black","soft_bob","half_up","high_tie","long_waves","braided_crown","low_chignon","side_ponytail","twin_braids","scholar_topknot"].includes(hair))return false;
       state.appearance_hair=hair;persist();return true;
