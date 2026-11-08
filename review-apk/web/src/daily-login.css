@@ -692,3 +692,197 @@
 .dl-rice-tub:before{content:"";position:absolute;left:-4px;right:-4px;top:-5px;height:6px;border:2px solid #5a3c26;border-radius:50%;background:#d5b580}
 .dl-rice-tub i{position:absolute;left:2px;right:2px;top:8px;height:2px;background:#e1bd83}
 .dl-rice-tub b{position:absolute;left:4px;right:4px;bottom:4px;height:2px;background:#603f29}
+
+
+/* Unified pixel-RPG presentation: full-frame exterior and a real cut-away shop interior. */
+.dl-outside{background:#101b2a}
+.dl-shop-scene{inset:0;width:100%;height:100%;overflow:visible}
+.dl-art-stage{
+ position:absolute;z-index:5;left:50%;bottom:0;
+ width:100vw;max-width:none;height:auto;aspect-ratio:360/640;
+ transform:translateX(-50%);overflow:visible;isolation:isolate;
+}
+.dl-shop-art{z-index:1;width:100%;height:100%;object-fit:fill;image-rendering:pixelated}
+.dl-lantern-glow{z-index:2;mix-blend-mode:screen;opacity:.42}
+.dl-door-frame{z-index:10}
+.dl-door-track{z-index:11}
+.dl-door-panel{z-index:9}
+.dl-noren-pxl{z-index:14}
+.dl-kanban-pxl{
+ z-index:15;right:4.5%;top:50%;bottom:auto;
+ width:clamp(47px,13.5vw,68px);aspect-ratio:64/132;
+ filter:drop-shadow(2px 4px 2px #0a0b0a99);
+}
+.dl-kanban-pxl span{top:21%;font-size:clamp(12px,3.3vw,17px)}
+.dl-kanban-pxl small{top:49%;font-size:clamp(6px,1.7vw,9px)}
+@media(max-width:390px){
+ .dl-art-stage{width:100vw}
+ .dl-kanban-pxl{right:3%;top:50%;width:clamp(46px,13vw,58px)}
+}
+
+/* The background sprite contains the woodwork, shoji, kitchen, serving pass, furniture and floor. */
+.dl-interior{
+ z-index:2;display:block;overflow:hidden;
+ background:radial-gradient(ellipse at 50% 38%,#5b5340 0%,#26231f 78%,#121313 100%);
+}
+.dl-interior-wall{
+ position:absolute;inset:0 auto 0 50%;
+ transform:translateX(-50%);
+ width:min(100vw,45vh,520px);height:100dvh;max-height:100%;
+ overflow:hidden;isolation:isolate;
+ background:#30291f;box-shadow:0 0 0 2px #17120e,0 0 38px #080908bb;
+}
+.dl-interior-art{
+ position:absolute;z-index:0;inset:0;display:block;width:100%;height:100%;
+ object-fit:fill;image-rendering:pixelated;pointer-events:none;user-select:none;
+}
+.dl-interior-wall:before,.dl-interior-wall:after{display:none}
+.dl-interior-header{
+ z-index:16;left:5%;top:calc(env(safe-area-inset-top) + 10px);
+ padding:5px 8px;border:1px solid #c4a16c;
+ background:linear-gradient(180deg,#30291edb,#191c19dc);
+ box-shadow:0 2px 6px #07070777;
+}
+.dl-interior-header span{font-size:clamp(8px,1.5vw,10px);letter-spacing:.2em}
+.dl-interior-header i{font-size:clamp(10px,1.8vw,12px);color:#e6c995}
+
+/* Low-watt amber practicals: the glow breathes gently without flashing. */
+.dl-paper-lamp{
+ z-index:7;left:8%;top:12%;width:26px;height:48px;
+ border:2px solid #695038;
+ background:repeating-linear-gradient(90deg,#e5d0a2 0 4px,#c5a877 4px 6px);
+ box-shadow:0 0 20px #f0cd8a44;
+}
+.dl-paper-lamp:before,.dl-paper-lamp:after{background:#493323}
+.dl-bulb-lamp{
+ position:absolute;z-index:8;left:62%;top:5%;
+ width:42px;height:72px;opacity:.7;transform-origin:50% 0;
+ pointer-events:none;
+}
+.dl-bulb-lamp:before{
+ content:"";position:absolute;left:20px;top:-1px;width:2px;height:30px;background:#493526;
+ box-shadow:1px 0 #a17b4c;
+}
+.dl-bulb-lamp span{
+ position:absolute;left:-76px;top:17px;width:192px;height:168px;
+ background:radial-gradient(ellipse at 50% 8%,#ffe9b25a 0%,#f3cb8450 18%,#d99c4c1d 48%,transparent 78%);
+ filter:blur(9px);mix-blend-mode:screen;
+}
+.dl-bulb-lamp i{
+ position:absolute;left:13px;top:25px;width:17px;height:26px;
+ border:1px solid #89643d;border-radius:46% 46% 40% 40%;
+ background:radial-gradient(ellipse at 40% 32%,#fff4d2 0%,#f3d99e 37%,#c18d50 82%,#63442a 100%);
+ box-shadow:0 0 10px #f1ca7e88,0 0 25px #dda85c55;
+}
+.dl-bulb-lamp i:after{
+ content:"";position:absolute;left:7px;top:7px;width:3px;height:11px;
+ border-left:1px solid #8e6336;border-right:1px solid #8e6336;
+}
+.dl-bulb-lamp b{
+ position:absolute;left:16px;top:48px;width:11px;height:8px;
+ background:repeating-linear-gradient(0deg,#493526 0 2px,#a47c4e 2px 3px);
+}
+.dl-cooking-steam{
+ position:absolute;z-index:8;left:16%;top:43%;width:70px;height:64px;pointer-events:none;
+}
+.dl-steam{
+ position:absolute;width:9px;height:30px;border-left:2px solid #f1e5cb;
+ border-radius:50%;opacity:0;filter:blur(.3px);
+}
+.dl-steam-one{left:15px;top:24px}
+.dl-steam-two{left:33px;top:15px}
+.dl-steam-three{left:51px;top:26px}
+
+/* 2.5-head chibi sprite is pixel art, not CSS body geometry. */
+.dl-chef-area{
+ position:absolute;z-index:13;left:55%;bottom:14%;
+ width:clamp(108px,29vw,142px);height:clamp(166px,27vh,218px);
+ transform:none;
+}
+.dl-chef{
+ position:absolute;left:8px;bottom:0;
+ width:clamp(96px,27vw,124px);height:auto;aspect-ratio:2/3;
+ padding:0;border:0;border-radius:0;background:transparent;
+ cursor:pointer;filter:drop-shadow(0 4px 2px #0b0b0988);
+ transform-origin:50% 100%;
+ image-rendering:pixelated;overflow:visible;
+}
+.dl-chef-sprite{
+ position:absolute;inset:0;display:block;
+ background-image:url("/game-assets/pxl/anims/daily_login_chef_idle.png");
+ background-repeat:no-repeat;background-size:400% 100%;background-position:0 0;
+ image-rendering:pixelated;
+ animation:dl-chef-idle 1.05s steps(4,end) infinite;
+}
+@keyframes dl-chef-idle{to{background-position:100% 0}}
+.dl-chef.is-speaking .dl-chef-sprite{animation-duration:.62s}
+.dl-chef-nameplate{
+ position:absolute;z-index:2;right:2px;bottom:28%;
+ padding:2px 4px;border:1px solid #7a5a36;
+ background:#e6d2a8;color:#513926;
+ font:700 7px/1.2 Georgia,serif;writing-mode:horizontal-tb;
+ box-shadow:1px 2px 0 #15110c;
+}
+.dl-chef-tap-note{
+ position:absolute;left:7px;bottom:-16px;
+ color:#ead6ad;font:700 7px var(--ui);letter-spacing:.12em;
+ text-shadow:0 2px 4px #080908;white-space:nowrap;
+}
+.dl-dialogue{
+ z-index:16;left:-42px;top:-86px;width:min(218px,58vw);
+ border:2px solid #60452c;background:#f2e5cb;
+ box-shadow:inset 0 0 0 2px #c5a87b,3px 4px 0 #1a1a17;
+}
+.dl-dialogue:after{background:#f2e5cb}
+
+/* Pixel television stays as a small wall detail, not a large floating UI panel. */
+.dl-retro-tv{
+ z-index:9;right:5%;top:29%;width:clamp(76px,22vw,106px);height:clamp(58px,16vw,80px);
+ filter:drop-shadow(2px 3px 2px #07080799);
+}
+.dl-tv-antenna{height:12px;top:-8px}
+.dl-tv-shell{inset:5px 0 6px;border:3px solid #433426;border-radius:2px;
+ background:linear-gradient(135deg,#8d7149,#493925);
+ box-shadow:inset 0 0 0 2px #c3a16a,0 0 0 1px #171712}
+.dl-tv-screen{left:5px;top:5px;right:22px;bottom:5px;padding:0;border:2px solid #493927;
+ background:linear-gradient(180deg,#15252b,#34483e);box-shadow:inset 0 0 8px #a2c0a040}
+.dl-tv-controls{right:4px;top:11px;gap:5px}
+.dl-tv-controls i{width:7px;height:7px;border-width:1px}
+.dl-tv-controls span{width:7px;height:2px}
+.dl-tv-feet{left:12px;right:12px}
+.dl-tv-feet i{width:9px;height:5px}
+.dl-interior-floor,.dl-interior-window,.dl-menu-board,.dl-kitchen-shelf,
+.dl-hanging-utensils,.dl-seasoning-set,.dl-noodle-board,.dl-rice-tub,
+.dl-floor-mat,.dl-kitchen-counter,.dl-pot,.dl-bowl-stack,.dl-wooden-board,
+.dl-table,.dl-chair{display:none!important}
+
+/* Player choices are centred in the visible safe area on both tall and short phones. */
+.dl-choice{
+ z-index:18;left:50%;top:61%;bottom:auto;
+ width:min(calc(100vw - 28px),360px);
+ max-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 36px);
+ transform:translate(-50%,-50%);
+ padding:11px 12px 10px;gap:10px;
+ border:1px solid #d1b47b;
+ background:linear-gradient(180deg,rgba(34,38,31,.94),rgba(17,23,20,.96));
+ box-shadow:0 8px 24px #080b0a88,inset 0 0 0 2px #6e573755;
+}
+.dl-choice-actions{width:100%;justify-content:center;flex-wrap:wrap;gap:clamp(14px,6vw,28px)}
+.dl-choice-actions button{min-width:90px;min-height:40px;padding:8px 7px}
+@media(max-width:390px){
+ .dl-choice{top:61%;width:calc(100vw - 24px);padding:9px 8px;gap:8px}
+ .dl-choice-actions{gap:12px}
+ .dl-choice-actions button{min-width:90px;min-height:38px;font-size:9px}
+ .dl-chef-area{left:54%;bottom:13%;width:118px;height:176px}
+ .dl-chef{width:100px}
+ .dl-retro-tv{right:3%;top:29%}
+}
+@media(max-height:620px){
+ .dl-choice{top:57%;padding:8px 10px;gap:7px}
+ .dl-chef-area{bottom:10%;transform:scale(.88);transform-origin:bottom left}
+ .dl-retro-tv{top:27%;transform:scale(.9);transform-origin:top right}
+}
+@media(prefers-reduced-motion:reduce){
+ .dl-chef-sprite{animation:none;background-position:0 0}
+ .dl-bulb-lamp{opacity:.68}
+}
