@@ -1,0 +1,28 @@
+*{box-sizing:border-box}
+:root{color-scheme:dark;--night:#17191b;--ivory:#f0efe8;--silver:#b9c1c5;--wing:#d3d9d8;--gold:#a98c54}
+html,body{margin:0;min-height:100%;background:#090a0c;color:var(--ivory);font-family:system-ui,sans-serif}
+body{display:grid;place-items:center;padding:28px}
+.sheet{display:grid;justify-items:center;gap:22px;width:min(100%,420px)}
+.eyebrow{margin:0;color:var(--gold);font-size:10px;letter-spacing:.2em;text-align:center}
+.icon{position:relative;width:280px;height:280px;overflow:hidden;border:1px solid #a98c5466;border-radius:28%;background:radial-gradient(ellipse at 52% 39%,#293137 0,#1b2024 48%,#111316 100%);box-shadow:0 24px 70px #0009,inset 0 0 0 7px #ffffff08}
+.icon:before{position:absolute;inset:12px;border:1px solid #a98c542e;border-radius:23%;content:"";pointer-events:none}
+.bird{position:absolute;inset:0}
+.bird i{position:absolute;display:block}
+.tail{left:8%;top:43%;width:43%;height:29%;filter:drop-shadow(0 4px 4px #0008)}
+.tail-back{transform:rotate(-13deg);background:linear-gradient(145deg,#89959e 0%,#59656f 72%);clip-path:polygon(100% 32%,0 0,24% 100%,100% 73%)}
+.tail-front{left:9%;top:49%;width:39%;height:24%;transform:rotate(-12deg);background:linear-gradient(145deg,#d2d7d7,#9ca8ae 70%);clip-path:polygon(100% 32%,0 0,23% 100%,100% 74%)}
+.body{left:27%;top:39%;width:49%;height:43%;border-radius:48% 53% 49% 47%/49% 48% 54% 51%;background:radial-gradient(ellipse at 72% 23%,#fffef7 0,#f0efe8 48%,#d8d9d3 100%);box-shadow:inset -7px -6px 13px #8c929422,0 9px 17px #0007}
+.head{left:54%;top:25%;width:31%;height:32%;border-radius:50%;background:radial-gradient(circle at 60% 30%,#fffef8 0,#f4f1e8 62%,#d9d9d2 100%);box-shadow:inset -4px -4px 8px #8c929422,0 4px 8px #0004}
+.crown{left:63%;top:22%;width:8%;height:8%;background:#f5f2e9;clip-path:polygon(0 100%,24% 0,48% 100%,74% 12%,100% 100%)}
+.wing{left:32%;top:49%;width:35%;height:25%;transform:rotate(-13deg);background:linear-gradient(140deg,#eef0ed,#d1d4d2 76%);clip-path:polygon(0 42%,18% 9%,60% 0,100% 41%,77% 81%,34% 100%,10% 77%)}
+.wing-crease{left:37%;top:58%;width:22%;height:1px;transform:rotate(-16deg);border-radius:2px;background:#aeb5b5;opacity:.8}
+.eye{left:73%;top:39%;width:8px;height:8px;border-radius:50%;background:#20262b;box-shadow:0 0 0 2px #fff9,0 1px 2px #0008}
+.beak{left:84%;top:43%;width:0;height:0;border-top:5px solid transparent;border-bottom:5px solid transparent;border-left:10px solid #bd9861;filter:drop-shadow(0 1px 1px #0007)}
+.foot{top:79%;width:2px;height:10px;border-radius:2px;background:var(--gold)}
+.foot-a{left:54%;transform:rotate(13deg)}
+.foot-b{left:62%;transform:rotate(-8deg)}
+.spark{left:19%;top:19%;width:16px;height:16px;background:#c4ae78;clip-path:polygon(50% 0,61% 39%,100% 50%,61% 61%,50% 100%,39% 61%,0 50%,39% 39%);opacity:.86}
+.small-check{display:flex;align-items:center;gap:18px;color:#aaa69b;font-size:10px;letter-spacing:.12em}
+.icon.small{width:64px;height:64px;flex:0 0 64px;border-radius:28%}
+.small .bird{width:280px;height:280px;transform:scale(.228571);transform-origin:top left}
+.caption{max-width:300px;margin:0;color:#aaa69b;font-size:11px;line-height:1.6;text-align:center}
