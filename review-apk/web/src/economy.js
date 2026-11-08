@@ -235,9 +235,9 @@ function itemCard(item,state){
 function itemFrameShape(item){
   const category=String(item?.category||"").trim().toLowerCase();
   const kind=String(item?.item_type||item?.type||item?.equipment_type||item?.subcategory||"").trim().toLowerCase();
-  const identity=[category,kind,String(item?.name||"").toLowerCase()].join(" ");
+  const identity=[category,kind,String(item?.name||"").toLowerCase()].join(" ").replace(/[_-]+/g," ");
   if(identity.includes("spirit ring")||identity.includes("arcan")||identity.includes("artifact")||identity.includes("engraver")||identity.includes("formation"))return "hexagon";
-  if(item?.is_equipment===true||item?.is_weapon===true||["equipment","weapon","weaponry","armor","armour","gear"].includes(category)||["equipment","weapon","weaponry","armor","armour","gear"].includes(kind))return "square";
+  if(item?.is_equipment===true||item?.is_weapon===true||["eqp","equipment","equip","weapon","weaponary","weaponry","armor","armour","gear"].includes(category)||["eqp","equipment","equip","weapon","weaponary","weaponry","armor","armour","gear"].includes(kind))return "square";
   return "octagon";
 }
 function itemFrameTier(item){
