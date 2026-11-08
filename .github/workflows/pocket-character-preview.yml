@@ -54,16 +54,16 @@ jobs:
           node "$PXL" build review-apk/art/human-appearance-layers.px.js --out "$ACCESSORY_OUT" --no-preview
 
           for hair in long_black soft_bob half_up high_tie long_waves; do
-            test -s "$HUMAN_OUT/sprites/human_preview_hair_\${hair}.png"
+            test -s "$HUMAN_OUT/sprites/human_preview_hair_${hair}.png"
           done
           for outfit in black_hanfu ivory_layers jade_scholar rose_ceremony traveller_robe; do
-            test -s "$HUMAN_OUT/sprites/human_preview_outfit_\${outfit}.png"
+            test -s "$HUMAN_OUT/sprites/human_preview_outfit_${outfit}.png"
           done
           test -s "$HUMAN_OUT/anims/human_long_black_black_hanfu_walk_s.png"
           test -s "$HUMAN_OUT/anims/human_long_waves_traveller_robe_idle_n.png"
 
           for accessory in jade_pin phoenix_comb cloth_headband scholar_crown round_glasses half_mask bead_tassel forehead_gem moon_veil travel_goggles ribbon_bow earring_chains; do
-            test -s "$ACCESSORY_OUT/sprites/human_preview_accessory_\${accessory}.png"
+            test -s "$ACCESSORY_OUT/sprites/human_preview_accessory_${accessory}.png"
           done
           test -s "$ACCESSORY_OUT/anims/accessory_round_glasses_walk_s.png"
           test -s "$ACCESSORY_OUT/anims/accessory_moon_veil_walk_n.png"
@@ -84,8 +84,8 @@ jobs:
             }
           '
         env:
-          HUMAN_OUT: \${{ runner.temp }}/merzkava-pocket-pxl-preview/human-character
-          ACCESSORY_OUT: \${{ runner.temp }}/merzkava-pocket-pxl-preview/appearance-layers
+          HUMAN_OUT: ${{ runner.temp }}/merzkava-pocket-pxl-preview/human-character
+          ACCESSORY_OUT: ${{ runner.temp }}/merzkava-pocket-pxl-preview/appearance-layers
 
       - name: Build the Pocket web app and verify packaged appearance assets
         shell: bash
@@ -96,10 +96,10 @@ jobs:
           npm run build
 
           for hair in long_black soft_bob half_up high_tie long_waves; do
-            test -s "dist/game-assets/pxl/sprites/human_preview_hair_\${hair}.png"
+            test -s "dist/game-assets/pxl/sprites/human_preview_hair_${hair}.png"
           done
           for outfit in black_hanfu ivory_layers jade_scholar rose_ceremony traveller_robe; do
-            test -s "dist/game-assets/pxl/sprites/human_preview_outfit_\${outfit}.png"
+            test -s "dist/game-assets/pxl/sprites/human_preview_outfit_${outfit}.png"
           done
           test -s dist/game-assets/pxl/anims/human_long_black_black_hanfu_walk_s.png
           test -s dist/game-assets/pxl/anims/accessory_round_glasses_walk_s.png
@@ -115,7 +115,7 @@ jobs:
       - name: Upload visual review assets
         uses: actions/upload-artifact@v4
         with:
-          name: Merzkava-Pocket-PXL-Character-Preview-\${{ github.sha }}
-          path: \${{ runner.temp }}/merzkava-pocket-pxl-preview/
+          name: Merzkava-Pocket-PXL-Character-Preview-${{ github.sha }}
+          path: ${{ runner.temp }}/merzkava-pocket-pxl-preview/
           if-no-files-found: error
           retention-days: 30
