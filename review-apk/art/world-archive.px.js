@@ -263,7 +263,11 @@ pal({
  P:"#343838",p:"#454a49",S:"#666a67",s:"#85867e",
  R:"#918a7a",r:"#b0a795",T:"#46553c",t:"#6e7c53",
  U:"#a37a48",u:"#d4b57c",Y:"#f1dda2",y:"#fff0ca",
- q:"#6e7776",z:"#282e30"
+ q:"#6e7776",z:"#282e30",
+ H:"#302321",h:"#5a382d",F:"#fff0d5",f:"#d4c3a4",
+ V:"#efbd91",v:"#b97b5a",X:"#d87970",x:"#f3a18f",
+ E:"#8f3d34",e:"#c75c48",N:"#f4ead6",n:"#c3b59c",
+ J:"#d8ad72",j:"#f2cf97"
 });
 
 // Transparent portrait canvas: empty upper pixels become live sky.
@@ -394,6 +398,264 @@ sprite("daily_login_kanban",{w:64,h:132,pivot:[32,128]},c=>{
   rect(c,1,4,7,10,"B");rect(c,56,4,7,10,"B");
   c.hline(17,87,30,"M");c.hline(20,89,24,"L");
   c.hline(18,98,28,"D");
+});
+
+
+// Pixel-RPG soba shop interior: a complete original cut-away room, built as layered material clusters.
+sprite("daily_login_shop_interior",{w:360,h:800,pivot:[180,799]},c=>{
+  // Outer frame, dark ceiling and warm plaster.
+  rect(c,0,0,360,800,"K");
+  rect(c,5,5,350,790,"D");
+  rect(c,10,10,340,515,"W");
+  rect(c,10,10,340,18,"B");
+  rect(c,10,27,340,5,"L");
+  for(let x=18;x<350;x+=42){
+    rect(c,x,18,4,11,"D");
+    c.vline(x+1,31,485,"w");
+  }
+  // Ceiling beams and roof timber visible inside the old shop.
+  rect(c,10,45,340,10,"K");rect(c,10,48,340,4,"M");
+  rect(c,10,156,340,9,"K");rect(c,10,159,340,3,"L");
+  rect(c,10,317,340,8,"K");rect(c,10,320,340,3,"L");
+  rect(c,10,505,340,13,"K");rect(c,10,509,340,4,"M");
+  for(let x=24;x<350;x+=68){
+    rect(c,x,55,6,450,"D");rect(c,x+2,58,2,442,"m");
+    c.vline(x+5,64,425,"l");
+  }
+  // Plaster panel grain, kept sparse so it reads as aged lime plaster rather than noise.
+  for(let i=0;i<260;i++){
+    const x=15+(i*71)%330,y=70+(i*43)%425;
+    if((x>28&&x<330)&&(y<145||y>175)){
+      c.px(x,y,i%5===0?"i":i%5===1?"w":"W");
+    }
+  }
+
+  // Large shoji window with night-blue glass, lattice and a lower timber sill.
+  rect(c,112,83,116,166,"K");rect(c,118,89,104,154,"D");
+  rect(c,124,95,92,140,"A");rect(c,128,99,84,132,"b");
+  rect(c,131,102,78,126,"a");
+  for(let x=140;x<209;x+=19){rect(c,x,101,4,126,"M");c.vline(x+1,108,110,"l");}
+  for(let y=118;y<226;y+=22){rect(c,129,y,82,4,"M");c.hline(131,y+1,78,"l");}
+  rect(c,112,83,116,7,"K");rect(c,116,86,108,3,"L");
+  rect(c,108,242,124,10,"K");rect(c,113,244,114,4,"M");
+  c.hline(115,245,110,"l");
+  // Moon glow and faint silhouettes outside the shoji.
+  c.ellipse(176,145,13,13,"s");c.ellipse(171,141,8,8,"G");
+  c.ellipse(151,206,20,10,"T");c.ellipse(185,210,27,12,"t");c.ellipse(203,204,15,8,"T");
+  c.hline(132,224,77,"D");
+
+  // Upper-left plate shelf: stacked bowls, ceramic jars and a hand towel.
+  rect(c,18,187,86,7,"K");rect(c,20,189,82,3,"L");
+  rect(c,20,165,18,20,"K");rect(c,22,167,14,16,"w");c.hline(23,169,12,"I");
+  c.ellipse(48,179,10,5,"K");c.ellipse(48,176,8,4,"I");c.ellipse(48,175,4,2,"G");
+  c.ellipse(69,179,10,5,"K");c.ellipse(69,176,8,4,"w");c.ellipse(69,175,4,2,"g");
+  rect(c,83,164,14,20,"K");rect(c,85,166,10,16,"d");rect(c,86,169,8,8,"U");
+  rect(c,26,199,62,3,"D");c.hline(29,200,55,"m");
+
+  // Menu board and hanging noren cloth on the right wall.
+  rect(c,254,82,82,111,"K");rect(c,259,87,72,101,"D");
+  rect(c,264,92,62,91,"A");rect(c,267,95,56,85,"z");
+  rect(c,271,101,48,5,"L");rect(c,271,110,39,3,"u");
+  rect(c,271,120,43,3,"u");rect(c,271,131,35,3,"u");
+  rect(c,271,142,45,3,"u");rect(c,271,153,28,3,"u");
+  rect(c,254,193,82,7,"K");rect(c,259,195,72,3,"L");
+  // Little hanging cloth panels, with alternating indigo and cream stripes.
+  rect(c,252,209,86,54,"K");rect(c,256,212,78,48,"A");
+  for(let i=0;i<4;i++){
+    const x=258+i*19;
+    rect(c,x,215,15,40,i%2===0?"A":"B");
+    c.hline(x,216,15,"L");
+    for(let y=220;y<252;y+=8)c.hline(x+2,y,11,i%2===0?"b":"q");
+  }
+  rect(c,252,208,86,5,"M");rect(c,256,210,78,2,"u");
+
+  // Hanging utensils and a small kitchen clock.
+  rect(c,23,261,97,5,"K");rect(c,25,263,93,2,"L");
+  for(let i=0;i<5;i++){
+    const x=33+i*17;
+    c.vline(x,267,22+i%2*5,"q");
+    c.ellipse(x,291+i%2*5,4,6,"S");
+    c.vline(x,270,15,"s");
+  }
+  c.ellipse(302,291,20,20,"K");c.ellipse(302,291,16,16,"I");
+  c.ellipse(302,291,13,13,"w");c.vline(302,280,11,"D");c.hline(302,291,8,"D");
+  c.px(302,289,"X");c.px(301,290,"X");
+
+  // Stove niche, iron range and stock pot with lid.
+  rect(c,20,337,116,94,"K");rect(c,25,342,106,83,"D");
+  rect(c,30,347,96,72,"B");rect(c,34,351,88,64,"z");
+  rect(c,38,394,80,20,"K");rect(c,42,397,72,13,"H");
+  rect(c,49,408,58,6,"M");c.hline(52,409,52,"L");
+  rect(c,48,364,57,37,"K");rect(c,53,368,47,29,"S");
+  rect(c,56,370,41,24,"C");rect(c,60,372,33,18,"s");
+  c.ellipse(76,371,22,5,"K");c.ellipse(76,369,18,4,"q");c.ellipse(76,368,13,2,"J");
+  rect(c,69,357,14,5,"D");rect(c,72,354,8,4,"M");
+  rect(c,43,386,6,8,"B");rect(c,102,386,6,8,"B");
+  c.ellipse(76,388,8,3,"Y");c.hline(70,388,12,"j");
+  // Firebox with warm embers.
+  rect(c,53,399,45,10,"K");rect(c,57,401,37,6,"D");
+  c.px(65,403,"X");c.px(73,402,"Y");c.px(82,404,"e");c.px(89,403,"J");
+
+  // Long serving counter, dark timber edge, worn grain and repeated front panels.
+  rect(c,9,428,229,112,"K");rect(c,14,434,219,17,"D");
+  rect(c,17,437,213,10,"M");c.hline(19,438,207,"L");
+  for(let x=21;x<229;x+=36){
+    rect(c,x,451,4,83,"D");rect(c,x+5,451,27,83,"m");
+    rect(c,x+7,456,22,72,"d");
+    c.vline(x+10,460,63,"M");
+    c.hline(x+8,477,19,"L");c.hline(x+8,511,19,"D");
+  }
+  rect(c,10,532,230,9,"K");rect(c,15,534,220,4,"L");
+  // Counter top highlight and a small ceramic service rail.
+  c.hline(14,432,219,"g");c.hline(18,449,211,"B");
+  rect(c,16,421,218,8,"K");rect(c,19,423,212,4,"u");
+  c.hline(21,424,208,"J");
+
+  // Soba noodle board, rolling pin, knife and fresh noodle strands.
+  rect(c,145,385,78,8,"K");rect(c,148,387,72,4,"J");
+  rect(c,151,377,61,8,"D");rect(c,154,379,55,4,"L");
+  for(let x=159;x<207;x+=6){c.vline(x,380,3,"g");c.px(x+1,379,"F");}
+  rect(c,162,373,44,3,"K");c.hline(163,374,42,"G");
+  rect(c,179,366,5,9,"D");rect(c,181,365,2,9,"s");
+  rect(c,210,385,22,5,"K");rect(c,212,386,18,2,"s");
+  // Flour dust and loose noodle loops.
+  for(let i=0;i<38;i++){const x=151+(i*13)%70,y=371+(i*7)%15;c.px(x,y,i%3===0?"F":"g");}
+  c.ellipse(202,382,10,3,"I");c.ellipse(202,381,7,2,"F");
+
+  // Bowls, tea kettle, soy and spice bottles on the pass.
+  c.ellipse(40,417,13,7,"K");c.ellipse(40,414,11,5,"I");c.ellipse(40,413,7,2,"Y");
+  c.ellipse(76,417,12,7,"K");c.ellipse(76,414,10,5,"e");c.ellipse(76,413,6,2,"J");
+  rect(c,105,409,13,20,"K");rect(c,108,411,7,15,"w");rect(c,109,413,5,9,"L");
+  rect(c,123,409,10,19,"K");rect(c,125,411,6,15,"T");rect(c,126,414,4,9,"t");
+  rect(c,139,411,8,17,"K");rect(c,141,413,4,13,"X");
+  rect(c,25,407,5,18,"D");rect(c,27,404,2,4,"M");
+  rect(c,224,409,8,19,"K");rect(c,226,411,4,15,"R");
+
+  // Rice tub, flour sack and stacked zaru baskets beneath the prep counter.
+  rect(c,254,450,52,60,"K");rect(c,258,454,44,52,"D");
+  rect(c,262,458,36,42,"M");rect(c,265,461,30,35,"m");
+  c.hline(263,462,32,"L");c.hline(263,489,32,"D");
+  rect(c,271,447,18,7,"K");rect(c,273,448,14,4,"J");
+  c.ellipse(279,459,12,3,"g");c.ellipse(279,457,9,2,"F");
+  rect(c,310,464,27,43,"K");rect(c,313,467,21,37,"W");
+  c.ellipse(323,468,11,4,"I");c.ellipse(323,466,8,2,"F");
+  for(let y=474;y<499;y+=5)c.hline(316,y,14,"w");
+  c.ellipse(326,512,12,3,"K");c.ellipse(326,510,9,2,"s");
+  c.ellipse(326,501,12,3,"K");c.ellipse(326,499,9,2,"q");
+  c.ellipse(326,490,12,3,"K");c.ellipse(326,488,9,2,"S");
+
+  // A small dining table and bench sit in front-right of the room.
+  rect(c,245,556,100,14,"K");rect(c,250,558,90,8,"M");
+  for(let x=254;x<339;x+=15)c.vline(x,559,5,"L");
+  rect(c,257,571,8,59,"D");rect(c,323,571,8,59,"D");
+  rect(c,246,628,98,7,"K");rect(c,251,630,88,3,"L");
+  // Tea cup and a tiny tray.
+  c.ellipse(289,550,11,5,"K");c.ellipse(289,548,9,4,"I");c.ellipse(289,547,5,2,"G");
+  rect(c,304,548,18,4,"K");rect(c,306,549,14,2,"u");
+  rect(c,266,543,5,9,"D");rect(c,268,541,3,3,"M");
+
+  // Wooden floor with plank seams, tatami edging and scuffed traffic wear.
+  rect(c,10,545,340,244,"K");
+  rect(c,14,550,332,235,"d");
+  for(let y=554;y<785;y+=24){
+    rect(c,15,y,330,2,"K");
+    c.hline(17,y+2,326,"M");
+    for(let x=22+(y%3)*13;x<338;x+=58){
+      c.vline(x,y+4,17,"D");
+      c.vline(x+1,y+5,15,"m");
+    }
+  }
+  // Tatami runner rug in front of the kitchen.
+  rect(c,22,666,215,88,"K");rect(c,27,671,205,78,"T");
+  rect(c,31,675,197,70,"t");
+  for(let x=36;x<225;x+=11){
+    rect(c,x,678,2,64,"T");
+    c.vline(x+1,680,60,"L");
+  }
+  rect(c,22,666,215,7,"D");rect(c,22,747,215,7,"D");
+  rect(c,24,675,5,66,"J");rect(c,230,675,5,66,"J");
+
+  // Scattered floor reflections and small wood wear marks.
+  for(let i=0;i<180;i++){
+    const x=16+(i*37)%328,y=558+(i*53)%225;
+    if(i%4===0)c.px(x,y,"L");
+    else if(i%7===0)c.px(x,y,"s");
+    else if(i%11===0)c.px(x,y,"D");
+  }
+  // Footwear scuffs and a little threshold highlight.
+  c.hline(14,786,332,"K");c.hline(18,783,324,"L");
+});
+
+// 2.5-head chibi soba cook: bold readable silhouette, rounded face, small hands and a clear chef cap.
+anim("daily_login_chef_idle",{w:64,h:96,frames:4,fps:5},c=>{
+  const frame=c.frame%4;
+  const bob=[0,1,0,-1][frame];
+  const hand=[0,1,2,1][frame];
+  c.ellipse(32,92,17,2,"K");
+
+  // Shoes and short legs.
+  rect(c,22,79+bob,9,7,"K");rect(c,24,80+bob,5,4,"D");
+  rect(c,34,79+bob,9,7,"K");rect(c,35,80+bob,5,4,"D");
+  c.hline(20,85+bob,12,"H");c.hline(33,85+bob,12,"H");
+  c.px(22,85+bob,"L");c.px(35,85+bob,"L");
+
+  // Jacket body and sleeves.
+  rect(c,17,52+bob,30,29,"H");
+  rect(c,19,54+bob,26,25,"N");
+  rect(c,21,55+bob,21,22,"W");
+  rect(c,16,57+bob,8,18,"H");rect(c,18,59+bob,6,13,"N");
+  rect(c,41,56+bob,8,18,"H");rect(c,43,58+bob,5,13,"N");
+  c.hline(20,56+bob,23,"F");
+  line(c,31,57+bob,26,68+bob,"n");line(c,32,57+bob,38,68+bob,"f");
+  rect(c,27,69+bob,10,4,"D");c.hline(28,70+bob,8,"L");
+
+  // Apron, waist ties and small embroidered mark.
+  rect(c,21,67+bob,23,17,"H");rect(c,23,69+bob,19,13,"E");
+  rect(c,25,70+bob,15,10,"e");c.hline(24,70+bob,16,"x");
+  rect(c,18,66+bob,7,3,"D");rect(c,40,66+bob,7,3,"D");
+  c.px(32,74+bob,"F");c.px(33,74+bob,"J");
+  c.hline(26,81+bob,13,"H");
+
+  // Neck, soft jaw and round face.
+  rect(c,27,48+bob,10,8,"H");rect(c,29,49+bob,6,6,"V");
+  c.ellipse(32,35+bob,17,17,"H");
+  c.ellipse(32,35+bob,15,15,"V");
+  c.ellipse(32,39+bob,13,10,"v");
+  c.ellipse(28,32+bob,8,8,"V");c.ellipse(37,32+bob,8,8,"V");
+  // Hair framing the face and peeking from beneath the cap.
+  rect(c,17,25+bob,7,20,"H");rect(c,19,27+bob,4,15,"h");
+  rect(c,40,25+bob,7,20,"H");rect(c,41,27+bob,4,15,"h");
+  rect(c,20,19+bob,24,9,"H");
+  rect(c,22,20+bob,19,5,"h");
+  c.px(23,25+bob,"H");c.px(28,27+bob,"H");c.px(37,26+bob,"H");
+  // Big, clear eyes with warm highlights and small blush pixels.
+  rect(c,22,35+bob,4,5,"H");rect(c,38,35+bob,4,5,"H");
+  c.px(23,35+bob,"F");c.px(39,35+bob,"F");
+  c.px(24,39+bob,"V");c.px(40,39+bob,"V");
+  c.hline(19,42+bob,5,"X");c.hline(40,42+bob,5,"X");
+  c.px(30,46+bob,"H");c.hline(31,47+bob,3,"H");
+  c.px(31,48+bob,"x");c.px(32,48+bob,"X");
+
+  // Tall white chef cap with a folded band and a small knot.
+  rect(c,17,11+bob,30,11,"H");
+  rect(c,20,6+bob,24,13,"F");
+  rect(c,22,8+bob,20,9,"N");
+  rect(c,17,17+bob,30,6,"H");
+  rect(c,19,18+bob,26,3,"f");
+  rect(c,21,18+bob,22,2,"F");
+  c.hline(24,9+bob,15,"W");c.px(40,12+bob,"F");
+  rect(c,29,3+bob,6,5,"H");rect(c,30,4+bob,4,3,"J");
+
+  // Serving bowl in the left hand, with a steaming broth highlight.
+  c.ellipse(12,65+bob,12,7,"H");c.ellipse(12,63+bob,10,5,"W");
+  c.ellipse(12,62+bob,7,3,"G");c.hline(6,62+bob,12,"F");
+  c.px(10,61+bob,"J");c.px(15,62+bob,"e");
+  c.vline(7,69+bob,4,"D");c.vline(17,69+bob,4,"D");
+  // Right hand and a short wooden ladle shift gently in the idle cycle.
+  rect(c,45,66+bob-hand,8,7,"H");rect(c,47,67+bob-hand,5,4,"V");
+  c.vline(51,50+bob-hand,19,"D");c.vline(52,51+bob-hand,16,"M");
+  c.ellipse(51,49+bob-hand,4,3,"K");c.ellipse(51,48+bob-hand,3,2,"L");
+  c.px(53,51+bob-hand,"J");
 });
 
 // Four equal rectangular noren panels, attached along their top edge.
