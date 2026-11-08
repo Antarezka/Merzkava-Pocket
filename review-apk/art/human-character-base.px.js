@@ -92,7 +92,7 @@ function drawHair(c,hair,back,side,flip,top,bob){
 function drawFringe(c,hair,dir,flip,top){
  const mx=x=>flip?2*CX-x:x;
  const p=(x,y,k)=>c.px(mx(x),y,k);
- if(back||sideView(dir))return;
+ if(backView(dir)||sideView(dir))return;
  line(c,mx(CX-9),top+7,mx(CX-4),top+12,"h");
  line(c,mx(CX-4),top+7,mx(CX+1),top+13,"H");
  line(c,mx(CX+2),top+6,mx(CX+7),top+11,"h");
