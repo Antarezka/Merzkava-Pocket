@@ -59,7 +59,7 @@ jobs:
       - name: Upload visual review and PXL sprite sheets
         uses: actions/upload-artifact@v4
         with:
-          name: Yunmiao-PXL-Character-Review-\${{ github.sha }}
-          path: \${{ runner.temp }}/yunmiao-pxl-review/
+          name: Yunmiao-PXL-Character-Review-${{ github.sha }}
+          path: ${{ runner.temp }}/yunmiao-pxl-review/
           if-no-files-found: error
           retention-days: 30
