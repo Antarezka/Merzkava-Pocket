@@ -48,6 +48,13 @@ export function dailyLoginMarkup(){
     <div class="dl-chair"><span class="dl-chair-back"></span><span class="dl-chair-seat"></span><i class="dl-chair-leg dl-chair-leg-a"></i><i class="dl-chair-leg dl-chair-leg-b"></i></div>
     <div class="dl-chef-area">
      <div class="dl-dialogue" data-dl-dialogue hidden role="status" aria-live="polite"><span data-dl-dialogue-text></span></div>
+     <div class="dl-choice" data-dl-choice hidden aria-live="polite">
+      <p>WAIT HERE?</p>
+      <div class="dl-choice-actions">
+       <button type="button" data-dl-stay>STAY</button>
+       <button type="button" data-dl-leave>LEAVE SHOP</button>
+      </div>
+     </div>
      <button class="dl-chef" type="button" data-dl-chef aria-label="Ketuk koki untuk berbicara">
       <span class="dl-chef-shadow"></span><span class="dl-chef-hat"><i></i><b></b></span>
       <span class="dl-chef-head"><i class="dl-chef-hair"></i><b class="dl-chef-eye dl-chef-eye-left"></b><b class="dl-chef-eye dl-chef-eye-right"></b><i class="dl-chef-cheek"></i><span></span></span>
@@ -106,12 +113,15 @@ export function mountDailyLogin(scene,onBack){
  const chef=scene.querySelector("[data-dl-chef]");
  const dialogue=scene.querySelector("[data-dl-dialogue]");
  const dialogueText=scene.querySelector("[data-dl-dialogue-text]");
+ const choice=scene.querySelector("[data-dl-choice]");
+ const stay=scene.querySelector("[data-dl-stay]");
+ const leave=scene.querySelector("[data-dl-leave]");
  const tvNoise=scene.querySelector("[data-dl-tv-noise]");
  const tvScan=scene.querySelector("[data-dl-tv-scan]");
  const puffs=[...scene.querySelectorAll(".dl-steam")];
  const animations=new Set(),motionReduced=reducedMotion();
  const dialogueLines=["Ai-yo!","Makanan masih dipersiapkan!","Mohon tunggu!"];
- let opened=false,leaving=false,disposed=false,drag=null,dragOffset=0,dialogueIndex=-1;
+ let opened=false,leaving=false,disposed=false,drag=null,dragOffset=0,dialogueIndex=-1,choiceOpen=false;
 
  const track=animation=>{
   if(animation){animations.add(animation);animation.then?.(()=>animations.delete(animation));}
@@ -211,14 +221,35 @@ export function mountDailyLogin(scene,onBack){
  door.addEventListener("click",keyboardOpen);
 
  const talk=()=>{
-  if(!opened||leaving||disposed)return;
+  if(!opened||leaving||disposed||choiceOpen)return;
   dialogueIndex=(dialogueIndex+1)%dialogueLines.length;
   dialogue.hidden=false;
   dialogueText.textContent=dialogueLines[dialogueIndex];
   if(motionReduced){dialogue.style.opacity="1";dialogue.style.transform="translateY(0) scale(1)";}
   else track(animate(dialogue,{opacity:[0,1],translateY:[11,0],scale:[.96,1],duration:350,ease:"outBack(1.2)"}));
+  if(dialogueIndex===2){
+   choice.hidden=false;
+   choiceOpen=true;
+   if(motionReduced){choice.style.opacity="1";choice.style.transform="translateY(0)";}
+   else track(animate(choice,{opacity:[0,1],translateY:[8,0],delay:470,duration:360,ease:"outCubic"}));
+  }
+ };
+ const stayInside=()=>{
+  if(!choiceOpen||leaving||disposed)return;
+  choiceOpen=false;
+  choice.hidden=true;
+  dialogueIndex=-1;
+ };
+ const leaveShop=()=>{
+  if(!opened||!choiceOpen||leaving||disposed)return;
+  leaving=true;
+  scene.inert=true;
+  if(motionReduced){scene.style.opacity="0";onBack?.();return;}
+  track(animate(scene,{opacity:[1,0],duration:2000,ease:"inOutCubic",onComplete:()=>onBack?.()}));
  };
  chef.addEventListener("click",talk);
+ stay.addEventListener("click",stayInside);
+ leave.addEventListener("click",leaveShop);
 
  const returnToMenu=()=>{
   if(opened||leaving||disposed)return;
@@ -237,6 +268,8 @@ export function mountDailyLogin(scene,onBack){
   door.removeEventListener("pointercancel",pointerUp);
   door.removeEventListener("click",keyboardOpen);
   chef.removeEventListener("click",talk);
+  stay.removeEventListener("click",stayInside);
+  leave.removeEventListener("click",leaveShop);
   back.removeEventListener("click",returnToMenu);
  };
 }
