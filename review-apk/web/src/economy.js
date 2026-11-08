@@ -93,8 +93,8 @@ function ensureStarterHomeFacilities(state){
   if(!state.home_rest)state.home_rest={active:false,last_tick_at:now,pending_satiety:0};
   if(!state.pocket_needs)state.pocket_needs={satiety:null};
   if(!state.appearance_style)state.appearance_style="classic";
-  if(!["long_black","soft_bob","half_up","high_tie","long_waves","braided_crown","low_chignon","side_ponytail","twin_braids","scholar_topknot"].includes(state.appearance_hair)){state.appearance_hair="long_black";changed=true;}
-  if(!["black_hanfu","ivory_layers","jade_scholar","rose_ceremony","traveller_robe","crimson_sect","moon_priest","iron_guard","wanderer_cloak","azure_artificer"].includes(state.appearance_outfit)){state.appearance_outfit="black_hanfu";changed=true;}
+  if(!["long_black","soft_bob","half_up","high_tie","long_waves"].includes(state.appearance_hair)){state.appearance_hair="long_black";changed=true;}
+  if(!["black_hanfu","ivory_layers","jade_scholar","rose_ceremony","traveller_robe"].includes(state.appearance_outfit)){state.appearance_outfit="black_hanfu";changed=true;}
   if(!["none","jade_pin","phoenix_comb","cloth_headband","scholar_crown","round_glasses","half_mask","bead_tassel","forehead_gem","moon_veil","travel_goggles","ribbon_bow","earring_chains"].includes(state.appearance_accessory)){state.appearance_accessory="none";changed=true;}
   if(!["none","straight_sword","crescent_dao","twin_blades","spear","jade_staff","recurve_bow","war_fan","closed_umbrella","short_sword","moon_polearm","scroll_case","lantern_staff"].includes(state.appearance_weapon)){state.appearance_weapon="none";changed=true;}
   return changed;
@@ -115,8 +115,8 @@ function migrateState(saved,key){
   state.home_rest=saved.home_rest&&typeof saved.home_rest==="object"?{active:false,last_tick_at:Date.now(),pending_satiety:0,...saved.home_rest}:{active:false,last_tick_at:Date.now(),pending_satiety:0};
   state.pocket_needs=saved.pocket_needs&&typeof saved.pocket_needs==="object"?{satiety:null,...saved.pocket_needs}:{satiety:null};
   state.appearance_style=["chibi","classic","slim","ornate","painterly"].includes(saved.appearance_style)?saved.appearance_style:"classic";
-  state.appearance_hair=["long_black","soft_bob","half_up","high_tie","long_waves","braided_crown","low_chignon","side_ponytail","twin_braids","scholar_topknot"].includes(saved.appearance_hair)?saved.appearance_hair:"long_black";
-  state.appearance_outfit=["black_hanfu","ivory_layers","jade_scholar","rose_ceremony","traveller_robe","crimson_sect","moon_priest","iron_guard","wanderer_cloak","azure_artificer"].includes(saved.appearance_outfit)?saved.appearance_outfit:"black_hanfu";
+  state.appearance_hair=["long_black","soft_bob","half_up","high_tie","long_waves"].includes(saved.appearance_hair)?saved.appearance_hair:"long_black";
+  state.appearance_outfit=["black_hanfu","ivory_layers","jade_scholar","rose_ceremony","traveller_robe"].includes(saved.appearance_outfit)?saved.appearance_outfit:"black_hanfu";
   state.appearance_accessory=["none","jade_pin","phoenix_comb","cloth_headband","scholar_crown","round_glasses","half_mask","bead_tassel","forehead_gem","moon_veil","travel_goggles","ribbon_bow","earring_chains"].includes(saved.appearance_accessory)?saved.appearance_accessory:"none";
   state.appearance_weapon=["none","straight_sword","crescent_dao","twin_blades","spear","jade_staff","recurve_bow","war_fan","closed_umbrella","short_sword","moon_polearm","scroll_case","lantern_staff"].includes(saved.appearance_weapon)?saved.appearance_weapon:"none";
   state.save_meta={
@@ -493,8 +493,8 @@ export async function openHomeBaseSession(identity){
     getAccessory:()=>state.appearance_accessory||"none",
     getWeapon:()=>state.appearance_weapon||"none",
     setAppearanceSlots(appearance){
-      const validHair=["long_black","soft_bob","half_up","high_tie","long_waves","braided_crown","low_chignon","side_ponytail","twin_braids","scholar_topknot"];
-      const validOutfit=["black_hanfu","ivory_layers","jade_scholar","rose_ceremony","traveller_robe","crimson_sect","moon_priest","iron_guard","wanderer_cloak","azure_artificer"];
+      const validHair=["long_black","soft_bob","half_up","high_tie","long_waves"];
+      const validOutfit=["black_hanfu","ivory_layers","jade_scholar","rose_ceremony","traveller_robe"];
       const validAccessory=["none","jade_pin","phoenix_comb","cloth_headband","scholar_crown","round_glasses","half_mask","bead_tassel","forehead_gem","moon_veil","travel_goggles","ribbon_bow","earring_chains"];
       const validWeapon=["none","straight_sword","crescent_dao","twin_blades","spear","jade_staff","recurve_bow","war_fan","closed_umbrella","short_sword","moon_polearm","scroll_case","lantern_staff"];
       if(!appearance||!validHair.includes(appearance.hair)||!validOutfit.includes(appearance.outfit)||!validAccessory.includes(appearance.accessory)||!validWeapon.includes(appearance.weapon))return false;
@@ -517,11 +517,11 @@ export async function openHomeBaseSession(identity){
       return true;
     },
     setHair(hair){
-      if(!["long_black","soft_bob","half_up","high_tie","long_waves","braided_crown","low_chignon","side_ponytail","twin_braids","scholar_topknot"].includes(hair))return false;
+      if(!["long_black","soft_bob","half_up","high_tie","long_waves"].includes(hair))return false;
       state.appearance_hair=hair;persist();return true;
     },
     setOutfit(outfit){
-      if(!["black_hanfu","ivory_layers","jade_scholar","rose_ceremony","traveller_robe","crimson_sect","moon_priest","iron_guard","wanderer_cloak","azure_artificer"].includes(outfit))return false;
+      if(!["black_hanfu","ivory_layers","jade_scholar","rose_ceremony","traveller_robe"].includes(outfit))return false;
       state.appearance_outfit=outfit;persist();return true;
     },
     setAccessory(accessory){
