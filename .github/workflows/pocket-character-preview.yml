@@ -11,6 +11,10 @@ on:
       - "review-apk/art/human-character-base.px.js"
       - "review-apk/scripts/build-world-assets.mjs"
       - "review-apk/web/src/home-base.js"
+      - "review-apk/web/src/home-base.css"
+      - "review-apk/web/src/economy.js"
+      - "review-apk/package.json"
+      - "review-apk/vite.config.js"
       - ".github/workflows/pocket-character-preview.yml"
 
 permissions:
@@ -67,6 +71,22 @@ jobs:
           '
         env:
           OUT: ${{ runner.temp }}/merzkava-pocket-pxl-preview/human-character
+
+      - name: Build the Pocket web app and verify packaged appearance assets
+        shell: bash
+        working-directory: review-apk
+        run: |
+          set -euo pipefail
+          npm install --no-audit --no-fund
+          npm run build
+          test -s dist/game-assets/pxl/anims/human_braided_crown_azure_artificer_walk_s.png
+          test -s dist/game-assets/pxl/anims/accessory_jade_pin_walk_s.png
+          test -s dist/game-assets/pxl/anims/weapon_closed_umbrella_walk_s.png
+          test -s dist/game-assets/pxl/sprites/human_preview_outfit_iron_guard.png
+          test -s dist/index.html
+          mkdir -p "$RUNNER_TEMP/merzkava-pocket-pxl-preview/web-build"
+          cp -a dist/. "$RUNNER_TEMP/merzkava-pocket-pxl-preview/web-build/"
+          du -sh dist
 
       - name: Upload visual review assets
         uses: actions/upload-artifact@v4
