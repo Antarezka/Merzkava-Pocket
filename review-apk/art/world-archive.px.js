@@ -335,24 +335,6 @@ sprite("daily_login_shop_front",{w:360,h:640,pivot:[180,639]},c=>{
   };
   lantern(113,293);lantern(227,293);
 
-  // Low, freestanding roadside kanban beside the sliding entrance.
-  rect(c,231,389,65,42,"K");rect(c,234,392,59,36,"D");
-  rect(c,238,396,51,28,"I");c.hline(238,397,51,"g");
-  const glyph={
-    D:["110","101","101","101","110"],
-    A:["010","101","111","101","101"],
-    I:["111","010","010","010","111"],
-    L:["100","100","100","100","111"],
-    Y:["101","101","010","010","010"]
-  };
-  for(let n=0;n<5;n++){
-    const rows=glyph["DAILY"[n]],xx=241+n*9;
-    for(let gy=0;gy<5;gy++)for(let gx=0;gx<3;gx++)if(rows[gy][gx]==="1")rect(c,xx+gx*2,405+gy*2,2,2,"B");
-  }
-  c.hline(238,424,51,"u");
-  line(c,236,431,231,467,"B");line(c,291,431,298,467,"B");
-  c.hline(229,466,72,"D");
-
   // Covered entrance terrace and a road that opens in correct perspective.
   rect(c,23,414,314,11,"B");rect(c,29,416,302,6,"s");
   for(let x=35;x<327;x+=27)c.vline(x,416,5,"c");
@@ -384,11 +366,29 @@ sprite("daily_login_shop_front",{w:360,h:640,pivot:[180,639]},c=>{
     c.ellipse(x,y,rx,2,"s");c.px(x-1,y-1,"g");
   }
 
+  // Low, freestanding roadside kanban beside the sliding entrance.
+  rect(c,231,389,65,42,"K");rect(c,234,392,59,36,"D");
+  rect(c,238,396,51,28,"I");c.hline(238,397,51,"g");
+  const glyph={
+    D:["110","101","101","101","110"],
+    A:["010","101","111","101","101"],
+    I:["111","010","010","010","111"],
+    L:["100","100","100","100","111"],
+    Y:["101","101","010","010","010"]
+  };
+  for(let n=0;n<5;n++){
+    const rows=glyph["DAILY"[n]],xx=241+n*9;
+    for(let gy=0;gy<5;gy++)for(let gx=0;gx<3;gx++)if(rows[gy][gx]==="1")rect(c,xx+gx*2,405+gy*2,2,2,"B");
+  }
+  c.hline(238,424,51,"u");
+  line(c,236,431,231,467,"B");line(c,291,431,298,467,"B");
+  c.hline(229,466,72,"D");
+
   // Quiet planters beside the facade.
   rect(c,46,385,26,12,"K");rect(c,49,386,20,7,"d");
   c.ellipse(59,377,10,8,"T");c.ellipse(54,373,6,6,"t");c.ellipse(64,374,6,6,"t");c.px(58,368,"u");
-  rect(c,288,385,26,12,"K");rect(c,291,386,20,7,"d");
-  c.ellipse(301,377,10,8,"T");c.ellipse(296,373,6,6,"t");c.ellipse(306,374,6,6,"t");c.px(300,368,"u");
+  rect(c,304,385,26,12,"K");rect(c,307,386,20,7,"d");
+  c.ellipse(317,377,10,8,"T");c.ellipse(312,373,6,6,"t");c.ellipse(322,374,6,6,"t");c.px(316,368,"u");
 });
 
 // Four equal rectangular noren panels, attached along their top edge.
