@@ -605,13 +605,28 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
     scene:[scene]
   });
   const updateClick=async event=>{
-    const btn=event.target.closest("[data-world-action],[data-world-appearance],[data-world-build],[data-world-location],[data-world-facility],[data-world-start-placement],[data-world-open-build],[data-world-rest],[data-world-forage],[data-world-water],[data-world-gather],[data-world-hair],[data-world-outfit],[data-world-accessory],[data-world-weapon],[data-world-shop-tab]");
+    const btn=event.target.closest("[data-shop-buy],[data-shop-exit],[data-shop-confirm-buy],[data-shop-cancel-buy],[data-world-action],[data-world-appearance],[data-world-build],[data-world-location],[data-world-facility],[data-world-start-placement],[data-world-open-build],[data-world-rest],[data-world-forage],[data-world-water],[data-world-gather],[data-world-hair],[data-world-outfit],[data-world-accessory],[data-world-weapon]");
     if(!btn)return;
+    if(btn.hasAttribute("data-shop-exit")){
+      await exitAppearanceShop({restore:true});
+      setFeedback("Shop closed. Your original appearance has been restored.");
+      return;
+    }
+    if(btn.hasAttribute("data-shop-buy")){
+      shopConfirmPending=true;refreshShopPreview();return;
+    }
+    if(btn.hasAttribute("data-shop-cancel-buy")){
+      shopConfirmPending=false;refreshShopPreview();return;
+    }
+    if(btn.hasAttribute("data-shop-confirm-buy")){
+      commitAppearanceShop();return;
+    }
+    // Any route away from the open shop without a confirmed purchase is an exit.
+    if(shopOriginal){
+      await exitAppearanceShop({restore:true});
+    }
     drawer.classList.remove("is-collapsed");
-    if(btn.dataset.worldShopTab){
-      activeAppearanceTab=btn.dataset.worldShopTab;
-      renderShopCatalog();
-    }else if(btn.dataset.worldAction==="places"){scene.stopPlacement();drawer.classList.remove("is-shop");renderPlaces();}
+    if(btn.dataset.worldAction==="places"){scene.stopPlacement();drawer.classList.remove("is-shop");renderPlaces();}
     else if(btn.dataset.worldAction==="build"||btn.hasAttribute("data-world-build")){drawer.classList.remove("is-shop");renderBuild();}
     else if(btn.dataset.worldAction==="appearance"||btn.hasAttribute("data-world-appearance"))renderAppearance();
     else if(btn.dataset.worldLocation){
@@ -633,32 +648,28 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
       setFeedback(result.ok?"Gathering started. Output is credited when the saved process completes.":result.message);snapshot=session.snapshot();
     }else if(btn.dataset.worldHair){
       try{
-        const nextHair=btn.dataset.worldHair,ready=await scene.setAppearance(nextHair,session.getOutfit());
-        if(!ready)throw new Error("That hairstyle is not available.");
-        session.setHair(nextHair);renderShopCatalog();refreshShopPreview();
-        setFeedback("Hairstyle equipped on the live character.");
-      }catch(error){setFeedback("Hairstyle could not be loaded: "+esc(error.message));}
+        const nextHair=btn.dataset.worldHair,next={...shopDraft,hair:nextHair};
+        await applyShopDraft(next);shopDraft=next;renderShopCatalog();refreshShopPreview();
+        setFeedback("Hairstyle previewed. Confirm BUY to save it.");
+      }catch(error){setFeedback("Hairstyle preview could not be loaded: "+esc(error.message));}
     }else if(btn.dataset.worldOutfit){
       try{
-        const nextOutfit=btn.dataset.worldOutfit,ready=await scene.setAppearance(session.getHair(),nextOutfit);
-        if(!ready)throw new Error("That outfit is not available.");
-        session.setOutfit(nextOutfit);renderShopCatalog();refreshShopPreview();
-        setFeedback("Outfit equipped on the live character.");
-      }catch(error){setFeedback("Outfit could not be loaded: "+esc(error.message));}
+        const next={...shopDraft,outfit:btn.dataset.worldOutfit};
+        await applyShopDraft(next);shopDraft=next;renderShopCatalog();refreshShopPreview();
+        setFeedback("Outfit previewed. Confirm BUY to save it.");
+      }catch(error){setFeedback("Outfit preview could not be loaded: "+esc(error.message));}
     }else if(btn.dataset.worldAccessory!==undefined){
       try{
-        const ready=await scene.setAccessory(btn.dataset.worldAccessory);
-        if(!ready)throw new Error("That accessory is not available.");
-        session.setAccessory(btn.dataset.worldAccessory);renderShopCatalog();refreshShopPreview();
-        setFeedback("Accessory equipped independently from hair and outfit.");
-      }catch(error){setFeedback("Accessory could not be loaded: "+esc(error.message));}
+        const next={...shopDraft,accessory:btn.dataset.worldAccessory};
+        await applyShopDraft(next);shopDraft=next;renderShopCatalog();refreshShopPreview();
+        setFeedback("Accessory previewed. Confirm BUY to save it.");
+      }catch(error){setFeedback("Accessory preview could not be loaded: "+esc(error.message));}
     }else if(btn.dataset.worldWeapon!==undefined){
       try{
-        const ready=await scene.setWeapon(btn.dataset.worldWeapon);
-        if(!ready)throw new Error("That weapon is not available.");
-        session.setWeapon(btn.dataset.worldWeapon);renderShopCatalog();refreshShopPreview();
-        setFeedback("Weapon or gear equipped as an independent layer.");
-      }catch(error){setFeedback("Weapon could not be loaded: "+esc(error.message));}
+        const next={...shopDraft,weapon:btn.dataset.worldWeapon};
+        await applyShopDraft(next);shopDraft=next;renderShopCatalog();refreshShopPreview();
+        setFeedback("Weapon or gear previewed. Confirm BUY to save it.");
+      }catch(error){setFeedback("Weapon or gear preview could not be loaded: "+esc(error.message));}
     }
   };
   const inputChange=event=>{
@@ -666,8 +677,12 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
     session.setBuilders(input.dataset.worldBuilders,input.value);renderFacilityDetail(input.dataset.worldBuilders);
   };
   root.addEventListener("click",updateClick);root.addEventListener("change",inputChange);
-  root.querySelector("[data-world-close]")?.addEventListener("click",()=>{
-    drawer.classList.remove("is-shop");
+  root.querySelector("[data-world-close]")?.addEventListener("click",async()=>{
+    if(shopOriginal){
+      await exitAppearanceShop({restore:true,collapse:true});
+      setFeedback("Shop closed. Your original appearance has been restored.");
+      return;
+    }
     drawer.classList.toggle("is-collapsed");
   });
   renderPlaces();
