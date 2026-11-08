@@ -113,7 +113,9 @@ Any of the five hairstyles must be compatible with any of the five outfits. This
 
 ### Animation readiness
 
-The standing eight-direction set is the minimum foundation. Walk, idle, run, attack, gather, interact, sit, and skill/action animations should use the same 48 × 64 frame, foot anchor, and anatomy. Motion must preserve foot contact and avoid uncontrolled bobbing. A direction-specific animation must not change body proportions between frames.
+The standing eight-direction set is the minimum foundation. The human base uses a **four-frame idle** and an **eight-frame walk cycle for each of the eight directions**. The walk cycle is not a four-frame loop duplicated twice: it has a complete alternating gait with contact, passing, lift, and settle poses. Each direction has its own authored animation.
+ 
+The eight-frame walk uses opposing arm swing, alternating foot position/lift, restrained head bob, a small robe-hem sway, and a subtle hair-tip follow-through. The motion must remain calm and readable at native size, with no uncontrolled body wobble. The foot anchor and 48 × 64 anatomy remain consistent through the entire cycle. Run, attack, gather, interact, sit, and skill/action animations should later use the same frame dimensions and body proportions.
 
 ---
 ## 4. Detailed art-style specification
