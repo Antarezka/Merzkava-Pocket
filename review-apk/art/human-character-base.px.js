@@ -99,103 +99,107 @@ function drawFringe(c,hair,dir,flip,top){
  p(CX-5,top+9,"I");p(CX+2,top+10,"H");
  if(hair.kind===2||hair.kind===3)p(CX,top+4,"G");
 }
-function drawOutfit(c,outfit,front,back,side,flip,bodyTop,phase){
+function drawOutfit(c,outfit,front,back,side,flip,bodyTop,motion={}){
  const mx=x=>flip?2*CX-x:x;
  const p=(x,y,k)=>c.px(mx(x),y,k);
  const h=(x,y,w,k)=>c.hline(flip?2*CX-x-w+1:x,y,w,k);
- const y0=bodyTop;
- const shape=outfit.shape;
+ const y0=bodyTop,shape=outfit.shape;
+ const arm=motion.arm||0,hem=motion.hem||0;
+ // One shared robe construction; clothing variants change silhouette and trim only.
  const baseHalf=shape===3?9:shape===1?8:shape===4?7:8;
  const flare=shape===3?6:shape===1?5:shape===4?4:6;
- // Long robe silhouette, laid down as stepped rows and a clean pixel hem.
  for(let y=y0+3;y<=61;y++){
    const f=(y-(y0+3))/(61-(y0+3));
    const half=baseHalf+Math.floor(f*flare);
    h(CX-half-1,y,2*half+2,"K");
-   h(CX-half,y,2*half, (y%6===0)?"D":"c");
+   h(CX-half,y,2*half,(y%6===0)?"D":"c");
  }
- // Shoulders and wide sleeves: soft, layered masses with distinct cuffs.
+ // Sleeves swing in opposition to the legs without widening the shoulder base.
  oval(c,CX-10,y0+7,6,5,"K");oval(c,CX+10,y0+7,6,5,"K");
- oval(c,CX-10,y0+7,5,4,"c");oval(c,CX+10,y0+7,5,4,"c");
- line(c,mx(CX-8),y0+6,mx(CX-17),y0+17,"K");
- line(c,mx(CX-17),y0+17,mx(CX-16),y0+23,"K");
- line(c,mx(CX+8),y0+6,mx(CX+17),y0+17,"K");
- line(c,mx(CX+17),y0+17,mx(CX+16),y0+23,"K");
- line(c,mx(CX-8),y0+7,mx(CX-15),y0+17,"C");
- line(c,mx(CX+8),y0+7,mx(CX+15),y0+17,"C");
- h(CX-18,y0+22,5,"D");h(CX+14,y0+22,5,"D");
- // Inner panel and back panel.
+ oval(c,CX-10-arm,y0+7+Math.abs(arm),5,4,"c");
+ oval(c,CX+10+arm,y0+7-Math.abs(arm),5,4,"c");
+ line(c,mx(CX-8),y0+6,mx(CX-17-arm),y0+17,"K");
+ line(c,mx(CX-17-arm),y0+17,mx(CX-16-arm),y0+23,"K");
+ line(c,mx(CX+8),y0+6,mx(CX+17+arm),y0+17,"K");
+ line(c,mx(CX+17+arm),y0+17,mx(CX+16+arm),y0+23,"K");
+ line(c,mx(CX-8),y0+7,mx(CX-15-arm),y0+17,"C");
+ line(c,mx(CX+8),y0+7,mx(CX+15+arm),y0+17,"C");
+ h(CX-18-arm,y0+22,5,"D");h(CX+14+arm,y0+22,5,"D");
  if(back){
    rect(c,mx(CX-6),y0+5,12,23,"d");
    line(c,mx(CX-5),y0+8,mx(CX-1),y0+26,"D");
    line(c,mx(CX+5),y0+8,mx(CX+1),y0+26,"D");
  }else{
-   // Crossed collar: broad panels, not a thin V-line.
    line(c,mx(CX-7),y0+1,mx(CX+1),y0+13,"K");
    line(c,mx(CX+7),y0+1,mx(CX-1),y0+13,"K");
    line(c,mx(CX-6),y0+2,mx(CX+1),y0+12,"C");
    line(c,mx(CX+6),y0+2,mx(CX-1),y0+12,"G");
    line(c,mx(CX+1),y0+12,mx(CX-3),y0+25,"D");
  }
- // Body-specific waist wrap and small knot.
- h(CX-8,y0+13,16, shape===0?"D":shape===3?"G":"g");
+ h(CX-8,y0+13,16,shape===0?"D":shape===3?"G":"g");
  h(CX-7,y0+14,14,"K");
- rect(c,mx(CX-2),y0+12,4,4,shape===0?"G":"D");
- p(CX,y0+14,"A");
+ rect(c,mx(CX-2),y0+12,4,4,shape===0?"G":"D");p(CX,y0+14,"A");
  if(shape===0){
-   // Black hanfu: ink-black outer robe, dark inner lapel, soft gold trim.
-   line(c,mx(CX-2),y0+16,mx(CX-8),60,"D");
-   line(c,mx(CX+2),y0+16,mx(CX+8),60,"G");
-   h(CX-13,59,26,"G");h(CX-10,60,20,"K");
+   line(c,mx(CX-2),y0+16,mx(CX-8+hem),60,"D");
+   line(c,mx(CX+2),y0+16,mx(CX+8+hem),60,"G");
+   h(CX-13+hem,59,26,"G");h(CX-10+hem,60,20,"K");
    p(CX-6,y0+19,"A");p(CX+6,y0+24,"D");
  }else if(shape===1){
-   // Ivory layered robe with pale jade inner edge and warm cloth shadows.
-   line(c,mx(CX-4),y0+15,mx(CX-10),60,"G");
-   line(c,mx(CX+4),y0+15,mx(CX+10),60,"A");
-   h(CX-13,59,26,"G");h(CX-10,60,20,"K");
+   line(c,mx(CX-4),y0+15,mx(CX-10+hem),60,"G");
+   line(c,mx(CX+4),y0+15,mx(CX+10+hem),60,"A");
+   h(CX-13+hem,59,26,"G");h(CX-10+hem,60,20,"K");
    h(CX-5,y0+18,10,"A");
  }else if(shape===2){
-   // Jade scholar: narrower sleeves, long straight panels, sash.
-   line(c,mx(CX-3),y0+15,mx(CX-7),60,"G");
-   line(c,mx(CX+3),y0+15,mx(CX+7),60,"A");
-   h(CX-12,59,24,"G");h(CX-9,60,18,"K");
+   line(c,mx(CX-3),y0+15,mx(CX-7+hem),60,"G");
+   line(c,mx(CX+3),y0+15,mx(CX+7+hem),60,"A");
+   h(CX-12+hem,59,24,"G");h(CX-9+hem,60,18,"K");
    line(c,mx(CX+5),y0+19,mx(CX+8),y0+28,"D");
  }else if(shape===3){
-   // Rose ceremonial: broader outer mantle, layered collar and long hem bands.
-   line(c,mx(CX-5),y0+14,mx(CX-12),60,"G");
-   line(c,mx(CX+5),y0+14,mx(CX+12),60,"A");
-   h(CX-15,58,30,"G");h(CX-13,60,26,"D");
+   line(c,mx(CX-5),y0+14,mx(CX-12+hem),60,"G");
+   line(c,mx(CX+5),y0+14,mx(CX+12+hem),60,"A");
+   h(CX-15+hem,58,30,"G");h(CX-13+hem,60,26,"D");
    p(CX-9,y0+9,"A");p(CX+9,y0+9,"A");
  }else{
-   // Traveller robe: asymmetric shoulder wrap, split lower panels, leather sash.
-   line(c,mx(CX-4),y0+15,mx(CX-11),60,"D");
-   line(c,mx(CX+5),y0+16,mx(CX+8),60,"A");
-   line(c,mx(CX-8),y0+7,mx(CX-16),y0+21,"G");
-   h(CX-12,59,24,"D");h(CX-9,60,18,"K");
+   line(c,mx(CX-4),y0+15,mx(CX-11+hem),60,"D");
+   line(c,mx(CX+5),y0+16,mx(CX+8+hem),60,"A");
+   line(c,mx(CX-8),y0+7,mx(CX-16-arm),y0+21,"G");
+   h(CX-12+hem,59,24,"D");h(CX-9+hem,60,18,"K");
    p(CX-8,y0+18,"G");
  }
- // Small hands peek below the sleeve line; tiny shoes remain under the robe hem.
  if(!back){
-   rect(c,mx(CX-17),y0+22,3,4,"S");
-   rect(c,mx(CX+15),y0+22,3,4,"S");
+   rect(c,mx(CX-17-arm),y0+22+Math.max(0,arm),3,4,"S");
+   rect(c,mx(CX+15+arm),y0+22+Math.max(0,-arm),3,4,"S");
  }
- rect(c,mx(CX-7+phase),60,5,3,"K");
- rect(c,mx(CX+2-phase),60,5,3,"K");
- p(CX-5,62,"S");p(CX+5,62,"S");
+ // Alternating stride with one-pixel foot lifts. The foot anchor remains y=62.
+ const leftStep=motion.leftStep||0,rightStep=motion.rightStep||0;
+ const leftLift=motion.leftLift||0,rightLift=motion.rightLift||0;
+ rect(c,mx(CX-7+leftStep),60-leftLift,5,3,"K");
+ rect(c,mx(CX+2+rightStep),60-rightLift,5,3,"K");
+ p(CX-5+leftStep,62-leftLift,"S");p(CX+5+rightStep,62-rightLift,"S");
+ // Tiny moving cloth glints make the lower panels read as fabric in motion.
+ if(hem!==0){p(CX-11+hem,56,"D");p(CX+10+hem,58,"A");}
 }
 function drawHuman(c,hair,outfit,dir,move,frame=0){
  const front=faceFront(dir),back=backView(dir),side=sideView(dir),flip=isLeft(dir);
- const bob=move==="walk"?[0,1,0,-1][frame%4]:[0,0,1,0][frame%4];
- const phase=move==="walk"?[0,1,0,-1][frame%4]:0;
- const top=5+bob;
- const headY=top+10;
- // Keep one shared ground anchor and head/body scale for all directions.
+ const walking=move==="walk",walkFrame=walking?frame%8:0;
+ // Eight-step gait: contact, passing, lift, settle, then the opposite leg.
+ const bob=walking?[0,-1,-1,0,0,-1,-1,0][walkFrame]:[0,0,1,0][frame%4];
+ const motion=walking?{
+   arm:[0,1,1,0,0,-1,-1,0][walkFrame],
+   step:[0,1,2,1,0,-1,-2,-1][walkFrame],
+   hem:[0,1,1,0,0,-1,-1,0][walkFrame],
+   leftStep:[-1,0,1,1,0,-1,-1,-1][walkFrame],
+   rightStep:[1,1,1,0,-1,-1,-1,0][walkFrame],
+   leftLift:[0,0,0,1,0,0,0,1][walkFrame],
+   rightLift:[0,1,0,0,0,1,0,0][walkFrame],
+   hair:[0,0,1,1,0,0,-1,-1][walkFrame]
+ }:{};
+ const top=5+bob,headY=top+10;
  oval(c,CX,62,11,2,"K");
- // Neck, short and mostly covered by the crossed collar.
  if(front||side)rect(c,CX-2,top+19,4,4,"S");
  const bodyTop=top+19;
- drawOutfit(c,outfit,front,back,side,flip,bodyTop,phase);
- // Head has a rounded human silhouette. No animal ears, horns or tail.
+ drawOutfit(c,outfit,front,back,side,flip,bodyTop,motion);
+ // The human head remains the same 20x20 anatomy in every direction.
  drawHair(c,hair,back,side,flip,top,bob);
  oval(c,CX,headY,10,10,"K");
  if(back){
@@ -209,19 +213,22 @@ function drawHuman(c,hair,outfit,dir,move,frame=0){
      const eyeY=headY+2;
      rect(c,CX-5,eyeY,2,3,"K");rect(c,CX+4,eyeY,2,3,"K");
      c.px(CX-4,eyeY,"A");c.px(CX+5,eyeY,"A");
-     c.px(CX,headY+6,"T");
-     c.px(CX-1,headY+7,"S");c.px(CX+1,headY+7,"S");
+     c.px(CX,headY+6,"T");c.px(CX-1,headY+7,"S");c.px(CX+1,headY+7,"S");
    }else if(side||dir==="se"||dir==="sw"){
      const eyeX=flip?CX-4:CX+4;
-     rect(c,eyeX,headY+2,2,3,"K");
-     c.px(flip?CX-5:CX+6,headY+6,"T");
+     rect(c,eyeX,headY+2,2,3,"K");c.px(flip?CX-5:CX+6,headY+6,"T");
    }
  }
  drawFringe(c,hair,dir,flip,top);
- if(move==="walk"){
-   // Restrained arm swing and hem movement: no uncontrolled body wobble.
-   c.px(flip?CX+17:CX-17,bodyTop+21+phase,"S");
-   c.px(flip?CX-17:CX+17,bodyTop+22-phase,"S");
+ if(walking){
+   // Opposing arm beat remains small so the sprite does not jitter between steps.
+   c.px(flip?CX+17-motion.arm:CX-17-motion.arm,bodyTop+21+Math.abs(motion.arm),"S");
+   c.px(flip?CX-17+motion.arm:CX+17+motion.arm,bodyTop+22-Math.abs(motion.arm),"S");
+   // A travelling highlight tracks the hair ends without changing hair volume.
+   if(motion.hair!==0){
+     c.px(CX-10+motion.hair,top+26,"H");
+     c.px(CX+10+motion.hair,top+27,"I");
+   }
  }
 }
 function preview(hair,outfit,name){
