@@ -947,3 +947,13 @@
 :root[data-theme="light"] .floating-stage .buffer-progress>small{color:#989f96}
 :root[data-theme="light"] .login-stage .buffer-cancel,
 :root[data-theme="light"] .floating-stage .buffer-cancel{color:#c6aaa4}
+
+
+/* Keep every internal train concentric; rotate the wheels independently of their centring transform. */
+.buffer-gear-middle,.buffer-gear-small{
+ left:50%;top:50%;transform:translate(-50%,-50%);
+}
+.buffer-gear-middle{animation:buffer-middle-train 32s linear infinite}
+.buffer-gear-small{animation:buffer-small-train 19s linear infinite}
+@keyframes buffer-middle-train{to{rotate:-360deg}}
+@keyframes buffer-small-train{to{rotate:360deg}}
