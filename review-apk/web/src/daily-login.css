@@ -364,3 +364,142 @@
  .dl-night-sky{transition:none}
  .dl-door-frame.is-rattling{animation:none}
 }
+
+
+/* Interior scene is a broad room with the same wide footprint as the facade.
+   On phones it uses the full device width; on wider devices the room stays
+   centred instead of stretching the furniture and chef. */
+.dl-interior{
+ position:absolute;inset:0;z-index:2;overflow:hidden;
+ display:block;visibility:hidden;opacity:0;pointer-events:none;
+ background:
+  linear-gradient(90deg,#251f1b 0,transparent 8%,transparent 92%,#251f1b 100%),
+  linear-gradient(180deg,#4e554b 0%,#7b725e 59%,#4c3829 60%,#2b231d 100%);
+}
+.dl-interior.is-active{visibility:visible;pointer-events:auto}
+.dl-interior-wall{
+ position:absolute;inset:0 auto 0 50%;
+ transform:translateX(-50%);
+ width:min(100%,960px);height:100%;overflow:hidden;
+ background:
+  linear-gradient(180deg,#e5ded0 0%,#d1c7b5 54%,#78583e 55%,#33291f 100%);
+ box-shadow:0 0 0 1px #281f19,0 0 50px #090c0bb0;
+}
+.dl-interior-wall:before{
+ content:"";position:absolute;left:0;right:0;top:0;height:58%;
+ background:
+  repeating-linear-gradient(90deg,transparent 0 64px,#56432d25 64px 68px),
+  linear-gradient(180deg,#e6dfd1 0%,#d5cbb8 100%);
+ border-top:0;border-bottom:7px solid #4b3525;
+}
+.dl-interior-wall:after{
+ content:"";position:absolute;z-index:1;left:0;right:0;bottom:17%;height:3px;
+ background:#241d18;box-shadow:0 5px 0 #98724c,0 9px 0 #4b3424;
+ pointer-events:none;
+}
+.dl-interior-header{
+ z-index:14;top:calc(env(safe-area-inset-top) + 12px);left:4%;
+ color:#f7efdf;text-shadow:0 2px 5px #1e1a15;
+}
+.dl-interior-header span{font-size:clamp(8px,1.5vw,11px);letter-spacing:.22em}
+.dl-interior-header i{font-size:clamp(10px,1.8vw,13px);color:#ead4ad}
+.dl-paper-lamp{
+ left:13%;top:7%;width:clamp(26px,4vw,40px);height:clamp(48px,7vh,68px);
+ background:repeating-linear-gradient(90deg,#ead9b4 0 5px,#cdb78c 5px 7px);
+ border-color:#665039;box-shadow:0 0 26px #efd59c55;
+}
+.dl-interior-window{
+ left:34%;right:auto;top:8%;width:26%;height:23%;
+ border-color:#423024;
+ background:linear-gradient(180deg,#637e8b 0%,#9bb4b1 62%,#d5bd91 63%,#667553 100%);
+}
+.dl-kitchen-shelf{
+ left:3.5%;top:34%;width:51%;height:9px;
+ border-color:#39291d;background:#a57c50;box-shadow:0 5px 0 #2b211a;
+}
+.dl-hanging-utensils{top:43%;left:9%;gap:clamp(13px,3vw,25px)}
+.dl-floor-mat{
+ left:5%;right:5%;bottom:7%;height:16%;
+ border:4px solid #523b29;
+ background:
+  repeating-linear-gradient(90deg,#696f50 0 30px,#8b805e 30px 34px,#536345 34px 64px);
+}
+.dl-kitchen-counter{
+ left:3.5%;bottom:17%;width:59%;height:22%;
+}
+.dl-counter-top{
+ height:clamp(13px,2.2vh,18px);
+ border-color:#39271d;
+ background:repeating-linear-gradient(90deg,#805638 0 30px,#bd8a58 30px 34px);
+}
+.dl-counter-front{
+ top:calc(clamp(13px,2.2vh,18px) + 1px);
+ height:calc(100% - clamp(13px,2.2vh,18px) - 1px);
+ border-color:#3d2a1e;
+ background:
+  repeating-linear-gradient(90deg,#865a39 0 34px,#4b3323 34px 38px),
+  linear-gradient(90deg,#7a5234,#a5784b);
+ box-shadow:inset 0 0 0 3px #c29c66;
+}
+.dl-pot{left:35%;width:clamp(76px,16vw,108px)}
+.dl-bowl-stack{left:8%}
+.dl-wooden-board{left:auto;right:8%}
+.dl-table{
+ left:auto;right:5%;bottom:13%;width:29%;height:25%;
+}
+.dl-table-top{
+ height:clamp(16px,2.5vh,22px);
+ background:repeating-linear-gradient(90deg,#9d7145 0 22px,#c29a61 22px 26px);
+}
+.dl-chair{right:2.5%;bottom:7%;width:clamp(70px,13vw,92px)}
+.dl-chef-area{
+ left:54%;bottom:16%;width:clamp(126px,22vw,170px);height:clamp(190px,32vh,228px);
+ transform:none;
+}
+.dl-chef{
+ width:clamp(92px,14vw,112px);height:clamp(164px,25vh,188px);
+ left:14px;
+}
+.dl-chef-tap-note{font-size:clamp(7px,.9vw,9px)}
+.dl-dialogue{left:-42px;top:-38px;width:min(218px,58vw)}
+.dl-retro-tv{
+ right:4%;top:calc(env(safe-area-inset-top) + 12px);
+ width:clamp(112px,18vw,160px);height:clamp(82px,14vh,112px);
+}
+.dl-tv-shell{border-radius:12px 12px 8px 8px}
+.dl-choice{z-index:17;bottom:calc(env(safe-area-inset-bottom) + 70px)}
+.dl-interior-floor{
+ z-index:2;height:17%;
+ background:repeating-linear-gradient(0deg,#39291f 0 17px,#654a32 17px 19px);
+ border-top:4px solid #98714b;
+}
+.dl-scene-vignette{z-index:20}
+@media(min-width:700px){
+ .dl-interior-wall{width:min(100%,960px)}
+ .dl-kitchen-counter{width:56%;left:5%}
+ .dl-table{width:26%;right:7%}
+ .dl-chef-area{left:55%}
+ .dl-retro-tv{right:5%}
+}
+@media(max-width:390px){
+ .dl-interior-header{left:4%;top:calc(env(safe-area-inset-top) + 8px)}
+ .dl-paper-lamp{left:15%;top:5%}
+ .dl-interior-window{left:34%;width:25%;height:20%}
+ .dl-kitchen-shelf{top:31%;width:50%}
+ .dl-hanging-utensils{top:40%;left:10%;gap:12px}
+ .dl-kitchen-counter{left:2%;width:61%;height:20%;bottom:18%}
+ .dl-table{right:2%;width:29%;height:23%;bottom:13%}
+ .dl-chair{right:1%;bottom:7%;transform:scale(.84);transform-origin:bottom right}
+ .dl-chef-area{left:52%;bottom:16%;width:132px;height:194px}
+ .dl-chef{left:12px;width:94px;height:166px}
+ .dl-dialogue{left:-48px;width:196px}
+ .dl-retro-tv{right:2%;top:calc(env(safe-area-inset-top) + 8px);width:112px;height:82px}
+ .dl-choice{bottom:calc(env(safe-area-inset-bottom) + 62px)}
+}
+@media(max-height:620px){
+ .dl-chef-area{bottom:14%;transform:scale(.86);transform-origin:bottom left}
+ .dl-table{bottom:10%}
+ .dl-chair{bottom:6%}
+ .dl-kitchen-counter{bottom:16%;height:22%}
+ .dl-retro-tv{transform:scale(.88);transform-origin:top right}
+}
