@@ -9,6 +9,7 @@ on:
       - ".github/workflows/pocket-design-review-apk.yml"
       # Included so repository-driven rebuilds can be triggered after encrypted key provisioning.
   workflow_dispatch:
+  # Rebuild after removing the Yuma/Fox character integration.
 permissions:
   contents: read
 jobs:
