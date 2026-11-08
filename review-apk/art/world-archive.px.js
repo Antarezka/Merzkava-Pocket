@@ -429,6 +429,29 @@ sprite("daily_login_shop_front",{w:360,h:640,pivot:[180,639]},c=>{
     c.ellipse(x,y,rx,2,"s");c.px(x-1,y-1,"g");
   }
 
+  // Broken tar seams, shallow repairs and fine gravel shoulders.
+  for(let i=0;i<1450;i++){
+    const h=dlHash(i*41+701);
+    const x=h%360,y=426+dlHash(i*19+337)%210;
+    const half=Math.floor(34+((y-420)/220)*205);
+    if(x>180-half+8&&x<180+half-8){
+      if(i%13===0)c.px(x,y,"S");
+      else if(i%5===0)c.px(x,y,"q");
+      else if(i%3===0)c.px(x,y,"z");
+      if(i%29===0)c.px(x+1,y+1,"C");
+    }else if(i%2===0){
+      c.ellipse(x,y,1+(i%4===0?2:0),1,"s");
+      c.px(x-1,y-1,"g");
+      if(i%9===0)c.px(x+2,y,"D");
+    }
+  }
+  for(const [x,y] of [[91,475],[105,485],[258,492],[270,506],[134,544],[223,561],[154,590],[201,612],[78,622],[292,621],[36,535],[330,562]]){
+    line(c,x,y,x+4,y-3,"z");c.px(x+5,y-4,"C");
+  }
+  for(const [x,y,rx] of [[18,442,5],[39,465,3],[69,480,4],[336,446,5],[319,478,3],[22,540,5],[345,548,4],[53,591,3],[309,605,4],[15,631,5],[350,629,5]]){
+    c.ellipse(x,y,rx,2,"K");c.ellipse(x,y-1,Math.max(1,rx-1),1,"s");c.px(x-1,y-2,"g");
+  }
+
   // Quiet planters beside the facade.
   rect(c,15,385,32,15,"K");rect(c,18,387,26,9,"d");
   c.ellipse(31,377,12,9,"T");c.ellipse(25,372,7,7,"t");c.ellipse(37,373,7,7,"t");c.px(30,366,"u");
@@ -647,10 +670,19 @@ sprite("daily_login_shop_interior",{w:360,h:800,pivot:[180,799]},c=>{
   for(let y=554;y<785;y+=24){
     rect(c,15,y,330,2,"K");
     c.hline(17,y+2,326,"M");
-    for(let x=22+(y%3)*13;x<338;x+=58){
-      c.vline(x,y+4,17,"D");
-      c.vline(x+1,y+5,15,"m");
+    const stagger=((Math.floor(y/24)%2)*27);
+    for(let x=18+stagger;x<338;x+=58){
+      line(c,x,y+4,x+19,y+19,"D");
+      line(c,x+1,y+5,x+20,y+19,"m");
+      c.px(x+7,y+10,"L");c.px(x+13,y+15,"l");
     }
+  }
+  // Short diagonal grain and worn varnish marks make each floorboard distinct.
+  for(let i=0;i<220;i++){
+    const h=dlHash(i*23+417),x=18+h%322,y=558+dlHash(i*31+9)%222;
+    if(i%4===0)line(c,x,y,x+2,y+1,"L");
+    else if(i%5===0)c.px(x,y,"s");
+    else if(i%7===0)c.px(x,y,"M");
   }
   // Tatami runner rug in front of the kitchen.
   rect(c,22,666,215,88,"K");rect(c,27,671,205,78,"T");
