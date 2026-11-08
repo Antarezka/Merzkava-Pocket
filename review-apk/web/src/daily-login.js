@@ -30,36 +30,16 @@ export function dailyLoginMarkup(){
 
   <section class="dl-layer dl-interior" data-dl-interior aria-label="Bagian dalam kedai Daily Login" aria-hidden="true" inert>
    <div class="dl-interior-wall">
+    <img class="dl-interior-art" src="/game-assets/pxl/sprites/daily_login_shop_interior.png" alt="" draggable="false">
     <div class="dl-interior-header"><span>DAILY LOG-IN</span><i>本日の食堂</i></div>
     <div class="dl-paper-lamp"><i></i><b></b></div>
     <div class="dl-bulb-lamp"><span></span><i></i><b></b></div>
-    <div class="dl-interior-window"><span></span><i></i><b></b></div>
-    <div class="dl-menu-board"><span>本日のおすすめ</span><b>手打ちそば</b><i>温かいお茶</i></div>
-    <div class="dl-kitchen-shelf"><i></i><i></i><i></i><span></span><b></b></div>
-    <div class="dl-hanging-utensils"><i></i><i></i><i></i><i></i></div>
-    <div class="dl-seasoning-set"><i></i><i></i><i></i><span></span></div>
-    <div class="dl-noodle-board"><span></span><i></i><b></b></div>
-    <div class="dl-rice-tub"><i></i><b></b></div>
-    <div class="dl-floor-mat"></div>
-    <div class="dl-kitchen-counter">
-     <div class="dl-counter-top"></div>
-     <div class="dl-pot" data-dl-pot>
-      <span class="dl-pot-lid"></span><span class="dl-pot-body"><i></i><b></b></span>
-      <span class="dl-pot-handle dl-pot-handle-left"></span><span class="dl-pot-handle dl-pot-handle-right"></span>
-      <span class="dl-broth"></span><span class="dl-steam dl-steam-one"></span><span class="dl-steam dl-steam-two"></span><span class="dl-steam dl-steam-three"></span>
-     </div>
-     <div class="dl-bowl-stack"><i></i><i></i><b></b></div><div class="dl-wooden-board"><span></span><i></i></div><div class="dl-counter-front"></div>
-    </div>
-    <div class="dl-table"><span class="dl-table-leg dl-table-leg-left"></span><span class="dl-table-leg dl-table-leg-right"></span><div class="dl-table-top"><i></i><b></b><span></span></div><div class="dl-tea-cup"></div></div>
-    <div class="dl-chair"><span class="dl-chair-back"></span><span class="dl-chair-seat"></span><i class="dl-chair-leg dl-chair-leg-a"></i><i class="dl-chair-leg dl-chair-leg-b"></i></div>
+    <div class="dl-cooking-steam" aria-hidden="true"><i class="dl-steam dl-steam-one"></i><i class="dl-steam dl-steam-two"></i><i class="dl-steam dl-steam-three"></i></div>
     <div class="dl-chef-area">
      <div class="dl-dialogue" data-dl-dialogue hidden role="status" aria-live="polite"><span data-dl-dialogue-text></span></div>
      <button class="dl-chef" type="button" data-dl-chef aria-label="Ketuk koki untuk berbicara">
-      <span class="dl-chef-shadow"></span><span class="dl-chef-hat"><i></i><b></b></span>
-      <span class="dl-chef-head"><i class="dl-chef-hair"></i><b class="dl-chef-eye dl-chef-eye-left"></b><b class="dl-chef-eye dl-chef-eye-right"></b><i class="dl-chef-cheek"></i><span></span></span>
-      <span class="dl-chef-neck"></span><span class="dl-chef-body"><i class="dl-chef-collar-left"></i><i class="dl-chef-collar-right"></i><b class="dl-chef-apron"></b><span class="dl-chef-sash"></span></span>
-      <span class="dl-chef-arm dl-chef-arm-left"></span><span class="dl-chef-arm dl-chef-arm-right"></span>
-      <span class="dl-chef-leg dl-chef-leg-left"></span><span class="dl-chef-leg dl-chef-leg-right"></span><span class="dl-chef-nameplate">おかみ</span>
+      <span class="dl-chef-sprite" aria-hidden="true"></span>
+      <span class="dl-chef-nameplate">そば職人</span>
      </button>
      <span class="dl-chef-tap-note">TAP THE CHEF</span>
     </div>
@@ -78,7 +58,6 @@ export function dailyLoginMarkup(){
      </div>
      <div class="dl-tv-feet"><i></i><i></i></div>
     </div>
-    <div class="dl-interior-floor"><span class="dl-floor-board dl-floor-board-one"></span><span class="dl-floor-board dl-floor-board-two"></span><span class="dl-floor-board dl-floor-board-three"></span></div>
    </div>
   </section>
   <div class="dl-scene-vignette"></div>
