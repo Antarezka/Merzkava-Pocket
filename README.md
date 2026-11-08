@@ -16,3 +16,4 @@
 - [Homepage navigation panel — Torn & Painted](./docs/design/HOMEPAGE_NAV_PANEL_TORN_PAINT.md)
 - [Homepage pull-cord baseline](./docs/design/homepage-pull-cord-baseline.html)
 - [Access and transition routine](./docs/design/ACCESS_LOADING_ROUTINE.md)
+- [Character pixel base, eight-direction reference and art style](./docs/design/CHARACTER_PIXEL_BASE_EIGHT_DIRECTIONS.md)
