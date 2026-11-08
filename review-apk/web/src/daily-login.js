@@ -10,20 +10,19 @@ export function dailyLoginMarkup(){
    <div class="dl-night-sky"><i class="dl-star dl-star-one"></i><i class="dl-star dl-star-two"></i><i class="dl-star dl-star-three"></i><span class="dl-moon"></span></div>
    <div class="dl-shop-scene">
     <img class="dl-shop-art" src="/game-assets/pxl/sprites/daily_login_shop_front.png" alt="" draggable="false">
-    <div class="dl-bunting-pxl" aria-hidden="true"></div>
+    <div class="dl-noren-pxl" aria-hidden="true"></div>
     <div class="dl-lantern-glow dl-lantern-glow-left" aria-hidden="true"></div>
     <div class="dl-lantern-glow dl-lantern-glow-right" aria-hidden="true"></div>
     <div class="dl-door-frame">
      <div class="dl-door-warm-light"></div>
      <div class="dl-door-track dl-door-track-top"></div>
      <div class="dl-door-track dl-door-track-bottom"></div>
-     <button class="dl-door-panel" type="button" data-dl-door aria-label="Geser pintu kayu untuk masuk">
+     <button class="dl-door-panel" type="button" data-dl-door aria-label="Pintu masuk kedai">
       <span class="dl-door-lattice"></span><i class="dl-door-handle"></i><span class="dl-door-caption">すべり戸</span>
      </button>
     </div>
    </div>
    <div class="dl-street"><i></i><i></i><i></i></div>
-   <div class="dl-door-hint" data-dl-hint><span class="dl-hint-arrow">←</span> GESER PINTU UNTUK MASUK <span class="dl-hint-arrow">→</span></div>
    <button class="dl-back" type="button" data-dl-back aria-label="Kembali ke menu">KEMBALI <span>↙</span></button>
   </section>
 
@@ -108,7 +107,6 @@ export function mountDailyLogin(scene,onBack){
  const interior=scene.querySelector("[data-dl-interior]");
  const door=scene.querySelector("[data-dl-door]");
  const doorway=scene.querySelector(".dl-door-frame");
- const hint=scene.querySelector("[data-dl-hint]");
  const back=scene.querySelector("[data-dl-back]");
  const chef=scene.querySelector("[data-dl-chef]");
  const dialogue=scene.querySelector("[data-dl-dialogue]");
@@ -169,18 +167,18 @@ export function mountDailyLogin(scene,onBack){
   opened=true;
   door.disabled=true;
   back.hidden=true;
-  hint.hidden=true;
   playDoorSlideChime();
   interior.style.visibility="visible";
   startInterior();
   if(motionReduced){
-   door.style.transform="translateX(110%)";
+   door.style.transform="translate3d(110%,0,0)";
    outside.style.opacity="0";outside.style.visibility="hidden";
    interior.style.opacity="1";
    return;
   }
   const travel=Math.max(doorway.clientWidth*.94,door.clientWidth*1.55);
-  track(animate(door,{translateX:[dragOffset,travel],opacity:[1,.94],duration:900,ease:"inOutCubic"}));
+  const direction=dragOffset<0?-1:1;
+  track(animate(door,{translateX:[dragOffset,direction*travel],opacity:[1,.94],duration:900,ease:"inOutCubic"}));
   track(animate(outside,{opacity:[1,0],duration:2000,ease:"inOutCubic",onComplete:()=>{outside.style.visibility="hidden";}}));
   track(animate(interior,{opacity:[0,1],duration:2000,ease:"inOutCubic"}));
  };
@@ -189,9 +187,6 @@ export function mountDailyLogin(scene,onBack){
   if(motionReduced)door.style.transform="translateX(0)";
   else track(animate(door,{translateX:[dragOffset,0],duration:380,ease:"outBack(1.4)"}));
   dragOffset=0;
-  hint.classList.remove("is-ready");
-  hint.innerHTML='<span class="dl-hint-arrow">←</span> GESER PINTU UNTUK MASUK <span class="dl-hint-arrow">→</span>';
-  hint.hidden=false;
  };
  const pointerDown=event=>{
   if(opened||leaving||disposed||drag||(event.pointerType==="mouse"&&event.button!==0))return;
@@ -205,15 +200,13 @@ export function mountDailyLogin(scene,onBack){
   event.preventDefault();
   const delta=event.clientX-drag.x;
   const max=Math.max(doorway.clientWidth*.94,door.clientWidth*1.55);
-  dragOffset=Math.max(0,Math.min(max,drag.start+delta));
-  if(Math.abs(delta)>7)drag.moved=true;
-  door.style.transform="translateX("+dragOffset+"px)";
-  if(dragOffset>doorway.clientWidth*.14){hint.textContent="LEPASKAN UNTUK MASUK";hint.classList.add("is-ready");}
-  else hint.classList.remove("is-ready");
+  dragOffset=Math.max(-max,Math.min(max,drag.start+delta));
+  if(Math.abs(delta)>5)drag.moved=true;
+  door.style.transform="translate3d("+dragOffset+"px,0,0)";
  };
  const pointerUp=event=>{
   if(!drag||drag.id!==event.pointerId)return;
-  const shouldOpen=drag.moved&&dragOffset>=doorway.clientWidth*.28;
+  const shouldOpen=drag.moved&&Math.abs(dragOffset)>=doorway.clientWidth*.24;
   try{door.releasePointerCapture(event.pointerId);}catch{}
   drag=null;door.classList.remove("is-dragging");
   if(shouldOpen)openShop();else resetDoor();
@@ -259,7 +252,6 @@ export function mountDailyLogin(scene,onBack){
   outside.style.opacity="0";
   back.hidden=true;
   door.disabled=true;
-  hint.hidden=true;
 
   const finishOutside=()=>{
    interior.classList.remove("is-active");
@@ -272,9 +264,6 @@ export function mountDailyLogin(scene,onBack){
    door.style.transform="translateX(0)";
    door.style.opacity="1";
    dragOffset=0;
-   hint.classList.remove("is-ready");
-   hint.innerHTML='<span class="dl-hint-arrow">←</span> GESER PINTU UNTUK MASUK <span class="dl-hint-arrow">→</span>';
-   hint.hidden=false;
    back.hidden=false;
    back.disabled=false;
    opened=false;
