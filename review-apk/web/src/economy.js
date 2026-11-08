@@ -93,11 +93,13 @@ function ensureStarterHomeFacilities(state){
   if(!state.home_rest)state.home_rest={active:false,last_tick_at:now,pending_satiety:0};
   if(!state.pocket_needs)state.pocket_needs={satiety:null};
   if(!state.appearance_style)state.appearance_style="classic";
-  if(!["long_black","soft_bob","half_up","high_tie","long_waves"].includes(state.appearance_hair)){state.appearance_hair="long_black";changed=true;}
-  if(!["black_hanfu","ivory_layers","jade_scholar","rose_ceremony","traveller_robe"].includes(state.appearance_outfit)){state.appearance_outfit="black_hanfu";changed=true;}
+  if(!["long_black","soft_bob","half_up","high_tie","long_waves","braided_crown","low_chignon","side_ponytail","twin_braids","scholar_topknot"].includes(state.appearance_hair)){state.appearance_hair="long_black";changed=true;}
+  if(!["black_hanfu","ivory_layers","jade_scholar","rose_ceremony","traveller_robe","crimson_sect","moon_priest","iron_guard","wanderer_cloak","azure_artificer"].includes(state.appearance_outfit)){state.appearance_outfit="black_hanfu";changed=true;}
+  if(!["none","jade_pin","phoenix_comb","cloth_headband","scholar_crown","round_glasses","half_mask","bead_tassel","forehead_gem","moon_veil","travel_goggles","ribbon_bow","earring_chains"].includes(state.appearance_accessory)){state.appearance_accessory="none";changed=true;}
+  if(!["none","straight_sword","crescent_dao","twin_blades","spear","jade_staff","recurve_bow","war_fan","closed_umbrella","short_sword","moon_polearm","scroll_case","lantern_staff"].includes(state.appearance_weapon)){state.appearance_weapon="none";changed=true;}
   return changed;
 }
-function createState(){const now=Date.now();return {version:STATE_VERSION,wallet_xc:0,inventory:{},facilities:{...Object.fromEntries(Object.entries(STARTER_HOME_FACILITIES).map(([id,v])=>[id,{...v,built_at:now}]))},processes:[],ledger:[],item_site_access:{},facility_site_access:{},builder_records:{},home_rest:{active:false,last_tick_at:now,pending_satiety:0},pocket_needs:{satiety:null},appearance_style:"classic",appearance_hair:"long_black",appearance_outfit:"black_hanfu",qa_grant_used:false,save_meta:{created_at:now,updated_at:now,migrations:[]}};}
+function createState(){const now=Date.now();return {version:STATE_VERSION,wallet_xc:0,inventory:{},facilities:{...Object.fromEntries(Object.entries(STARTER_HOME_FACILITIES).map(([id,v])=>[id,{...v,built_at:now}]))},processes:[],ledger:[],item_site_access:{},facility_site_access:{},builder_records:{},home_rest:{active:false,last_tick_at:now,pending_satiety:0},pocket_needs:{satiety:null},appearance_style:"classic",appearance_hair:"long_black",appearance_outfit:"black_hanfu",appearance_accessory:"none",appearance_weapon:"none",qa_grant_used:false,save_meta:{created_at:now,updated_at:now,migrations:[]}};}
 function migrateState(saved,key){
   if(!saved||typeof saved!=="object"||Array.isArray(saved))throw new Error("The saved economy record is not a valid Pocket save.");
   const from=Number(saved.version??1);
@@ -461,13 +463,23 @@ export async function openHomeBaseSession(identity){
     },
     getHair:()=>state.appearance_hair||"long_black",
     getOutfit:()=>state.appearance_outfit||"black_hanfu",
+    getAccessory:()=>state.appearance_accessory||"none",
+    getWeapon:()=>state.appearance_weapon||"none",
     setHair(hair){
-      if(!["long_black","soft_bob","half_up","high_tie","long_waves"].includes(hair))return false;
+      if(!["long_black","soft_bob","half_up","high_tie","long_waves","braided_crown","low_chignon","side_ponytail","twin_braids","scholar_topknot"].includes(hair))return false;
       state.appearance_hair=hair;persist();return true;
     },
     setOutfit(outfit){
-      if(!["black_hanfu","ivory_layers","jade_scholar","rose_ceremony","traveller_robe"].includes(outfit))return false;
+      if(!["black_hanfu","ivory_layers","jade_scholar","rose_ceremony","traveller_robe","crimson_sect","moon_priest","iron_guard","wanderer_cloak","azure_artificer"].includes(outfit))return false;
       state.appearance_outfit=outfit;persist();return true;
+    },
+    setAccessory(accessory){
+      if(!["none","jade_pin","phoenix_comb","cloth_headband","scholar_crown","round_glasses","half_mask","bead_tassel","forehead_gem","moon_veil","travel_goggles","ribbon_bow","earring_chains"].includes(accessory))return false;
+      state.appearance_accessory=accessory;persist();return true;
+    },
+    setWeapon(weapon){
+      if(!["none","straight_sword","crescent_dao","twin_blades","spear","jade_staff","recurve_bow","war_fan","closed_umbrella","short_sword","moon_polearm","scroll_case","lantern_staff"].includes(weapon))return false;
+      state.appearance_weapon=weapon;persist();return true;
     },
     getFacility(id){
       if(STARTER_HOME_FACILITIES[id])return {facility_id:id,name:id==="pocket.starter.hut"?"Small Hut":id==="pocket.starter.foraging"?"Foraging Patch":"Small Well",family:STARTER_HOME_FACILITIES[id].family};
