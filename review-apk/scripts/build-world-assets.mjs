@@ -12,13 +12,13 @@ const run=(command,args)=>{const result=spawnSync(command,args,{cwd:root,stdio:"
 try{
   run("git",["clone","--depth","1","https://github.com/augusto-scarvalho/claude-pxl.git",pxlRoot]);
 
-  // World geometry remains authored on its original grid. Phaser applies the
-  // shared 1.5x world scale so map, facilities and scenery follow the new human base.
+  // The isometric world uses Claude's 24x20 cell grid at its native 32x16 tile size.
+  // Character, terrain, facility and scenery coordinates share the same projection.
   run(process.execPath,[resolve(pxlRoot,"bin/pxl.js"),"build",resolve(root,"art/world-archive.px.js"),"--out",out,"--no-preview"]);
 
-  // Human chibi base: one 48x64 anatomy, five hairstyles x five outfits,
-  // eight directions, and named idle/walk frame sets. Only the selected
-  // variants are loaded by the runtime; the complete variant library is bundled.
+  // Claude modular PXL base: shared 48x64 human anatomy, ten independent hairstyles,
+  // ten outfits with authored silhouettes, twelve accessories and twelve gear layers.
+  // The complete eight-direction idle/walk variant library is bundled locally.
   run(process.execPath,[resolve(pxlRoot,"bin/pxl.js"),"build",resolve(root,"art/human-character-base.px.js"),"--out",humanOut,"--no-preview"]);
 
   for(const folder of ["sprites","anims","share"]){
