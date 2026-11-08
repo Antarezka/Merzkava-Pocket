@@ -142,11 +142,53 @@ function drawFringe(c,hair,dir,flip,top){
  const mx=x=>flip?2*CX-x:x;
  const p=(x,y,k)=>c.px(mx(x),y,k);
  if(backView(dir)||sideView(dir))return;
- line(c,mx(CX-9),top+7,mx(CX-4),top+12,"h");
- line(c,mx(CX-4),top+7,mx(CX+1),top+13,"H");
- line(c,mx(CX+2),top+6,mx(CX+7),top+11,"h");
- p(CX-5,top+9,"I");p(CX+2,top+10,"H");
+ // The fringe is painted after the face so every hairstyle keeps a readable
+ // front silhouette at the small shop-card scale.
+ if(hair.kind!==5&&hair.kind!==6&&hair.kind!==7&&hair.kind!==8&&hair.kind!==9){
+   line(c,mx(CX-9),top+7,mx(CX-4),top+12,"h");
+   line(c,mx(CX-4),top+7,mx(CX+1),top+13,"H");
+   line(c,mx(CX+2),top+6,mx(CX+7),top+11,"h");
+   p(CX-5,top+9,"I");p(CX+2,top+10,"H");
+ }
  if(hair.kind===2||hair.kind===3)p(CX,top+4,"G");
+ if(hair.kind===5){
+   // Braided crown reads as a woven band above the forehead, with bead knots.
+   line(c,mx(CX-9),top+5,mx(CX-5),top+3,"K");
+   line(c,mx(CX-5),top+3,mx(CX-1),top+5,"H");
+   line(c,mx(CX-1),top+5,mx(CX+3),top+3,"K");
+   line(c,mx(CX+3),top+3,mx(CX+8),top+5,"H");
+   for(const x of [-7,-3,2,6]){p(CX+x,top+4,"G");p(CX+x,top+3,"I");}
+   line(c,mx(CX-7),top+7,mx(CX+7),top+7,"h");
+ }else if(hair.kind===6){
+   // Low chignon: a swept-back front part and two small fastening pins.
+   line(c,mx(CX-8),top+6,mx(CX-2),top+10,"h");
+   line(c,mx(CX-2),top+10,mx(CX+5),top+6,"H");
+   line(c,mx(CX+5),top+6,mx(CX+8),top+8,"h");
+   line(c,mx(CX-7),top+11,mx(CX-2),top+13,"K");
+   line(c,mx(CX+5),top+11,mx(CX+9),top+9,"K");
+   p(CX-8,top+10,"G");p(CX+9,top+8,"G");
+ }else if(hair.kind===7){
+   // Side ponytail: the tie and long falling tail remain visible beside the face.
+   oval(c,CX+8,top+8,3,2,"K");p(CX+8,top+7,"G");
+   line(c,mx(CX+9),top+9,mx(CX+12),top+16,"h");
+   line(c,mx(CX+12),top+16,mx(CX+11),top+23,"H");
+   line(c,mx(CX+11),top+23,mx(CX+14),top+29,"h");
+   p(CX+14,top+29,"I");p(CX+12,top+25,"H");
+ }else if(hair.kind===8){
+   // Twin braids: two separate plaits frame the cheeks and stop above the waist.
+   for(const x of [13,35]){
+     line(c,mx(x),top+12,mx(x),top+26,"K");
+     for(let y=14;y<=25;y+=3){p(x,y,"H");p(x+(x<24?1:-1),y+1,"h");}
+     line(c,mx(x),top+26,mx(x+(x<24?-1:1)),top+30,"K");
+     p(x+(x<24?-1:1),top+30,"G");
+   }
+ }else if(hair.kind===9){
+   // Scholar topknot: a visible raised crown knot and a narrow gold hairpin.
+   oval(c,CX,top+1,5,4,"K");oval(c,CX,top+1,3,2,"H");
+   p(CX-1,top,"I");p(CX+1,top+1,"h");
+   line(c,mx(CX+3),top-2,mx(CX+9),top+4,"G");
+   p(CX+9,top+4,"A");
+ }
 }
 
 // Appearance slots are separate PXL layers. Their frame canvas and ground
