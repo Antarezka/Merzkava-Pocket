@@ -272,3 +272,67 @@ sprite("item_iron_pickaxe",{w:32,h:32,pivot:[16,28]},c=>drawPickaxe(c,"H","S"));
 sprite("item_steel_pickaxe",{w:32,h:32,pivot:[16,28]},c=>drawPickaxe(c,"S","G"));
 sprite("item_wooden_shovel",{w:32,h:32,pivot:[16,28]},c=>drawShovel(c,"c","C"));
 sprite("item_iron_shovel",{w:32,h:32,pivot:[16,28]},c=>drawShovel(c,"H","S"));
+
+
+/* Ten pixel-art style studies: each variant pairs a timber log and a field hoe. */
+pal({K:"#171421",s:"#e7d0aa",S:"#f5e5c5",h:"#6c6a72",H:"#aaa8ad",c:"#8b633f",C:"#c0925c",d:"#b77c39",D:"#e0b56b",B:"#61402d",g:"#e4c88c",G:"#f4dfad",
+  a:"#39251d",b:"#68432d",e:"#9b7048",f:"#d0a36b",i:"#28483e",j:"#52775b",k:"#9cb77c",l:"#d7d4b4",
+  m:"#252c38",n:"#485565",o:"#8b9ba5",p:"#d1d9d9",q:"#a64e38",r:"#d77b4d",t:"#eab36e",u:"#f0d6a0",
+  v:"#5b426f",w:"#9272ae",x:"#c4a2d5",y:"#e4d2ed",z:"#243a56",A:"#51789b",E:"#8bb4c6",F:"#d3edf0",
+  I:"#4e5432",J:"#82904b",L:"#b8bb73",M:"#e0d49a",N:"#372d26",O:"#79604b",P:"#b6a18a",Q:"#e6d5b9",
+  R:"#1b1b1b",T:"#5a5a5a",U:"#999999",V:"#dedede",W:"#8d5832",X:"#bd8751",Y:"#e3bd7b",Z:"#f5e3b8"});
+const stylePalettes=[
+  ["a","b","e","f","m","n","o","p"],["K","N","O","P","R","T","U","V"],
+  ["a","W","X","Y","m","n","o","p"],["i","j","k","l","z","A","E","F"],
+  ["R","T","U","V","K","m","n","p"],["a","b","e","f","v","w","x","y"],
+  ["N","O","P","Q","R","T","U","V"],["I","J","L","M","a","b","e","f"],
+  ["K","a","b","e","m","n","o","p"],["v","w","x","y","d","D","g","G"]
+];
+function drawStyleLog(c,style){
+  const p=stylePalettes[style],[shadow,wood,mid,light]=p;
+  c.ellipse(16,26,13,3,"K");
+  if(style===1||style===6){itemRect(c,4,10,23,15,shadow);itemRect(c,5,9,21,14,wood);itemRect(c,7,11,17,10,mid);}
+  else{itemRect(c,5,10,22,15,shadow);itemRect(c,6,9,20,14,wood);}
+  itemLine(c,7,11,7,21,mid);itemLine(c,10,10,10,22,light);itemLine(c,22,10,22,21,mid);
+  c.ellipse(25,16,5,7,shadow);c.ellipse(24,16,4,6,mid);c.ellipse(24,16,3,5,light);c.ellipse(24,16,1,2,wood);c.px(23,14,"S");
+  if(style===2||style===9){itemLine(c,9,12,13,17,shadow);itemLine(c,13,17,17,13,mid);itemLine(c,17,13,20,18,shadow);}
+  else if(style===3||style===7){c.px(12,14,light);c.px(15,18,mid);c.px(19,12,light);c.px(20,20,shadow);}
+  else{c.px(13,13,shadow);c.px(14,14,light);c.px(17,18,shadow);c.px(18,19,mid);}
+  c.hline(7,23,14,shadow);c.px(8,24,light);c.px(20,23,mid);
+  if(style===4||style===8){c.px(9,8,"S");c.px(18,8,light);c.px(27,13,"S");}
+  if(style===5){c.px(10,8,"x");c.px(20,8,"x");}
+  if(style===9){c.px(5,12,"g");c.px(27,20,"G");}
+}
+function drawStyleHoe(c,style){
+  const p=stylePalettes[style],[shadow,wood,mid,light,metal,metalMid,metalLight,shine]=p;
+  c.ellipse(16,27,10,2,"K");itemLine(c,9,27,22,7,shadow);itemLine(c,10,27,23,7,wood);itemLine(c,11,25,22,9,mid);c.px(10,26,light);
+  if(style===0||style===4||style===8){itemLine(c,18,10,28,7,metal);itemLine(c,19,11,29,8,metalMid);itemRect(c,25,5,5,4,metalLight);c.px(29,6,shine);}
+  else if(style===1||style===6){itemLine(c,17,10,28,10,metal);itemLine(c,18,11,29,11,metalMid);itemRect(c,26,8,4,5,metalLight);c.px(28,8,shine);}
+  else if(style===2||style===9){itemLine(c,18,10,27,5,metal);itemLine(c,19,11,28,6,metalMid);itemRect(c,25,4,5,4,metalLight);c.px(28,4,shine);}
+  else if(style===3||style===7){itemLine(c,17,9,28,7,metal);itemLine(c,18,10,29,8,metalMid);itemRect(c,26,5,4,5,metalLight);c.px(29,6,shine);}
+  else{itemLine(c,17,11,28,9,metal);itemLine(c,18,12,29,10,metalMid);itemRect(c,25,7,5,4,metalLight);c.px(28,7,shine);}
+  c.px(18,10,shadow);c.px(20,9,wood);c.px(21,8,light);
+  if(style===3||style===9){c.px(12,22,"g");c.px(14,19,"G");}
+  if(style===5){c.px(12,20,"x");c.px(15,16,"y");}
+  if(style===7){c.px(12,21,"L");c.px(15,16,"M");}
+}
+sprite("item_style01_wood_log",{w:32,h:32,pivot:[16,28]},c=>drawStyleLog(c,0));
+sprite("item_style01_hoe",{w:32,h:32,pivot:[16,28]},c=>drawStyleHoe(c,0));
+sprite("item_style02_wood_log",{w:32,h:32,pivot:[16,28]},c=>drawStyleLog(c,1));
+sprite("item_style02_hoe",{w:32,h:32,pivot:[16,28]},c=>drawStyleHoe(c,1));
+sprite("item_style03_wood_log",{w:32,h:32,pivot:[16,28]},c=>drawStyleLog(c,2));
+sprite("item_style03_hoe",{w:32,h:32,pivot:[16,28]},c=>drawStyleHoe(c,2));
+sprite("item_style04_wood_log",{w:32,h:32,pivot:[16,28]},c=>drawStyleLog(c,3));
+sprite("item_style04_hoe",{w:32,h:32,pivot:[16,28]},c=>drawStyleHoe(c,3));
+sprite("item_style05_wood_log",{w:32,h:32,pivot:[16,28]},c=>drawStyleLog(c,4));
+sprite("item_style05_hoe",{w:32,h:32,pivot:[16,28]},c=>drawStyleHoe(c,4));
+sprite("item_style06_wood_log",{w:32,h:32,pivot:[16,28]},c=>drawStyleLog(c,5));
+sprite("item_style06_hoe",{w:32,h:32,pivot:[16,28]},c=>drawStyleHoe(c,5));
+sprite("item_style07_wood_log",{w:32,h:32,pivot:[16,28]},c=>drawStyleLog(c,6));
+sprite("item_style07_hoe",{w:32,h:32,pivot:[16,28]},c=>drawStyleHoe(c,6));
+sprite("item_style08_wood_log",{w:32,h:32,pivot:[16,28]},c=>drawStyleLog(c,7));
+sprite("item_style08_hoe",{w:32,h:32,pivot:[16,28]},c=>drawStyleHoe(c,7));
+sprite("item_style09_wood_log",{w:32,h:32,pivot:[16,28]},c=>drawStyleLog(c,8));
+sprite("item_style09_hoe",{w:32,h:32,pivot:[16,28]},c=>drawStyleHoe(c,8));
+sprite("item_style10_wood_log",{w:32,h:32,pivot:[16,28]},c=>drawStyleLog(c,9));
+sprite("item_style10_hoe",{w:32,h:32,pivot:[16,28]},c=>drawStyleHoe(c,9));
