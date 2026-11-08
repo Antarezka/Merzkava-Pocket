@@ -318,7 +318,7 @@
 .paper-arc-tail{position:absolute;top:45px;height:1.5px;background:var(--arc-line);z-index:1}
 .paper-arc-tail-left{left:9%;width:9%;transform:rotate(-8deg);transform-origin:right center}
 .paper-arc-tail-right{right:9%;width:9%;transform:rotate(8deg);transform-origin:left center}
-.paper-arc-glow{position:absolute;left:9%;right:9%;top:28px;height:34px;border-top:3px solid var(--arc-glow);border-radius:50% 50% 0 0 / 100% 100% 0 0;filter:blur(4px);opacity:.42;z-index:0}
+.paper-arc-glow{position:absolute;left:18%;right:18%;top:27px;height:22px;background:var(--arc-glow);clip-path:polygon(0 91%,5% 88%,10% 79%,15% 66%,20% 52%,25% 38%,30% 24%,35% 13%,40% 5%,45% 1%,50% 0,55% 1%,60% 5%,65% 13%,70% 24%,75% 38%,80% 52%,85% 66%,90% 79%,95% 88%,100% 91%,100% 99%,95% 96%,90% 87%,85% 74%,80% 60%,75% 46%,70% 32%,65% 21%,60% 13%,55% 9%,50% 8%,45% 9%,40% 13%,35% 21%,30% 32%,25% 46%,20% 60%,15% 74%,10% 87%,5% 96%,0 99%);filter:blur(4px);opacity:.42;z-index:0}
 .paper-starfield{position:absolute;inset:0;pointer-events:none;z-index:2}
 .paper-starfield i{position:absolute;color:var(--arc-star);font-style:normal;line-height:1;text-shadow:0 0 3px currentColor}
 .paper-arc-knob{position:absolute;left:67%;top:29px;width:16px;height:16px;display:grid;place-items:center;transform:translate(-50%,-50%);border:1px solid #f3d79d;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff4d4,#d2a75e 60%,#614723);box-shadow:0 0 7px #f3d79d,0 0 15px #d8ad5d;z-index:4;pointer-events:none}
