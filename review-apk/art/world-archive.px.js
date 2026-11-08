@@ -287,12 +287,12 @@ sprite("daily_login_shop_front",{w:360,h:640,pivot:[180,639]},c=>{
   for(let x=28;x<337;x+=26)c.vline(x,205,8,"B");
 
   // Wide, low facade: white plaster, charcoal framing, natural brown timber.
-  rect(c,31,215,298,202,"K");rect(c,37,219,286,190,"W");
+  rect(c,0,215,360,202,"K");rect(c,5,219,350,190,"W");
   rect(c,37,219,286,9,"I");rect(c,37,400,286,9,"w");
-  rect(c,31,215,9,198,"B");rect(c,320,215,9,198,"B");
-  rect(c,43,226,4,179,"D");rect(c,313,226,4,179,"D");
-  rect(c,47,240,266,5,"M");rect(c,47,394,266,6,"M");
-  c.hline(47,241,266,"l");c.hline(47,395,266,"D");
+  rect(c,0,215,10,198,"B");rect(c,350,215,10,198,"B");
+  rect(c,10,226,5,179,"D");rect(c,345,226,5,179,"D");
+  rect(c,15,240,330,5,"M");rect(c,15,394,330,6,"M");
+  c.hline(15,241,330,"l");c.hline(15,395,330,"D");
 
   // Timber lattice side bays.
   rect(c,54,265,73,117,"K");rect(c,58,269,65,109,"d");
