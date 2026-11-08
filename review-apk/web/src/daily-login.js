@@ -38,6 +38,8 @@ export function dailyLoginMarkup(){
     <div class="dl-kitchen-shelf"><i></i><i></i><i></i><span></span><b></b></div>
     <div class="dl-hanging-utensils"><i></i><i></i><i></i><i></i></div>
     <div class="dl-seasoning-set"><i></i><i></i><i></i><span></span></div>
+    <div class="dl-noodle-board"><span></span><i></i><b></b></div>
+    <div class="dl-rice-tub"><i></i><b></b></div>
     <div class="dl-floor-mat"></div>
     <div class="dl-kitchen-counter">
      <div class="dl-counter-top"></div>
