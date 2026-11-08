@@ -212,6 +212,11 @@ sprite("_yuma_sakura",{w:13,h:13,pivot:[6,6]},c=>{
   c.px(10,6,"q");c.px(9,5,"p");c.px(8,4,"q");
   c.px(6,6,"I");c.px(6,7,"Q");c.px(4,5,"q");c.px(8,7,"q");
 });
+sprite("_yuma_embroidered_sakura",{w:7,h:7,pivot:[3,3]},c=>{
+  c.px(3,0,"q");c.hline(2,1,3,"p");c.px(1,2,"q");c.px(0,3,"p");
+  c.px(5,2,"q");c.px(6,3,"p");c.px(1,4,"p");c.px(2,5,"q");
+  c.hline(3,5,2,"p");c.px(5,4,"q");c.px(3,3,"I");
+});
 
 // Eight-frame idle: a quiet breath, a slow gaze and a tail response one beat late.
 function idlePose(i,yaw){
@@ -567,10 +572,16 @@ const parts3 = (j,p) => {
   // Wide kimono sleeves and small hands; the forearm is narrower at the wrist.
   j.arms.forEach((A,i)=>{
     const far=i===farArm, sleeve=far?"mnop":"mnopq", arm=far?"fgh":"fghi";
-    const elbowRadius=far?3.25:3.9;
+    const elbowRadius=far?3.25:3.9,fore=unit(sub(A.hand,A.elbow));
+    const cuffA=add(A.elbow,mul(fore,1.25)),cuffB=add(A.elbow,mul(fore,2.35));
+    const armAxis=sub(A.elbow,A.sh),foldSide=mul(j.r,i?0.9:-0.9);
+    const seamA=add(add(A.sh,mul(armAxis,0.22)),foldSide);
+    const seamB=add(add(A.sh,mul(armAxis,0.82)),mul(foldSide,0.45));
     out["arm"+i]=[
       j.limb(A.sh,A.elbow,elbowRadius,3.25,sleeve),
       j.limb(A.elbow,A.hand,1.8,1.45,arm),
+      j.limb(cuffA,cuffB,2.05,1.78,"GHI"),
+      j.limb(seamA,seamB,0.48,0.24,far?"m":"q"),
       j.ball(A.hand,1.65,far?"fgh":"fghi")
     ];
   });
@@ -589,10 +600,17 @@ const parts3 = (j,p) => {
       return h>0.78?"tu":"stu";
     }});
   // A narrow waist obi with antique-gold piping, sash tails and a centre knot.
+  out.underskirt=j.sweep(base,hem+0.8,waist-0.35,
+    (h,a)=>WAIST+(1-h)*(SKIRT-1.8)*Math.sin(fall+rad(3))+0.18*Math.sin((a+lag*(1-h))*10),
+    {shell:0.24,paint:(h,a,outer)=>!outer?"r":h<0.16?"v":h>0.78?"u":"rs"});
   out.obi=j.sweep(base,waist-1.9,waist+1.3,
     (h,a)=>ellipse(4.4,3.1,a-yaw),
     {shell:0.22,paint:(h,a,outer)=>!outer?"v":h<0.3?"w":"GHI"});
   out.obiKnot=j.decal("_yuma_obi_knot",[j.pelvis[0]+j.f[0]*3.4,j.pelvis[1]+j.f[1]*3.4,j.pelvis[2]+1.0],{depth:2});
+  out.skirtSakura=[
+    j.decal("_yuma_embroidered_sakura",add(j.pelvis,add(mul(j.f,5.2),[0,0,-5.2])),{depth:2}),
+    j.decal("_yuma_embroidered_sakura",add(j.pelvis,add(mul(j.f,5.0),[0,0,-9.1])),{depth:2})
+  ];
   out.chestBow=j.decal("_yuma_chest_bow",[j.chest[0]+j.f[0]*3.8,j.chest[1]+j.f[1]*3.8,j.chest[2]-2.1],{depth:3});
   // Long rear hair locks move behind the shoulders; the head's own side locks
   // remain fixed, while these trailing locks react to turns one frame late.
@@ -604,6 +622,12 @@ const parts3 = (j,p) => {
     j.limb(hairRoot,add(hairRoot,add(mul(j.hd.f,-1.4),add(hairSide,mul(hairDown,5.5)))),2.4,2.0,"abcde"),
     j.limb(add(hairRoot,add(mul(j.hd.f,-1.4),add(hairSide,mul(hairDown,5.5)))),
       add(hairRoot,add(hairSide,mul(hairDown,12.5))),2.0,1.0,"abcde")
+  ];
+  const strandLag=mul(j.hd.r,Math.sin(hairLag*1.25)*1.2);
+  out.hairStrands=[
+    j.limb(add(hairRoot,mul(j.hd.r,-2.8)),add(add(hairRoot,mul(j.hd.r,-3.1)),add(strandLag,mul(hairDown,10.8))),0.62,0.34,"cde"),
+    j.limb(add(hairRoot,mul(j.hd.r,2.6)),add(add(hairRoot,mul(j.hd.r,3.0)),add(mul(strandLag,-1),mul(hairDown,11.5))),0.58,0.28,"cde"),
+    j.limb(add(hairRoot,mul(j.hd.r,-1.2)),add(add(hairRoot,mul(j.hd.r,-1.8)),mul(hairDown,14.0)),0.42,0.18,"de")
   ];
   // The enormous fox tail: a 25 px flowing silhouette, 14-16 px wide.
   // Four overlapping tapered segments produce a soft fan and tufted tip.
@@ -623,7 +647,10 @@ const parts3 = (j,p) => {
   // Directional cream fur planes and pointed tufts make the tail readable at 1x.
   out.tailTufts=[
     j.limb(p3,add(p3,add(mul(j.r,2.1),[0,0,3.0])),2.2,0.1,"cde"),
-    j.limb(p3,add(p3,add(mul(j.r,-1.9),[0,0,2.7])),2.0,0.1,"cde")
+    j.limb(p3,add(p3,add(mul(j.r,-1.9),[0,0,2.7])),2.0,0.1,"cde"),
+    j.limb(p2,add(p2,add(mul(j.r,1.7),[0,0,4.0])),1.25,0.12,"de"),
+    j.limb(p2,add(p2,add(mul(j.r,-1.6),[0,0,3.6])),1.15,0.10,"cde"),
+    j.limb(p1,add(p1,add(mul(j.r,0.8),[0,0,3.0])),0.9,0.08,"e")
   ];
   // The carried lantern is a small, rigid prop with roof, paper chamber,
   // gold corner rails, base cap and a separate warm flame.
@@ -641,6 +668,13 @@ const parts3 = (j,p) => {
     sdf.capsule([LX+2.1,LY-1.7,LZ-3.0],[LX+2.1,LY-1.7,LZ+3.0],0.28).mat("GHI"),
     sdf.capsule([LX-2.1,LY+1.7,LZ-3.0],[LX-2.1,LY+1.7,LZ+3.0],0.22).mat("GHI"),
     sdf.capsule([LX+2.1,LY+1.7,LZ-3.0],[LX+2.1,LY+1.7,LZ+3.0],0.22).mat("GHI"),
+    sdf.capsule([LX-1.95,LY-2.18,LZ-1.5],[LX+1.95,LY-2.18,LZ-1.5],0.15).mat("GHI"),
+    sdf.capsule([LX-1.95,LY-2.18,LZ+1.5],[LX+1.95,LY-2.18,LZ+1.5],0.15).mat("GHI"),
+    sdf.capsule([LX,LY-2.25,LZ-1.4],[LX,LY-2.25,LZ+1.5],0.12).mat("GHI"),
+    sdf.cone(0.7,0.35,1.25).at(LX,LY,LZ+5.15).mat("GHI"),
+    sdf.capsule([LX,LY,LZ-4.9],[LX,LY,LZ-7.0],0.22,0.10).mat("GHI"),
+    sdf.sphere(0.42).at(LX,LY,LZ-7.1).mat("I"),
+    sdf.capsule([LX,LY,LZ-7.1],[LX+0.4,LY,LZ-9.0],0.16,0.04).mat("Z"),
     sdf.ellipsoid([0.9,0.9,1.7]).at(LX,LY,LZ).mat("UVW")
   ];
   // Fishing rod appears only in the fishing action, but its slot stays present.
