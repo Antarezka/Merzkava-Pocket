@@ -129,68 +129,54 @@ const isoDiamond=(c,cx,cy,top,edge,shade,seed=0)=>{
   for(let y=0;y<16;y++){const half=y<8?2*(y+1):2*(16-y);c.hline(cx-half,cy+y,half*2,top);if(y>9){c.px(cx-half+2,cy+y,edge);c.px(cx+half-2,cy+y,shade);}}
   c.hline(cx-6,cy+7,12,edge);if(seed%3===0){c.px(cx-6,cy+5,"L");c.px(cx+4,cy+10,shade);}
 };
-const TERRAIN=["ggggggggggww","gggggggggwww","ggppggggwwww","gppppgggwwwg","gpppggggwwgg","ggppddggwggg","gggggdgwwggg","ggggddwwgggg","ggggggwggggg","gggggggggggg"];
-const tilePos=(col,row)=>[200+(col-row)*16,20+(col+row)*8];
+const WORLD_COLS=24,WORLD_ROWS=20;
+const BASE_TERRAIN=["ggggggggggww","gggggggggwww","ggppggggwwww","gppppgggwwwg","gpppggggwwgg","ggppddggwggg","gggggdgwwggg","ggggddwwgggg","ggggggwggggg","gggggggggggg"];
+const TERRAIN=Array.from({length:WORLD_ROWS},(_,row)=>Array.from({length:WORLD_COLS},(_,col)=>{
+  if(row<10&&col<12)return BASE_TERRAIN[row][col];
+  const riverCol=19+Math.round(Math.sin((row+1)*.42)*1.3);
+  if(col===riverCol&&row>=1&&row<=17)return "w";
+  if(row===8&&col>=12&&col<=18)return "d";
+  if(col===12&&row>=8&&row<=15)return "d";
+  if(row>=15&&col>=13&&col<=21&&((row+col)%4!==0))return "d";
+  const seed=(col*37+row*61+col*row*13)%101;
+  if(seed<7)return "r";if(seed<15)return "s";if(seed<23)return "d";return "g";
+}).join(""));
+const tilePos=(col,row)=>[400+(col-row)*16,20+(col+row)*8];
 const isWater=(col,row)=>["w","p"].includes(TERRAIN[row]?.[col]||"");
-const diamondFill=(c,cx,top,color)=>{
+const diamondFill=(c,cx,cy,color)=>{
   for(let y=0;y<16;y++){
     const half=y<8?2*(y+1):2*(16-y);
-    c.hline(cx-half,top+y,half*2,color);
+    c.hline(cx-half,cy+y,half*2,color);
   }
 };
-scene("home_base_map",{w:400,h:260,bg:"#19251f"},c=>{
-  // A spacious continuous meadow with a clean isometric shoreline.
-  for(let y=20;y<=196;y++){
-    const half=Math.round(2*Math.min(y-20,196-y));
-    if(half<=0)continue;
-    const left=200-half;
-    c.hline(left,y,half*2,"g");
-    c.hline(left,y,Math.min(4,half),"h");
-    c.hline(200+half-4,y,Math.min(4,half),"h");
-  }
-  // Low-contrast vegetation: small clusters, never a visible repeating grid.
-  for(let i=0;i<96;i++){
-    const x=36+(i*47)%328,y=28+(i*31)%160;
-    const half=2*Math.min(y-20,196-y);
-    if(half<26||x<200-half+10||x>200+half-10)continue;
-    if(i%5===0){c.ellipse(x,y,4,2,"G");c.px(x+2,y-2,"L");}
-    else if(i%5===1){c.px(x,y,"H");c.px(x+1,y-1,"G");c.px(x+2,y,"g");}
-    else if(i%5===2){c.px(x,y,"L");c.px(x+1,y-1,"G");}
-    else if(i%5===3){c.ellipse(x,y,3,1,"h");c.px(x,y-1,"G");}
-  }
-  // Dirt/stone patches and the footpath are filled diamonds rather than rounded stamps.
-  for(let row=0;row<TERRAIN.length;row++)for(let col=0;col<TERRAIN[row].length;col++){
+scene("home_base_map",{w:800,h:440,bg:"#19251f"},c=>{
+  // Continuous 24 x 20 isometric ground, with the original meadow around the starter home.
+  for(let row=0;row<WORLD_ROWS;row++)for(let col=0;col<WORLD_COLS;col++){
     const kind=TERRAIN[row][col],[x,y]=tilePos(col,row);
-    if(kind==="d"){
-      diamondFill(c,x,y,"d");
+    const ground=kind==="w"||kind==="p"?"w":kind==="d"?"d":kind==="s"?"s":kind==="r"?"h":"g";
+    diamondFill(c,x,y,ground);
+    if(kind==="w"||kind==="p"){
+      if((col+row)%3===0)c.hline(x-7,y+7,8,"B");
+      if((col*2+row)%4===0)c.hline(x+1,y+10,6,"F");
+      if((col+row)%4===0)c.px(x+5,y+5,"B");
+    }else if(kind==="d"){
       if((col+row)%2===0)c.hline(x-5,y+8,10,"D");
+      c.px(x+4,y+5,"S");
     }else if(kind==="s"){
-      diamondFill(c,x,y,"s");
       c.hline(x-5,y+7,10,"S");
+    }else if(kind==="g"&&(col*7+row*11)%9===0){
+      c.px(x-3,y+4,"G");c.px(x-2,y+2,"L");c.px(x+4,y+6,"H");
+    }else if(kind==="r"){
+      c.ellipse(x,y+5,7,4,"K");c.ellipse(x-1,y+3,5,3,"D");c.px(x-2,y+1,"S");
     }
   }
-  // Connected pond and winding stream: adjacent 2:1 diamonds meet without circular outlines.
-  for(let row=0;row<TERRAIN.length;row++)for(let col=0;col<TERRAIN[row].length;col++){
-    if(!isWater(col,row))continue;
-    const [x,y]=tilePos(col,row),kind=TERRAIN[row][col];
-    diamondFill(c,x,y,kind==="p"?"W":"w");
-    if((col+row)%3===0)c.hline(x-7,y+7,8,"B");
-    if((col*2+row)%4===0)c.hline(x+1,y+10,6,"F");
-    if((col+row)%4===0)c.px(x+5,y+5,"B");
-  }
-  // A quiet stepping-stone trail from the shelter area toward the garden.
-  for(const [col,row] of [[4,7],[5,7],[5,6],[5,5],[4,5]]){
-    const [x,y]=tilePos(col,row);
-    c.ellipse(x,y+8,5,2,"D");
-    c.hline(x-3,y+7,6,"S");
-  }
-  // Reeds and small shore rocks make water edges feel inhabited.
-  for(const [col,row,side] of [[2,3,-1],[4,4,1],[8,2,1],[9,3,-1],[8,6,-1],[7,7,1],[2,5,-1]]){
+  // Reeds and stepping stones preserve the original water-side visual language.
+  for(const [col,row,side] of [[2,3,-1],[4,4,1],[8,2,1],[9,3,-1],[8,6,-1],[7,7,1],[2,5,-1],[18,4,-1],[20,8,1],[18,13,-1],[20,16,1]]){
     const [x,y]=tilePos(col,row),rx=x+side*13;
     c.vline(rx,y-5,7,"H");c.vline(rx+2,y-3,5,"L");c.px(rx-2,y+2,"G");
   }
-  for(const [x,y] of [[115,139],[141,146],[325,98],[350,132],[315,164],[88,95],[275,179]]){
-    c.ellipse(x,y,3,2,"D");c.px(x-1,y-1,"S");
+  for(const [col,row] of [[4,7],[5,7],[5,6],[5,5],[4,5],[13,11],[16,14],[21,12],[22,17]]){
+    const [x,y]=tilePos(col,row);c.ellipse(x,y+8,5,2,"D");c.hline(x-3,y+7,6,"S");
   }
 });
 anim("water_glimmer",{w:32,h:16,frames:4,fps:5},c=>{
