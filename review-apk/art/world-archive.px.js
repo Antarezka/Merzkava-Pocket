@@ -797,13 +797,20 @@ anim("daily_login_chef_idle",{w:64,h:96,frames:4,fps:5},c=>{
   rect(c,20,19+bob,24,9,"H");
   rect(c,22,20+bob,19,5,"h");
   c.px(23,25+bob,"H");c.px(28,27+bob,"H");c.px(37,26+bob,"H");
-  // Big, clear eyes with warm highlights and small blush pixels.
-  rect(c,22,35+bob,4,5,"H");rect(c,38,35+bob,4,5,"H");
-  c.px(23,35+bob,"F");c.px(39,35+bob,"F");
-  c.px(24,39+bob,"V");c.px(40,39+bob,"V");
+  // Large warm eyes, one full blink in the idle loop, and a changing tiny smile.
+  if(frame===2){
+    c.hline(22,39+bob,5,"H");c.hline(38,39+bob,5,"H");
+    c.px(24,40+bob,"h");c.px(40,40+bob,"h");
+  }else{
+    rect(c,22,35+bob,4,5,"H");rect(c,38,35+bob,4,5,"H");
+    c.px(23,35+bob,"F");c.px(39,35+bob,"F");
+    c.px(24,39+bob,"V");c.px(40,39+bob,"V");
+  }
   c.hline(19,42+bob,5,"X");c.hline(40,42+bob,5,"X");
-  c.px(30,46+bob,"H");c.hline(31,47+bob,3,"H");
-  c.px(31,48+bob,"x");c.px(32,48+bob,"X");
+  c.px(21,41+bob,"x");c.px(42,41+bob,"x");
+  c.px(30,46+bob,"H");
+  if(frame===1||frame===3){c.hline(31,47+bob,3,"H");c.px(32,48+bob,"X");}
+  else c.hline(31,47+bob,3,"H");
 
   // Tall white chef cap with a folded band and a small knot.
   rect(c,17,11+bob,30,11,"H");
@@ -813,6 +820,10 @@ anim("daily_login_chef_idle",{w:64,h:96,frames:4,fps:5},c=>{
   rect(c,19,18+bob,26,3,"f");
   rect(c,21,18+bob,22,2,"F");
   c.hline(24,9+bob,15,"W");c.px(40,12+bob,"F");
+  // Cloth folds and the little embroidered band keep the cap dimensional.
+  c.vline(23,9+bob,6,"w");c.vline(39,9+bob,6,"F");
+  c.px(26,8+bob,"F");c.px(35,9+bob,"f");
+  c.hline(20,20+bob,24,"h");
   rect(c,29,3+bob,6,5,"H");rect(c,30,4+bob,4,3,"J");
 
   // Serving bowl in the left hand, with a steaming broth highlight.
@@ -820,6 +831,9 @@ anim("daily_login_chef_idle",{w:64,h:96,frames:4,fps:5},c=>{
   c.ellipse(12,62+bob,7,3,"G");c.hline(6,62+bob,12,"F");
   c.px(10,61+bob,"J");c.px(15,62+bob,"e");
   c.vline(7,69+bob,4,"D");c.vline(17,69+bob,4,"D");
+  // A different noodle highlight and rising steam on each frame.
+  c.hline(8,62+bob,7,frame%2===0?"J":"F");
+  if(frame!==2){c.px(10,56+bob,"F");c.px(12,53+bob,"g");}
   // Right hand and a short wooden ladle shift gently in the idle cycle.
   rect(c,45,66+bob-hand,8,7,"H");rect(c,47,67+bob-hand,5,4,"V");
   c.vline(51,50+bob-hand,19,"D");c.vline(52,51+bob-hand,16,"M");
