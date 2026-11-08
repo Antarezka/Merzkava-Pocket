@@ -48,13 +48,6 @@ export function dailyLoginMarkup(){
     <div class="dl-chair"><span class="dl-chair-back"></span><span class="dl-chair-seat"></span><i class="dl-chair-leg dl-chair-leg-a"></i><i class="dl-chair-leg dl-chair-leg-b"></i></div>
     <div class="dl-chef-area">
      <div class="dl-dialogue" data-dl-dialogue hidden role="status" aria-live="polite"><span data-dl-dialogue-text></span></div>
-     <div class="dl-choice" data-dl-choice hidden aria-live="polite">
-      <p>WAIT HERE?</p>
-      <div class="dl-choice-actions">
-       <button type="button" data-dl-stay>STAY</button>
-       <button type="button" data-dl-leave>LEAVE SHOP</button>
-      </div>
-     </div>
      <button class="dl-chef" type="button" data-dl-chef aria-label="Ketuk koki untuk berbicara">
       <span class="dl-chef-shadow"></span><span class="dl-chef-hat"><i></i><b></b></span>
       <span class="dl-chef-head"><i class="dl-chef-hair"></i><b class="dl-chef-eye dl-chef-eye-left"></b><b class="dl-chef-eye dl-chef-eye-right"></b><i class="dl-chef-cheek"></i><span></span></span>
@@ -63,6 +56,13 @@ export function dailyLoginMarkup(){
       <span class="dl-chef-leg dl-chef-leg-left"></span><span class="dl-chef-leg dl-chef-leg-right"></span><span class="dl-chef-nameplate">おかみ</span>
      </button>
      <span class="dl-chef-tap-note">TAP THE CHEF</span>
+    </div>
+    <div class="dl-choice" data-dl-choice hidden aria-live="polite">
+     <p>WAIT HERE?</p>
+     <div class="dl-choice-actions">
+      <button type="button" data-dl-stay>STAY</button>
+      <button type="button" data-dl-leave>LEAVE SHOP</button>
+     </div>
     </div>
     <div class="dl-retro-tv" aria-label="Televisi tabung dengan noise">
      <div class="dl-tv-antenna"><i></i><b></b></div>
