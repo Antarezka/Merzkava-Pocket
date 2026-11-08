@@ -464,7 +464,7 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
     scene.setAppearanceShopOpen(true);
     worldPanel.innerHTML=
       "<div class='world-shop-layout'>"+
-        "<div class='world-shop-wallet'><span><small>WALLET</small><b data-shop-wallet>—</b></span><span><small>PRICE POLICY</small><b>NOT SET</b></span></div>"+
+        "<div class='world-shop-wallet'><span><small>WALLET</small><b data-shop-wallet>"+esc(session.currency(snapshot?.wallet_xc??0))+"</b></span><span><small>ITEM PRICES</small><b>—</b></span></div>"+
         "<section class='world-shop-preview'>"+
           "<div class='world-shop-avatar-stage' aria-label='Live full character preview'>"+
             "<div class='world-shop-avatar-layer world-shop-avatar-weapon world-shop-avatar-back' data-shop-weapon-back></div>"+
