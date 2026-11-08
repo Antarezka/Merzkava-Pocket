@@ -1,0 +1,65 @@
+name: Merzkava Pocket — Yuma PXL Character Review
+
+on:
+  push:
+    branches:
+      - feat/fox-lantern-keeper-pxl-2026-11-08
+    paths:
+      - "review-apk/art/characters/**"
+      - "review-apk/scripts/build-world-assets.mjs"
+      - ".github/workflows/yuma-pxl-character-preview.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render-yuma:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out character source
+        uses: actions/checkout@v4
+
+      - name: Set up PXL-compatible Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.18.0"
+
+      - name: Fetch Augusto PXL
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/augusto-scarvalho/claude-pxl.git "$RUNNER_TEMP/claude-pxl"
+
+      - name: Validate detailed rig and directional animation source
+        shell: bash
+        run: |
+          set -euo pipefail
+          PXL="$RUNNER_TEMP/claude-pxl/bin/pxl.js"
+          SOURCE="review-apk/art/characters/yuma-fox-rig3d.px.js"
+          node "$PXL" check "$SOURCE"
+
+      - name: Render complete Yuma turnaround and animation library
+        shell: bash
+        run: |
+          set -euo pipefail
+          PXL="$RUNNER_TEMP/claude-pxl/bin/pxl.js"
+          OUT="$RUNNER_TEMP/yuma-pxl-review"
+          node "$PXL" build review-apk/art/characters/yuma-fox-rig3d.px.js --out "$OUT" --share 4
+
+          for asset in yuma_idle_s.png yuma_idle_n.png yuma_walk_s.png yuma_walk_ne.png yuma_run_s.png yuma_attack_s.png yuma_skill_s.png yuma_fish_s.png yuma_meditate_s.png; do
+            if ! find "$OUT" -type f -name "$asset" -print -quit | grep -q .; then
+              echo "::error::Expected PXL render missing: $asset"
+              exit 1
+            fi
+          done
+          find "$OUT" -type f | sort | tee "$RUNNER_TEMP/yuma-pxl-files.txt"
+          test -s "$RUNNER_TEMP/yuma-pxl-files.txt"
+
+      - name: Upload visual review and PXL sprite sheets
+        uses: actions/upload-artifact@v4
+        with:
+          name: Yuma-PXL-Character-Review-${{ github.sha }}
+          path: ${{ runner.temp }}/yuma-pxl-review/
+          if-no-files-found: error
+          retention-days: 30
