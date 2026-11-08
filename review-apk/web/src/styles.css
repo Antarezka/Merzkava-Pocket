@@ -568,7 +568,7 @@
  box-shadow:inset 0 0 0 1px rgba(228,123,52,.035);
  pointer-events:none;
 }
-.floating-stage>*{position:relative;z-index:1}
+.floating-stage>*:not(.access-buffer):not(.donate-overlay){position:relative;z-index:1}
 .floating-header{
  border-bottom:1px solid rgba(124,41,55,.55);
  padding-bottom:13px;
@@ -917,3 +917,33 @@
   animation:none!important;
  }
 }
+
+
+/* Keep modal overlays above the scrolling Floating Control document. */
+.floating-stage>.access-buffer,.login-stage>.access-buffer{
+ position:fixed!important;z-index:85!important;inset:0!important;
+}
+
+/* The access instrument remains noir even when the Home theme is set to White. */
+:root[data-theme="light"] .login-stage .access-buffer,
+:root[data-theme="light"] .floating-stage .access-buffer{
+ background:
+  radial-gradient(ellipse at 50% 46%,rgba(42,71,55,.36),transparent 28%),
+  radial-gradient(ellipse at 48% 20%,rgba(228,123,52,.12),transparent 37%),
+  radial-gradient(ellipse at 5% 92%,rgba(124,41,55,.20),transparent 38%),
+  rgba(4,6,8,.97);
+}
+:root[data-theme="light"] .login-stage .buffer-frame,
+:root[data-theme="light"] .floating-stage .buffer-frame{
+ color:#f2f0e9;
+ background:
+  linear-gradient(135deg,rgba(255,253,244,.025),transparent 30%,transparent 75%,rgba(114,140,121,.06)),
+  radial-gradient(ellipse at 50% 24%,rgba(41,65,54,.34),transparent 49%),
+  linear-gradient(150deg,rgba(15,20,21,.97),rgba(5,8,10,.99));
+}
+:root[data-theme="light"] .login-stage .buffer-copy strong,
+:root[data-theme="light"] .floating-stage .buffer-copy strong{color:#f2f0e9}
+:root[data-theme="light"] .login-stage .buffer-progress>small,
+:root[data-theme="light"] .floating-stage .buffer-progress>small{color:#989f96}
+:root[data-theme="light"] .login-stage .buffer-cancel,
+:root[data-theme="light"] .floating-stage .buffer-cancel{color:#c6aaa4}
