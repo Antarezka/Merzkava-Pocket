@@ -621,8 +621,9 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
     if(btn.hasAttribute("data-shop-confirm-buy")){
       commitAppearanceShop();return;
     }
+    const isShopItem=btn.dataset.worldHair!==undefined||btn.dataset.worldOutfit!==undefined||btn.dataset.worldAccessory!==undefined||btn.dataset.worldWeapon!==undefined;
     // Any route away from the open shop without a confirmed purchase is an exit.
-    if(shopOriginal){
+    if(shopOriginal&&!isShopItem){
       await exitAppearanceShop({restore:true});
     }
     drawer.classList.remove("is-collapsed");
