@@ -590,6 +590,21 @@ sprite("daily_login_shop_interior",{w:360,h:800,pivot:[180,799]},c=>{
   rect(c,25,407,5,18,"D");rect(c,27,404,2,4,"M");
   rect(c,224,409,8,19,"K");rect(c,226,411,4,15,"R");
 
+  // A small glass case for tempura and side dishes, with a lit wooden base.
+  rect(c,244,378,94,57,"K");rect(c,248,382,86,43,"D");
+  rect(c,252,386,78,34,"A");rect(c,255,389,72,27,"b");
+  rect(c,255,416,72,6,"M");rect(c,248,425,86,7,"K");
+  c.hline(251,426,80,"L");
+  // Three trays of tempura behind the glass.
+  c.ellipse(268,408,12,5,"K");c.ellipse(268,406,10,4,"J");c.ellipse(265,404,4,3,"u");
+  c.ellipse(291,408,12,5,"K");c.ellipse(291,406,10,4,"Y");c.ellipse(294,404,4,3,"G");
+  c.ellipse(314,408,11,5,"K");c.ellipse(314,406,9,4,"e");c.ellipse(311,404,3,3,"x");
+  rect(c,252,390,3,24,"s");rect(c,327,390,3,24,"s");
+  // A tiny hanging lantern over the case gives the wall depth.
+  rect(c,284,328,3,15,"D");rect(c,276,342,18,5,"K");
+  rect(c,278,347,14,21,"K");rect(c,280,349,10,16,"Y");
+  c.hline(281,354,8,"u");c.hline(281,360,8,"u");rect(c,280,368,10,3,"D");
+
   // Rice tub, flour sack and stacked zaru baskets beneath the prep counter.
   rect(c,254,450,52,60,"K");rect(c,258,454,44,52,"D");
   rect(c,262,458,36,42,"M");rect(c,265,461,30,35,"m");
@@ -602,16 +617,6 @@ sprite("daily_login_shop_interior",{w:360,h:800,pivot:[180,799]},c=>{
   c.ellipse(326,512,12,3,"K");c.ellipse(326,510,9,2,"s");
   c.ellipse(326,501,12,3,"K");c.ellipse(326,499,9,2,"q");
   c.ellipse(326,490,12,3,"K");c.ellipse(326,488,9,2,"S");
-
-  // A small dining table and bench sit in front-right of the room.
-  rect(c,245,556,100,14,"K");rect(c,250,558,90,8,"M");
-  for(let x=254;x<339;x+=15)c.vline(x,559,5,"L");
-  rect(c,257,571,8,59,"D");rect(c,323,571,8,59,"D");
-  rect(c,246,628,98,7,"K");rect(c,251,630,88,3,"L");
-  // Tea cup and a tiny tray.
-  c.ellipse(289,550,11,5,"K");c.ellipse(289,548,9,4,"I");c.ellipse(289,547,5,2,"G");
-  rect(c,304,548,18,4,"K");rect(c,306,549,14,2,"u");
-  rect(c,266,543,5,9,"D");rect(c,268,541,3,3,"M");
 
   // Wooden floor with plank seams, tatami edging and scuffed traffic wear.
   rect(c,10,545,340,244,"K");
@@ -633,6 +638,31 @@ sprite("daily_login_shop_interior",{w:360,h:800,pivot:[180,799]},c=>{
   }
   rect(c,22,666,215,7,"D");rect(c,22,747,215,7,"D");
   rect(c,24,675,5,66,"J");rect(c,230,675,5,66,"J");
+
+  // Dining furniture drawn after the floor so seats, table legs and tea service stay in the foreground.
+  // Low wooden table with a beveled top and visible grain.
+  rect(c,246,566,100,12,"K");rect(c,250,568,92,7,"M");
+  c.hline(252,569,88,"L");c.hline(252,574,88,"D");
+  for(let x=258;x<338;x+=18){c.vline(x,570,4,"m");c.px(x+1,571,"l");}
+  // Two stout legs and a front cross brace.
+  rect(c,256,578,7,47,"K");rect(c,258,580,3,43,"D");
+  rect(c,328,578,7,47,"K");rect(c,330,580,3,43,"D");
+  rect(c,260,611,71,5,"K");rect(c,263,612,65,2,"M");
+  // Soba bowls, chopsticks and a tea pot arranged on the tabletop.
+  c.ellipse(274,560,11,5,"K");c.ellipse(274,558,9,4,"I");c.ellipse(274,557,6,2,"Y");
+  c.ellipse(305,560,11,5,"K");c.ellipse(305,558,9,4,"e");c.ellipse(305,557,6,2,"J");
+  rect(c,322,553,8,10,"K");rect(c,324,555,4,7,"w");c.px(325,555,"G");
+  line(c,286,554,296,551,"D");line(c,288,557,298,554,"M");
+  // Two square stools with woven seats: they sit on the foreground floor in 3/4 view.
+  rect(c,238,600,29,24,"K");rect(c,241,603,23,5,"L");
+  rect(c,243,608,19,3,"m");rect(c,244,611,3,12,"D");rect(c,258,611,3,12,"D");
+  rect(c,315,634,31,23,"K");rect(c,318,637,25,5,"L");
+  rect(c,320,642,21,3,"m");rect(c,321,645,3,10,"D");rect(c,337,645,3,10,"D");
+  // A narrow serving shelf and teapot at the left edge, with a folded hand towel.
+  rect(c,17,574,72,9,"K");rect(c,20,576,66,4,"M");c.hline(22,577,62,"L");
+  rect(c,27,558,14,16,"K");rect(c,29,560,10,12,"W");rect(c,30,562,8,7,"g");
+  rect(c,49,561,17,13,"K");rect(c,52,563,11,8,"S");c.hline(53,564,9,"q");
+  rect(c,70,565,12,9,"D");rect(c,72,567,8,5,"F");
 
   // Scattered floor reflections and small wood wear marks.
   for(let i=0;i<180;i++){
