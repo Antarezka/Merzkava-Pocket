@@ -1,7 +1,9 @@
 name: Merzkava Pocket Android APK
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - feat/yuma-ultra-detail-pxl-2026-11-08
     paths:
       - "review-apk/**"
       - "docs/game/**"
