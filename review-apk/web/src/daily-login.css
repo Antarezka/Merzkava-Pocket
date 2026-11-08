@@ -886,3 +886,25 @@
  .dl-chef-sprite{animation:none;background-position:0 0}
  .dl-bulb-lamp{opacity:.68}
 }
+
+
+/* Kairosoft-scale room composition: the cook reads as a staff sprite, not a foreground portrait. */
+.dl-chef-area{
+ left:55%;bottom:13%;
+ width:96px;height:132px;
+}
+.dl-chef{
+ left:5px;width:70px;height:auto;aspect-ratio:2/3;
+}
+.dl-chef-nameplate{right:-1px;bottom:28%;font-size:6px;padding:2px 3px}
+.dl-chef-tap-note{left:5px;bottom:-14px;font-size:6px}
+.dl-dialogue{left:-68px;top:-72px;width:min(190px,54vw);min-height:56px;padding:8px 10px}
+.dl-dialogue span{font-size:11px}
+@media(max-width:390px){
+ .dl-chef-area{left:54%;bottom:13%;width:90px;height:124px}
+ .dl-chef{width:66px}
+ .dl-dialogue{left:-62px;top:-66px;width:180px}
+}
+@media(max-height:620px){
+ .dl-chef-area{bottom:9%;transform:scale(.9);transform-origin:bottom left}
+}
