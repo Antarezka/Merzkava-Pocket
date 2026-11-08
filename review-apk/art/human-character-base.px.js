@@ -200,13 +200,13 @@ function drawHuman(c,hair,outfit,dir,move,frame=0){
    oval(c,CX,headY,9,9,"S");
    oval(c,CX-5,headY+2,3,5,"s");
    oval(c,CX+5,headY+2,3,5,"s");
-   if(front){
+   if(dir==="s"){
      const eyeY=headY+2;
      rect(c,CX-5,eyeY,2,3,"K");rect(c,CX+4,eyeY,2,3,"K");
      c.px(CX-4,eyeY,"A");c.px(CX+5,eyeY,"A");
      c.px(CX,headY+6,"T");
      c.px(CX-1,headY+7,"S");c.px(CX+1,headY+7,"S");
-   }else if(side){
+   }else if(side||dir==="se"||dir==="sw"){
      const eyeX=flip?CX-4:CX+4;
      rect(c,eyeX,headY+2,2,3,"K");
      c.px(flip?CX-5:CX+6,headY+6,"T");
