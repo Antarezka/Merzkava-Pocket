@@ -1,7 +1,6 @@
 import Phaser from "phaser";
 import "./home-base.css";
 import { openHomeBaseSession } from "./economy.js";
-import { createWardrobeShopTransaction } from "./wardrobe-shop.js";
 
 const HAIR_OPTIONS=[
   {id:"long_black",name:"Long Straight",description:"Long, smooth locks with a calm centre fringe."},
@@ -63,14 +62,14 @@ const DIR_VECTOR={n:[0,-1],ne:[1,-1],e:[1,0],se:[1,1],s:[0,1],sw:[-1,1],w:[-1,0]
 const WORLD_COLS=24,WORLD_ROWS=20,TILE_W=32,TILE_H=16,MAP_ORIGIN_X=400,MAP_ORIGIN_Y=20,WORLD_WIDTH=800,WORLD_HEIGHT=440;
 const BASE_TERRAIN=["ggggggggggww","gggggggggwww","ggppggggwwww","gppppgggwwwg","gpppggggwwgg","ggppddggwggg","gggggdgwwggg","ggggddwwgggg","ggggggwggggg","gggggggggggg"];
 const TERRAIN=Array.from({length:WORLD_ROWS},(_,row)=>Array.from({length:WORLD_COLS},(_,col)=>{
-  if(row<10&&col<12)return BASE_TERRAIN[row][col];
-  const riverCol=19+Math.round(Math.sin((row+1)*.42)*1.3);
-  if(col===riverCol&&row>=1&&row<=17)return "w";
-  if(row===8&&col>=12&&col<=18)return "d";
-  if(col===12&&row>=8&&row<=15)return "d";
-  if(row>=15&&col>=13&&col<=21&&((row+col)%4!==0))return "d";
-  const seed=(col*37+row*61+col*row*13)%101;
-  if(seed<7)return "r";if(seed<15)return "s";if(seed<23)return "d";return "g";
+ if(row<10&&col<12)return BASE_TERRAIN[row][col];
+ const riverCol=19+Math.round(Math.sin((row+1)*.42)*1.3);
+ if(col===riverCol&&row>=1&&row<=17)return "w";
+ if(row===8&&col>=12&&col<=18)return "d";
+ if(col===12&&row>=8&&row<=15)return "d";
+ if(row>=15&&col>=13&&col<=21&&((row+col)%4!==0))return "d";
+ const seed=(col*37+row*61+col*row*13)%101;
+ if(seed<7)return "r";if(seed<15)return "s";if(seed<23)return "d";return "g";
 }).join(""));
 const RESERVED_CELLS=new Set(["5,4","6,6","7,4","6,5","9,5","10,7","10,8","4,8"]);
 const STARTER_SPRITES={"pocket.starter.hut":"facility_starter_hut","pocket.starter.foraging":"facility_starter_foraging","pocket.starter.well":"facility_starter_well"};
@@ -84,25 +83,17 @@ const terrainAt=(col,row)=>inWorld(col,row)?TERRAIN[row][col]:"";
 const walkable=(col,row)=>["g","s","d"].includes(terrainAt(col,row));
 const tileKey=(col,row)=>col+","+row;
 const siteCanUse=(facility,col,row)=>{
-  const req=(facility.location_requirements||[]).join(" ").toLowerCase(),tile=terrainAt(col,row);
-  if(!tile||tile==="w"||tile==="p"||tile==="d")return false;
-  const nearWater=[[col-1,row],[col+1,row],[col,row-1],[col,row+1]].some(([x,y])=>["w","p"].includes(terrainAt(x,y)));
-  if(/water|riverbank|lake|coast|groundwater/.test(req))return nearWater;
-  if(/arable|garden|terrace|farm|pasture/.test(req))return tile==="g"||tile==="s";
-  return tile==="g"||tile==="s";
+ const req=(facility.location_requirements||[]).join(" ").toLowerCase(),tile=terrainAt(col,row);
+ if(!tile||tile==="w"||tile==="p"||tile==="d"||tile==="r")return false;
+ const nearWater=[[col-1,row],[col+1,row],[col,row-1],[col,row+1]].some(([x,y])=>["w","p"].includes(terrainAt(x,y)));
+ if(/water|riverbank|lake|coast|groundwater/.test(req))return nearWater;
+ if(/arable|garden|terrace|farm|pasture/.test(req))return tile==="g"||tile==="s";
+ return tile==="g"||tile==="s";
 };
 const spriteForFacility=f=>{
-  const id=f?.facility_id||"";if(STARTER_SPRITES[id])return STARTER_SPRITES[id];
-  return FAMILY_SPRITES.find(([pattern])=>pattern.test((f?.family||"")+" "+(f?.name||"")))?.[1]||"facility_storage";
+ const id=f?.facility_id||"";if(STARTER_SPRITES[id])return STARTER_SPRITES[id];
+ return FAMILY_SPRITES.find(([pattern])=>pattern.test((f?.family||"")+" "+(f?.name||"")))?.[1]||"facility_storage";
 };
-const STARTER_SPRITES={"pocket.starter.hut":"facility_starter_hut","pocket.starter.foraging":"facility_starter_foraging","pocket.starter.well":"facility_starter_well"};
-const FAMILY_SPRITES=[
-  [/farm|horticulture|garden|agriculture/i,"facility_farm"],
-  [/water|sanitation|aquaculture|fish/i,"facility_starter_well"],
-  [/storage|logistics/i,"facility_storage"],
-  [/trade|commerce|market/i,"facility_market"],
-  [/workshop|processing|textile|ceramic|medicine|herb/i,"facility_workshop"]
-];
 class HomeBaseScene extends Phaser.Scene{
   constructor(){
     super("HomeBase");
@@ -269,6 +260,40 @@ class HomeBaseScene extends Phaser.Scene{
     this.comboLoading.set(combo,pending);
     try{return await pending;}finally{this.comboLoading.delete(combo);}
   }
+  async setAppearance(hair,outfit){
+    if(!HAIR_OPTIONS.some(x=>x.id===hair)||!OUTFIT_OPTIONS.some(x=>x.id===outfit))return false;
+    await this.ensureCombo(hair,outfit);
+    this.hair=hair;this.outfit=outfit;
+    if(this.player)this.applySprite(this.player,this.lastDirection||"s",this.moving?"walk":"idle");
+    return true;
+  }
+  drawWorld(){
+    const g=this.add.graphics();g.setDepth(-1000);
+    const palette={g:[45,76,52],s:[105,112,94],d:[116,94,66],w:[36,104,113],p:[55,125,130],r:[104,102,88]};
+    for(let row=0;row<WORLD_ROWS;row++)for(let col=0;col<WORLD_COLS;col++){
+      const kind=terrainAt(col,row),pos=locationOf(col,row),rgb=palette[kind]||palette.g;
+      const top={x:pos.x,y:pos.y-8},right={x:pos.x+16,y:pos.y},bottom={x:pos.x,y:pos.y+8},left={x:pos.x-16,y:pos.y};
+      if(kind==="r"){
+        g.fillStyle(0x343b31,.96);g.fillPoints([{x:left.x,y:left.y},{x:bottom.x,y:bottom.y},{x:bottom.x,y:bottom.y+7},{x:left.x,y:left.y+4}],true);
+        g.fillStyle(0x4b5144,.98);g.fillPoints([{x:bottom.x,y:bottom.y},{x:right.x,y:right.y},{x:right.x,y:right.y+6},{x:bottom.x,y:bottom.y+7}],true);
+      }
+      g.fillStyle((rgb[0]<<16)|(rgb[1]<<8)|rgb[2],1);
+      g.fillPoints([top,right,bottom,left],true);
+      g.lineStyle(1,kind==="w"||kind==="p"?0xa4d2c8:0xd0c9a3,kind==="w"||kind==="p"?.12:.075);
+      g.strokePoints([top,right,bottom,left],true);
+      if(kind==="w"||kind==="p"){
+        g.lineStyle(1,0xb8e3d7,.36);
+        g.beginPath();g.moveTo(pos.x-7,pos.y-2);g.lineTo(pos.x+2,pos.y+1);g.strokePath();
+      }else if(kind==="d"){
+        g.fillStyle(0xd4b17c,.12);g.fillCircle(pos.x-3,pos.y+1,1.5);
+        g.fillCircle(pos.x+5,pos.y-2,1);
+      }else if(kind==="g"&&((col*7+row*11)%9===0)){
+        g.lineStyle(1,0xa6b77e,.3);g.beginPath();g.moveTo(pos.x-3,pos.y+2);g.lineTo(pos.x-4,pos.y-1);g.moveTo(pos.x,pos.y+2);g.lineTo(pos.x+1,pos.y-2);g.strokePath();
+      }
+    }
+    // A softly layered shoreline rim gives the map a clear playable edge.
+    g.lineStyle(2,0x8f9d78,.2);g.beginPath();g.moveTo(...Object.values(locationOf(0,0)));g.lineTo(...Object.values(locationOf(WORLD_COLS-1,0)));g.lineTo(...Object.values(locationOf(WORLD_COLS-1,WORLD_ROWS-1)));g.lineTo(...Object.values(locationOf(0,WORLD_ROWS-1)));g.closePath();g.strokePath();
+  }
   getAppearanceState(){
     return {hair:this.hair,outfit:this.outfit,accessory:this.accessory,weapon:this.weapon};
   }
@@ -328,33 +353,6 @@ class HomeBaseScene extends Phaser.Scene{
     this.syncAppearanceLayers();
     return true;
   }
-  drawWorld(){
-    const g=this.add.graphics();g.setDepth(-1000);
-    const palette={g:[45,76,52],s:[105,112,94],d:[116,94,66],w:[36,104,113],p:[55,125,130],r:[104,102,88]};
-    for(let row=0;row<WORLD_ROWS;row++)for(let col=0;col<WORLD_COLS;col++){
-      const kind=terrainAt(col,row),pos=locationOf(col,row),rgb=palette[kind]||palette.g;
-      const top={x:pos.x,y:pos.y-8},right={x:pos.x+16,y:pos.y},bottom={x:pos.x,y:pos.y+8},left={x:pos.x-16,y:pos.y};
-      if(kind==="r"){
-        g.fillStyle(0x343b31,.96);g.fillPoints([{x:left.x,y:left.y},{x:bottom.x,y:bottom.y},{x:bottom.x,y:bottom.y+7},{x:left.x,y:left.y+4}],true);
-        g.fillStyle(0x4b5144,.98);g.fillPoints([{x:bottom.x,y:bottom.y},{x:right.x,y:right.y},{x:right.x,y:right.y+6},{x:bottom.x,y:bottom.y+7}],true);
-      }
-      g.fillStyle((rgb[0]<<16)|(rgb[1]<<8)|rgb[2],1);
-      g.fillPoints([top,right,bottom,left],true);
-      g.lineStyle(1,kind==="w"||kind==="p"?0xa4d2c8:0xd0c9a3,kind==="w"||kind==="p"?.12:.075);
-      g.strokePoints([top,right,bottom,left],true);
-      if(kind==="w"||kind==="p"){
-        g.lineStyle(1,0xb8e3d7,.36);
-        g.beginPath();g.moveTo(pos.x-7,pos.y-2);g.lineTo(pos.x+2,pos.y+1);g.strokePath();
-      }else if(kind==="d"){
-        g.fillStyle(0xd4b17c,.12);g.fillCircle(pos.x-3,pos.y+1,1.5);
-        g.fillCircle(pos.x+5,pos.y-2,1);
-      }else if(kind==="g"&&((col*7+row*11)%9===0)){
-        g.lineStyle(1,0xa6b77e,.3);g.beginPath();g.moveTo(pos.x-3,pos.y+2);g.lineTo(pos.x-4,pos.y-1);g.moveTo(pos.x,pos.y+2);g.lineTo(pos.x+1,pos.y-2);g.strokePath();
-      }
-    }
-    // A softly layered shoreline rim gives the map a clear playable edge.
-    g.lineStyle(2,0x8f9d78,.2);g.beginPath();g.moveTo(...Object.values(locationOf(0,0)));g.lineTo(...Object.values(locationOf(WORLD_COLS-1,0)));g.lineTo(...Object.values(locationOf(WORLD_COLS-1,WORLD_ROWS-1)));g.lineTo(...Object.values(locationOf(0,WORLD_ROWS-1)));g.closePath();g.strokePath();
-  }
   addWorldDecorations(){
     for(let row=0;row<WORLD_ROWS;row++)for(let col=0;col<WORLD_COLS;col++){
       const kind=terrainAt(col,row),seed=(col*31+row*47+col*row*3)%97,pos=groundOf(col,row);
@@ -375,10 +373,7 @@ class HomeBaseScene extends Phaser.Scene{
       npc.setData("tile",record.tile);npc.setData("residentIndex",i);this.npcs.push(npc);
     });
   }
-  worldToTile(x,y){
-    const a=(x-MAP_ORIGIN_X)/(TILE_W/2),b=(y-(MAP_ORIGIN_Y+8))/(TILE_H/2);
-    return {col:Math.round((a+b)/2),row:Math.round((b-a)/2)};
-  }
+  worldToTile(x,y){const a=(x-MAP_ORIGIN_X)/(TILE_W/2),b=(y-(MAP_ORIGIN_Y+8))/(TILE_H/2);return {col:Math.round((a+b)/2),row:Math.round((b-a)/2)};}
   drawFacilities(){
     if(!this.options?.session||!this.player)return;
     const facilities=this.options.session.snapshot().facilities||{};
@@ -522,6 +517,13 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
       "</section>";
   const viewport=root.querySelector("[data-world-viewport]"),worldPanel=root.querySelector("[data-world-panel]");
   const drawer=root.querySelector("[data-world-drawer]"),heading=root.querySelector("[data-world-heading]");
+  const applyShopDraft=async appearance=>{
+    const bodyReady=await scene.setAppearance(appearance.hair,appearance.outfit);
+    const accessoryReady=await scene.setAccessory(appearance.accessory||"none");
+    const weaponReady=await scene.setWeapon(appearance.weapon||"none");
+    if(!bodyReady||!accessoryReady||!weaponReady)throw new Error("One or more appearance layers could not be applied.");
+    return true;
+  };
   const renderPlaces=()=>{
     heading.textContent="YOUR HOMESTEAD";
     const owned=Object.entries(snapshot.facilities||{}).filter(([,v])=>v?.operational).length;
@@ -749,7 +751,7 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
   };
   scene.options={
     viewport,session,
-    onReady:s=>{s.setAppearance(session.getHair(),session.getOutfit());},
+    onReady:s=>{s.setAppearance(session.getHair(),session.getOutfit());s.setAccessory(session.getAccessory());s.setWeapon(session.getWeapon());},
     onInvalidMove:()=>setFeedback("That part of the ground is not walkable. Tap an open path or clearing."),
     onFacilityTap:id=>renderLocation(id),
     onNpcTap:i=>{
@@ -852,26 +854,19 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
   const dismissUnconfirmedShop=event=>{
     if(!wardrobeShop?.isOpen())return;
     if(event?.type==="click"&&drawer.contains(event.target))return;
-    void exitAppearanceShop({restore:true}).then(closed=>{
-      if(closed)setFeedback("Shop closed without purchase. Your original appearance has been restored.");
-    });
+    void exitAppearanceShop({restore:true}).then(closed=>{if(closed)setFeedback("Shop closed without purchase. Your original appearance has been restored.");});
   };
   const onShopEscape=event=>{
     if(event.key!=="Escape"||!wardrobeShop?.isOpen())return;
-    event.preventDefault();
-    event.stopPropagation();
-    void exitAppearanceShop({restore:true}).then(closed=>{
-      if(closed)setFeedback("Shop closed without purchase. Your original appearance has been restored.");
-    });
+    event.preventDefault();event.stopPropagation();
+    void exitAppearanceShop({restore:true}).then(closed=>{if(closed)setFeedback("Shop closed without purchase. Your original appearance has been restored.");});
   };
   root.addEventListener("click",updateClick);root.addEventListener("change",inputChange);
-  document.addEventListener("click",dismissUnconfirmedShop,true);
-  document.addEventListener("keydown",onShopEscape,true);
+  document.addEventListener("click",dismissUnconfirmedShop,true);document.addEventListener("keydown",onShopEscape,true);
   root.querySelector("[data-world-close]")?.addEventListener("click",async()=>{
     if(wardrobeShop?.isOpen()){
       const closed=await exitAppearanceShop({restore:true,collapse:true});
-      if(closed)setFeedback("Shop closed. Your original appearance has been restored.");
-      return;
+      if(closed)setFeedback("Shop closed. Your original appearance has been restored.");return;
     }
     drawer.classList.toggle("is-collapsed");
   });
@@ -883,11 +878,9 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
     if(heading.textContent==="SMALL HUT"&&session.isResting())renderLocation("pocket.starter.hut");
   },2500);
   return ()=>{
-    disposed=true;if(tick!==null)window.clearInterval(tick);
-    wardrobeShop?.abandon();
+    disposed=true;if(tick!==null)window.clearInterval(tick);wardrobeShop?.abandon();
     root.removeEventListener("click",updateClick);root.removeEventListener("change",inputChange);
-    document.removeEventListener("click",dismissUnconfirmedShop,true);
-    document.removeEventListener("keydown",onShopEscape,true);
+    document.removeEventListener("click",dismissUnconfirmedShop,true);document.removeEventListener("keydown",onShopEscape,true);
     if(game)game.destroy(true);
   };
 }
