@@ -349,3 +349,41 @@
 .tv-case em{z-index:2;border-color:#e0c99d;background:radial-gradient(circle at 35% 30%,#fff0cc,#a98c54 55%,#55412d 80%)}
 .tv-case u{z-index:2}
 .tv-case s{border-color:#d1c5ad;background:#514047}
+
+
+/* Pull-cord: Quiet Aura (preview 07) — softly breathing white cord and restrained dew mist. */
+.pull-cord-zone:before{
+  content:"";
+  position:absolute;
+  z-index:0;
+  pointer-events:none;
+  left:calc(25% - 27px);
+  top:5px;
+  width:54px;
+  height:148px;
+  border-radius:50%;
+  background:radial-gradient(ellipse at 50% 38%,rgba(239,247,255,.16) 0%,rgba(230,241,255,.09) 34%,rgba(226,238,250,.035) 58%,transparent 76%);
+  filter:blur(8px);
+  opacity:.72;
+  transform-origin:50% 35%;
+  animation:quiet-cord-mist 4.8s ease-in-out infinite;
+}
+.cord-svg path{
+  stroke:#f4f6f8;
+  stroke-width:4.2;
+  filter:drop-shadow(0 0 2px rgba(255,255,255,.55)) drop-shadow(0 0 5px rgba(229,240,255,.24));
+  animation:quiet-cord-breath 4.8s ease-in-out infinite;
+}
+@keyframes quiet-cord-breath{
+  0%,100%{opacity:.88;filter:drop-shadow(0 0 2px rgba(255,255,255,.42)) drop-shadow(0 0 4px rgba(229,240,255,.18))}
+  50%{opacity:1;filter:drop-shadow(0 0 3px rgba(255,255,255,.7)) drop-shadow(0 0 7px rgba(229,240,255,.3))}
+}
+@keyframes quiet-cord-mist{
+  0%,100%{opacity:.48;transform:scale(.94)}
+  50%{opacity:.82;transform:scale(1.08)}
+}
+@media(prefers-reduced-motion:reduce){
+  .pull-cord-zone:before,.cord-svg path{animation:none}
+  .pull-cord-zone:before{opacity:.58}
+  .cord-svg path{opacity:.94}
+}
