@@ -337,8 +337,8 @@ sprite("daily_login_shop_front",{w:360,h:640,pivot:[180,639]},c=>{
     c.px(12,y+3,"l");c.px(347,y+3,"l");
   }
   for(let i=0;i<100;i++){
-    const h=dlHash(i*37+91);
-    const x=17+h%30,y=263+dlHash(i*53+19)%125;
+    const h=(i*7919+91)%65521;
+    const x=17+h%30,y=263+(h*37+19)%125;
     c.px(x,y,i%4===0?"i":"w");
     c.px(360-x,y,i%5===0?"i":"W");
   }
@@ -431,8 +431,8 @@ sprite("daily_login_shop_front",{w:360,h:640,pivot:[180,639]},c=>{
 
   // Broken tar seams, shallow repairs and fine gravel shoulders.
   for(let i=0;i<1450;i++){
-    const h=dlHash(i*41+701);
-    const x=h%360,y=426+dlHash(i*19+337)%210;
+    const h=(i*3571+701)%65521;
+    const x=h%360,y=426+(h*31+i*19+337)%210;
     const half=Math.floor(34+((y-420)/220)*205);
     if(x>180-half+8&&x<180+half-8){
       if(i%13===0)c.px(x,y,"S");
@@ -679,7 +679,7 @@ sprite("daily_login_shop_interior",{w:360,h:800,pivot:[180,799]},c=>{
   }
   // Short diagonal grain and worn varnish marks make each floorboard distinct.
   for(let i=0;i<220;i++){
-    const h=dlHash(i*23+417),x=18+h%322,y=558+dlHash(i*31+9)%222;
+    const h=(i*1877+417)%65521,x=18+h%322,y=558+(h*29+i*31+9)%222;
     if(i%4===0)line(c,x,y,x+2,y+1,"L");
     else if(i%5===0)c.px(x,y,"s");
     else if(i%7===0)c.px(x,y,"M");
