@@ -1,7 +1,7 @@
 name: Merzkava Pocket Android APK
 on:
   push:
-    branches: [main]
+    branches: [main, feat/daily-login-pixel-scene-frame11-mainline]
     paths:
       - "review-apk/**"
       - "docs/game/**"
