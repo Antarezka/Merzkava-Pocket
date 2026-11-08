@@ -665,7 +665,7 @@ const RIG_MOVES=Object.fromEntries(Object.entries(MOVES).map(([name,M])=>[
   }
 ]));
 rig3d("yuma",{...FIG,n:16,parts:parts3,blocks:true,moves:RIG_MOVES});
-card("yuma",{is:"Yunmiao, a white-lavender fox-spirit lantern keeper in a layered rose-and-jade hanfu; 48 px chibi body, eight isometric headings, 24 authored actions",cells:{"iso/24ppm":"✓","hd2d/24ppm":"✓"},vary:{part:"hair ornaments, lantern prop and garment details"}});
+card("yuma",{is:"Yuma, a white-lavender fox-spirit lantern keeper in a layered rose-and-jade hanfu; 48 px chibi body, eight isometric headings, 24 authored actions",cells:{"iso/24ppm":"✓","hd2d/24ppm":"✓"},vary:{part:"hair ornaments, lantern prop and garment details"}});
 
 // UI and combat support art. These are independent assets, not enlarged game sprites.
 sprite("yuma_title_banner",{w:128,h:28,pivot:[64,14]},c=>{
