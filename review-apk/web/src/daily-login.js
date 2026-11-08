@@ -4,25 +4,26 @@ import "./daily-login.css";
 const reducedMotion=()=>window.matchMedia?.("(prefers-reduced-motion: reduce)").matches??false;
 
 export function dailyLoginMarkup(){
- return `
+ return \`
  <main class="daily-login-scene" data-daily-login-root aria-label="Daily Login Japanese shop">
   <section class="dl-layer dl-outside" data-dl-outside aria-label="Bagian depan kedai Jepang">
-   <div class="dl-night-sky"><i class="dl-star dl-star-one"></i><i class="dl-star dl-star-two"></i><i class="dl-star dl-star-three"></i><span class="dl-moon"></span></div>
+   <div class="dl-night-sky" aria-hidden="true"><i class="dl-star dl-star-one"></i><i class="dl-star dl-star-two"></i><i class="dl-star dl-star-three"></i><span class="dl-moon"></span></div>
    <div class="dl-shop-scene">
-    <img class="dl-shop-art" src="/game-assets/pxl/sprites/daily_login_shop_front.png" alt="" draggable="false">
-    <div class="dl-noren-pxl" aria-hidden="true"></div>
-    <div class="dl-lantern-glow dl-lantern-glow-left" aria-hidden="true"></div>
-    <div class="dl-lantern-glow dl-lantern-glow-right" aria-hidden="true"></div>
-    <div class="dl-door-frame">
-     <div class="dl-door-warm-light"></div>
-     <div class="dl-door-track dl-door-track-top"></div>
-     <div class="dl-door-track dl-door-track-bottom"></div>
-     <button class="dl-door-panel" type="button" data-dl-door aria-label="Pintu masuk kedai">
-      <span class="dl-door-lattice"></span><i class="dl-door-handle"></i><span class="dl-door-caption">すべり戸</span>
-     </button>
+    <div class="dl-art-stage">
+     <img class="dl-shop-art" src="/game-assets/pxl/sprites/daily_login_shop_front.png" alt="" draggable="false">
+     <div class="dl-noren-pxl" aria-hidden="true"></div>
+     <div class="dl-lantern-glow dl-lantern-glow-left" aria-hidden="true"></div>
+     <div class="dl-lantern-glow dl-lantern-glow-right" aria-hidden="true"></div>
+     <div class="dl-door-frame">
+      <div class="dl-door-warm-light"></div>
+      <div class="dl-door-track dl-door-track-top"></div>
+      <div class="dl-door-track dl-door-track-bottom"></div>
+      <button class="dl-door-panel" type="button" data-dl-door aria-label="Pintu masuk kedai">
+       <span class="dl-door-lattice"></span><i class="dl-door-handle"></i>
+      </button>
+     </div>
     </div>
    </div>
-   <div class="dl-street"><i></i><i></i><i></i></div>
    <button class="dl-back" type="button" data-dl-back aria-label="Kembali ke menu">KEMBALI <span>↙</span></button>
   </section>
 
@@ -75,9 +76,8 @@ export function dailyLoginMarkup(){
    </div>
   </section>
   <div class="dl-scene-vignette"></div>
- </main>`;
+ </main>\`;
 }
-
 function playDoorSlideChime(){
  const AudioContextClass=window.AudioContext||window.webkitAudioContext;
  if(!AudioContextClass)return;
@@ -121,6 +121,7 @@ export function mountDailyLogin(scene,onBack){
  const dialogueLines=["Ai-yo!","Makanan masih dipersiapkan!","Mohon tunggu!"];
  let interiorMotionStarted=false;
  let opened=false,leaving=false,disposed=false,drag=null,dragOffset=0,dialogueIndex=-1,choiceOpen=false;
+ let pointerLastX=0,doorRattleAudio=null;
 
  const track=animation=>{
   if(animation){animations.add(animation);animation.then?.(()=>animations.delete(animation));}
@@ -133,6 +134,17 @@ export function mountDailyLogin(scene,onBack){
  const animateUnlessReduced=(target,params)=>{
   if(!motionReduced)track(animate(target,params));
  };
+ const refreshSky=()=>{
+  const now=new Date();
+  const hour=now.getHours()+now.getMinutes()/60;
+  const phase=hour>=5&&hour<7?"dawn":hour>=7&&hour<11?"morning":hour>=11&&hour<16?"day":hour>=16&&hour<18.5?"golden":hour>=18.5&&hour<20.5?"dusk":"night";
+  outside.dataset.dlTimeOfDay=phase;
+ };
+ refreshSky();
+ const skyTimer=window.setInterval(refreshSky,30000);
+ const onVisibilityChange=()=>{if(document.visibilityState==="visible")refreshSky();};
+ document.addEventListener("visibilitychange",onVisibilityChange);
+
  scene.style.opacity="0";
  if(motionReduced)scene.style.opacity="1";
  else animateUnlessReduced(scene,{opacity:[0,1],translateY:[5,0],duration:620,ease:"outCubic"});
@@ -162,54 +174,118 @@ export function mountDailyLogin(scene,onBack){
   trackInterior(animate(scene.querySelector(".dl-paper-lamp"),{opacity:[.84,1,.9],duration:2100,loop:true,ease:"inOutSine"}));
  };
 
+ const playDoorRattle=()=>{
+  const AudioContextClass=window.AudioContext||window.webkitAudioContext;
+  if(!AudioContextClass)return;
+  try{
+   const ctx=doorRattleAudio||(doorRattleAudio=new AudioContextClass());
+   if(ctx.state==="suspended")void ctx.resume();
+   const now=ctx.currentTime;
+   const tap=(frequency,delay,level,duration)=>{
+    const osc=ctx.createOscillator(),amp=ctx.createGain();
+    osc.type="triangle";
+    osc.frequency.setValueAtTime(frequency,now+delay);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(45,frequency*.64),now+delay+duration);
+    amp.gain.setValueAtTime(.0001,now+delay);
+    amp.gain.linearRampToValueAtTime(level,now+delay+.008);
+    amp.gain.exponentialRampToValueAtTime(.0001,now+delay+duration);
+    osc.connect(amp).connect(ctx.destination);
+    osc.start(now+delay);osc.stop(now+delay+duration+.01);
+   };
+   tap(155,.0,.018,.085);tap(112,.035,.011,.105);tap(205,.09,.007,.07);
+  }catch{/* The visual door motion must work even when audio is unavailable. */}
+ };
+ const settleDoor=(fromX,toX,duration=420,onComplete)=>{
+  doorway.classList.add("is-rattling");
+  door.classList.remove("is-dragging");
+  if(motionReduced){
+   door.style.transform="translate3d("+toX+"px,0,0)";
+   doorway.classList.remove("is-rattling");
+   onComplete?.();
+   return;
+  }
+  track(animate(door,{
+   translateX:[fromX,toX,toX-0.7,toX+0.45,toX],
+   translateY:[0,.7,-.45,.25,0],
+   rotate:[0,.12,-.09,.04,0],
+   duration,ease:"outCubic",
+   onComplete:()=>{
+    door.style.transform="translate3d("+toX+"px,0,0)";
+    doorway.classList.remove("is-rattling");
+    onComplete?.();
+   }
+  }));
+ };
  const openShop=()=>{
   if(opened||leaving||disposed)return;
   opened=true;
   door.disabled=true;
   back.hidden=true;
   playDoorSlideChime();
+  playDoorRattle();
   interior.style.visibility="visible";
   startInterior();
+  const travel=Math.max(doorway.clientWidth*1.08,door.clientWidth*1.15);
+  const finishDoor=()=>{
+   doorway.classList.remove("is-rattling");
+   outside.style.visibility="hidden";
+  };
   if(motionReduced){
-   door.style.transform="translate3d(110%,0,0)";
+   door.style.transform="translate3d("+(-travel)+"px,0,0)";
    outside.style.opacity="0";outside.style.visibility="hidden";
    interior.style.opacity="1";
+   finishDoor();
    return;
   }
-  const travel=Math.max(doorway.clientWidth*.94,door.clientWidth*1.55);
-  const direction=dragOffset<0?-1:1;
-  track(animate(door,{translateX:[dragOffset,direction*travel],opacity:[1,.94],duration:900,ease:"inOutCubic"}));
-  track(animate(outside,{opacity:[1,0],duration:2000,ease:"inOutCubic",onComplete:()=>{outside.style.visibility="hidden";}}));
+  doorway.classList.add("is-rattling");
+  track(animate(door,{
+   translateX:[dragOffset,-travel,-travel-1.1,-travel+.6,-travel],
+   translateY:[0,.8,-.55,.25,0],
+   rotate:[0,.13,-.08,.03,0],
+   duration:760,ease:"outCubic",onComplete:finishDoor
+  }));
+  track(animate(outside,{opacity:[1,0],duration:2000,ease:"inOutCubic"}));
   track(animate(interior,{opacity:[0,1],duration:2000,ease:"inOutCubic"}));
  };
 
  const resetDoor=()=>{
-  if(motionReduced)door.style.transform="translateX(0)";
-  else track(animate(door,{translateX:[dragOffset,0],duration:380,ease:"outBack(1.4)"}));
+  const from=dragOffset;
   dragOffset=0;
+  playDoorRattle();
+  settleDoor(from,0,420);
  };
  const pointerDown=event=>{
   if(opened||leaving||disposed||drag||(event.pointerType==="mouse"&&event.button!==0))return;
   event.preventDefault();
   drag={id:event.pointerId,x:event.clientX,start:dragOffset,moved:false};
-  try{door.setPointerCapture(event.pointerId);}catch{}
+  pointerLastX=event.clientX;
+  try{door.focus({preventScroll:true});door.setPointerCapture(event.pointerId);}catch{}
   door.classList.add("is-dragging");
+  doorway.classList.add("is-rattling");
  };
  const pointerMove=event=>{
   if(!drag||drag.id!==event.pointerId)return;
   event.preventDefault();
   const delta=event.clientX-drag.x;
-  const max=Math.max(doorway.clientWidth*.94,door.clientWidth*1.55);
-  dragOffset=Math.max(-max,Math.min(max,drag.start+delta));
-  if(Math.abs(delta)>5)drag.moved=true;
-  door.style.transform="translate3d("+dragOffset+"px,0,0)";
+  const step=event.clientX-pointerLastX;
+  pointerLastX=event.clientX;
+  // The shoji only opens left. A rightward drag returns it toward its closed stop.
+  const max=Math.max(doorway.clientWidth*1.08,door.clientWidth*1.15);
+  dragOffset=Math.max(-max,Math.min(0,drag.start+delta));
+  if(Math.abs(delta)>4)drag.moved=true;
+  const rattle=Math.sin(step*.34)*Math.min(.8,Math.abs(step)*.08);
+  const tilt=Math.sin(step*.24)*Math.min(.14,Math.abs(step)*.012);
+  door.style.transform="translate3d("+dragOffset+"px,"+rattle.toFixed(2)+"px,0) rotate("+tilt.toFixed(3)+"deg)";
  };
  const pointerUp=event=>{
   if(!drag||drag.id!==event.pointerId)return;
-  const shouldOpen=drag.moved&&Math.abs(dragOffset)>=doorway.clientWidth*.24;
+  const fullyOpened=drag.moved&&dragOffset<=-doorway.clientWidth*.78;
   try{door.releasePointerCapture(event.pointerId);}catch{}
-  drag=null;door.classList.remove("is-dragging");
-  if(shouldOpen)openShop();else resetDoor();
+  drag=null;
+  door.classList.remove("is-dragging");
+  doorway.classList.remove("is-rattling");
+  if(fullyOpened)openShop();
+  else resetDoor();
  };
  const keyboardOpen=event=>{
   if(event.detail===0&&!opened&&!leaving)openShop();
@@ -261,8 +337,9 @@ export function mountDailyLogin(scene,onBack){
    outside.style.visibility="visible";
    outside.style.opacity="1";
    door.disabled=false;
-   door.style.transform="translateX(0)";
+   door.style.transform="translate3d(0,0,0)";
    door.style.opacity="1";
+   doorway.classList.remove("is-rattling");
    dragOffset=0;
    back.hidden=false;
    back.disabled=false;
@@ -299,5 +376,8 @@ export function mountDailyLogin(scene,onBack){
   stay.removeEventListener("click",stayInside);
   leave.removeEventListener("click",leaveShop);
   back.removeEventListener("click",returnToMenu);
+  window.clearInterval(skyTimer);
+  document.removeEventListener("visibilitychange",onVisibilityChange);
+  doorRattleAudio?.close?.();
  };
 }
