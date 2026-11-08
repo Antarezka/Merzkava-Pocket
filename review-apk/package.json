@@ -6,13 +6,15 @@
   "scripts": {
     "build": "node scripts/copy-catalogs.mjs && node scripts/build-world-assets.mjs && vite build",
     "dev": "vite --host 0.0.0.0",
-    "predev": "node scripts/copy-catalogs.mjs"
+    "predev": "node scripts/copy-catalogs.mjs",
+    "render:launcher-icon": "node scripts/render-shimaenaga-icon.mjs"
   },
   "dependencies": {
     "animejs": "4.5.0",
     "phaser": "4.2.1"
   },
   "devDependencies": {
+    "takumi-js": "2.19.0",
     "vite": "6.4.1"
   }
 }
