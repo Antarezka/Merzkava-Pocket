@@ -24,14 +24,14 @@ try{
   const pxl=resolve(pxlRoot,"bin/pxl.js");
 
   // Existing world and the shared human base retain their approved native grids.
-  run(process.execPath,[pxl,resolve(root,"art/world-archive.px.js"),"--out",out,"--no-preview"]);
-  run(process.execPath,[pxl,resolve(root,"art/human-character-base.px.js"),"--out",humanOut,"--no-preview"]);
+  run(process.execPath,[pxl,"build",resolve(root,"art/world-archive.px.js"),"--out",out,"--no-preview"]);
+  run(process.execPath,[pxl,"build",resolve(root,"art/human-character-base.px.js"),"--out",humanOut,"--no-preview"]);
   for(const folder of ["sprites","anims","share"])copyTree(resolve(humanOut,folder),resolve(out,folder));
 
   // Build Yuma's complete eight-perspective rig and every authored animation,
   // including the high-density idle, locomotion, combat, life and expression clips.
   const yuma=resolve(root,"art/characters/yuma-fox-rig3d.px.js");
-  run(process.execPath,[pxl,yuma,"--out",yumaOut,"--no-preview"]);
+  run(process.execPath,[pxl,"build",yuma,"--out",yumaOut,"--no-preview"]);
   for(const folder of ["sprites","anims","share"])copyTree(resolve(yumaOut,folder),resolve(out,folder));
 
   // Keep the turnaround and all review sheets available as game assets.
