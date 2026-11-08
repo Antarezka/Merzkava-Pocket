@@ -295,9 +295,9 @@ export function mountDailyLogin(scene,onBack){
    choiceDim.hidden=false;
    choice.hidden=false;
    choiceOpen=true;
-   if(motionReduced){choiceDim.style.opacity=".18";choice.style.opacity="1";}
+   if(motionReduced){choiceDim.style.opacity="1";choice.style.opacity="1";}
    else{
-    track(animate(choiceDim,{opacity:[0,.18],delay:250,duration:280,ease:"outCubic"}));
+    track(animate(choiceDim,{opacity:[0,1],delay:250,duration:280,ease:"outCubic"}));
     // Keep the CSS viewport-centering transform untouched while fading the text in.
     track(animate(choice,{opacity:[0,1],delay:470,duration:360,ease:"outCubic"}));
    }
