@@ -11,6 +11,7 @@ export function dailyLoginMarkup(){
    <div class="dl-shop-scene">
     <div class="dl-art-stage">
      <img class="dl-shop-art" src="/game-assets/pxl/sprites/daily_login_shop_front.png" alt="" draggable="false">
+     <div class="dl-kanban-pxl" aria-hidden="true"><img src="/game-assets/pxl/sprites/daily_login_kanban.png" alt="" draggable="false"><span>そば</span><small>手打ち</small></div>
      <div class="dl-noren-pxl" aria-hidden="true"></div>
      <div class="dl-lantern-glow dl-lantern-glow-left" aria-hidden="true"></div>
      <div class="dl-lantern-glow dl-lantern-glow-right" aria-hidden="true"></div>
@@ -31,9 +32,12 @@ export function dailyLoginMarkup(){
    <div class="dl-interior-wall">
     <div class="dl-interior-header"><span>DAILY LOG-IN</span><i>本日の食堂</i></div>
     <div class="dl-paper-lamp"><i></i><b></b></div>
+    <div class="dl-bulb-lamp"><span></span><i></i><b></b></div>
     <div class="dl-interior-window"><span></span><i></i><b></b></div>
+    <div class="dl-menu-board"><span>本日のおすすめ</span><b>手打ちそば</b><i>温かいお茶</i></div>
     <div class="dl-kitchen-shelf"><i></i><i></i><i></i><span></span><b></b></div>
     <div class="dl-hanging-utensils"><i></i><i></i><i></i><i></i></div>
+    <div class="dl-seasoning-set"><i></i><i></i><i></i><span></span></div>
     <div class="dl-floor-mat"></div>
     <div class="dl-kitchen-counter">
      <div class="dl-counter-top"></div>
@@ -116,12 +120,13 @@ export function mountDailyLogin(scene,onBack){
  const leave=scene.querySelector("[data-dl-leave]");
  const tvNoise=scene.querySelector("[data-dl-tv-noise]");
  const tvScan=scene.querySelector("[data-dl-tv-scan]");
+ const bulb=scene.querySelector(".dl-bulb-lamp");
  const puffs=[...scene.querySelectorAll(".dl-steam")];
  const animations=new Set(),interiorAnimations=new Set(),motionReduced=reducedMotion();
  const dialogueLines=["Ai-yo!","Makanan masih dipersiapkan!","Mohon tunggu!"];
  let interiorMotionStarted=false;
  let opened=false,leaving=false,disposed=false,drag=null,dragOffset=0,dialogueIndex=-1,choiceOpen=false;
- let pointerLastX=0,doorRattleAudio=null;
+ let pointerLastX=0,doorRattleAudio=null,dragHapticSent=false;
 
  const track=animation=>{
   if(animation){animations.add(animation);animation.then?.(()=>animations.delete(animation));}
@@ -171,7 +176,8 @@ export function mountDailyLogin(scene,onBack){
   // is shown until the actual local login/claim system exists.
   trackInterior(animate(tvNoise,{opacity:[.12,.32,.16,.28,.12],translateX:[0,-2,1,-1,0],duration:190,loop:true,ease:"linear"}));
   trackInterior(animate(tvScan,{translateY:["-100%","100%"],opacity:[.28,.78,.28],duration:1250,loop:true,ease:"linear"}));
-  trackInterior(animate(scene.querySelector(".dl-paper-lamp"),{opacity:[.84,1,.9],duration:2100,loop:true,ease:"inOutSine"}));
+  trackInterior(animate(scene.querySelector(".dl-paper-lamp"),{opacity:[.78,.96,.84,.92,.76],duration:2900,loop:true,ease:"inOutSine"}));
+  trackInterior(animate(bulb,{opacity:[.58,.82,.64,.76,.56],scale:[.99,1.015,.995,1.01,.99],duration:3600,loop:true,ease:"inOutSine"}));
  };
 
  const playDoorRattle=()=>{
@@ -260,6 +266,7 @@ export function mountDailyLogin(scene,onBack){
   drag={id:event.pointerId,x:event.clientX,start:dragOffset,moved:false};
   pointerLastX=event.clientX;
   try{door.focus({preventScroll:true});door.setPointerCapture(event.pointerId);}catch{}
+  dragHapticSent=false;
   door.classList.add("is-dragging");
   doorway.classList.add("is-rattling");
  };
@@ -271,10 +278,12 @@ export function mountDailyLogin(scene,onBack){
   pointerLastX=event.clientX;
   // The shoji only opens left. A rightward drag returns it toward its closed stop.
   const max=Math.max(doorway.clientWidth*1.08,door.clientWidth*1.15);
-  dragOffset=Math.max(-max,Math.min(0,drag.start+delta));
+  // The wooden shoji has weight: finger travel is slightly resisted by the track.
+  dragOffset=Math.max(-max,Math.min(0,drag.start+delta*.82));
   if(Math.abs(delta)>4)drag.moved=true;
-  const rattle=Math.sin(step*.34)*Math.min(.8,Math.abs(step)*.08);
-  const tilt=Math.sin(step*.24)*Math.min(.14,Math.abs(step)*.012);
+  if(drag.moved&&!dragHapticSent){navigator.vibrate?.(9);dragHapticSent=true;}
+  const rattle=Math.sin(step*.34)*Math.min(1.8,Math.abs(step)*.16);
+  const tilt=Math.sin(step*.24)*Math.min(.28,Math.abs(step)*.022);
   door.style.transform="translate3d("+dragOffset+"px,"+rattle.toFixed(2)+"px,0) rotate("+tilt.toFixed(3)+"deg)";
  };
  const pointerUp=event=>{
