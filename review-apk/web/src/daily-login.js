@@ -3,7 +3,7 @@ import "./daily-login.css";
 const reducedMotion=()=>window.matchMedia?.("(prefers-reduced-motion: reduce)").matches??false;
 
 export function dailyLoginMarkup(){
- return \`
+ return `
  <main class="daily-login-scene" data-daily-login-root aria-label="Daily Login Japanese shop">
   <section class="dl-layer dl-outside" data-dl-outside aria-label="Kedai Jepang">
    <div class="dl-night-sky"><i class="dl-star dl-star-one"></i><i class="dl-star dl-star-two"></i><i class="dl-star dl-star-three"></i><span class="dl-moon"></span></div>
@@ -47,7 +47,7 @@ export function dailyLoginMarkup(){
    </div>
   </section>
   <div class="dl-scene-vignette"></div><div class="dl-transition-veil" data-dl-veil></div><button class="dl-exit" type="button" data-dl-exit>KELUAR <span>↗</span></button><span class="dl-scene-footer">A LITTLE MEAL, A NEW DAY</span>
- </main>\`;
+ </main>`;
 }
 
 function playDoorSlideChime(){
