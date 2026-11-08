@@ -387,3 +387,58 @@
   .pull-cord-zone:before{opacity:.58}
   .cord-svg path{opacity:.94}
 }
+
+
+/* White theme pull-cord — soft black filament with a thin, breathing dementor-like miasma. */
+:root[data-theme="light"] .cord-svg path{
+  stroke:#242426;
+  stroke-width:4.2;
+  filter:drop-shadow(0 0 2px rgba(20,20,24,.22)) drop-shadow(0 0 5px rgba(35,35,40,.12));
+  animation:white-cord-breath 5.6s ease-in-out infinite;
+}
+:root[data-theme="light"] .pull-cord-zone:before{
+  left:calc(25% - 30px);
+  top:3px;
+  width:60px;
+  height:154px;
+  background:
+    radial-gradient(ellipse at 50% 32%,rgba(34,34,39,.10) 0%,rgba(45,45,51,.055) 34%,rgba(55,55,61,.018) 60%,transparent 78%);
+  filter:blur(9px);
+  opacity:.62;
+  animation:white-cord-miasma 6.4s ease-in-out infinite;
+}
+:root[data-theme="light"] .pull-cord-zone:after{
+  content:"";
+  position:absolute;
+  z-index:0;
+  left:calc(25% - 23px);
+  top:27px;
+  width:46px;
+  height:112px;
+  pointer-events:none;
+  border-radius:48%;
+  background:
+    radial-gradient(ellipse at 35% 28%,rgba(28,28,33,.055),transparent 48%),
+    radial-gradient(ellipse at 68% 57%,rgba(42,42,48,.045),transparent 52%),
+    radial-gradient(ellipse at 42% 82%,rgba(35,35,40,.035),transparent 54%);
+  filter:blur(6px);
+  transform-origin:50% 30%;
+  animation:white-cord-wisp 7.2s ease-in-out infinite;
+}
+@keyframes white-cord-breath{
+  0%,100%{opacity:.88;filter:drop-shadow(0 0 2px rgba(20,20,24,.18)) drop-shadow(0 0 4px rgba(35,35,40,.08))}
+  50%{opacity:1;filter:drop-shadow(0 0 3px rgba(20,20,24,.28)) drop-shadow(0 0 7px rgba(35,35,40,.14))}
+}
+@keyframes white-cord-miasma{
+  0%,100%{opacity:.36;transform:translateY(2px) scale(.94)}
+  50%{opacity:.68;transform:translateY(-2px) scale(1.07)}
+}
+@keyframes white-cord-wisp{
+  0%,100%{opacity:.28;transform:translate(-1px,2px) scale(.94) rotate(-2deg)}
+  50%{opacity:.56;transform:translate(2px,-2px) scale(1.06) rotate(2deg)}
+}
+@media(prefers-reduced-motion:reduce){
+  :root[data-theme="light"] .cord-svg path,
+  :root[data-theme="light"] .pull-cord-zone:before,
+  :root[data-theme="light"] .pull-cord-zone:after{animation:none}
+}
