@@ -269,23 +269,22 @@ pal({
 // Transparent portrait canvas: empty upper pixels become live sky.
 // The perspective asphalt approach widens toward the viewer.
 sprite("daily_login_shop_front",{w:360,h:640,pivot:[180,639]},c=>{
-  // Shallow Japanese roof and broad eaves.
-  for(let y=145;y<204;y++){
-    const half=Math.min(166,Math.max(0,Math.floor((y-145)*2.83)));
-    if(half<2)continue;
+  // Low, shallow contemporary roofline with broad, calm eaves.
+  for(let y=174;y<203;y++){
+    const half=Math.min(166,Math.floor(100+(y-174)*2.35));
     c.hline(180-half,y,half*2,"K");
-    if(y>151)c.hline(180-half+3,y+1,half*2-6,(y%12<6)?"C":"B");
-    if(y%8===0&&half>24)c.hline(180-half+11,y+2,half*2-22,"q");
+    if(y>177)c.hline(180-half+3,y+1,half*2-6,(y%12<6)?"C":"B");
+    if(y%7===0&&half>24)c.hline(180-half+11,y+2,half*2-22,"q");
   }
-  for(let y=158;y<201;y+=7){
-    const half=Math.floor((y-145)*2.83);
+  for(let y=181;y<201;y+=5){
+    const half=Math.min(166,Math.floor(100+(y-174)*2.35));
     for(let x=180-half+15+(y%14);x<180+half-12;x+=24){
       c.vline(x,y,3,"c");c.px(x+1,y,"s");
     }
   }
-  rect(c,12,199,336,17,"K");rect(c,18,202,324,8,"C");
-  c.hline(17,202,326,"s");c.hline(21,211,318,"D");
-  for(let x=28;x<337;x+=26)c.vline(x,203,8,"B");
+  rect(c,12,201,336,17,"K");rect(c,18,204,324,8,"C");
+  c.hline(17,204,326,"s");c.hline(21,213,318,"D");
+  for(let x=28;x<337;x+=26)c.vline(x,205,8,"B");
 
   // Wide, low facade: white plaster, charcoal framing, natural brown timber.
   rect(c,31,215,298,202,"K");rect(c,37,219,286,190,"W");
@@ -337,8 +336,8 @@ sprite("daily_login_shop_front",{w:360,h:640,pivot:[180,639]},c=>{
   lantern(113,293);lantern(227,293);
 
   // Freestanding DAILY kanban beside the roadside approach.
-  rect(c,245,398,31,49,"K");rect(c,248,401,25,42,"D");
-  rect(c,251,404,19,35,"I");
+  rect(c,241,387,42,65,"K");rect(c,244,390,36,58,"D");
+  rect(c,247,393,30,52,"I");c.hline(247,394,30,"g");
   const glyph={
     D:["110","101","101","101","110"],
     A:["010","101","111","101","101"],
@@ -347,11 +346,12 @@ sprite("daily_login_shop_front",{w:360,h:640,pivot:[180,639]},c=>{
     Y:["101","101","010","010","010"]
   };
   for(let n=0;n<5;n++){
-    const rows=glyph["DAILY"[n]],yy=406+n*6;
-    for(let gy=0;gy<5;gy++)for(let gx=0;gx<3;gx++)if(rows[gy][gx]==="1")c.px(258+gx,yy+gy,"B");
+    const rows=glyph["DAILY"[n]],yy=396+n*10;
+    for(let gy=0;gy<5;gy++)for(let gx=0;gx<3;gx++)if(rows[gy][gx]==="1")rect(c,259+gx*2,yy+gy*2,2,2,"B");
   }
-  line(c,249,445,245,465,"B");line(c,271,445,277,465,"B");
-  c.hline(243,464,35,"D");
+  c.hline(247,444,30,"u");
+  line(c,245,450,240,473,"B");line(c,279,450,285,473,"B");
+  c.hline(239,472,47,"D");
 
   // Covered entrance terrace and a road that opens in correct perspective.
   rect(c,23,414,314,11,"B");rect(c,29,416,302,6,"s");
