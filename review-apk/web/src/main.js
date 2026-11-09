@@ -113,6 +113,37 @@ function syncAudioUI() {
   if (effectsOutput) effectsOutput.textContent = state.effectsVolume + "%";
 }
 
+function animateRecordToPlatter(button) {
+  const sleeve = button.querySelector(".record-sleeve");
+  const platter = root.querySelector(".turntable-platter");
+  if (!sleeve || !platter || reducedMotion()) return;
+  const from = sleeve.getBoundingClientRect();
+  const to = platter.getBoundingClientRect();
+  if (!from.width || !from.height || !to.width || !to.height) return;
+
+  const diameter = Math.min(to.width * 0.82, to.height * 0.82);
+  const flight = document.createElement("span");
+  flight.className = "audio-record-flight";
+  flight.setAttribute("aria-hidden", "true");
+  Object.assign(flight.style, {
+    left: (from.left + (from.width - diameter) / 2) + "px",
+    top: (from.top + (from.height - diameter) / 2) + "px",
+    width: diameter + "px",
+    height: diameter + "px",
+    opacity: "0.98"
+  });
+  document.body.append(flight);
+  animate(flight, {
+    left: (to.left + (to.width - diameter) / 2) + "px",
+    top: (to.top + (to.height - diameter) / 2) + "px",
+    rotate: "270deg",
+    opacity: [0.98, 0.92],
+    duration: 680,
+    ease: "inOutCubic",
+    onComplete: () => flight.remove()
+  });
+}
+
 function mountAudioSettings() {
   const section = root.querySelector("[data-audio-section]");
   if (!section) return () => {};
@@ -141,10 +172,7 @@ function mountAudioSettings() {
       const changed = pocketAudio.selectTrack(button.dataset.audioRecord);
       if (!changed) return;
       pocketAudio.playEffect("placement");
-      button.classList.remove("is-pulling");
-      void button.offsetWidth;
-      button.classList.add("is-pulling");
-      window.setTimeout(() => button.classList.remove("is-pulling"), 560);
+      animateRecordToPlatter(button);
     });
   });
 

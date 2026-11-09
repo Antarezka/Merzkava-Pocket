@@ -1504,3 +1504,15 @@
 .audio-rack-note{margin:0;color:var(--muted);font:10px/1.55 Georgia,serif}
 @media(max-width:360px){.audio-content{padding-inline:9px}.audio-player{padding:9px}.audio-volume-controls{gap:8px}.turntable{min-height:158px}.audio-section-toggle{grid-template-columns:30px auto 1fr 18px;padding-inline:10px;gap:7px}}
 @media(prefers-reduced-motion:reduce){.vinyl-disc{transform:none!important;will-change:auto}.turntable-needle,.needle-head,.needle-tip{transition:none!important}}
+
+.audio-record-flight{
+  position:fixed;z-index:1000;display:block;pointer-events:none;border:1px solid #81877a;border-radius:50%;
+  background:repeating-radial-gradient(circle at center,#303433 0 1px,#111515 1.6px 3px,#292d2c 3.6px 4.3px);
+  box-shadow:0 8px 20px #000a,inset 0 0 0 2px #ffffff12;
+  transform-origin:center center;
+}
+.audio-record-flight:after{
+  content:"";position:absolute;left:50%;top:50%;width:32%;aspect-ratio:1;transform:translate(-50%,-50%);
+  border:2px solid #55462f;border-radius:50%;background:radial-gradient(circle at 35% 28%,#e6d6ae,#a98c54 58%,#59492f);box-shadow:0 0 0 1px #d4bc8066;
+}
+:root[data-theme="light"] .audio-record-flight{border-color:#7c7668}
