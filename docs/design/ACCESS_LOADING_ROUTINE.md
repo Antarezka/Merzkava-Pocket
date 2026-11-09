@@ -25,13 +25,11 @@ Use the same cinematic Victorian horological instrument in both themes, with the
 
 Both variants retain a mechanically coupled gear pair with a matched counter-rotation ratio, a rocking escapement, a pendulum, the Merzkava medallion, a scanning reflection and six mechanical progress stations. Keep the mechanism legible on narrow Android screens.
 
-The scene contains one active diagnostic message slot. It replaces the previous message rather than stacking a history. Each stage displays the same message in three successive frames:
+The diagnostic slot cycles through a role-specific queue of 20–50 real, relevant technical fragments (40 for Player, 32 for Developer and 30 for the Pocket Transition). It replaces the previous fragment in place; it never stacks a message history. Player mode has network / transport / HTTP / Universe registry / integrity / identity fragments such as `server int`, `TLS handsh`, `registry fetc` and `signature ver`. Developer mode describes local PBKDF2-SHA-256 verification, Android Keystore and session permissions. Pocket Transition describes local preferences, Android status, bundled assets, route state and Pocket save preparation; it must not claim cloud synchronization.
 
-- `Message.`
-- `Message..`
-- `Message...`
+Every fragment is revealed one word at a time and remains deliberately incomplete at its final word. Do not expand `server int` into `server internal`, or otherwise show a completed explanatory sentence. Fast fragments appear without punctuation and move on quickly. Delayed fragments place the buffer punctuation **before** the text, in this exact order: `. fragment`, `.. fragment`, `... fragment`. Repeat the complete one-two-three sequence two to four times according to the fragment's delay weight. The timing varies with the length of the fragment.
 
-The visible copy is intentionally abbreviated to the first few technical words (for example, `Player identity`, `Universe source`, `Registry match`, `Local profile`). Do not display full explanatory sentences. The line changes in place with a short Anime.js arrival. Its `.`, `..`, and `...` frames are the buffer indicator. Advance the text frames quickly, then hold the `...` frame while the bar continues its slow, uninterrupted linear movement for roughly 1.6–2.2 seconds per checkpoint. The bar must not restart, stutter, or jump when the text changes. Stage labels replace one another quickly; only the dotted buffer frame supplies a deliberate pause. The progress path remains single-pass and strictly increasing through `15 → 32 → 51 → 70 → 88 → 93`. Do not label checkpoints as a measured network percentage.
+The progress rail moves concurrently with the text. It must never freeze while a delayed fragment cycles: it only slows during long dotted holds, then accelerates naturally during fast word-by-word transitions. Keep the motion continuous and linear within each fragment; no checkpoint jumps or restarts. After the visual queue is exhausted, continue rotating delayed fragments while the real operation is pending and keep the rail gently breathing below 100%. Reach 100% only after the real operation succeeds. On error or cancellation, close the routine and show the real error on its owning screen. Reduced-motion settings must remain respected.
 
 ## Operation contract
 
