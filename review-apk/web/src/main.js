@@ -197,10 +197,16 @@ function accessBufferMarkup(mode = "ACCESS ROUTINE") {
     <div class="access-buffer" data-access-buffer hidden aria-hidden="true">
       <div class="buffer-frame">
         <div class="buffer-top"><span>MERZKAVA POCKET</span><b>${mode}</b></div>
-        <div class="buffer-instrument">
+        <div class="buffer-instrument" aria-hidden="true">
+          <div class="buffer-gear buffer-gear-outer"></div>
+          <div class="buffer-gear buffer-gear-middle"></div>
+          <div class="buffer-gear buffer-gear-small"><i></i></div>
           <div class="buffer-orbit"><i></i><b></b><span></span><em></em></div>
+          <div class="buffer-escapement"><i></i><b></b><span></span></div>
+          <div class="buffer-pendulum"><i></i><b></b></div>
           <div class="buffer-scan"></div>
-          <div class="buffer-medallion">M</div>
+          <div class="buffer-medallion"><span>M</span><i></i></div>
+          <div class="buffer-sparks"><i></i><b></b><em></em><span></span></div>
         </div>
         <div class="buffer-copy">
           <span data-access-label>IDENTITY LOOKUP</span>
@@ -208,7 +214,7 @@ function accessBufferMarkup(mode = "ACCESS ROUTINE") {
         </div>
         <div class="buffer-progress">
           <div class="buffer-progress-head"><span>ROUTINE STEP</span><b data-access-number>00 / 06</b></div>
-          <div class="buffer-track"><i data-access-rail></i></div>
+          <div class="buffer-track" aria-hidden="true"><i data-access-rail></i><span></span><span></span><span></span><span></span><span></span><span></span></div>
           <small>VISUAL PACING · FINAL HANDSHAKE WAITS FOR THE VERIFIED RESULT</small>
         </div>
         <button type="button" class="buffer-cancel" data-access-cancel>CANCEL ROUTINE</button>
@@ -331,7 +337,7 @@ function renderLoginGate() {
         </div>
       </div>
       <section class="login-card" aria-labelledby="login-title">
-        <div class="login-ornament"><span></span><i></i><span></span></div>
+        <div class="login-ornament" aria-hidden="true"><span></span><i></i><b>✧</b><i></i><span></span></div>
         <p class="eyebrow">ACCOUNT ACCESS <b>01 / 04</b></p>
         <h1 id="login-title">Enter the <em>Archive.</em></h1>
         <p class="login-description">Verify your identity before entering Merzkava Pocket.</p>

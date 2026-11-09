@@ -16,26 +16,29 @@
 ## 2. Visual direction
 
 The visual language combines:
-- **Reverse: 1999:** editorial typography, refined atmosphere, antique warmth, and restrained ornament.
-- **Harry Potter:** antique heraldic identity and mysterious institutional symbolism.
-- **Arknights:** clean, deliberate structure.
-- **Girls' Frontline:** precise, technical identity.
+- **Reverse: 1999:** editorial typography, antiquarian atmosphere, warm highlights and restrained ornament.
+- **Harry Potter:** an old institutional archive, arcane mechanisms, heraldic geometry and mysterious craftsmanship.
+- **Engineering instruments:** precise, legible controls, mechanical hierarchy and deliberate spacing.
 
-The intended character is elegant, mysterious, arcane, modern, and recognizable rather than generic.
+Two deliberately different themes share the same design language:
+- **Dark / Victorian Noir:** obsidian and forged ink dominate; ember orange carries active energy, luminous ivory-white is reserved for fine rails and text, verdigris structures the instrument, and bloodline red remains a fine outline.
+- **White / Porcelain Archive:** warm porcelain and vellum replace the black surfaces; charcoal ink restores text contrast, burnt copper-orange replaces the brighter ember, deeper verdigris anchors the mechanical details, and wine-red remains a fine architectural outline. White highlights are reflected as soft porcelain glints rather than disappearing into a large white glow.
+
+The two palettes use separate value structures and controlled saturation. They are not simple inversions; each keeps enough neutral separation for its orange, green and red accents to remain legible.
 
 ## 3. Floating Control screen palette
 
 The approved screen palette remains:
 
-| Color | Hex | Intended use |
-|---|---|---|
-| Electric Lime | `#EFFE59` | Existing screen identity/accent |
-| Ink Black | `#17191B` | Main dark surface |
-| Imperial Gold | `#F0B10A` | Existing premium accent |
-| Pale Silver-Blue | `#DEE4F4` | Secondary light detail |
-| Antique Brown | `#976759` | Warm muted accent |
-| Muted Slate | `#747788` | Secondary labels and subdued text |
-| Parchment / Ivory | `#F1EBDD` | Primary light text |
+| Role | Dark Theme | White Theme | Intended use |
+|---|---|---|---|
+| Main surface | Obsidian `#07090B` | Warm porcelain `#F4F1E8` | Dominant screen field |
+| Raised surface | Forged ink `#111719` | Ivory enamel `#FFFDF7` | Cards and control bodies |
+| Text | Luminous ivory `#F2F0E9` | Charcoal ink `#1C2721` | Primary text and key labels |
+| Active accent | Ember orange `#E47B34` | Burnt copper `#B85D2B` | Primary action and energy |
+| Fine outline | Bloodline red `#7C2937` | Wine red `#782B3A` | Structural hairlines and restrained warnings |
+| Mechanical green | Verdigris `#728C79` | Deep verdigris `#55765F` | Status, enamel and secondary mechanism details |
+| Hardware | Aged brass `#9C8058` | Patinated brass `#8D7049` | Engraved marks and clockwork trim |
 
 The emblem has its own antique-wood color treatment described below. Its colors do not replace or silently recolor the approved screen palette.
 

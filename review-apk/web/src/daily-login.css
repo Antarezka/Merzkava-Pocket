@@ -526,3 +526,531 @@
  box-shadow:inset 0 0 0 3px rgba(70,48,32,.92),inset 0 0 0 5px rgba(224,204,167,.8);
 }
 .dl-door-warm-light{opacity:.88;background:radial-gradient(ellipse at 52% 48%,#fff0c2c2 0,#f4dba278 43%,#b77f4545 100%)}
+
+
+/* Daily Login Japanese shop repair: independent depth layers and full-width frontage. */
+.dl-art-stage{
+ width:min(100vw,620px);
+ max-width:none;
+ overflow:visible;
+}
+.dl-shop-art{z-index:1}
+.dl-door-frame{z-index:9}
+.dl-door-track{z-index:9}
+.dl-door-panel{z-index:8}
+.dl-noren-pxl{z-index:13}
+.dl-kanban-pxl{
+ position:absolute;
+ z-index:12;
+ right:4.5%;
+ top:auto;
+ bottom:12%;
+ width:clamp(44px,12vw,62px);
+ aspect-ratio:64/132;
+ pointer-events:none;
+ filter:drop-shadow(2px 4px 3px #1119);
+}
+.dl-kanban-pxl img{display:block;width:100%;height:100%;object-fit:contain;image-rendering:pixelated}
+.dl-kanban-pxl span,.dl-kanban-pxl small{
+ position:absolute;left:0;right:0;display:block;text-align:center;
+ writing-mode:vertical-rl;pointer-events:none;color:#493225;
+ text-shadow:0 1px #fff0d1;
+}
+.dl-kanban-pxl span{top:21%;font:700 clamp(12px,3.3vw,17px)/1.1 serif;letter-spacing:.08em}
+.dl-kanban-pxl small{top:49%;font:600 clamp(6px,1.7vw,9px)/1 serif;letter-spacing:.08em}
+.dl-door-frame.is-rattling{animation:dl-track-rattle-strong 58ms linear infinite}
+@keyframes dl-track-rattle-strong{
+ 0%,100%{transform:translate3d(0,0,0)}
+ 20%{transform:translate3d(-1.1px,.45px,0)}
+ 43%{transform:translate3d(.9px,-.55px,0)}
+ 68%{transform:translate3d(-.65px,.35px,0)}
+ 84%{transform:translate3d(.45px,-.2px,0)}
+}
+.dl-door-panel.is-dragging{filter:brightness(.94) saturate(.9)}
+.dl-door-track-top{box-shadow:0 2px 4px #08070688,inset 0 1px #d1b27b}
+.dl-door-track-bottom{box-shadow:0 -2px 4px #08070688,inset 0 -1px #d1b27b}
+@media(max-width:390px){
+ .dl-art-stage{width:100vw}
+ .dl-kanban-pxl{right:3%;bottom:12%;width:clamp(42px,12vw,54px)}
+}
+
+/* Traditional low-watt incandescent bulb: warm pool of light, slow breathing only. */
+.dl-bulb-lamp{
+ position:absolute;z-index:6;left:61%;top:3.5%;
+ width:44px;height:86px;opacity:.72;transform-origin:50% 10%;
+ pointer-events:none;
+}
+.dl-bulb-lamp:before{
+ content:"";position:absolute;left:21px;top:-1px;width:2px;height:36px;
+ background:linear-gradient(#33281e,#8a6c48);
+}
+.dl-bulb-lamp span{
+ position:absolute;z-index:0;left:-88px;top:18px;width:220px;height:190px;
+ background:radial-gradient(ellipse at 50% 6%,#f7d99a55 0%,#e8bd7140 22%,#d39c4a16 49%,transparent 76%);
+ filter:blur(8px);mix-blend-mode:screen;
+}
+.dl-bulb-lamp i{
+ position:absolute;z-index:2;left:13px;top:29px;width:19px;height:27px;
+ border:1px solid #8b6941;border-radius:48% 48% 42% 42%;
+ background:radial-gradient(ellipse at 42% 35%,#fff0c5 0%,#f3d58e 35%,#bb884b 78%,#64452b 100%);
+ box-shadow:0 0 11px #efc67b99,0 0 31px #e5b76b55;
+}
+.dl-bulb-lamp i:after{
+ content:"";position:absolute;left:8px;top:8px;width:3px;height:10px;
+ border-left:1px solid #966739;border-right:1px solid #966739;
+}
+.dl-bulb-lamp b{
+ position:absolute;z-index:3;left:17px;top:53px;width:11px;height:9px;
+ border-radius:1px 1px 3px 3px;background:repeating-linear-gradient(0deg,#5a4632 0 2px,#a17e50 2px 3px);
+}
+
+/* A small hand-written menu and condiment station add believable kitchen use. */
+.dl-menu-board{
+ position:absolute;z-index:5;right:7%;top:31%;width:clamp(108px,19vw,160px);height:72px;
+ padding:8px 9px;border:4px solid #4d3525;
+ background:linear-gradient(135deg,#242b27,#394138 58%,#1d2421);
+ box-shadow:inset 0 0 0 2px #b28a55,3px 4px 0 #1c1a17;
+ color:#e7d4aa;display:flex;flex-direction:column;justify-content:center;gap:5px;
+}
+.dl-menu-board:before{content:"";position:absolute;left:50%;top:-9px;width:3px;height:7px;background:#a88658}
+.dl-menu-board span{font:600 7px/1.2 Georgia,serif;letter-spacing:.1em}
+.dl-menu-board b{font:600 10px/1.2 Georgia,serif;color:#f3dfb4}
+.dl-menu-board i{font:italic 7px/1.2 Georgia,serif;color:#c5ae83}
+.dl-seasoning-set{
+ position:absolute;z-index:9;left:54%;bottom:39%;width:82px;height:34px;
+ display:flex;align-items:flex-end;gap:7px;padding:0 5px;
+}
+.dl-seasoning-set i{
+ display:block;width:15px;height:23px;border:2px solid #4b3525;
+ background:linear-gradient(90deg,#9b7044,#d3b17a 48%,#765036);
+ border-radius:2px 2px 4px 4px;box-shadow:0 2px 2px #17120e88;
+}
+.dl-seasoning-set i:nth-child(2){height:27px;background:linear-gradient(90deg,#ddd0ad,#f0e4c6 50%,#a48b65)}
+.dl-seasoning-set i:nth-child(3){height:19px;background:linear-gradient(90deg,#6f3b2d,#ad5940 50%,#633329)}
+.dl-seasoning-set span{position:absolute;left:0;right:0;bottom:-3px;height:4px;background:#523a26}
+
+/* Keep the player's Stay / Leave choice in the lower-middle safe area, not at the clipped edge. */
+.dl-choice{
+ left:50%;top:68%;bottom:auto;
+ width:min(calc(100vw - 28px),370px);
+ max-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 36px);
+ transform:translate(-50%,-50%);
+ padding:12px 14px 10px;
+ gap:12px;
+ border:1px solid #d1b47b;
+ background:linear-gradient(180deg,rgba(34,38,31,.92),rgba(17,23,20,.94));
+ box-shadow:0 8px 24px #080b0a88,inset 0 0 0 2px #6e573755;
+}
+.dl-choice p{font-size:10px;letter-spacing:.2em}
+.dl-choice-actions{
+ width:100%;justify-content:center;flex-wrap:wrap;
+ gap:clamp(18px,7vw,36px);
+}
+.dl-choice-actions button{
+ min-width:88px;min-height:40px;padding:9px 7px;
+ border:1px solid #9d8054;background:rgba(105,79,47,.25);
+ font-size:10px;letter-spacing:.13em;
+}
+@media(max-width:390px){
+ .dl-choice{top:67%;width:calc(100vw - 24px);padding:10px 9px;gap:9px}
+ .dl-choice-actions{gap:14px}
+ .dl-choice-actions button{min-width:92px;min-height:38px;font-size:9px}
+}
+@media(max-height:620px){
+ .dl-choice{top:66%;padding:8px 10px;gap:7px}
+ .dl-choice p{font-size:9px}
+ .dl-choice-actions button{min-height:34px;padding:7px 5px}
+}
+@media(prefers-reduced-motion:reduce){
+ .dl-door-frame.is-rattling{animation:none}
+ .dl-bulb-lamp{opacity:.72}
+}
+
+
+/* Soba preparation props: tools, flour and rice storage are placed on the working counter. */
+.dl-noodle-board{
+ position:absolute;z-index:9;left:10%;bottom:38%;width:76px;height:24px;
+ border:3px solid #4b3222;background:repeating-linear-gradient(90deg,#a87948 0 12px,#c89b63 12px 15px);
+ box-shadow:0 3px 3px #17120e88;
+}
+.dl-noodle-board:before{
+ content:"";position:absolute;left:12px;top:-8px;width:46px;height:6px;
+ border-radius:50%;background:#c99f69;border:1px solid #65472e;
+}
+.dl-noodle-board span{
+ position:absolute;left:13px;top:4px;width:48px;height:2px;
+ background:#f0d7a5;box-shadow:0 4px #89623e,0 8px #e0c18d;
+}
+.dl-noodle-board i{position:absolute;right:5px;top:-12px;width:3px;height:13px;background:#d6b37a;border-radius:3px}
+.dl-noodle-board b{position:absolute;left:5px;top:-12px;width:3px;height:13px;background:#d6b37a;border-radius:3px}
+.dl-rice-tub{
+ position:absolute;z-index:9;left:25%;bottom:38%;width:31px;height:27px;
+ border:3px solid #4b3223;border-radius:4px 4px 8px 8px;
+ background:repeating-linear-gradient(90deg,#9a6a3e 0 5px,#c18a50 5px 8px);
+ box-shadow:0 3px 3px #17120e88;
+}
+.dl-rice-tub:before{content:"";position:absolute;left:-4px;right:-4px;top:-5px;height:6px;border:2px solid #5a3c26;border-radius:50%;background:#d5b580}
+.dl-rice-tub i{position:absolute;left:2px;right:2px;top:8px;height:2px;background:#e1bd83}
+.dl-rice-tub b{position:absolute;left:4px;right:4px;bottom:4px;height:2px;background:#603f29}
+
+
+/* Unified pixel-RPG presentation: full-frame exterior and a real cut-away shop interior. */
+.dl-outside{background:#101b2a}
+.dl-shop-scene{inset:0;width:100%;height:100%;overflow:visible}
+.dl-art-stage{
+ position:absolute;z-index:5;left:50%;bottom:0;
+ width:100vw;max-width:none;height:auto;aspect-ratio:360/640;
+ transform:translateX(-50%);overflow:visible;isolation:isolate;
+}
+.dl-shop-art{z-index:1;width:100%;height:100%;object-fit:fill;image-rendering:pixelated}
+.dl-lantern-glow{z-index:2;mix-blend-mode:screen;opacity:.42}
+.dl-door-frame{z-index:10}
+.dl-door-track{z-index:11}
+.dl-door-panel{z-index:9}
+.dl-noren-pxl{z-index:14}
+.dl-kanban-pxl{
+ z-index:15;right:4.5%;top:50%;bottom:auto;
+ width:clamp(47px,13.5vw,68px);aspect-ratio:64/132;
+ filter:drop-shadow(2px 4px 2px #0a0b0a99);
+}
+.dl-kanban-pxl span{top:21%;font-size:clamp(12px,3.3vw,17px)}
+.dl-kanban-pxl small{top:49%;font-size:clamp(6px,1.7vw,9px)}
+@media(max-width:390px){
+ .dl-art-stage{width:100vw}
+ .dl-kanban-pxl{right:3%;top:50%;width:clamp(46px,13vw,58px)}
+}
+
+/* The background sprite contains the woodwork, shoji, kitchen, serving pass, furniture and floor. */
+.dl-interior{
+ z-index:2;display:block;overflow:hidden;
+ background:radial-gradient(ellipse at 50% 38%,#5b5340 0%,#26231f 78%,#121313 100%);
+}
+.dl-interior-wall{
+ position:absolute;inset:0 auto 0 50%;
+ transform:translateX(-50%);
+ width:min(100vw,45vh,520px);height:100dvh;max-height:100%;
+ overflow:hidden;isolation:isolate;
+ background:#30291f;box-shadow:0 0 0 2px #17120e,0 0 38px #080908bb;
+}
+.dl-interior-art{
+ position:absolute;z-index:0;inset:0;display:block;width:100%;height:100%;
+ object-fit:fill;image-rendering:pixelated;pointer-events:none;user-select:none;
+}
+.dl-interior-wall:before,.dl-interior-wall:after{display:none}
+.dl-interior-header{
+ z-index:16;left:5%;top:calc(env(safe-area-inset-top) + 10px);
+ padding:5px 8px;border:1px solid #c4a16c;
+ background:linear-gradient(180deg,#30291edb,#191c19dc);
+ box-shadow:0 2px 6px #07070777;
+}
+.dl-interior-header span{font-size:clamp(8px,1.5vw,10px);letter-spacing:.2em}
+.dl-interior-header i{font-size:clamp(10px,1.8vw,12px);color:#e6c995}
+
+/* Low-watt amber practicals: the glow breathes gently without flashing. */
+.dl-paper-lamp{
+ z-index:7;left:8%;top:12%;width:26px;height:48px;
+ border:2px solid #695038;
+ background:repeating-linear-gradient(90deg,#e5d0a2 0 4px,#c5a877 4px 6px);
+ box-shadow:0 0 20px #f0cd8a44;
+}
+.dl-paper-lamp:before,.dl-paper-lamp:after{background:#493323}
+.dl-bulb-lamp{
+ position:absolute;z-index:8;left:62%;top:5%;
+ width:42px;height:72px;opacity:.7;transform-origin:50% 0;
+ pointer-events:none;
+}
+.dl-bulb-lamp:before{
+ content:"";position:absolute;left:20px;top:-1px;width:2px;height:30px;background:#493526;
+ box-shadow:1px 0 #a17b4c;
+}
+.dl-bulb-lamp span{
+ position:absolute;left:-76px;top:17px;width:192px;height:168px;
+ background:radial-gradient(ellipse at 50% 8%,#ffe9b25a 0%,#f3cb8450 18%,#d99c4c1d 48%,transparent 78%);
+ filter:blur(9px);mix-blend-mode:screen;
+}
+.dl-bulb-lamp i{
+ position:absolute;left:13px;top:25px;width:17px;height:26px;
+ border:1px solid #89643d;border-radius:46% 46% 40% 40%;
+ background:radial-gradient(ellipse at 40% 32%,#fff4d2 0%,#f3d99e 37%,#c18d50 82%,#63442a 100%);
+ box-shadow:0 0 10px #f1ca7e88,0 0 25px #dda85c55;
+}
+.dl-bulb-lamp i:after{
+ content:"";position:absolute;left:7px;top:7px;width:3px;height:11px;
+ border-left:1px solid #8e6336;border-right:1px solid #8e6336;
+}
+.dl-bulb-lamp b{
+ position:absolute;left:16px;top:48px;width:11px;height:8px;
+ background:repeating-linear-gradient(0deg,#493526 0 2px,#a47c4e 2px 3px);
+}
+.dl-cooking-steam{
+ position:absolute;z-index:8;left:16%;top:43%;width:70px;height:64px;pointer-events:none;
+}
+.dl-steam{
+ position:absolute;width:9px;height:30px;border-left:2px solid #f1e5cb;
+ border-radius:50%;opacity:0;filter:blur(.3px);
+}
+.dl-steam-one{left:15px;top:24px}
+.dl-steam-two{left:33px;top:15px}
+.dl-steam-three{left:51px;top:26px}
+
+/* 2.5-head chibi sprite is pixel art, not CSS body geometry. */
+.dl-chef-area{
+ position:absolute;z-index:13;left:55%;bottom:14%;
+ width:clamp(108px,29vw,142px);height:clamp(166px,27vh,218px);
+ transform:none;
+}
+.dl-chef{
+ position:absolute;left:8px;bottom:0;
+ width:clamp(96px,27vw,124px);height:auto;aspect-ratio:2/3;
+ padding:0;border:0;border-radius:0;background:transparent;
+ cursor:pointer;filter:drop-shadow(0 4px 2px #0b0b0988);
+ transform-origin:50% 100%;
+ image-rendering:pixelated;overflow:visible;
+}
+.dl-chef-sprite{
+ position:absolute;inset:0;display:block;
+ background-image:url("/game-assets/pxl/anims/daily_login_chef_idle.png");
+ background-repeat:no-repeat;background-size:400% 100%;background-position:0 0;
+ image-rendering:pixelated;
+ animation:dl-chef-idle 1.05s steps(4,end) infinite;
+}
+@keyframes dl-chef-idle{to{background-position:100% 0}}
+.dl-chef.is-speaking .dl-chef-sprite{animation-duration:.62s}
+.dl-chef-nameplate{
+ position:absolute;z-index:2;right:2px;bottom:28%;
+ padding:2px 4px;border:1px solid #7a5a36;
+ background:#e6d2a8;color:#513926;
+ font:700 7px/1.2 Georgia,serif;writing-mode:horizontal-tb;
+ box-shadow:1px 2px 0 #15110c;
+}
+.dl-chef-tap-note{
+ position:absolute;left:7px;bottom:-16px;
+ color:#ead6ad;font:700 7px var(--ui);letter-spacing:.12em;
+ text-shadow:0 2px 4px #080908;white-space:nowrap;
+}
+.dl-dialogue{
+ z-index:16;left:-42px;top:-86px;width:min(218px,58vw);
+ border:2px solid #60452c;background:#f2e5cb;
+ box-shadow:inset 0 0 0 2px #c5a87b,3px 4px 0 #1a1a17;
+}
+.dl-dialogue:after{background:#f2e5cb}
+
+/* Pixel television stays as a small wall detail, not a large floating UI panel. */
+.dl-retro-tv{
+ z-index:9;right:5%;top:29%;width:clamp(76px,22vw,106px);height:clamp(58px,16vw,80px);
+ filter:drop-shadow(2px 3px 2px #07080799);
+}
+.dl-tv-antenna{height:12px;top:-8px}
+.dl-tv-shell{inset:5px 0 6px;border:3px solid #433426;border-radius:2px;
+ background:linear-gradient(135deg,#8d7149,#493925);
+ box-shadow:inset 0 0 0 2px #c3a16a,0 0 0 1px #171712}
+.dl-tv-screen{left:5px;top:5px;right:22px;bottom:5px;padding:0;border:2px solid #493927;
+ background:linear-gradient(180deg,#15252b,#34483e);box-shadow:inset 0 0 8px #a2c0a040}
+.dl-tv-controls{right:4px;top:11px;gap:5px}
+.dl-tv-controls i{width:7px;height:7px;border-width:1px}
+.dl-tv-controls span{width:7px;height:2px}
+.dl-tv-feet{left:12px;right:12px}
+.dl-tv-feet i{width:9px;height:5px}
+.dl-interior-floor,.dl-interior-window,.dl-menu-board,.dl-kitchen-shelf,
+.dl-hanging-utensils,.dl-seasoning-set,.dl-noodle-board,.dl-rice-tub,
+.dl-floor-mat,.dl-kitchen-counter,.dl-pot,.dl-bowl-stack,.dl-wooden-board,
+.dl-table,.dl-chair{display:none!important}
+
+/* Player choices are centred in the visible safe area on both tall and short phones. */
+.dl-choice{
+ z-index:18;left:50%;top:61%;bottom:auto;
+ width:min(calc(100vw - 28px),360px);
+ max-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 36px);
+ transform:translate(-50%,-50%);
+ padding:11px 12px 10px;gap:10px;
+ border:1px solid #d1b47b;
+ background:linear-gradient(180deg,rgba(34,38,31,.94),rgba(17,23,20,.96));
+ box-shadow:0 8px 24px #080b0a88,inset 0 0 0 2px #6e573755;
+}
+.dl-choice-actions{width:100%;justify-content:center;flex-wrap:wrap;gap:clamp(14px,6vw,28px)}
+.dl-choice-actions button{min-width:90px;min-height:40px;padding:8px 7px}
+@media(max-width:390px){
+ .dl-choice{top:61%;width:calc(100vw - 24px);padding:9px 8px;gap:8px}
+ .dl-choice-actions{gap:12px}
+ .dl-choice-actions button{min-width:90px;min-height:38px;font-size:9px}
+ .dl-chef-area{left:54%;bottom:13%;width:118px;height:176px}
+ .dl-chef{width:100px}
+ .dl-retro-tv{right:3%;top:29%}
+}
+@media(max-height:620px){
+ .dl-choice{top:57%;padding:8px 10px;gap:7px}
+ .dl-chef-area{bottom:10%;transform:scale(.88);transform-origin:bottom left}
+ .dl-retro-tv{top:27%;transform:scale(.9);transform-origin:top right}
+}
+@media(prefers-reduced-motion:reduce){
+ .dl-chef-sprite{animation:none;background-position:0 0}
+ .dl-bulb-lamp{opacity:.68}
+}
+
+
+/* Kairosoft-scale room composition: the cook reads as a staff sprite, not a foreground portrait. */
+.dl-chef-area{
+ left:55%;bottom:13%;
+ width:96px;height:132px;
+}
+.dl-chef{
+ left:5px;width:70px;height:auto;aspect-ratio:2/3;
+}
+.dl-chef-nameplate{right:-1px;bottom:28%;font-size:6px;padding:2px 3px}
+.dl-chef-tap-note{left:5px;bottom:-14px;font-size:6px}
+.dl-dialogue{left:-68px;top:-72px;width:min(190px,54vw);min-height:56px;padding:8px 10px}
+.dl-dialogue span{font-size:11px}
+@media(max-width:390px){
+ .dl-chef-area{left:54%;bottom:13%;width:90px;height:124px}
+ .dl-chef{width:66px}
+ .dl-dialogue{left:-62px;top:-66px;width:180px}
+}
+@media(max-height:620px){
+ .dl-chef-area{bottom:9%;transform:scale(.9);transform-origin:bottom left}
+}
+
+
+/* Chibi staff scale follows a compact 48x72 RPG character footprint. */
+.dl-chef-area{
+ left:49%;bottom:26%;width:62px;height:90px;
+}
+.dl-chef{
+ left:4px;width:48px;height:72px;
+}
+.dl-chef-nameplate{right:-6px;bottom:25%;font-size:6px;padding:2px 3px}
+.dl-chef-tap-note{left:-4px;bottom:-13px;font-size:6px;letter-spacing:.08em}
+.dl-dialogue{left:-74px;top:-68px;width:min(186px,52vw);padding:8px 10px}
+.dl-dialogue span{font-size:11px}
+@media(max-width:390px){
+ .dl-chef-area{left:48%;bottom:25%;width:60px;height:88px}
+ .dl-chef{width:46px;height:69px}
+ .dl-dialogue{left:-70px;top:-66px;width:178px}
+}
+@media(max-height:620px){
+ .dl-chef-area{left:49%;bottom:23%;transform:scale(.9);transform-origin:bottom left}
+}
+
+/* Layered practical lighting: paper lantern, warm incandescent bulb and reflected room glow. */
+.dl-interior-wall:before{
+ content:"";display:block;position:absolute;z-index:1;inset:0;pointer-events:none;
+ background:
+  radial-gradient(ellipse at 62% 9%,rgba(255,222,157,.16) 0%,rgba(230,176,103,.09) 18%,transparent 38%),
+  radial-gradient(ellipse at 14% 21%,rgba(255,212,140,.12) 0%,transparent 22%),
+  radial-gradient(ellipse at 76% 47%,rgba(234,187,115,.10) 0%,transparent 28%),
+  linear-gradient(180deg,rgba(255,227,174,.035),transparent 48%,rgba(12,9,7,.12));
+ mix-blend-mode:screen;
+}
+.dl-interior-wall:after{
+ content:"";display:block;position:absolute;z-index:2;inset:0;pointer-events:none;
+ box-shadow:inset 0 0 32px 8px rgba(12,9,7,.34),inset 0 -22px 28px rgba(8,7,6,.22);
+}
+.dl-paper-lamp{z-index:7;filter:drop-shadow(0 0 5px rgba(245,210,146,.32))}
+.dl-bulb-lamp{z-index:8}
+.dl-bulb-lamp span{animation:dl-lamp-pool-breathe 4.8s ease-in-out infinite}
+.dl-bulb-lamp i{animation:dl-bulb-core-breathe 4.8s ease-in-out infinite}
+@keyframes dl-lamp-pool-breathe{
+ 0%,100%{opacity:.55;transform:scale(.96)}
+ 50%{opacity:.9;transform:scale(1.04)}
+}
+@keyframes dl-bulb-core-breathe{
+ 0%,100%{filter:brightness(.94);box-shadow:0 0 8px #efc67b66,0 0 23px #e5b76b44}
+ 50%{filter:brightness(1.1);box-shadow:0 0 13px #ffe2a5aa,0 0 36px #e5b76b77}
+}
+.dl-paper-lamp{animation:dl-paper-lamp-breathe 3.9s ease-in-out infinite}
+@keyframes dl-paper-lamp-breathe{
+ 0%,100%{filter:brightness(.94) drop-shadow(0 0 4px #f3d79a33)}
+ 50%{filter:brightness(1.06) drop-shadow(0 0 9px #f3d79a66)}
+}
+@media(prefers-reduced-motion:reduce){
+ .dl-bulb-lamp span,.dl-bulb-lamp i,.dl-paper-lamp{animation:none}
+}
+
+
+/* Daily Log-in final corrections: aligned idle frames, transparent centered choice, perspective CRT. */
+.dl-chef-sprite{
+ background-size:400% 100%;
+ background-position:0 0;
+ animation:dl-chef-idle-aligned 1.05s steps(3,end) infinite;
+}
+@keyframes dl-chef-idle-aligned{
+ from{background-position:0 0}
+ to{background-position:100% 0}
+}
+.dl-chef.is-speaking .dl-chef-sprite{animation-duration:.62s}
+
+/* The CRT is one pixel-art object, anchored to the right wall above the condiment shelf. */
+.dl-retro-tv{
+ position:absolute;z-index:9;
+ left:68.333%;right:auto;top:33.375%;bottom:auto;
+ width:26.667%;height:auto;aspect-ratio:6/5;
+ filter:drop-shadow(1px 2px 2px #08090899);
+ pointer-events:none;
+}
+.dl-tv-art{
+ position:absolute;inset:0;display:block;width:100%;height:100%;
+ object-fit:fill;image-rendering:pixelated;user-select:none;pointer-events:none;
+}
+.dl-tv-screen{
+ position:absolute;z-index:3;
+ left:14.58%;top:26.25%;width:54.17%;height:36.25%;
+ overflow:hidden;border:1px solid rgba(45,53,44,.9);border-radius:2px;
+ background:linear-gradient(145deg,#213733,#102127 70%,#263e39);
+ box-shadow:inset 0 0 7px rgba(174,205,174,.28);
+ clip-path:polygon(0 0,100% 2%,97% 100%,1% 96%);
+}
+.dl-tv-screen:after{
+ content:"";position:absolute;z-index:1;inset:0;pointer-events:none;
+ background:linear-gradient(145deg,rgba(226,243,210,.16),transparent 32%,rgba(5,9,11,.2));
+}
+.dl-tv-static{inset:-20%;opacity:.22}
+.dl-tv-scan{z-index:3}
+.dl-tv-noise{z-index:4;opacity:.27}
+
+/* Player choices are viewport-centred text/actions only; the room gets a light dim, not a panel. */
+.dl-choice-dim{
+ position:absolute;z-index:17;inset:0;
+ background:rgba(7,9,10,.18);opacity:1;pointer-events:none;
+}
+.dl-choice-dim[hidden]{display:none!important}
+.dl-choice{
+ position:absolute;z-index:18;left:50%;right:auto;top:50%;bottom:auto;
+ width:max-content;max-width:calc(100vw - 24px);
+ max-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 28px);
+ height:auto;min-height:0;
+ transform:translate(-50%,-50%);
+ display:flex;flex-direction:column;align-items:center;justify-content:center;
+ gap:15px;padding:0;margin:0;
+ border:0!important;border-radius:0!important;
+ background:transparent!important;box-shadow:none!important;
+ color:#f4e8ce;text-align:center;pointer-events:auto;
+}
+.dl-choice[hidden]{display:none!important}
+.dl-choice p{
+ margin:0;padding:0;border:0;background:transparent!important;box-shadow:none!important;
+ color:#f7ecd4;font:500 10px/1.35 system-ui,-apple-system,"Segoe UI",sans-serif;
+ letter-spacing:.24em;text-shadow:0 2px 7px #080c0c;
+}
+.dl-choice-actions{
+ width:auto;display:flex;align-items:center;justify-content:center;
+ gap:clamp(24px,7vw,36px);padding:0;margin:0;background:transparent!important;
+}
+.dl-choice-actions button{
+ appearance:none;-webkit-appearance:none;display:inline-flex;align-items:center;justify-content:center;
+ min-width:0;min-height:40px;padding:8px 2px;margin:0;
+ border:0!important;border-radius:0!important;
+ background:transparent!important;box-shadow:none!important;
+ color:#f4e8ce;font:600 11px/1 system-ui,-apple-system,"Segoe UI",sans-serif;
+ letter-spacing:.2em;text-shadow:0 2px 6px #080c0c;cursor:pointer;
+}
+.dl-choice-actions button:hover{color:#fff5d9;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:5px}
+.dl-choice-actions button:active{color:#d8bd87}
+.dl-choice-actions button:focus-visible{outline:1px solid #e5d2a7;outline-offset:5px}
+@media(max-width:390px){
+ .dl-choice{max-width:calc(100vw - 24px);gap:13px}
+ .dl-choice p{font-size:9px;letter-spacing:.2em}
+ .dl-choice-actions{gap:24px}
+ .dl-choice-actions button{font-size:10px}
+}
+@media(prefers-reduced-motion:reduce){
+ .dl-chef-sprite{animation:none;background-position:0 0}
+}
