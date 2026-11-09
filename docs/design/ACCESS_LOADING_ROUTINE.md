@@ -31,7 +31,7 @@ The scene contains one active diagnostic message slot. It replaces the previous 
 - `Message..`
 - `Message...`
 
-The line changes in place with a short Anime.js arrival. Its `.`, `..`, and `...` frames are the buffer indicator: the progress rail continues smoothly while the dots advance, then takes brief, deliberate holds. Never make the rail jump from checkpoint to checkpoint. The progress path remains single-pass and strictly increasing through `15 → 32 → 51 → 70 → 88 → 93`. Do not label checkpoints as a measured network percentage.
+The visible copy is intentionally abbreviated to the first few technical words (for example, `Player identity`, `Universe source`, `Registry match`, `Local profile`). Do not display full explanatory sentences. The line changes in place with a short Anime.js arrival. Its `.`, `..`, and `...` frames are the buffer indicator. Advance the text frames quickly, then hold the `...` frame while the bar continues its slow, uninterrupted linear movement for roughly 1.6–2.2 seconds per checkpoint. The bar must not restart, stutter, or jump when the text changes. Stage labels replace one another quickly; only the dotted buffer frame supplies a deliberate pause. The progress path remains single-pass and strictly increasing through `15 → 32 → 51 → 70 → 88 → 93`. Do not label checkpoints as a measured network percentage.
 
 ## Operation contract
 
