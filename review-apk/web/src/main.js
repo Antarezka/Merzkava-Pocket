@@ -8,8 +8,16 @@ import { createPocketAudioController, createTurntableMotion, createVinylDesignCo
 
 const root = document.querySelector("#app");
 if (!root) throw new Error("Pocket root not found.");
+const native = window.PocketNative || null;
+function readNativeMusicLibrary() {
+  try {
+    const tracks = JSON.parse(native?.getCustomMusicLibrary?.() || "[]");
+    return Array.isArray(tracks) ? tracks : [];
+  } catch { return []; }
+}
 const vinylDesigns = createVinylDesignController({ onChange: syncAudioUI });
 const pocketAudio = createPocketAudioController({
+  customTracks: readNativeMusicLibrary(),
   onChange: syncAudioUI,
   onPlaybackCycle: () => vinylDesigns.rotateRandom("track-end")
 });
@@ -18,7 +26,6 @@ window.addEventListener("pocket:season-start", event => {
   vinylDesigns.onSeasonStart(seasonKey);
 });
 
-const native = window.PocketNative || null;
 const reducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 const wait = ms => new Promise(resolve => window.setTimeout(resolve, ms));
 const escapeHtml = value => String(value).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
@@ -129,11 +136,56 @@ function vinylStyleOptionMarkup(style) {
     </button>`;
 }
 
+function audioRecordMarkup(track, index) {
+  const custom = track.custom === true;
+  return `
+    <button type="button" class="audio-record${custom ? " is-custom-record" : ""}" data-audio-record="${escapeHtml(track.id)}" aria-pressed="false">
+      <span class="record-sleeve"><i class="sleeve-vinyl"></i><b>${String(index + 1).padStart(2,"0")}</b></span>
+      <span class="record-copy"><strong>${escapeHtml(track.title)}</strong><small>${custom ? "YOUR MUSIC · OGG VORBIS" : "OGG · POCKET BGM"}</small></span>
+      <span class="record-state" aria-hidden="true">✓</span>
+    </button>`;
+}
+
+function renderAudioRecordList() {
+  const list = root.querySelector("[data-audio-record-list]");
+  if (!list) return;
+  const tracks = pocketAudio.getTracks();
+  const signature = tracks.map(track => track.id + ":" + track.title).join("|");
+  if (list.dataset.renderSignature !== signature) {
+    list.innerHTML = tracks.map(audioRecordMarkup).join("");
+    list.dataset.renderSignature = signature;
+  }
+}
+
+function showAudioImportNotice(message, success = false) {
+  const overlay = root.querySelector("[data-audio-import-overlay]");
+  if (!overlay) return;
+  const title = overlay.querySelector("[data-audio-import-title]");
+  const kicker = overlay.querySelector("[data-audio-import-kicker]");
+  const copy = overlay.querySelector("[data-audio-import-message]");
+  if (title) title.textContent = success ? "A new record is ready" : "This file is not supported";
+  if (kicker) kicker.textContent = success ? "ADDED TO YOUR RECORD RACK" : "A SMALL FORMAT CHECK";
+  if (copy) copy.textContent = String(message || (success ? "Your music has joined the library." : "Choose an OGG Vorbis audio file to continue."));
+  overlay.hidden = false;
+  overlay.setAttribute("aria-hidden","false");
+  const panel = overlay.querySelector(".audio-import-card");
+  if (panel && !reducedMotion()) animate(panel,{opacity:[0,1],translateY:[12,0],scale:[.98,1],duration:300,ease:"outCubic"});
+  overlay.querySelector("[data-audio-import-close]")?.focus();
+}
+
+window.addEventListener("pocket:music-library-changed", event => {
+  const result = event.detail || {};
+  if (Array.isArray(result.tracks)) pocketAudio.updateCustomTracks(result.tracks);
+  syncAudioUI();
+  if (!result.cancelled && result.message) showAudioImportNotice(result.message, result.ok === true);
+});
+
 function syncAudioUI() {
   const player = root.querySelector("[data-audio-player]");
   if (!player) return;
   const state = pocketAudio.getState();
   const labelState = vinylDesigns.getState();
+  renderAudioRecordList();
   activeTurntableMotion?.setPlaying(state.isPlaying && !reducedMotion());
   player.classList.toggle("is-playing", state.isPlaying);
   player.classList.toggle("is-starting", state.isStarting);
@@ -323,13 +375,31 @@ function mountAudioSettings() {
   });
   drawer?.querySelector("[data-vinyl-auto]")?.addEventListener("click", () => vinylDesigns.returnToAuto());
 
-  section.querySelectorAll("[data-audio-record]").forEach(button => {
-    button.addEventListener("click", () => {
-      const changed = pocketAudio.selectTrack(button.dataset.audioRecord);
-      if (!changed) return;
-      pocketAudio.playEffect("placement");
-      animateRecordToPlatter(button);
-    });
+  const recordList = section.querySelector("[data-audio-record-list]");
+  recordList?.addEventListener("click", event => {
+    const button = event.target?.closest?.("[data-audio-record]");
+    if (!button || !recordList.contains(button)) return;
+    const changed = pocketAudio.selectTrack(button.dataset.audioRecord);
+    if (!changed) return;
+    pocketAudio.playEffect("placement");
+    animateRecordToPlatter(button);
+  });
+
+  const importOverlay = section.querySelector("[data-audio-import-overlay]");
+  importOverlay?.querySelector("[data-audio-import-close]")?.addEventListener("click",() => {
+    importOverlay.hidden = true;
+    importOverlay.setAttribute("aria-hidden","true");
+  });
+  importOverlay?.addEventListener("click",event => {
+    if (event.target === importOverlay) {
+      importOverlay.hidden = true;
+      importOverlay.setAttribute("aria-hidden","true");
+    }
+  });
+  section.querySelector("[data-audio-add]")?.addEventListener("click",() => {
+    if (typeof native?.openAudioPicker !== "function" || native.openAudioPicker() !== true) {
+      showAudioImportNotice("Pocket could not open the device file manager. Please try again.",false);
+    }
   });
 
   section.querySelector("[data-audio-needle]").addEventListener("click", () => {
@@ -1238,19 +1308,16 @@ function renderPage(destination, transitionDuration=420) {
           </section>
           <section class="audio-rack">
             <div class="audio-rack-heading"><span>RECORD RACK</span><small>SELECT A RECORD TO PLACE IT</small></div>
-            <div class="audio-record-list">
-              <button type="button" class="audio-record" data-audio-record="happy" aria-pressed="false">
-                <span class="record-sleeve"><i class="sleeve-vinyl"></i><b>01</b></span>
-                <span class="record-copy"><strong>Happy-1a</strong><small>OGG · POCKET BGM</small></span>
-                <span class="record-state" aria-hidden="true">✓</span>
-              </button>
-              <button type="button" class="audio-record" data-audio-record="chill" aria-pressed="false">
-                <span class="record-sleeve"><i class="sleeve-vinyl"></i><b>02</b></span>
-                <span class="record-copy"><strong>chill-1a</strong><small>OGG · POCKET BGM</small></span>
-                <span class="record-state" aria-hidden="true">✓</span>
-              </button>
-            </div>
+            <div class="audio-record-list" data-audio-record-list aria-label="Music library"></div>
             <p class="audio-rack-note">Placing a record does not start playback. Lower the stylus to listen.</p>
+            <div class="audio-import-tools">
+              <button type="button" class="audio-add-button" data-audio-add>
+                <span class="audio-package-icon" aria-hidden="true"><i></i><b></b><em></em></span>
+                <span><strong>ADD MUSIC</strong><small>CHOOSE FROM YOUR DEVICE</small></span>
+                <b aria-hidden="true">↗</b>
+              </button>
+              <p class="audio-format-note">A little recommendation: <b>.ogg · Vorbis</b> for a smooth, compact record. Saved inside Pocket — no folder permission needed.</p>
+            </div>
           </section>
           <section class="vinyl-style-drawer" data-vinyl-drawer>
             <button type="button" class="vinyl-drawer-toggle" data-vinyl-drawer-toggle aria-expanded="false">
@@ -1269,6 +1336,16 @@ function renderPage(destination, transitionDuration=420) {
                 ${VINYL_STYLES.map(vinylStyleOptionMarkup).join("")}
               </div>
             </div>
+          </section>
+        </div>
+        <div class="audio-import-overlay" data-audio-import-overlay hidden aria-hidden="true">
+          <section class="audio-import-card" role="dialog" aria-modal="true" aria-labelledby="audio-import-title">
+            <span class="audio-import-emblem" aria-hidden="true">♫</span>
+            <p class="audio-import-kicker" data-audio-import-kicker>RECORD ARCHIVE</p>
+            <h3 id="audio-import-title" data-audio-import-title>Record added</h3>
+            <p class="audio-import-message" data-audio-import-message></p>
+            <small class="audio-import-footnote">SUPPORTED FORMAT · OGG VORBIS · MAX 64 MB</small>
+            <button type="button" class="audio-import-close" data-audio-import-close>RETURN TO AUDIO</button>
           </section>
         </div>
       </article>

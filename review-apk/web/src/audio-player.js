@@ -14,7 +14,8 @@ export function createPocketAudioController({
   AudioCtor = globalThis.Audio,
   storage = globalThis.localStorage,
   onChange = () => {},
-  onPlaybackCycle = () => {}
+  onPlaybackCycle = () => {},
+  customTracks = []
 } = {}) {
   if (typeof AudioCtor !== "function") throw new Error("Audio playback is unavailable.");
 
@@ -28,8 +29,23 @@ export function createPocketAudioController({
     try { storage?.setItem(key, String(value)); } catch {}
   };
 
+  let trackCatalog = { ...TRACKS };
+  const normalizeCustomTracks = entries => {
+    if (!Array.isArray(entries)) return;
+    for (const entry of entries) {
+      const id = String(entry?.id ?? "");
+      const title = String(entry?.title ?? "").trim();
+      if (!/^[a-f0-9-]{36}$/i.test(id) || !title) continue;
+      trackCatalog[id] = {
+        title,
+        src: "https://pocket.local/user-audio/" + id + ".ogg",
+        custom: true
+      };
+    }
+  };
+  normalizeCustomTracks(customTracks);
   let selectedTrack = read("mp-audio-track", "happy");
-  if (!Object.hasOwn(TRACKS, selectedTrack)) selectedTrack = "happy";
+  if (!Object.hasOwn(trackCatalog, selectedTrack)) selectedTrack = "happy";
   let musicVolume = clampVolume(read("mp-audio-music-volume", 68));
   let effectsVolume = clampVolume(read("mp-audio-effects-volume", 76));
   let menuEntered = false;
@@ -42,7 +58,7 @@ export function createPocketAudioController({
   let lastPlaybackDuration = 0;
   let lastCycleNotification = 0;
 
-  const music = new AudioCtor(TRACKS[selectedTrack].src);
+  const music = new AudioCtor(trackCatalog[selectedTrack].src);
   music.preload = "auto";
   music.loop = true;
   music.volume = musicVolume / 100;
@@ -110,7 +126,7 @@ export function createPocketAudioController({
     lastCycleNotification = stamp;
     lastPlaybackTime = 0;
     lastPlaybackDuration = Number.isFinite(music.duration) ? music.duration : 0;
-    try { onPlaybackCycle({ track: selectedTrack, title: TRACKS[selectedTrack].title }); } catch {}
+    try { onPlaybackCycle({ track: selectedTrack, title: trackCatalog[selectedTrack].title }); } catch {}
     notify();
   };
 
@@ -138,7 +154,7 @@ export function createPocketAudioController({
   function getState() {
     return {
       track: selectedTrack,
-      title: TRACKS[selectedTrack].title,
+      title: trackCatalog[selectedTrack].title,
       musicVolume,
       effectsVolume,
       isPlaying: isPlaying(),
@@ -177,7 +193,7 @@ export function createPocketAudioController({
   }
 
   function selectTrack(id) {
-    if (!Object.hasOwn(TRACKS, id) || id === selectedTrack) return false;
+    if (!Object.hasOwn(trackCatalog, id) || id === selectedTrack) return false;
     cancelNeedleStart();
     music.pause();
     music.currentTime = 0;
@@ -185,7 +201,7 @@ export function createPocketAudioController({
     lastPlaybackDuration = 0;
     selectedTrack = id;
     userPaused = true;
-    music.src = TRACKS[selectedTrack].src;
+    music.src = trackCatalog[selectedTrack].src;
     music.loop = true;
     music.load?.();
     write("mp-audio-track", selectedTrack);
@@ -240,8 +256,32 @@ export function createPocketAudioController({
     notify();
   }
 
+  function updateCustomTracks(entries) {
+    trackCatalog = { ...TRACKS };
+    normalizeCustomTracks(entries);
+    if (!Object.hasOwn(trackCatalog, selectedTrack)) {
+      selectedTrack = "happy";
+      music.pause();
+      music.src = trackCatalog.happy.src;
+      music.load?.();
+      write("mp-audio-track", selectedTrack);
+    }
+    notify();
+    return getTracks();
+  }
+
+  function getTracks() {
+    return Object.entries(trackCatalog).map(([id, track]) => ({
+      id,
+      title: track.title,
+      custom: track.custom === true
+    }));
+  }
+
   return {
     getState,
+    getTracks,
+    updateCustomTracks,
     enterMainMenu,
     pauseForSplash,
     resetSession,

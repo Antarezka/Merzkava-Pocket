@@ -5,11 +5,13 @@ import android.app.Activity;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
+import android.database.Cursor;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Build;
 import android.os.PowerManager;
 import android.provider.Settings;
+import android.provider.OpenableColumns;
 import android.util.Base64;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
@@ -19,6 +21,9 @@ import org.json.JSONObject;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.InflaterInputStream;
@@ -37,6 +42,7 @@ import java.security.spec.ECGenParameterSpec;
 import java.security.MessageDigest;
 import java.util.Iterator;
 import java.util.Locale;
+import java.util.UUID;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
@@ -72,6 +78,8 @@ public final class PocketNativeBridge {
     private static final String PREF_REGISTRY_AT = "pocket_latest_registry_verified_at";
     private static final String PREF_PLAYER_SESSION_NAME = "active_verified_player_name";
     private static final String PREF_USED_MASTER_RESET_GRANTS = "pocket_used_master_reset_grants_v1";
+    private static final String PREF_CUSTOM_MUSIC_LIBRARY = "pocket_custom_music_library_v1";
+    private static final long MAX_CUSTOM_MUSIC_BYTES = 64L * 1024L * 1024L;
     private static final String UNIVERSE = "Antarezka/merzkava-universe";
 
     private final Activity activity;
@@ -85,6 +93,161 @@ public final class PocketNativeBridge {
     }
 
     @JavascriptInterface public boolean isNative() { return true; }
+
+    @JavascriptInterface public boolean openAudioPicker() {
+        if (!(activity instanceof MainActivity)) return false;
+        activity.runOnUiThread(() -> {
+            if (!((MainActivity) activity).openAudioPicker()) {
+                String detail = "{\\"ok\\":false,\\"message\\":\\"The device file manager could not be opened.\\",\\"tracks\\":"
+                    + getCustomMusicLibrary() + "}";
+                if (webView != null) webView.post(() -> webView.evaluateJavascript(
+                    "window.dispatchEvent(new CustomEvent('pocket:music-library-changed',{detail:" + detail + "}));", null));
+            }
+        });
+        return true;
+    }
+
+    @JavascriptInterface public String getCustomMusicLibrary() {
+        try {
+            return prefs().getString(PREF_CUSTOM_MUSIC_LIBRARY, "[]");
+        } catch (Exception ignored) {
+            return "[]";
+        }
+    }
+
+    public String importAudioFile(Uri uri) {
+        File temporary = null;
+        try {
+            String displayName = queryAudioDisplayName(uri);
+            if (displayName == null || !displayName.toLowerCase(Locale.ROOT).endsWith(".ogg")) {
+                return audioImportResult(false, "Unsupported file. Please choose an .ogg file encoded with Vorbis.", false);
+            }
+            String cleanTitle = displayName.substring(0, displayName.length() - 4)
+                .replaceAll("[\\\\/:*?\\"<>|]", " ").trim();
+            if (cleanTitle.isEmpty()) cleanTitle = "Untitled record";
+
+            File directory = new File(activity.getFilesDir(), "music");
+            if (!directory.exists() && !directory.mkdirs()) {
+                return audioImportResult(false, "Pocket could not prepare its private music shelf.", false);
+            }
+            temporary = File.createTempFile("import-", ".tmp", directory);
+            long total = 0;
+            try (InputStream input = activity.getContentResolver().openInputStream(uri);
+                 FileOutputStream output = new FileOutputStream(temporary)) {
+                if (input == null) throw new IOException("The selected audio file could not be opened.");
+                byte[] buffer = new byte[16 * 1024];
+                int count;
+                while ((count = input.read(buffer)) != -1) {
+                    total += count;
+                    if (total > MAX_CUSTOM_MUSIC_BYTES) {
+                        return audioImportResult(false, "This record is too large. The maximum supported size is 64 MB.", false);
+                    }
+                    output.write(buffer, 0, count);
+                }
+                output.flush();
+            }
+            if (total < 64 || !hasOggVorbisHeader(temporary)) {
+                return audioImportResult(false, "This .ogg file is not an Ogg Vorbis recording. Please choose OGG Vorbis, not OGG Opus or another audio format.", false);
+            }
+
+            String id = UUID.randomUUID().toString();
+            File stored = new File(directory, id + ".ogg");
+            if (!temporary.renameTo(stored)) {
+                try (InputStream input = new java.io.FileInputStream(temporary);
+                     FileOutputStream output = new FileOutputStream(stored)) {
+                    byte[] buffer = new byte[16 * 1024];
+                    int count;
+                    while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+                }
+                if (!stored.isFile() || stored.length() != total) {
+                    stored.delete();
+                    throw new IOException("Pocket could not save the selected record.");
+                }
+            }
+            temporary = null;
+
+            JSONArray tracks;
+            try { tracks = new JSONArray(getCustomMusicLibrary()); }
+            catch (Exception ignored) { tracks = new JSONArray(); }
+            JSONObject entry = new JSONObject();
+            entry.put("id", id);
+            entry.put("title", cleanTitle);
+            tracks.put(entry);
+            if (!prefs().edit().putString(PREF_CUSTOM_MUSIC_LIBRARY, tracks.toString()).commit()) {
+                stored.delete();
+                return audioImportResult(false, "Pocket could not save the music list. Please try again.", false);
+            }
+            return new JSONObject()
+                .put("ok", true)
+                .put("cancelled", false)
+                .put("message", cleanTitle + " has been added to your Pocket record rack.")
+                .put("tracks", tracks)
+                .toString();
+        } catch (Exception error) {
+            return audioImportResult(false, "The selected file could not be imported. Please choose another OGG Vorbis file.", false);
+        } finally {
+            if (temporary != null && temporary.exists()) temporary.delete();
+        }
+    }
+
+    private String queryAudioDisplayName(Uri uri) {
+        String name = null;
+        try (Cursor cursor = activity.getContentResolver().query(uri,
+                new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                int index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                if (index >= 0) name = cursor.getString(index);
+            }
+        } catch (Exception ignored) {}
+        if (name == null) name = uri.getLastPathSegment();
+        return name == null ? "" : name;
+    }
+
+    private boolean hasOggVorbisHeader(File file) {
+        byte[] sample = new byte[256 * 1024];
+        int read = 0;
+        try (InputStream input = new java.io.FileInputStream(file)) {
+            while (read < sample.length) {
+                int count = input.read(sample, read, sample.length - read);
+                if (count < 0) break;
+                read += count;
+            }
+        } catch (Exception ignored) {
+            return false;
+        }
+        boolean ogg = false;
+        boolean vorbis = false;
+        byte[] marker = new byte[]{1, 'v', 'o', 'r', 'b', 'i', 's'};
+        for (int i = 0; i <= read - 4; i++) {
+            if (sample[i] == 'O' && sample[i + 1] == 'g' && sample[i + 2] == 'g' && sample[i + 3] == 'S') {
+                ogg = true;
+                break;
+            }
+        }
+        for (int i = 0; i <= read - marker.length; i++) {
+            boolean match = true;
+            for (int j = 0; j < marker.length; j++) {
+                if (sample[i + j] != marker[j]) { match = false; break; }
+            }
+            if (match) { vorbis = true; break; }
+        }
+        return ogg && vorbis;
+    }
+
+    private String audioImportResult(boolean ok, String message, boolean cancelled) {
+        try {
+            return new JSONObject()
+                .put("ok", ok)
+                .put("cancelled", cancelled)
+                .put("message", message)
+                .put("tracks", new JSONArray(getCustomMusicLibrary()))
+                .toString();
+        } catch (Exception ignored) {
+            return "{\\"ok\\":false,\\"cancelled\\":false,\\"message\\":\\"Audio import failed.\\",\\"tracks\\":[]}";
+        }
+    }
+
+
 
     @JavascriptInterface public String getReadiness() {
         boolean overlay = Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(activity);

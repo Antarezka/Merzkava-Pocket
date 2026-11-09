@@ -19,6 +19,8 @@ import android.graphics.Color;
 import android.util.Log;
 
 import java.io.InputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Locale;
@@ -26,7 +28,9 @@ import java.util.Map;
 
 public final class MainActivity extends Activity {
     private static final String ASSET_HOST = "pocket.local";
+    private static final int REQUEST_AUDIO_PICKER = 7402;
     private WebView webView;
+    private PocketNativeBridge nativeBridge;
     private PocketFloatingWindow floatingWindow;
     private OnBackInvokedCallback systemBackCallback;
 
@@ -51,10 +55,11 @@ public final class MainActivity extends Activity {
         settings.setJavaScriptCanOpenWindowsAutomatically(false);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        webView.setWebViewClient(new PocketAssetClient(getAssets()));
+        webView.setWebViewClient(new PocketAssetClient(getAssets(), getFilesDir()));
         webView.setWebChromeClient(new WebChromeClient());
         floatingWindow = new PocketFloatingWindow(this, webView);
-        webView.addJavascriptInterface(new PocketNativeBridge(this, webView), "PocketNative");
+        nativeBridge = new PocketNativeBridge(this, webView);
+        webView.addJavascriptInterface(nativeBridge, "PocketNative");
         setContentView(webView);
         webView.loadUrl("https://" + ASSET_HOST + "/index.html");
         handleFloatingLaunchIntent();
@@ -65,9 +70,53 @@ public final class MainActivity extends Activity {
         }
     }
 
+    public boolean openAudioPicker() {
+        try {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("audio/*");
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivityForResult(intent, REQUEST_AUDIO_PICKER);
+            return true;
+        } catch (Exception error) {
+            Log.e("PocketAudio", "Could not open the device audio picker", error);
+            return false;
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_AUDIO_PICKER) return;
+        String detail;
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) {
+            detail = "{\\"ok\\":false,\\"cancelled\\":true,\\"message\\":\\"Music selection cancelled.\\",\\"tracks\\":"
+                + (nativeBridge == null ? "[]" : nativeBridge.getCustomMusicLibrary()) + "}";
+        } else if (nativeBridge != null) {
+            detail = nativeBridge.importAudioFile(data.getData());
+        } else {
+            detail = "{\\"ok\\":false,\\"message\\":\\"The Pocket audio service is unavailable.\\",\\"tracks\\":[]}";
+        }
+        dispatchMusicLibraryChange(detail);
+    }
+
+    private void dispatchMusicLibraryChange(String detailJson) {
+        WebView current = webView;
+        if (current == null) return;
+        String detail = detailJson == null ? "{}" : detailJson;
+        current.post(() -> current.evaluateJavascript(
+            "window.dispatchEvent(new CustomEvent('pocket:music-library-changed',{detail:" + detail + "}));",
+            null
+        ));
+    }
+
     private static final class PocketAssetClient extends WebViewClient {
         private final AssetManager assets;
-        PocketAssetClient(AssetManager assets) { this.assets = assets; }
+        private final File musicDirectory;
+        PocketAssetClient(AssetManager assets, File filesDirectory) {
+            this.assets = assets;
+            this.musicDirectory = new File(filesDirectory, "music");
+        }
 
         @Override
         public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
@@ -90,6 +139,17 @@ public final class MainActivity extends Activity {
                 return new WebResourceResponse("text/plain", "UTF-8", 400, "Invalid asset path", headers(), null);
             }
             try {
+                if (path.startsWith("user-audio/")) {
+                    String fileName = path.substring("user-audio/".length());
+                    if (!fileName.matches("[a-f0-9-]{36}\\.ogg")) {
+                        return new WebResourceResponse("text/plain", "UTF-8", 400, "Invalid audio id", headers(), null);
+                    }
+                    File audioFile = new File(musicDirectory, fileName);
+                    if (!audioFile.isFile()) {
+                        return new WebResourceResponse("text/plain", "UTF-8", 404, "Audio not found", headers(), null);
+                    }
+                    return new WebResourceResponse("audio/ogg", null, 200, "OK", headers(), new FileInputStream(audioFile));
+                }
                 InputStream stream = assets.open(path, AssetManager.ACCESS_STREAMING);
                 String mime = mimeType(path);
                 return new WebResourceResponse(mime, mime.startsWith("text/") || mime.contains("javascript") ? "UTF-8" : null,
