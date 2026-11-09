@@ -33,7 +33,12 @@ class FakeAudio {
     }
     return Promise.resolve();
   }
-  pause() { this.paused = true; this.dispatch("pause"); }
+  pause() {
+    // HTMLMediaElement.pause() is idempotent and need not emit another pause event.
+    if (this.paused) return;
+    this.paused = true;
+    this.dispatch("pause");
+  }
   load() { this.ended = false; }
 }
 
@@ -307,4 +312,34 @@ test("a manual style returns to automatic random rotation after a track cycle", 
   assert.equal(design.getState().mode, "auto");
   assert.notEqual(design.getState().id, "r20");
   assert.equal(design.getState().reason, "track-end");
+});
+
+test("vinyl ambience stops explicitly even when the music element is already paused", () => {
+  const { audio } = harness();
+  const music = FakeAudio.instances[0];
+  const noise = FakeAudio.instances.find(item => item.src === VINYL_SURFACE_NOISE_SRC);
+  audio.enterMainMenu();
+  assert.equal(noise.paused, false);
+
+  // Simulate a WebView pause that happened before the controller receives its pause event.
+  music.paused = true;
+  noise.currentTime = 17;
+  assert.equal(audio.selectTrack("chill"), true);
+  assert.equal(noise.paused, true);
+  assert.equal(noise.currentTime, 0);
+
+  // Reset and splash paths must not depend on a second music pause event either.
+  audio.enterMainMenu();
+  music.paused = true;
+  noise.paused = false;
+  noise.currentTime = 9;
+  audio.pauseForSplash();
+  assert.equal(noise.paused, true);
+  assert.equal(noise.currentTime, 0);
+
+  noise.paused = false;
+  noise.currentTime = 6;
+  audio.resetSession();
+  assert.equal(noise.paused, true);
+  assert.equal(noise.currentTime, 0);
 });
