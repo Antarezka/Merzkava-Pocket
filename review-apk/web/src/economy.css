@@ -159,3 +159,13 @@
 .econ-recipe-materials>div small{grid-column:1/-1;color:var(--muted);font:7px var(--ui)}
 .econ-recipe-materials>strong,.econ-recipe-materials>b{color:var(--gold);font:600 8px var(--ui);letter-spacing:.05em}
 .econ-recipe-materials>p{margin:0;color:var(--muted);font:9px Georgia,serif}
+
+
+/* Clearly anchored title plate above every Economy search surface. */
+.econ-section-head{display:grid;gap:5px;margin:0 0 11px;padding:11px 12px 10px;border:1px solid #a98c5477;border-left:3px solid var(--lime);background:linear-gradient(110deg,var(--surface2),var(--surface));box-shadow:inset 0 1px #ffffff08}
+.econ-section-kicker{color:var(--gold);font:600 7px var(--ui);letter-spacing:.19em}
+.econ-section-head>div{display:flex;align-items:baseline;justify-content:space-between;gap:9px;min-width:0}
+.econ-section-head h2{margin:0;color:var(--paper);font:500 21px/1.1 var(--display);letter-spacing:.015em}
+.econ-section-head p{max-width:58%;margin:0;color:var(--muted);font:8px/1.45 Georgia,serif;text-align:right}
+.econ-section-head+.econ-toolbar{margin-top:0}
+@media(max-width:420px){.econ-section-head{padding:10px 10px 9px}.econ-section-head h2{font-size:19px}.econ-section-head>div{display:grid;gap:3px}.econ-section-head p{max-width:none;text-align:left}}
