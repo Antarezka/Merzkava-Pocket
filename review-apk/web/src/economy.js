@@ -1,6 +1,9 @@
 import "./economy.css";
 
-const CLOCK_RATE=48, STATE_VERSION=6;
+const CLOCK_RATE=48, STATE_VERSION=7;
+const POCKET_DAY_MS=86400000, HOURLY_GIFT_MS=3600000, HOURLY_GIFT_YEAR_MS=365*24*HOURLY_GIFT_MS;
+const rewardSessions=new Map();
+let giftRuntime=null;
 const STARTER_HOME_FACILITIES={
   "pocket.starter.hut":{level:1,operational:true,starter:true,built_at:0,map_position:{col:5,row:4},family:"Shelter"},
   "pocket.starter.foraging":{level:1,operational:true,starter:true,built_at:0,map_position:{col:6,row:6},family:"Foraging"},
@@ -84,7 +87,12 @@ function gatheringToolsReady(data,state,item,site){
 }
 function materialCost(data,materials){return (materials||[]).reduce((sum,row)=>sum+num(data.byId.get(row.item_id)?.market?.base_price_xc)*num(row.quantity),0);}
 function addLedger(state,row){state.ledger.unshift({transaction_id:uid(),at:Date.now(),...row});state.ledger=state.ledger.slice(0,250);}
-function saveState(state,key){try{if(state.save_meta)state.save_meta.updated_at=Date.now();localStorage.setItem(key,JSON.stringify(state));return true;}catch{return false;}}
+function saveState(state,key){try{
+  const liveRewards=rewardSessions.get(key)?.getStoredFields?.();
+  if(liveRewards){state.daily_login_rewards=liveRewards.daily_login_rewards;state.hourly_gifts=liveRewards.hourly_gifts;}
+  if(state.save_meta)state.save_meta.updated_at=Date.now();
+  localStorage.setItem(key,JSON.stringify(state));return true;
+}catch{return false;}}
 function ensureStarterHomeFacilities(state){
   const now=Date.now();let changed=false;
   for(const [id,record] of Object.entries(STARTER_HOME_FACILITIES)){
@@ -99,7 +107,26 @@ function ensureStarterHomeFacilities(state){
   if(!["none","straight_sword","crescent_dao","twin_blades","spear","jade_staff","recurve_bow","war_fan","closed_umbrella","short_sword","moon_polearm","scroll_case","lantern_staff"].includes(state.appearance_weapon)){state.appearance_weapon="none";changed=true;}
   return changed;
 }
-function createState(){const now=Date.now();return {version:STATE_VERSION,wallet_xc:0,inventory:{},facilities:{...Object.fromEntries(Object.entries(STARTER_HOME_FACILITIES).map(([id,v])=>[id,{...v,built_at:now}]))},processes:[],ledger:[],item_site_access:{},facility_site_access:{},builder_records:{},home_rest:{active:false,last_tick_at:now,pending_satiety:0},pocket_needs:{satiety:null},appearance_style:"classic",appearance_hair:"long_black",appearance_outfit:"black_hanfu",appearance_accessory:"none",appearance_weapon:"none",qa_grant_used:false,save_meta:{created_at:now,updated_at:now,migrations:[]}};}
+function randomSeed(){try{const values=new Uint32Array(1);crypto.getRandomValues(values);return values[0]||0x6d65727a;}catch{return (Date.now()^Math.floor(Math.random()*0xffffffff))>>>0;}}
+function localDayStart(timestamp=Date.now()){const date=new Date(timestamp);date.setHours(0,0,0,0);return date.getTime();}
+function ensureRewardState(state){
+  const now=Date.now();
+  if(!state.daily_login_rewards||typeof state.daily_login_rewards!=="object"||Array.isArray(state.daily_login_rewards)){
+    state.daily_login_rewards={start_day_ms:localDayStart(now),seed:randomSeed(),claimed_days:[]};
+  }else{
+    state.daily_login_rewards.start_day_ms=Number.isFinite(Number(state.daily_login_rewards.start_day_ms))?Number(state.daily_login_rewards.start_day_ms):localDayStart(now);
+    state.daily_login_rewards.seed=Number(state.daily_login_rewards.seed)>>>0||randomSeed();
+    state.daily_login_rewards.claimed_days=Array.isArray(state.daily_login_rewards.claimed_days)?[...new Set(state.daily_login_rewards.claimed_days.map(Number).filter(x=>Number.isInteger(x)&&x>=1&&x<=1000))]:[];
+  }
+  if(!state.hourly_gifts||typeof state.hourly_gifts!=="object"||Array.isArray(state.hourly_gifts)){
+    state.hourly_gifts={total_active_ms:0,claimed_cycles:0,seed:randomSeed()};
+  }else{
+    state.hourly_gifts.total_active_ms=Math.min(HOURLY_GIFT_YEAR_MS,Math.max(0,Number(state.hourly_gifts.total_active_ms)||0));
+    state.hourly_gifts.claimed_cycles=Math.max(0,Math.floor(Number(state.hourly_gifts.claimed_cycles)||0));
+    state.hourly_gifts.seed=Number(state.hourly_gifts.seed)>>>0||randomSeed();
+  }
+}
+function createState(){const now=Date.now();return {version:STATE_VERSION,wallet_xc:0,inventory:{},facilities:{...Object.fromEntries(Object.entries(STARTER_HOME_FACILITIES).map(([id,v])=>[id,{...v,built_at:now}]))},processes:[],ledger:[],item_site_access:{},facility_site_access:{},builder_records:{},home_rest:{active:false,last_tick_at:now,pending_satiety:0},pocket_needs:{satiety:null},daily_login_rewards:{start_day_ms:localDayStart(now),seed:randomSeed(),claimed_days:[]},hourly_gifts:{total_active_ms:0,claimed_cycles:0,seed:randomSeed()},appearance_style:"classic",appearance_hair:"long_black",appearance_outfit:"black_hanfu",appearance_accessory:"none",appearance_weapon:"none",qa_grant_used:false,save_meta:{created_at:now,updated_at:now,migrations:[]}};}
 function migrateState(saved,key){
   if(!saved||typeof saved!=="object"||Array.isArray(saved))throw new Error("The saved economy record is not a valid Pocket save.");
   const from=Number(saved.version??1);
@@ -125,6 +152,7 @@ function migrateState(saved,key){
     updated_at:Date.now(),
     migrations:Array.isArray(saved.save_meta?.migrations)?[...saved.save_meta.migrations]:[]
   };
+  ensureRewardState(state);
   if(from<STATE_VERSION)state.save_meta.migrations.push({from,to:STATE_VERSION,at:Date.now(),note:"Preserved Pocket inventory, wallet, facilities, processes, access records, builder assignments, transaction ledger and validated modular appearance slots."});
   if(from<3){
     const legacyGrant=state.ledger.find(x=>x?.type==="profile_wallet_import");
@@ -153,6 +181,152 @@ function openState(identity){
   // The Universe registry authenticates the character name only. All Pocket status,
   // Wallet, inventory, progression and gameplay data remain in this local save.
   return {key,state};
+}
+
+function rewardRoll(seed,index,channel=0){
+  let value=(Number(seed)^Math.imul(Number(index)+1,0x9e3779b1)^Math.imul(Number(channel)+1,0x85ebca6b))>>>0;
+  value^=value>>>16;value=Math.imul(value,0x7feb352d)>>>0;value^=value>>>15;value=Math.imul(value,0x846ca68b)>>>0;value^=value>>>16;
+  return (value>>>0)/4294967296;
+}
+function makePocketReward(data,seed,index,hourly=false){
+  const roll=rewardRoll(seed,index,hourly?2:1);
+  if(roll<(hourly?.56:.30)){
+    const values=hourly?[4,6,9,12,18,25,35,45]:[20,35,50,75,100,150,220,350,500,750];
+    return {kind:"currency",amount_xc:values[Math.floor(rewardRoll(seed,index,3)*values.length)]};
+  }
+  const categories=new Set(["raw","forage","herb","seed","crop","fish","processed","craft","food"]);
+  const candidates=data.items.filter(item=>categories.has(String(item.category||"").toLowerCase()));
+  if(!candidates.length)return {kind:"currency",amount_xc:hourly?12:75};
+  const item=candidates[Math.floor(rewardRoll(seed,index,4)*candidates.length)];
+  return {kind:"item",item_id:item.item_id,quantity:1+Math.floor(rewardRoll(seed,index,5)*(hourly?2:6))};
+}
+function rewardDescription(data,reward){
+  if(!reward)return "Unlisted reward";
+  if(reward.kind==="currency")return currency(reward.amount_xc);
+  const item=data.byId.get(reward.item_id);
+  return (reward.quantity||1)+" × "+(item?.name||reward.item_id);
+}
+function awardPocketReward(data,state,reward,label,type){
+  if(reward.kind==="currency"){
+    const amount=Math.max(0,num(reward.amount_xc));
+    state.wallet_xc=Math.round((num(state.wallet_xc)+amount)*100)/100;
+    addLedger(state,{type,label,quantity:amount,amount_xc:amount,reward_kind:"currency"});
+  }else if(reward.kind==="item"&&data.byId.has(reward.item_id)){
+    addItems(state,[{item_id:reward.item_id,quantity:reward.quantity}]);
+    addLedger(state,{type,label,quantity:reward.quantity,amount_xc:0,item_id:reward.item_id,reward_kind:"item"});
+  }else return false;
+  return true;
+}
+export async function openPocketGiftSession(identity){
+  if(!identity?.role)throw new Error("An active Pocket identity is required for reward records.");
+  const opened=openState(identity),key=opened.key,cached=rewardSessions.get(key);
+  if(cached)return cached;
+  const data=await loadPocketEconomy(),latest=openState(identity);
+  let state=latest.state;
+  ensureRewardState(state);
+  const refreshLatest=()=>{
+    const fresh=openState(identity).state;
+    fresh.daily_login_rewards=state.daily_login_rewards;
+    fresh.hourly_gifts=state.hourly_gifts;
+    state=fresh;
+  };
+  const persist=()=>saveState(state,key);
+  const currentDay=()=>Math.max(1,Math.floor((localDayStart()-state.daily_login_rewards.start_day_ms)/POCKET_DAY_MS)+1);
+  const dayDate=day=>{
+    const date=new Date(state.daily_login_rewards.start_day_ms);
+    date.setDate(date.getDate()+Math.max(0,Number(day)-1));
+    return date.toLocaleDateString(undefined,{day:"2-digit",month:"short",year:"numeric"});
+  };
+  const dailyReward=day=>makePocketReward(data,state.daily_login_rewards.seed,day,false);
+  const hourlyEarned=()=>Math.min(365*24,Math.floor(state.hourly_gifts.total_active_ms/HOURLY_GIFT_MS));
+  const hourlyPending=()=>Math.max(0,hourlyEarned()-state.hourly_gifts.claimed_cycles);
+  const snapshot=()=>{
+    const today=currentDay(),elapsed=Math.min(HOURLY_GIFT_YEAR_MS,state.hourly_gifts.total_active_ms);
+    return {
+      current_day:Math.min(1000,today),
+      day_date:dayDate(Math.min(1000,today)),
+      daily_complete:today>1000,
+      daily_claimed:state.daily_login_rewards.claimed_days.includes(today),
+      daily_reward:today<=1000?dailyReward(today):null,
+      hourly_total_active_ms:elapsed,
+      hourly_remaining_ms:elapsed>=HOURLY_GIFT_YEAR_MS?0:HOURLY_GIFT_MS-(elapsed%HOURLY_GIFT_MS),
+      hourly_pending:hourlyPending(),
+      hourly_claimed_cycles:state.hourly_gifts.claimed_cycles,
+      hourly_complete:elapsed>=HOURLY_GIFT_YEAR_MS&&hourlyPending()===0,
+      hourly_next_reward:elapsed<HOURLY_GIFT_YEAR_MS?makePocketReward(data,state.hourly_gifts.seed,state.hourly_gifts.claimed_cycles+1,true):null
+    };
+  };
+  const session={
+    key,
+    snapshot,
+    getStoredFields:()=>({
+      daily_login_rewards:{...state.daily_login_rewards,claimed_days:[...state.daily_login_rewards.claimed_days]},
+      hourly_gifts:{...state.hourly_gifts}
+    }),
+    getDailyReward:dailyReward,
+    getDayDate:dayDate,
+    getDailyClaimed:day=>state.daily_login_rewards.claimed_days.includes(Number(day)),
+    describeReward:reward=>rewardDescription(data,reward),
+    claimDaily(day){
+      refreshLatest();
+      const today=currentDay();
+      if(today>1000||Number(day)!==today)return {ok:false,message:"Only today's scheduled reward can be claimed."};
+      if(state.daily_login_rewards.claimed_days.includes(today))return {ok:false,message:"Today's reward has already been claimed."};
+      const reward=dailyReward(today);
+      if(!awardPocketReward(data,state,reward,"Daily Login · Day "+today,"daily_login_reward"))return {ok:false,message:"This reward record is invalid."};
+      state.daily_login_rewards.claimed_days.push(today);
+      persist();
+      return {ok:true,reward,label:rewardDescription(data,reward),snapshot:snapshot()};
+    },
+    claimHourly(){
+      refreshLatest();
+      const earned=hourlyEarned(),cycle=state.hourly_gifts.claimed_cycles+1;
+      if(cycle>earned)return {ok:false,message:"The next hourly gift is not ready yet."};
+      const reward=makePocketReward(data,state.hourly_gifts.seed,cycle,true);
+      if(!awardPocketReward(data,state,reward,"Hourly Kitchen Gift · "+cycle,"hourly_login_reward"))return {ok:false,message:"This hourly reward record is invalid."};
+      state.hourly_gifts.claimed_cycles=cycle;
+      persist();
+      return {ok:true,reward,label:rewardDescription(data,reward),snapshot:snapshot()};
+    },
+    advanceActiveTime(milliseconds){
+      const delta=Math.max(0,Number(milliseconds)||0);
+      state.hourly_gifts.total_active_ms=Math.min(HOURLY_GIFT_YEAR_MS,state.hourly_gifts.total_active_ms+delta);
+      return snapshot();
+    },
+    persist(){
+      refreshLatest();
+      return persist();
+    }
+  };
+  rewardSessions.set(key,session);
+  persist();
+  return session;
+}
+export async function startPocketGiftRuntime(identity){
+  const session=await openPocketGiftSession(identity);
+  if(giftRuntime?.key===session.key)return session;
+  stopPocketGiftRuntime();
+  let lastTickAt=Date.now(),lastPersistAt=lastTickAt;
+  const tick=()=>{
+    const now=Date.now(),delta=Math.max(0,now-lastTickAt);
+    lastTickAt=now;
+    if(delta)session.advanceActiveTime(delta);
+    if(now-lastPersistAt>=1000){session.persist();lastPersistAt=now;}
+    window.dispatchEvent(new CustomEvent("pocket:hourly-gift-update",{detail:session.snapshot()}));
+  };
+  const pageHide=()=>{tick();session.persist();};
+  const interval=window.setInterval(tick,1000);
+  window.addEventListener("pagehide",pageHide);
+  giftRuntime={key:session.key,interval,pageHide,tick,session};
+  return session;
+}
+export function stopPocketGiftRuntime(){
+  if(!giftRuntime)return;
+  giftRuntime.tick();
+  window.clearInterval(giftRuntime.interval);
+  window.removeEventListener("pagehide",giftRuntime.pageHide);
+  giftRuntime.session.persist();
+  giftRuntime=null;
 }
 
 /**
@@ -372,7 +546,7 @@ export function economyMarkup(){
       <header class="economy-heading"><span class="eyebrow">GAME / DAILY LIFE / ECONOMY</span><h1>Living <em>Economy.</em></h1><p class="page-lead">Items, gathering, construction, processing and local trade share one saved inventory and wallet.</p></header>
       <section class="econ-summary" data-econ-summary><div class="econ-loading">Opening the local economy archive…</div></section>
       <nav class="econ-tabs" aria-label="Economy sections">
-        <button type="button" data-econ-tab="items" class="is-active">ITEMS</button><button type="button" data-econ-tab="facilities">FACILITIES</button><button type="button" data-econ-tab="production">PRODUCTION</button><button type="button" data-econ-tab="inventory">INVENTORY</button>
+        <button type="button" data-econ-tab="items" class="is-active">ITEMS</button><button type="button" data-econ-tab="facilities">FACILITIES</button><button type="button" data-econ-tab="production">PRODUCTION</button><button type="button" data-econ-tab="inventory">INVENTORY</button><button type="button" data-econ-tab="operations">OPERATIONS</button>
       </nav>
       <div class="econ-content" data-econ-content><div class="econ-loading">Loading Pocket catalogues…</div></div>
       <p class="econ-footnote">Pocket clock ×48 · <span data-econ-catalogue-meta>Verifying bundled catalogue…</span> · Per-profile inventory, wallet and transaction ledger.</p>
@@ -472,6 +646,44 @@ export function mountEconomy(root,identity){
     const rows=inventoryRows(data,state);
     return "<div class='econ-list'><div class='econ-list-title'><b>LOCAL INVENTORY</b><small>"+rows.length+" item types · profile scoped</small></div>"+(rows.length?rows.map(x=>"<div class='econ-row econ-item-row econ-inventory-row'>"+itemVisualMarkup(x.item)+"<span class='econ-item-copy'><span class='econ-row-head'><b>"+esc(x.item.name)+"</b><small>"+esc(x.item.item_id)+"</small></span><span class='econ-row-meta'><i>"+esc(x.item.unit)+"</i><i>Owned "+esc(tidy(x.quantity))+"</i><i>Buyback "+esc(itemPriceLabel(x.item,"typical_merchant_buyback_price_xc"))+"</i></span></span></div>").join(""):"<p class='econ-empty'>This profile has no recorded inventory yet. Nothing is granted automatically.</p>")+"</div>"+renderLedger();
   };
+  const renderOperations=()=>{
+    const running=state.processes.filter(x=>x.status==="running").sort((a,b)=>a.finish_at-b.finish_at);
+    const assets=Object.entries(state.facilities).filter(([,v])=>v?.operational).map(([id,v])=>({id,record:v,facility:data.facilitiesById.get(id)}));
+    const rows=inventoryRows(data,state);
+    const cashIn=state.ledger.reduce((sum,x)=>sum+Math.max(0,num(x.amount_xc)),0);
+    const cashOut=state.ledger.reduce((sum,x)=>sum+Math.max(0,-num(x.amount_xc)),0);
+    const net=cashIn-cashOut;
+    const materialValue=state.ledger.reduce((sum,x)=>sum+Math.max(0,num(x.material_cost_xc)),0);
+    const stockValue=rows.reduce((sum,x)=>sum+num(x.item.market?.base_price_xc)*num(x.quantity),0);
+    const dayKeys=Array.from({length:30},(_,index)=>{const date=new Date();date.setHours(0,0,0,0);date.setDate(date.getDate()-(29-index));return date.getTime();});
+    const dailyNet=dayKeys.map(start=>state.ledger.filter(x=>Number(x.at)>=start&&Number(x.at)<start+POCKET_DAY_MS).reduce((sum,x)=>sum+num(x.amount_xc),0));
+    const min=Math.min(0,...dailyNet),max=Math.max(0,...dailyNet),span=Math.max(1,max-min);
+    const points=dailyNet.map((value,index)=>({x:8+index*304/29,y:86-(value-min)/span*68}));
+    const line=points.map((point,index)=>(index?"L":"M")+point.x.toFixed(1)+" "+point.y.toFixed(1)).join(" ");
+    const dots=points.map(point=>"<circle cx='"+point.x.toFixed(1)+"' cy='"+point.y.toFixed(1)+"' r='2.2'/>").join("");
+    const chart="<div class='econ-profit-chart'><div class='econ-chart-head'><span>30-DAY REALISED CASH FLOW</span><b>"+esc(currency(net))+"</b></div><svg viewBox='0 0 320 100' role='img' aria-label='Thirty day realised net cash flow'><path d='M8 18H312M8 52H312M8 86H312' class='econ-chart-grid'/><path d='"+line+"' class='econ-chart-line'/>"+dots+"</svg><div class='econ-chart-foot'><span>30 DAYS AGO</span><span>TODAY</span></div></div>";
+    const processCards=running.length?running.map(process=>{
+      const total=Math.max(1,Number(process.finish_at)-Number(process.started_at)),remaining=Math.max(0,Number(process.finish_at)-Date.now()),progress=Math.max(0,Math.min(100,(1-remaining/total)*100)),seconds=Math.ceil(remaining/1000);
+      const timeLeft=seconds>=3600?Math.floor(seconds/3600)+"h "+Math.floor(seconds%3600/60)+"m":seconds>=60?Math.floor(seconds/60)+"m "+seconds%60+"s":seconds+"s";
+      const materials=(process.material_lines||[]).map(row=>"<span>"+esc(row.quantity)+" × "+esc(row.name)+" · "+esc(currency(num(row.base_price_xc)*num(row.quantity)))+"</span>").join("");
+      return "<article class='econ-operation-row'><div class='econ-operation-heading'><b>"+esc(process.label)+"</b><small>"+esc(process.type)+"</small></div><div class='econ-operation-progress'><i style='width:"+progress.toFixed(1)+"%'></i></div><div class='econ-operation-meta'><span>"+(remaining>0?esc(timeLeft)+" left":"Completing")+"</span><span>"+progress.toFixed(0)+"%</span></div>"+(materials?"<p class='econ-operation-materials'>INPUTS: "+materials+"</p><p class='econ-operation-materials'>MATERIAL COST: "+esc(currency(process.material_cost_xc||0))+"</p>":"")+"</article>";
+    }).join(""):"<p class='econ-empty'>No active production, gathering or construction process.</p>";
+    const assetCards=assets.length?assets.map(({id,record,facility})=>"<div class='econ-asset-row'><span class='econ-asset-mark'>◆</span><span><b>"+esc(facility?.name||(id==="pocket.starter.hut"?"Small Hut":id==="pocket.starter.foraging"?"Foraging Patch":id==="pocket.starter.well"?"Small Well":id))+"</b><small>"+esc(id)+" · LEVEL "+esc(record.level)+"</small></span><em>ACTIVE</em></div>").join(""):"<p class='econ-empty'>No operational assets are registered.</p>";
+    const stockCards=rows.slice(0,12).map(x=>"<div class='econ-stock-row'><span>"+esc(x.item.name)+"</span><b>"+esc(tidy(x.quantity))+" "+esc(x.item.unit)+"</b><small>BASE VALUE "+esc(currency(num(x.item.market?.base_price_xc)*num(x.quantity)))+"</small></div>").join("");
+    const expenseRows=state.ledger.filter(x=>num(x.amount_xc)<0||num(x.material_cost_xc)>0).slice(0,16).map(x=>{
+      const cash=num(x.amount_xc)<0?currency(-num(x.amount_xc)):"No cash debit";
+      const materials=num(x.material_cost_xc)>0?currency(x.material_cost_xc):"Not separately valued";
+      return "<div class='econ-expense-row'><span><b>"+esc(x.label)+"</b><small>"+esc(new Date(x.at).toLocaleDateString())+" · "+esc(x.type)+"</small></span><strong>"+esc(cash)+"</strong><small>INPUT VALUE · "+esc(materials)+"</small></div>";
+    }).join("");
+    return "<div class='econ-operations'>"+
+      "<section class='econ-ops-metrics'><div><small>NET CASH FLOW</small><b>"+esc(currency(net))+"</b></div><div><small>CASH INFLOW</small><b>"+esc(currency(cashIn))+"</b></div><div><small>CASH OUTFLOW</small><b>"+esc(currency(cashOut))+"</b></div><div><small>STOCK BOOK VALUE</small><b>"+esc(currency(stockValue))+"</b></div></section>"+
+      chart+
+      "<section class='econ-ops-section'><div class='econ-list-title'><b>ACTIVE PROCESSES</b><small>"+running.length+" running</small></div>"+processCards+"</section>"+
+      "<section class='econ-ops-section'><div class='econ-list-title'><b>OPERATING ASSETS</b><small>"+assets.length+" active</small></div>"+assetCards+"</section>"+
+      "<section class='econ-ops-grid'><div class='econ-ops-section'><div class='econ-list-title'><b>INVENTORY STOCK</b><small>"+rows.length+" types · book value "+esc(currency(stockValue))+"</small></div>"+(stockCards||"<p class='econ-empty'>No stock on hand.</p>")+"</div><div class='econ-ops-section'><div class='econ-list-title'><b>PRODUCTION & BUILD COSTS</b><small>"+esc(currency(materialValue))+" input value recorded</small></div>"+(expenseRows||"<p class='econ-empty'>No recorded expenses yet.</p>")+"</div></section>"+
+      "<p class='econ-hint'>Net cash flow uses recorded Wallet movements. Material inputs are valued at catalogue base prices and shown separately; stock value is an estimate, not a guaranteed sale price. The ledger retains the latest 250 records.</p>"+
+      renderLedger()+"</div>";
+  };
   const renderLedger=()=>{
     return "<div class='econ-list'><div class='econ-list-title'><b>TRANSACTION LEDGER</b><small>Newest first · "+state.ledger.length+" records kept</small></div>"+(state.ledger.length?state.ledger.map(x=>"<div class='econ-row econ-ledger-row'><span class='econ-row-head'><b>"+esc(x.label)+"</b><small>"+esc(new Date(x.at).toLocaleString())+"</small></span><span class='econ-row-meta'><i>"+esc(x.type)+"</i><i>"+(x.amount_xc?esc(currency(Math.abs(x.amount_xc))):x.quantity?"Qty "+esc(tidy(x.quantity)):"")+"</i></span></div>").join(""):"<p class='econ-empty'>No transactions recorded.</p>")+"</div>";
   };
@@ -479,7 +691,7 @@ export function mountEconomy(root,identity){
     if(disposed||!data)return;
     const focused=document.activeElement?.matches?.("[data-econ-search]"),cursor=focused?document.activeElement.selectionStart:null;
     refreshSummary();root.querySelectorAll("[data-econ-tab]").forEach(x=>x.classList.toggle("is-active",x.dataset.econTab===tab));
-    content.innerHTML=tab==="items"?renderItems():tab==="facilities"?renderFacilities():tab==="production"?renderProduction():tab==="inventory"?renderInventory():renderLedger();
+    content.innerHTML=tab==="items"?renderItems():tab==="facilities"?renderFacilities():tab==="production"?renderProduction():tab==="inventory"?renderInventory():tab==="operations"?renderOperations():renderLedger();
     let feedbackNode=root.querySelector("[data-econ-feedback]");
     if(!feedbackNode){content.insertAdjacentHTML("beforeend","<p class='econ-feedback' data-econ-feedback role='status'></p>");feedbackNode=root.querySelector("[data-econ-feedback]");}
     feedbackNode.textContent=feedbackText;feedbackNode.dataset.kind=feedbackType;
@@ -497,21 +709,24 @@ export function mountEconomy(root,identity){
   const startRecipe=recipe=>{
     const r=recipeRecord(data,state,recipe);
     if(!r.ready){feedback(r.livestockCatalyst?"This recipe treats livestock as a consumable input. It is locked until reusable animal-asset handling is defined.":"Facility, inputs, station tools or operator Requirements are not met.","warning");return;}
+    const inputCost=materialCost(data,recipe.inputs),materialLines=(recipe.inputs||[]).map(row=>({item_id:row.item_id,name:data.byId.get(row.item_id)?.name||row.item_name||row.item_id,quantity:num(row.quantity),base_price_xc:num(data.byId.get(row.item_id)?.market?.base_price_xc)}));
     takeItems(state,recipe.inputs);
-    startProcess(state,{type:"production",label:recipe.name,recipe_id:recipe.recipe_id,facility_id:recipe.facility_id,sim_minutes:recipe.active_process_sim_minutes,outputs:recipe.outputs.map(x=>({item_id:x.item_id,quantity:x.quantity}))});
-    addLedger(state,{type:"production_started",label:recipe.name,quantity:1,amount_xc:0});persist();feedback("Production started. Inputs were reserved once; output will be granted once at completion.");
+    const process=startProcess(state,{type:"production",label:recipe.name,recipe_id:recipe.recipe_id,facility_id:recipe.facility_id,sim_minutes:recipe.active_process_sim_minutes,inputs:recipe.inputs,material_lines:materialLines,material_cost_xc:inputCost,outputs:recipe.outputs.map(x=>({item_id:x.item_id,quantity:x.quantity}))});
+    addLedger(state,{type:"production_started",label:recipe.name,quantity:1,amount_xc:0,material_cost_xc:inputCost,reference:process.process_id});persist();feedback("Production started. Inputs were reserved once; their catalogue material value is recorded for operating costs.");
   };
   const startBuild=(facility,isUpgrade)=>{
     if(!isUpgrade){
       const r=buildRecord(data,state,facility);if(!r.ready){feedback("Construction Requirements are incomplete.","warning");return;}
+      const materialLines=(r.materials||[]).map(row=>({item_id:row.item_id,name:data.byId.get(row.item_id)?.name||row.item_name||row.item_id,quantity:num(row.quantity),base_price_xc:num(data.byId.get(row.item_id)?.market?.base_price_xc)})),inputCost=materialCost(data,r.materials);
       takeItems(state,r.materials);spend(state,r.cost);
-      startProcess(state,{type:"construction",label:facility.name,facility_id:facility.facility_id,target_level:1,sim_minutes:facility.construction.duration_sim_minutes*r.requiredBuilders/Math.max(1,r.builders)});
-      addLedger(state,{type:"construction_started",label:facility.name,quantity:1,amount_xc:-r.cost});
+      const process=startProcess(state,{type:"construction",label:facility.name,facility_id:facility.facility_id,target_level:1,sim_minutes:facility.construction.duration_sim_minutes*r.requiredBuilders/Math.max(1,r.builders),material_lines:materialLines,material_cost_xc:inputCost});
+      addLedger(state,{type:"construction_started",label:facility.name,quantity:1,amount_xc:-r.cost,material_cost_xc:inputCost,reference:process.process_id});
     }else{
       const r=upgradeRecord(data,state,facility);if(!r.ready||!r.upgrade){feedback("Upgrade Requirements are incomplete.","warning");return;}
+      const materialLines=(r.upgrade.materials||[]).map(row=>({item_id:row.item_id,name:data.byId.get(row.item_id)?.name||row.item_name||row.item_id,quantity:num(row.quantity),base_price_xc:num(data.byId.get(row.item_id)?.market?.base_price_xc)})),inputCost=materialCost(data,r.upgrade.materials);
       takeItems(state,r.upgrade.materials);spend(state,r.cost);
-      startProcess(state,{type:"upgrade",label:facility.name+" L"+r.nextLevel,facility_id:facility.facility_id,target_level:r.nextLevel,sim_minutes:r.upgrade.duration_sim_minutes});
-      addLedger(state,{type:"upgrade_started",label:facility.name+" L"+r.nextLevel,quantity:1,amount_xc:-r.cost});
+      const process=startProcess(state,{type:"upgrade",label:facility.name+" L"+r.nextLevel,facility_id:facility.facility_id,target_level:r.nextLevel,sim_minutes:r.upgrade.duration_sim_minutes,material_lines:materialLines,material_cost_xc:inputCost});
+      addLedger(state,{type:"upgrade_started",label:facility.name+" L"+r.nextLevel,quantity:1,amount_xc:-r.cost,material_cost_xc:inputCost,reference:process.process_id});
     }
     persist();feedback("Construction process started. Its stored finish time survives app restarts.");
   };
@@ -575,7 +790,7 @@ export function mountEconomy(root,identity){
       const catalogueMeta=root.querySelector("[data-econ-catalogue-meta]");
       if(catalogueMeta)catalogueMeta.textContent="Catalogue v"+(data.manifest.catalogue_version||"unknown")+" · source "+(data.manifest.source_commit||"local")+" · 1,000 items / 200 facilities / 20 recipes";
       reconcile(data,state);persist();render();
-      tick=window.setInterval(()=>{if(disposed)return;if(reconcile(data,state))persist();refreshSummary();},1000);
+      tick=window.setInterval(()=>{if(disposed)return;if(reconcile(data,state))persist();refreshSummary();if(tab==="operations")render();},1000);
     }catch(error){
       if(disposed)return;
       summary.innerHTML="<div class='econ-error'>ECONOMY DATA UNAVAILABLE</div>";
@@ -728,3 +943,43 @@ export async function openHomeBaseSession(identity){
     }
   };
 }
+
+
+/* Operations view: live profile accounting across facilities, stock and production. */
+.econ-operations{display:grid;gap:12px;min-width:0}
+.econ-ops-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.econ-ops-metrics>div{display:grid;gap:5px;min-width:0;padding:10px;border:1px solid #a98c5455;background:linear-gradient(145deg,var(--surface2),var(--surface))}
+.econ-ops-metrics small{color:var(--gold);font:600 7px var(--ui);letter-spacing:.1em}
+.econ-ops-metrics b{color:var(--paper);font:500 14px var(--display);overflow-wrap:anywhere}
+.econ-profit-chart{padding:10px;border:1px solid #a98c5466;background:linear-gradient(155deg,var(--surface2),var(--surface))}
+.econ-chart-head,.econ-chart-foot{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.econ-chart-head span{color:var(--gold);font:600 7px var(--ui);letter-spacing:.1em}
+.econ-chart-head b{color:var(--lime);font:500 13px var(--display)}
+.econ-profit-chart svg{display:block;width:100%;height:110px;overflow:visible;margin:5px 0}
+.econ-chart-grid{fill:none;stroke:#a98c5438;stroke-width:1;stroke-dasharray:3 4}
+.econ-chart-line{fill:none;stroke:var(--lime);stroke-width:2.25;stroke-linecap:round;stroke-linejoin:round}
+.econ-profit-chart circle{fill:var(--gold);stroke:var(--surface);stroke-width:1.2}
+.econ-chart-foot{color:var(--muted);font:6px var(--ui);letter-spacing:.1em}
+.econ-ops-section{display:grid;gap:7px;min-width:0;padding:9px;border:1px solid #a98c5444;background:linear-gradient(150deg,var(--surface2),var(--surface))}
+.econ-operation-row{display:grid;gap:7px;padding:9px;border:1px solid #a98c5444;background:#0000000b}
+.econ-operation-heading,.econ-operation-meta{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.econ-operation-heading b{color:var(--paper);font:500 12px var(--display)}
+.econ-operation-heading small,.econ-operation-meta{color:var(--muted);font:8px var(--ui)}
+.econ-operation-progress{height:5px;background:#a98c5422;overflow:hidden}
+.econ-operation-progress i{display:block;height:100%;background:var(--lime)}
+.econ-operation-materials{display:flex;flex-wrap:wrap;gap:6px;margin:0;color:var(--muted);font:8px/1.5 Georgia,serif;overflow-wrap:anywhere}
+.econ-asset-row{display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:7px;align-items:center;padding:7px 0;border-bottom:1px solid #a98c5433}
+.econ-asset-mark{color:var(--gold);font-size:10px}
+.econ-asset-row span:nth-child(2){display:grid;gap:3px;min-width:0}
+.econ-asset-row b{color:var(--paper);font:500 11px var(--display);overflow-wrap:anywhere}
+.econ-asset-row small{color:var(--muted);font:7px var(--ui);overflow-wrap:anywhere}
+.econ-asset-row em{color:var(--lime);font:700 6px var(--ui);letter-spacing:.08em;font-style:normal}
+.econ-ops-grid{display:grid;grid-template-columns:1fr;gap:9px;min-width:0}
+.econ-stock-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 8px;padding:7px 0;border-bottom:1px solid #a98c5433}
+.econ-stock-row span{color:var(--paper);font:10px Georgia,serif}
+.econ-stock-row b{color:var(--lime);font:9px var(--ui)}
+.econ-stock-row small{grid-column:1/-1;color:var(--muted);font:7px var(--ui);text-align:right}
+.econ-expense-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 8px;padding:7px 0;border-bottom:1px solid #a98c5433}
+.econ-expense-row span{display:grid;gap:3px;min-width:0}
+.econ-expense-row b{color:var(--paper);font:10px Georgia,serif;overflow-wrap:anywhere}
+.econ-expense-row small{color:var(--muted);font:7px var(--ui);overflow-wrap:anywhere}

@@ -1,4 +1,5 @@
 import { animate } from "animejs";
+import { openPocketGiftSession } from "./economy.js";
 import "./daily-login.css";
 
 const reducedMotion=()=>window.matchMedia?.("(prefers-reduced-motion: reduce)").matches??false;
@@ -43,10 +44,43 @@ export function dailyLoginMarkup(){
      </button>
      <span class="dl-chef-tap-note">TAP THE CHEF</span>
     </div>
+    <div class="dl-assistant-area">
+     <div class="dl-assistant-bubble" data-dl-assistant-bubble role="status" aria-live="polite">
+      <span data-dl-assistant-text>Hai! Aku menyiapkan hadiah untukmu selama Pocket berjalan.</span>
+      <div class="dl-assistant-stamp"><span>NEXT HOURLY GIFT</span><b data-dl-hourly-countdown>60m 00s</b></div>
+      <small class="dl-assistant-reward" data-dl-hourly-reward>Preparing a small surprise…</small>
+      <button class="dl-hourly-claim" type="button" data-dl-hourly-claim disabled>GIFT NOT READY</button>
+     </div>
+     <button class="dl-assistant" type="button" data-dl-assistant aria-label="Talk to the kitchen assistant">
+      <span class="dl-assistant-sprite" aria-hidden="true"></span>
+      <span class="dl-assistant-nameplate">KITCHEN AIDE</span>
+     </button>
+     <span class="dl-assistant-tap-note">TAP ASSISTANT</span>
+    </div>
     <div class="dl-retro-tv" aria-label="Televisi tabung dengan noise">
      <img class="dl-tv-art" src="/game-assets/pxl/sprites/daily_login_retro_tv.png" alt="" draggable="false">
      <div class="dl-tv-screen" aria-hidden="true"><i class="dl-tv-static" data-dl-tv-static></i><i class="dl-tv-scan" data-dl-tv-scan></i><i class="dl-tv-noise" data-dl-tv-noise></i></div>
     </div>
+   </div>
+   <button class="dl-reward-open" type="button" data-dl-reward-open>DAILY REWARDS · 1,000 DAYS</button>
+   <div class="dl-reward-backdrop" data-dl-reward-backdrop hidden>
+    <section class="dl-reward-calendar" role="dialog" aria-modal="true" aria-label="One thousand day reward calendar">
+     <header class="dl-reward-calendar-head">
+      <div><b>DAILY REWARD ARCHIVE</b><small>1,000 DAYS · RANDOM PROFILE REWARDS</small></div>
+      <button type="button" data-dl-reward-close aria-label="Close reward calendar">×</button>
+     </header>
+     <div class="dl-daily-current" data-dl-daily-current>
+      <small>TODAY'S SUPPLY</small><strong data-dl-daily-title>Opening today's reward…</strong>
+      <span data-dl-daily-description></span>
+      <button type="button" data-dl-daily-claim disabled>CLAIM TODAY'S REWARD</button>
+     </div>
+     <div class="dl-reward-calendar-tools">
+      <button type="button" data-dl-reward-page="-1">← PREVIOUS</button>
+      <span data-dl-reward-page-label>DAY 1–50 / 1000</span>
+      <button type="button" data-dl-reward-page="1">NEXT →</button>
+     </div>
+     <div class="dl-reward-list" data-dl-reward-list></div>
+    </section>
    </div>
    <div class="dl-choice-dim" data-dl-choice-dim hidden aria-hidden="true"></div>
    <div class="dl-choice" data-dl-choice hidden aria-live="polite">
@@ -83,7 +117,7 @@ function playDoorSlideChime(){
  }catch{/* Decorative sound must never block entry. */}
 }
 
-export function mountDailyLogin(scene,onBack){
+export function mountDailyLogin(scene,onBack,identity){
  if(!scene)return ()=>{};
  const outside=scene.querySelector("[data-dl-outside]");
  const interior=scene.querySelector("[data-dl-interior]");
@@ -100,9 +134,25 @@ export function mountDailyLogin(scene,onBack){
  const tvNoise=scene.querySelector("[data-dl-tv-noise]");
  const tvScan=scene.querySelector("[data-dl-tv-scan]");
  const bulb=scene.querySelector(".dl-bulb-lamp");
- const puffs=[...scene.querySelectorAll(".dl-steam")];
+ const assistant=scene.querySelector("[data-dl-assistant]");
+ const assistantText=scene.querySelector("[data-dl-assistant-text]");
+ const hourlyCountdown=scene.querySelector("[data-dl-hourly-countdown]");
+ const hourlyReward=scene.querySelector("[data-dl-hourly-reward]");
+ const hourlyClaim=scene.querySelector("[data-dl-hourly-claim]");
+ const rewardBackdrop=scene.querySelector("[data-dl-reward-backdrop]");
+ const rewardList=scene.querySelector("[data-dl-reward-list]");
+ const rewardPageLabel=scene.querySelector("[data-dl-reward-page-label]");
+ const dailyTitle=scene.querySelector("[data-dl-daily-title]");
+ const dailyDescription=scene.querySelector("[data-dl-daily-description]");
+ const dailyClaim=scene.querySelector("[data-dl-daily-claim]");
  const animations=new Set(),interiorAnimations=new Set(),motionReduced=reducedMotion();
+ let rewardSession=null,rewardPage=0,rewardTick=null,rewardMessageIndex=0;
  const dialogueLines=["Ai-yo!","Makanan masih dipersiapkan!","Mohon tunggu!"];
+ const assistantLines=[
+  "Hai! Aku menyiapkan hadiah kecil setiap satu jam Pocket aktif.",
+  "Pocket sedang berjalan? Hitungan hadiah terus berlanjut meski kamu berpindah menu.",
+  "Kalau app benar-benar ditutup, hitungannya berhenti. Hadiah yang sudah siap tetap tersimpan."
+ ];
  let interiorMotionStarted=false;
  let opened=false,leaving=false,disposed=false,drag=null,dragOffset=0,dialogueIndex=-1,choiceOpen=false;
  let pointerLastX=0,doorRattleAudio=null,dragHapticSent=false;
@@ -118,6 +168,112 @@ export function mountDailyLogin(scene,onBack){
  const animateUnlessReduced=(target,params)=>{
   if(!motionReduced)track(animate(target,params));
  };
+
+ const formatGiftTime=milliseconds=>{
+  const seconds=Math.max(0,Math.ceil(Number(milliseconds||0)/1000));
+  return Math.floor(seconds/60)+"m "+String(seconds%60).padStart(2,"0")+"s";
+ };
+ const refreshGiftUI=()=>{
+  if(!rewardSession||disposed)return;
+  const status=rewardSession.snapshot();
+  if(status.hourly_pending>0){
+   assistantText.textContent="Hadiah dari dapur sudah siap. Aku menyimpannya di nampan untukmu.";
+   hourlyCountdown.textContent="READY";
+   hourlyReward.textContent=rewardSession.describeReward(status.hourly_next_reward)||"Gift waiting";
+   hourlyClaim.hidden=false;hourlyClaim.disabled=false;
+   hourlyClaim.textContent=status.hourly_pending>1?"CLAIM GIFT · "+status.hourly_pending+" READY":"CLAIM HOURLY GIFT";
+  }else if(status.hourly_complete){
+   assistantText.textContent="Perjalanan hadiah per jam selama setahun aktif sudah selesai. Terima kasih sudah mampir!";
+   hourlyCountdown.textContent="YEAR COMPLETE";
+   hourlyReward.textContent="All 8,760 hourly cycles have been completed.";
+   hourlyClaim.hidden=true;hourlyClaim.disabled=true;
+  }else{
+   assistantText.textContent=assistantLines[rewardMessageIndex%assistantLines.length];
+   hourlyCountdown.textContent=formatGiftTime(status.hourly_remaining_ms);
+   hourlyReward.textContent=status.hourly_next_reward?("Next: "+rewardSession.describeReward(status.hourly_next_reward)):"A small surprise is being prepared.";
+   hourlyClaim.hidden=false;hourlyClaim.disabled=true;
+   hourlyClaim.textContent="GIFT NOT READY";
+  }
+  if(status.daily_complete){
+   dailyTitle.textContent="The 1,000-day reward journey is complete.";
+   dailyDescription.textContent="All scheduled rewards have been archived.";
+   dailyClaim.disabled=true;dailyClaim.textContent="REWARD JOURNEY COMPLETE";
+  }else{
+   dailyTitle.textContent="DAY "+status.current_day+" / 1,000 · "+status.day_date;
+   dailyDescription.textContent=rewardSession.describeReward(status.daily_reward);
+   dailyClaim.disabled=status.daily_claimed;
+   dailyClaim.textContent=status.daily_claimed?"TODAY'S REWARD CLAIMED":"CLAIM TODAY'S REWARD";
+  }
+ };
+ const renderRewardPage=()=>{
+  if(!rewardSession||!rewardList)return;
+  const status=rewardSession.snapshot(),pageCount=20;
+  rewardPage=Math.max(0,Math.min(pageCount-1,rewardPage));
+  const first=rewardPage*50+1,last=Math.min(1000,first+49);
+  rewardPageLabel.textContent="DAY "+first+"–"+last+" / 1000";
+  rewardList.innerHTML=Array.from({length:last-first+1},(_,offset)=>{
+   const day=first+offset,reward=rewardSession.getDailyReward(day),isClaimed=rewardSession.getDailyClaimed(day);
+   const isToday=day===status.current_day&&!status.daily_complete;
+   const isPast=day<status.current_day||status.daily_complete;
+   const stateLabel=isClaimed?"CLAIMED":isToday?"TODAY":isPast?"MISSED":"UPCOMING";
+   const classes="dl-reward-row"+(isToday?" is-today":"")+(isClaimed?" is-claimed":"");
+   return "<div class='"+classes+"'><strong>DAY "+day+"</strong><span><b>"+rewardSession.describeReward(reward)+"</b><small>"+rewardSession.getDayDate(day)+"</small></span><em>"+stateLabel+"</em></div>";
+  }).join("");
+  const previous=scene.querySelector("[data-dl-reward-page='-1']");
+  const next=scene.querySelector("[data-dl-reward-page='1']");
+  if(previous)previous.disabled=rewardPage===0;
+  if(next)next.disabled=rewardPage===19;
+  refreshGiftUI();
+ };
+ const openRewardCalendar=()=>{
+  if(!rewardSession||!rewardBackdrop)return;
+  rewardPage=Math.floor((Math.max(1,rewardSession.snapshot().current_day)-1)/50);
+  rewardBackdrop.hidden=false;
+  renderRewardPage();
+ };
+ const closeRewardCalendar=()=>{if(rewardBackdrop)rewardBackdrop.hidden=true;};
+ const rewardClick=event=>{
+  const open=event.target.closest("[data-dl-reward-open]");
+  if(open){openRewardCalendar();return;}
+  const close=event.target.closest("[data-dl-reward-close]");
+  if(close){closeRewardCalendar();return;}
+  if(event.target===rewardBackdrop){closeRewardCalendar();return;}
+  const page=event.target.closest("[data-dl-reward-page]");
+  if(page){rewardPage+=Number(page.dataset.dlRewardPage)||0;renderRewardPage();return;}
+  const daily=event.target.closest("[data-dl-daily-claim]");
+  if(daily&&rewardSession){
+   const result=rewardSession.claimDaily(rewardSession.snapshot().current_day);
+   assistantText.textContent=result.ok?"Terima kasih sudah menerima bekal hari ini!":"Hadiah hari ini sudah diambil atau belum tersedia.";
+   renderRewardPage();return;
+  }
+  const hourly=event.target.closest("[data-dl-hourly-claim]");
+  if(hourly&&rewardSession&&!hourly.disabled){
+   const result=rewardSession.claimHourly();
+   assistantText.textContent=result.ok?"Ini hadiah dapurmu: "+result.label+". Semoga berguna!":result.message;
+   refreshGiftUI();if(rewardBackdrop&&!rewardBackdrop.hidden)renderRewardPage();return;
+  }
+  const aide=event.target.closest("[data-dl-assistant]");
+  if(aide){
+   rewardMessageIndex++;assistant.classList.add("is-speaking");refreshGiftUI();
+  }
+ };
+ const onGiftUpdate=()=>{refreshGiftUI();};
+ const onDailyRewardUpdate=()=>{refreshGiftUI();if(rewardBackdrop&&!rewardBackdrop.hidden)renderRewardPage();};
+ scene.addEventListener("click",rewardClick);
+ window.addEventListener("pocket:hourly-gift-update",onGiftUpdate);
+ if(identity){
+  void openPocketGiftSession(identity).then(session=>{
+   if(disposed)return;
+   rewardSession=session;refreshGiftUI();
+  }).catch(error=>{
+   if(disposed)return;
+   assistantText.textContent="Hadiah dapur belum dapat dibuka: "+(error?.message||"local save unavailable");
+   hourlyCountdown.textContent="UNAVAILABLE";
+   hourlyClaim.disabled=true;
+  });
+ }
+ rewardTick=window.setInterval(refreshGiftUI,1000);
+
  const refreshSky=()=>{
   const now=new Date();
   const hour=now.getHours()+now.getMinutes()/60;
@@ -150,6 +306,7 @@ export function mountDailyLogin(scene,onBack){
    delay:index*360,duration:1760,loop:true,ease:"inOutSine"
   })));
   trackInterior(animate(chef,{translateY:[0,-1.5,0],duration:2100,loop:true,ease:"inOutSine"}));
+  if(assistant)trackInterior(animate(assistant,{translateY:[0,-1,0],duration:2300,loop:true,ease:"inOutSine"}));
   // CRT interference is deliberately the only thing on the TV: no login status
   // is shown until the actual local login/claim system exists.
   trackInterior(animate(tvNoise,{opacity:[.12,.32,.16,.28,.12],translateX:[0,-2,1,-1,0],duration:190,loop:true,ease:"linear"}));
@@ -362,6 +519,10 @@ export function mountDailyLogin(scene,onBack){
 
  return ()=>{
   disposed=true;
+  scene.removeEventListener("click",rewardClick);
+  window.removeEventListener("pocket:hourly-gift-update",onGiftUpdate);
+  if(rewardTick!==null)window.clearInterval(rewardTick);
+  closeRewardCalendar();
   animations.forEach(animation=>animation.pause?.());
   door.removeEventListener("pointerdown",pointerDown);
   door.removeEventListener("pointermove",pointerMove);

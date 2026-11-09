@@ -1,6 +1,6 @@
 import { animate } from "animejs";
 import "./styles.css";
-import { economyMarkup, mountEconomy } from "./economy.js";
+import { economyMarkup, mountEconomy, startPocketGiftRuntime, stopPocketGiftRuntime } from "./economy.js";
 import { mountHomeBase } from "./home-base.js";
 import { dailyLoginMarkup, mountDailyLogin } from "./daily-login.js";
 import { playerRecordsMarkup, mountPlayerRecords } from "./player-records.js";
@@ -965,6 +965,7 @@ function renderLoginGate() {
         ? invokeNative("verifyPlayerIdentity", [name.trim()], activeAccessAbort.signal)
         : invokeNative("authenticateDeveloper", [identifier, password, values.get("remember") === "on"], activeAccessAbort.signal), activeAccessAbort.signal);
       accessIdentity = identity;
+      void startPocketGiftRuntime(identity).catch(()=>{});
       showFloatingControl();
     } catch (error) {
       if (error?.name === "AbortError") message.textContent = "Access check cancelled.";
@@ -993,6 +994,7 @@ function renderLoginGate() {
     const runRegistration = async () => invokeNative("registerPocketPlayerAccount", [name], signal);
     void runAccessSequence("player", runRegistration, signal).then(identity => {
       accessIdentity = identity;
+      void startPocketGiftRuntime(identity).catch(()=>{});
       showFloatingControl();
     }).catch(error => {
       if (error?.name === "AbortError") message.textContent = "Registration cancelled.";
@@ -1534,7 +1536,7 @@ function renderPage(destination, transitionDuration=420) {
       .then(cleanup=>{if(currentRoute==="home-base")homeBaseCleanup=cleanup;else cleanup();})
       .catch(error=>{const host=root.querySelector("[data-home-base-root]");if(host)host.textContent="Home Base error: "+error.message;});
   }else if(destination==="daily-login"){
-    currentDisposer=mountDailyLogin(root.querySelector("[data-daily-login-root]"),()=>navigateBack(2000));
+    currentDisposer=mountDailyLogin(root.querySelector("[data-daily-login-root]"),()=>navigateBack(2000),accessIdentity);
   }else if(destination==="player-list"){
     const menuCleanup=currentDisposer;
     const playerRecordsCleanup=mountPlayerRecords(root.querySelector("[data-player-records-stage]"),accessIdentity,invokeNative);
@@ -1793,6 +1795,7 @@ function navigateBack(transitionDuration=420) {
 
 async function signOut() {
   if (!nativeReady()) return;
+  stopPocketGiftRuntime();
   pocketAudio.resetSession();
   if (accessIdentity?.role==="developer") {
     try { native.lockDeveloperSession(); } catch {}
