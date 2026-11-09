@@ -1420,7 +1420,6 @@ function renderPage(destination, transitionDuration=420) {
         </div>
       </article>
       <article class="destination-card personal-section"><div class="settings-section-heading"><i class="settings-symbol personal-symbol" aria-hidden="true"></i><span>PERSONAL STUFF</span><small>YOUR POCKET PROFILE</small></div><section class="personal-setting"><div class="personal-account-icon" aria-hidden="true"></div><div class="personal-account-copy"><span>ACCOUNT & ACCESS</span><strong>${escapeHtml(accessIdentity?.displayName||"Pocket User")}</strong><small>${(accessIdentity?.role||"player").toUpperCase()} SESSION</small></div><button class="logout-button" data-signout><i class="logout-symbol" aria-hidden="true"></i>LOCK / SIGN OUT</button></section></article>
-      ${accessIdentity?.role === "developer" ? `
       <div class="developer-authority-notice" data-developer-authority-notice hidden aria-hidden="true" role="alert">You don't have authority access, too low!</div>
       <article class="destination-card developer-settings" data-developer-settings${accessIdentity?.role === "developer" ? "" : " hidden inert aria-hidden=\"true\""}>
         <details class="developer-tools-accordion">

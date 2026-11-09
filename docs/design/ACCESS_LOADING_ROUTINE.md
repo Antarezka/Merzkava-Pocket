@@ -37,7 +37,8 @@ The line changes in place with a short Anime.js arrival. Its `.`, `..`, and `...
 
 - Login routine starts only after the Player or Developer form is submitted.
 - Pocket Transition starts only after **Open game / continue playing** is pressed.
-- Player names have no local autocomplete or cached-name suggestions. Player identity is confirmed online against the currently pinned Universe registry.
+- Player input has no autocomplete or suggestions. Identity lookup checks both Pocket's previously registered local player names and the current Universe `players.md` registry. A live internet connection and a verified current pin are still required for every Player sign-in; the local source is not an offline login bypass.
+- Developer Settings contain a collapsed, scrollable account-recovery section that is present but hidden/inert for Player sessions. Both the JavaScript role and the native active Developer-session marker must authorize access; a forced Player attempt displays the red breathing notice “You don't have authority access, too low!” and hides the section again. A Player login clears any previous Developer-session marker. A normal password change remains Player-initiated and validates the current password first. The Developer-only Master Reset tool scans Pocket-local and Universe player records, requires an ownership confirmation, and creates an account-bound AI handoff request; it does not reset a password or generate the player's final confirmation code.
 - Developer PBKDF2 verification is local and works fully offline; the same six-stage fake loading scene still runs. Remembered credentials are protected by Android Keystore.
 - Pocket transition wording describes actual local session, theme, and Android status reads. It does not claim a cloud sync.
 - Progress stays below full completion while the real operation is pending.
