@@ -934,7 +934,24 @@ public final class PocketNativeBridge {
                     }
                     String existingId = oldRecord.optString("playerId", "");
                     if (existingId.matches("profile-[A-Fa-f0-9]{32}")) record.put("playerId", existingId);
+                    // Only the Pocket-local current token survives an ordinary profile import.
+                    if (oldRecord.has("sessionSaveCode")) {
+                        record.put("sessionSaveCode", oldRecord.optString("sessionSaveCode", ""));
+                        record.put("sessionSaveGeneration", oldRecord.optInt("sessionSaveGeneration", 0));
+                        record.put("sessionSaveCodeIssuedAt", oldRecord.optLong("sessionSaveCodeIssuedAt", 0L));
+                    } else {
+                        record.remove("sessionSaveCode");
+                        record.remove("sessionSaveGeneration");
+                        record.remove("sessionSaveCodeIssuedAt");
+                    }
+                } else {
+                    record.remove("sessionSaveCode");
+                    record.remove("sessionSaveGeneration");
+                    record.remove("sessionSaveCodeIssuedAt");
                 }
+                // Display-only state is recalculated by the live Developer directory.
+                record.remove("sessionSaveCodePresent");
+                record.remove("sessionSaveCodeGeneration");
                 record.put("schemaVersion", 1);
                 record.put("name", name);
                 String playerId = ensurePocketPlayerId(record);
