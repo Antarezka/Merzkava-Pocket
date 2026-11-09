@@ -2705,3 +2705,39 @@
   .audio-rack-tools>small{max-width:88px;font-size:6px}
   .audio-edit-toggle{padding-inline:6px}
 }
+
+
+/* Very small, unobtrusive legal and attribution footer in Settings. */
+.legal-credits{
+  width:100%;margin:2px 0 18px;padding:7px 9px 8px;
+  border-top:1px solid color-mix(in srgb,var(--gold) 32%,transparent);
+  color:var(--muted);opacity:.88;
+}
+.legal-credits>summary{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  min-height:18px;list-style:none;cursor:pointer;color:var(--muted);
+  font-size:6px;letter-spacing:.13em;
+}
+.legal-credits>summary::-webkit-details-marker{display:none}
+.legal-credits>summary:after{content:"+";color:var(--gold);font-size:9px}
+.legal-credits[open]>summary:after{content:"−"}
+.legal-credits>summary small{font-size:5.5px;letter-spacing:.07em;text-align:right}
+.legal-credits-body{display:grid;gap:6px;padding:7px 1px 1px}
+.legal-credits-body p{margin:0;color:var(--muted);font:6px/1.55 var(--ui);overflow-wrap:anywhere}
+.legal-credits-body p b{color:var(--gold);font-size:5.7px;letter-spacing:.1em}
+.legal-credits-body a{color:var(--gold);font-size:5.7px;text-decoration:underline}
+.legal-credits-body button{
+  justify-self:start;min-height:19px;padding:0 7px;
+  border:1px solid color-mix(in srgb,var(--gold) 38%,var(--line));
+  background:transparent;color:var(--muted);font-size:5.7px;letter-spacing:.09em;
+}
+.legal-credits-body button:disabled{opacity:.5}
+.legal-credits-body pre{
+  max-height:310px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;
+  margin:0;padding:7px;border:1px solid color-mix(in srgb,var(--gold) 25%,transparent);
+  background:color-mix(in srgb,var(--surface2) 82%,transparent);
+  color:var(--muted);font:5.5px/1.5 ui-monospace,monospace;
+}
+.legal-credits-body pre[hidden]{display:none}
+:root[data-theme="light"] .legal-credits{border-top-color:#9c835b55}
+:root[data-theme="light"] .legal-credits-body button{color:#62553f}

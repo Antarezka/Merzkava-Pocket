@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createPocketAudioController, createTurntableMotion, createVinylDesignController, getSupportedAudioPlaybackTypes, VINYL_STYLES } from "../web/src/audio-player.js";
+import { createPocketAudioController, createTurntableMotion, createVinylDesignController, getSupportedAudioPlaybackTypes, VINYL_STYLES, VINYL_SURFACE_NOISE_SRC } from "../web/src/audio-player.js";
 
 class FakeAudio {
   static instances = [];
@@ -54,6 +54,44 @@ test("background music stays silent until the main menu is entered", () => {
   assert.equal(FakeAudio.instances[0].paused, true);
   audio.enterMainMenu();
   assert.equal(audio.getState().isPlaying, true);
+});
+
+test("vinyl surface noise loops for the full music playback and stops with music", () => {
+  const { audio } = harness();
+  const noise = FakeAudio.instances.find(item => item.src === VINYL_SURFACE_NOISE_SRC);
+  assert.ok(noise, "the dedicated vinyl surface-noise layer should be created");
+  assert.equal(noise.loop, true);
+  assert.equal(noise.paused, true);
+
+  audio.enterMainMenu();
+  assert.equal(audio.getState().isPlaying, true);
+  assert.equal(noise.paused, false);
+  assert.ok(noise.volume > 0 && noise.volume < 0.2, "surface noise should stay beneath the music");
+
+  audio.pauseForSplash();
+  assert.equal(noise.paused, true);
+  assert.equal(noise.currentTime, 0);
+
+  audio.enterMainMenu();
+  assert.equal(noise.paused, false);
+  audio.resetSession();
+  assert.equal(noise.paused, true);
+});
+
+test("vinyl surface noise follows the effects slider without altering other sound effects", () => {
+  const { audio } = harness();
+  const noise = FakeAudio.instances.find(item => item.src === VINYL_SURFACE_NOISE_SRC);
+  audio.enterMainMenu();
+  assert.equal(noise.paused, false);
+
+  audio.setEffectsVolume(0);
+  assert.equal(noise.paused, true);
+  audio.setEffectsVolume(35);
+  assert.equal(noise.paused, false);
+  assert.equal(noise.volume, 0.35 * 0.16);
+
+  audio.selectTrack("chill");
+  assert.equal(noise.paused, true, "placing a different record must not restart ambience");
 });
 
 test("music pauses during splash and resumes only after the main menu returns", () => {

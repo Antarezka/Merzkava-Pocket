@@ -8,6 +8,9 @@ const EFFECTS = Object.freeze({
   placement: "/audio/record%20placement.mp3"
 });
 
+export const VINYL_SURFACE_NOISE_SRC = "/audio/vinyl-surface-noise.ogg";
+const VINYL_SURFACE_NOISE_GAIN = 0.16;
+
 export const SUPPORTED_AUDIO_EXTENSIONS = Object.freeze([
   "ogg", "oga", "opus", "mp3", "wav", "wave", "m4a", "aac", "flac", "3gp", "amr"
 ]);
@@ -94,9 +97,33 @@ export function createPocketAudioController({
   music.preload = "auto";
   music.loop = true;
   music.volume = musicVolume / 100;
+  // Dedicated ambience bed: independent of needle-drop and record-placement SFX.
+  const vinylSurfaceNoise = new AudioCtor(VINYL_SURFACE_NOISE_SRC);
+  vinylSurfaceNoise.preload = "auto";
+  vinylSurfaceNoise.loop = true;
+  vinylSurfaceNoise.volume = (effectsVolume / 100) * VINYL_SURFACE_NOISE_GAIN;
 
   const notify = () => onChange(getState());
   const isPlaying = () => music.paused === false && music.ended !== true;
+  const stopVinylSurfaceNoise = () => {
+    if (!vinylSurfaceNoise.paused) {
+      try { vinylSurfaceNoise.pause(); } catch {}
+    }
+    try { vinylSurfaceNoise.currentTime = 0; } catch {}
+  };
+  const syncVinylSurfaceNoise = () => {
+    if (!menuEntered || !isPlaying() || effectsVolume <= 0) {
+      stopVinylSurfaceNoise();
+      return;
+    }
+    vinylSurfaceNoise.volume = (effectsVolume / 100) * VINYL_SURFACE_NOISE_GAIN;
+    if (vinylSurfaceNoise.paused) {
+      try {
+        const result = vinylSurfaceNoise.play();
+        result?.catch?.(() => {});
+      } catch {}
+    }
+  };
   const createEffect = name => {
     const src = EFFECTS[name];
     if (!src || effectsVolume <= 0) return null;
@@ -165,11 +192,18 @@ export function createPocketAudioController({
   music.addEventListener?.("play", () => {
     lastPlaybackTime = Number(music.currentTime) || 0;
     lastPlaybackDuration = Number.isFinite(music.duration) ? music.duration : 0;
+    syncVinylSurfaceNoise();
     notify();
   });
-  music.addEventListener?.("pause", notify);
+  music.addEventListener?.("pause", () => {
+    stopVinylSurfaceNoise();
+    notify();
+  });
   music.addEventListener?.("ended", reportPlaybackCycle);
-  music.addEventListener?.("error", notify);
+  music.addEventListener?.("error", () => {
+    stopVinylSurfaceNoise();
+    notify();
+  });
   // Looping HTMLAudioElements do not fire "ended". Detect the natural wrap at the end
   // of a complete song so the record label still changes at every playback cycle.
   music.addEventListener?.("timeupdate", () => {
@@ -285,6 +319,7 @@ export function createPocketAudioController({
   function setEffectsVolume(value) {
     effectsVolume = clampVolume(value);
     write("mp-audio-effects-volume", effectsVolume);
+    syncVinylSurfaceNoise();
     notify();
   }
 

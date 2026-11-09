@@ -1286,6 +1286,43 @@ function readLocalPlayerNames() {
   } catch { return []; }
 }
 
+function mountLegalNotices() {
+  const button = root.querySelector("[data-legal-notices-toggle]");
+  const output = root.querySelector("[data-legal-notices-output]");
+  if (!button || !output) return () => {};
+  let loading = false;
+  const toggle = async () => {
+    if (loading) return;
+    if (!output.hidden) {
+      output.hidden = true;
+      button.textContent = "VIEW FULL LICENCES";
+      button.setAttribute("aria-expanded", "false");
+      return;
+    }
+    if (output.dataset.loaded !== "true") {
+      loading = true;
+      button.disabled = true;
+      button.textContent = "LOADING LICENCES...";
+      try {
+        const response = await fetch("/THIRD_PARTY_NOTICES.txt", { cache: "no-store" });
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        output.textContent = await response.text();
+        output.dataset.loaded = "true";
+      } catch {
+        output.textContent = "Full notices are unavailable in this build. The source inventory is in docs/legal/THIRD_PARTY_NOTICES.md.";
+      } finally {
+        loading = false;
+        button.disabled = false;
+      }
+    }
+    output.hidden = false;
+    button.textContent = "HIDE FULL LICENCES";
+    button.setAttribute("aria-expanded", "true");
+  };
+  button.addEventListener("click", toggle);
+  return () => button.removeEventListener("click", toggle);
+}
+
 function renderPage(destination, transitionDuration=420) {
   disposeCurrent();
   currentRoute=destination;
@@ -1422,7 +1459,17 @@ function renderPage(destination, transitionDuration=420) {
           </section>
         </div>
       </article>
-      <article class="destination-card personal-section"><div class="settings-section-heading"><i class="settings-symbol personal-symbol" aria-hidden="true"></i><span>PERSONAL STUFF</span><small>YOUR POCKET PROFILE</small></div><section class="personal-setting"><div class="personal-account-icon" aria-hidden="true"></div><div class="personal-account-copy"><span>ACCOUNT & ACCESS</span><strong>${escapeHtml(accessIdentity?.displayName||"Pocket User")}</strong><small>${(accessIdentity?.role||"player").toUpperCase()} SESSION</small></div><button class="logout-button" data-signout><i class="logout-symbol" aria-hidden="true"></i>LOCK / SIGN OUT</button></section></article></main>`;
+      <article class="destination-card personal-section"><div class="settings-section-heading"><i class="settings-symbol personal-symbol" aria-hidden="true"></i><span>PERSONAL STUFF</span><small>YOUR POCKET PROFILE</small></div><section class="personal-setting"><div class="personal-account-icon" aria-hidden="true"></div><div class="personal-account-copy"><span>ACCOUNT & ACCESS</span><strong>${escapeHtml(accessIdentity?.displayName||"Pocket User")}</strong><small>${(accessIdentity?.role||"player").toUpperCase()} SESSION</small></div><button class="logout-button" data-signout><i class="logout-symbol" aria-hidden="true"></i>LOCK / SIGN OUT</button></section></article>
+      <details class="legal-credits">
+        <summary><span>LEGAL & CREDITS</span><small>LICENCES · ATTRIBUTIONS · OPEN-SOURCE NOTICES</small></summary>
+        <div class="legal-credits-body">
+          <p><b>VINYL SURFACE NOISE</b> · “Warm organic vinyl record crackle #6” — Sdanezis / Pixabay. AI-generated. Converted to OGG for Pocket. Used as a loop inside the player under the Pixabay Content License; not offered as a standalone audio file. <a href="https://pixabay.com/vi/sound-effects/phim-hi%25E1%25BB%2587u-%25E1%25BB%25A9ng-%C4%2591%25E1%25BA%25B7c-bi%25E1%25BB%2587t-warm-organic-vinyl-record-crackle-6-586283/" target="_blank" rel="noopener">SOURCE</a></p>
+          <p>Full npm dependency notices include direct and transitive packages. Existing built-in audio whose original source is not recorded is flagged separately in the notices.</p>
+          <button type="button" data-legal-notices-toggle aria-expanded="false">VIEW FULL LICENCES</button>
+          <pre data-legal-notices-output hidden></pre>
+        </div>
+      </details>
+    </main>`;
   }
   if(destination==="home")pageMarkup+=accessBufferMarkup("APP RELOAD");
   const backMarkup=(destination==="home"||destination==="daily-login")?"":'<button type="button" class="page-back" data-page-back aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5 7.5 12l7 7M8 12h11"/></svg></button>';
@@ -1465,7 +1512,8 @@ function renderPage(destination, transitionDuration=420) {
   if(destination==="settings"){
     const menuCleanup=currentDisposer;
     const audioCleanup=mountAudioSettings();
-    currentDisposer=()=>{menuCleanup?.();audioCleanup?.();};
+    const legalCleanup=mountLegalNotices();
+    currentDisposer=()=>{menuCleanup?.();audioCleanup?.();legalCleanup?.();};
   }
   if(destination==="economy"){
     const menuCleanup=currentDisposer;
