@@ -50,6 +50,21 @@ window.PocketNativeCallbacks = {
     if (!callback) return;
     callbacks.delete(id);
     ok ? callback.resolve({ role:"player", displayName, identityRef }) : callback.reject(new Error(error || "Player identity was not verified."));
+  },
+  registry(id, ok, namesJson, identityRef, error) {
+    const callback = callbacks.get(id);
+    if (!callback) return;
+    callbacks.delete(id);
+    if (!ok) {
+      callback.reject(new Error(error || "The Universe player registry could not be refreshed."));
+      return;
+    }
+    try {
+      const names = JSON.parse(namesJson || "[]");
+      callback.resolve({ names:Array.isArray(names) ? names : [], identityRef });
+    } catch {
+      callback.reject(new Error("The verified player registry response was malformed."));
+    }
   }
 };
 
@@ -1037,6 +1052,207 @@ function renderHome() {
   renderPage("home");
   pocketAudio.enterMainMenu();
 }
+function readLocalPlayerNames() {
+  if (!nativeReady() || typeof native.getLocalPlayerNames !== "function") return [];
+  try {
+    const raw = native.getLocalPlayerNames();
+    const data = JSON.parse(raw || "[]");
+    return Array.isArray(data)
+      ? data.map(value => String(value).trim()).filter(Boolean)
+      : [];
+  } catch { return []; }
+}
+
+function randomHex(byteLength) {
+  const bytes = crypto.getRandomValues(new Uint8Array(byteLength));
+  return Array.from(bytes, byte => byte.toString(16).padStart(2,"0")).join("");
+}
+
+function bytesToBase64Url(bytes) {
+  let binary = "";
+  bytes.forEach(byte => { binary += String.fromCharCode(byte); });
+  return btoa(binary).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/g,"");
+}
+
+async function createPocketMasterResetRequest(playerName) {
+  const name = String(playerName || "").trim();
+  if (!name || name.length > 80 || /[\\u0000-\\u001f]/.test(name)) {
+    throw new Error("Choose a valid registered player name.");
+  }
+  if (!globalThis.crypto?.subtle) throw new Error("Secure request generation is unavailable on this device.");
+  const normalized = name.toLocaleLowerCase();
+  const playerDigest = new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(normalized)));
+  const playerKey = bytesToBase64Url(playerDigest);
+  const requestId = randomHex(16);
+  const challenge = randomHex(32);
+  return [
+    "MERZKAVA_ATLAS_MASTER_RESET_REQUEST_V1",
+    "Request-ID: " + requestId,
+    "Player-Name: " + name,
+    "Player-Key: " + playerKey,
+    "Challenge: " + challenge,
+    "Action: Generate one unique player confirmation code and add only its SHA-256 hash to the Pocket Master Reset grant registry for the next app build.",
+    "Scope: This request is for the selected World Atlas player only."
+  ].join("\\n");
+}
+
+function mountDeveloperAccountTools() {
+  const section = root.querySelector("[data-developer-settings]");
+  if (!section || accessIdentity?.role !== "developer") return () => {};
+  const status = section.querySelector("[data-developer-reset-scan-status]");
+  const scanButton = section.querySelector("[data-developer-reset-scan]");
+  const select = section.querySelector("[data-developer-reset-player]");
+  const proof = section.querySelector("[data-developer-reset-proof]");
+  const message = section.querySelector("[data-developer-reset-message]");
+  const generate = section.querySelector("[data-developer-reset-generate]");
+  const output = section.querySelector("[data-developer-reset-output]");
+  const copy = section.querySelector("[data-developer-reset-copy]");
+  const abort = new AbortController();
+  let busy = false;
+  let records = new Map();
+
+  const renderOptions = (selected = "") => {
+    if (!select) return;
+    const prior = selected || select.value;
+    const entries = [...records.values()].sort((a,b)=>a.name.localeCompare(b.name));
+    select.innerHTML = '<option value="">— Select a player account —</option>' + entries.map(entry => {
+      const source = entry.local && entry.universe ? "Pocket Local + Universe"
+        : entry.local ? "Pocket Local" : "Universe";
+      return '<option value="' + escapeHtml(entry.name) + '">' +
+        escapeHtml(entry.name + " · " + source) + "</option>";
+    }).join("");
+    if (prior && entries.some(entry=>entry.name===prior)) select.value = prior;
+    if (generate) generate.disabled = !select.value || !proof?.checked || busy;
+  };
+
+  const readLocal = () => {
+    records = new Map();
+    for (const name of readLocalPlayerNames()) {
+      const key = name.toLocaleLowerCase();
+      const previous = records.get(key) || {name,local:false,universe:false};
+      previous.local = true;
+      records.set(key,previous);
+    }
+  };
+
+  const scan = async () => {
+    if (busy || !nativeReady() || abort.signal.aborted) return;
+    busy = true;
+    if (scanButton) scanButton.disabled = true;
+    if (status) status.textContent = "Scanning Pocket-local player records…";
+    readLocal();
+    renderOptions();
+    if (!navigator.onLine) {
+      if (status) status.textContent = "Offline · " + records.size + " local account(s) available. Universe scan requires internet.";
+      busy = false;
+      if (scanButton) scanButton.disabled = false;
+      renderOptions();
+      return;
+    }
+    try {
+      const registry = await invokeNative("refreshPlayerRegistry",[],abort.signal);
+      if (abort.signal.aborted) return;
+      const selected = select?.value || "";
+      for (const rawName of registry.names || []) {
+        const name = String(rawName || "").trim();
+        if (!name) continue;
+        const key = name.toLocaleLowerCase();
+        const previous = records.get(key) || {name,local:false,universe:false};
+        previous.universe = true;
+        records.set(key,previous);
+      }
+      renderOptions(selected);
+      const localCount = [...records.values()].filter(entry=>entry.local).length;
+      const universeCount = [...records.values()].filter(entry=>entry.universe).length;
+      if (status) status.textContent = "Verified · Pocket Local " + localCount + " · Universe players.md " + universeCount;
+    } catch (error) {
+      if (abort.signal.aborted) return;
+      const selected = select?.value || "";
+      renderOptions(selected);
+      if (status) status.textContent = "Universe scan unavailable · " + records.size + " local account(s) retained. " +
+        (error instanceof Error ? error.message : "Connection failed.");
+    } finally {
+      busy = false;
+      if (scanButton) scanButton.disabled = false;
+      renderOptions();
+    }
+  };
+
+  const resetRequest = async () => {
+    if (busy || !select?.value || !proof?.checked) {
+      if (message) message.textContent = !select?.value
+        ? "Select the exact player account first."
+        : "Verify account ownership before creating a Master Reset request.";
+      return;
+    }
+    const selected = records.get(select.value.toLocaleLowerCase());
+    if (!selected) {
+      if (message) message.textContent = "That account is not in the current local or Universe player records.";
+      return;
+    }
+    if (!accessIdentity || accessIdentity.role !== "developer") {
+      if (message) message.textContent = "Developer authentication is required.";
+      return;
+    }
+    busy = true;
+    if (generate) generate.disabled = true;
+    if (message) message.textContent = "Preparing an account-bound request…";
+    try {
+      const request = await createPocketMasterResetRequest(selected.name);
+      if (output) { output.value = request; output.hidden = false; }
+      if (copy) copy.hidden = false;
+      if (message) message.textContent = "Request ready. This is an AI handoff block, not the player's confirmation code. The existing password is unchanged.";
+      proof.checked = false;
+    } catch (error) {
+      if (message) message.textContent = error instanceof Error ? error.message : "Could not prepare the reset request.";
+    } finally {
+      busy = false;
+      renderOptions(select?.value || "");
+    }
+  };
+
+  const copyRequest = async () => {
+    const text = output?.value || "";
+    if (!text || !copy) return;
+    try {
+      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
+      else {
+        output.focus();
+        output.select();
+        if (!document.execCommand("copy")) throw new Error("Clipboard is unavailable on this device.");
+      }
+      copy.textContent = "COPIED ✓";
+      if (message) message.textContent = "Request copied. Paste the full block into the Merzkava development AI conversation.";
+    } catch (error) {
+      if (message) message.textContent = error instanceof Error ? error.message : "Could not copy the request.";
+    }
+  };
+
+  const clearGeneratedRequest = () => {
+    if (output) { output.value = ""; output.hidden = true; }
+    if (copy) { copy.hidden = true; copy.textContent = "COPY REQUEST FOR AI"; }
+    if (message) message.textContent = "";
+  };
+  select?.addEventListener("change",() => {
+    if (proof) proof.checked = false;
+    clearGeneratedRequest();
+    renderOptions(select.value);
+  });
+  proof?.addEventListener("change",() => renderOptions(select?.value || ""));
+  scanButton?.addEventListener("click",() => void scan());
+  generate?.addEventListener("click",() => void resetRequest());
+  copy?.addEventListener("click",() => void copyRequest());
+  window.addEventListener("online",scan);
+  window.addEventListener("offline",scan);
+  void scan();
+
+  return () => {
+    abort.abort();
+    window.removeEventListener("online",scan);
+    window.removeEventListener("offline",scan);
+  };
+}
+
 function renderPage(destination, transitionDuration=420) {
   disposeCurrent();
   currentRoute=destination;
@@ -1154,7 +1370,56 @@ function renderPage(destination, transitionDuration=420) {
           </section>
         </div>
       </article>
-      <article class="destination-card personal-section"><div class="settings-section-heading"><i class="settings-symbol personal-symbol" aria-hidden="true"></i><span>PERSONAL STUFF</span><small>YOUR POCKET PROFILE</small></div><section class="personal-setting"><div class="personal-account-icon" aria-hidden="true"></div><div class="personal-account-copy"><span>ACCOUNT & ACCESS</span><strong>${escapeHtml(accessIdentity?.displayName||"Pocket User")}</strong><small>${(accessIdentity?.role||"player").toUpperCase()} SESSION</small></div><button class="logout-button" data-signout><i class="logout-symbol" aria-hidden="true"></i>LOCK / SIGN OUT</button></section></article></main>`;
+      <article class="destination-card personal-section"><div class="settings-section-heading"><i class="settings-symbol personal-symbol" aria-hidden="true"></i><span>PERSONAL STUFF</span><small>YOUR POCKET PROFILE</small></div><section class="personal-setting"><div class="personal-account-icon" aria-hidden="true"></div><div class="personal-account-copy"><span>ACCOUNT & ACCESS</span><strong>${escapeHtml(accessIdentity?.displayName||"Pocket User")}</strong><small>${(accessIdentity?.role||"player").toUpperCase()} SESSION</small></div><button class="logout-button" data-signout><i class="logout-symbol" aria-hidden="true"></i>LOCK / SIGN OUT</button></section></article>
+      ${accessIdentity?.role === "developer" ? `
+      <article class="destination-card developer-settings" data-developer-settings>
+        <details class="developer-tools-accordion">
+          <summary class="developer-tools-summary">
+            <i class="settings-symbol developer-symbol" aria-hidden="true"></i>
+            <span>DEVELOPER</span>
+            <small>ACCOUNT RECOVERY & SECURITY</small>
+            <b class="developer-tools-chevron" aria-hidden="true">⌄</b>
+          </summary>
+          <div class="developer-tools-scroll" data-developer-tools-scroll>
+            <section class="developer-tool-card developer-password-policy">
+              <div class="developer-tool-heading">
+                <span>PLAYER PASSWORD CHANGE</span><small>PLAYER-INITIATED</small>
+              </div>
+              <p>A player who still knows their current password changes it themselves from their World Atlas account. The current password is verified before the new-password fields appear.</p>
+              <ul>
+                <li>8–128 characters</li>
+                <li>At least one uppercase letter, one lowercase letter, one number and one symbol</li>
+                <li>The Developer never sees or chooses the replacement password</li>
+              </ul>
+              <p class="developer-tool-footnote">Forgotten passwords use the account-bound Developer Master Reset request below. Pocket's Player name verification remains separate and unchanged.</p>
+            </section>
+
+            <section class="developer-tool-card developer-master-reset" data-master-reset-tool>
+              <div class="developer-tool-heading">
+                <span>WORLD ATLAS MASTER RESET</span><small>DEVELOPER ONLY</small>
+              </div>
+              <p>Select the exact player account, verify ownership through an official channel, then create a request for a unique confirmation grant in a future Pocket update.</p>
+              <div class="developer-reset-scan-row">
+                <span data-developer-reset-scan-status role="status">Reading local Pocket player records…</span>
+                <button type="button" data-developer-reset-scan>SCAN AGAIN</button>
+              </div>
+              <label class="developer-reset-label" for="developer-reset-player">PLAYER ACCOUNT</label>
+              <select id="developer-reset-player" data-developer-reset-player>
+                <option value="">Loading player records…</option>
+              </select>
+              <label class="developer-reset-proof">
+                <input type="checkbox" data-developer-reset-proof>
+                <span>I have verified this player's account ownership through an official channel.</span>
+              </label>
+              <p class="developer-reset-message" data-developer-reset-message role="status" aria-live="polite"></p>
+              <button type="button" class="developer-reset-generate" data-developer-reset-generate disabled>GENERATE MASTER RESET REQUEST</button>
+              <textarea data-developer-reset-output rows="8" readonly hidden aria-label="Master Reset request for AI handoff"></textarea>
+              <button type="button" class="developer-reset-copy" data-developer-reset-copy hidden>COPY REQUEST FOR AI</button>
+              <p class="developer-tool-footnote">This request is not the player's reset code and does not change or clear the existing password. The actual one-time code is created only after the request is reviewed and its hash is included in a later app build.</p>
+            </section>
+          </div>
+        </details>
+      </article>` : ""}</main>`;
   }
   if(destination==="home")pageMarkup+=accessBufferMarkup("APP RELOAD");
   const backMarkup=(destination==="home"||destination==="daily-login")?"":'<button type="button" class="page-back" data-page-back aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5 7.5 12l7 7M8 12h11"/></svg></button>';
@@ -1197,7 +1462,8 @@ function renderPage(destination, transitionDuration=420) {
   if(destination==="settings"){
     const menuCleanup=currentDisposer;
     const audioCleanup=mountAudioSettings();
-    currentDisposer=()=>{menuCleanup?.();audioCleanup?.();};
+    const developerCleanup=accessIdentity?.role==="developer"?mountDeveloperAccountTools():()=>{};
+    currentDisposer=()=>{menuCleanup?.();audioCleanup?.();developerCleanup?.();};
   }
   if(destination==="economy"){
     const menuCleanup=currentDisposer;
