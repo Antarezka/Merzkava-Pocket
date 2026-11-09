@@ -28,6 +28,7 @@ let backPrompt = null;
 let floatingReadiness = { displayOverApps:false, notifications:false, batteryExemption:false, serviceRunning:false, bubbleVisible:false, supported:false };
 let floatingBusy = false;
 let activeTurntableMotion = null;
+let activeRecordFlight = null;
 
 window.PocketNativeCallbacks = {
   access(id, ok, displayName, identityRef, error) {
@@ -114,6 +115,11 @@ function syncAudioUI() {
 }
 
 function animateRecordToPlatter(button) {
+  if (activeRecordFlight) {
+    activeRecordFlight.animation.pause();
+    activeRecordFlight.element.remove();
+    activeRecordFlight = null;
+  }
   const sleeve = button.querySelector(".record-sleeve");
   const platter = root.querySelector(".turntable-platter");
   if (!sleeve || !platter || reducedMotion()) return;
@@ -133,15 +139,19 @@ function animateRecordToPlatter(button) {
     opacity: "0.98"
   });
   document.body.append(flight);
-  animate(flight, {
+  const animation = animate(flight, {
     left: (to.left + (to.width - diameter) / 2) + "px",
     top: (to.top + (to.height - diameter) / 2) + "px",
     rotate: "270deg",
     opacity: [0.98, 0.92],
     duration: 680,
     ease: "inOutCubic",
-    onComplete: () => flight.remove()
+    onComplete: () => {
+      flight.remove();
+      if (activeRecordFlight?.element === flight) activeRecordFlight = null;
+    }
   });
+  activeRecordFlight = { element: flight, animation };
 }
 
 function mountAudioSettings() {
@@ -189,6 +199,11 @@ function mountAudioSettings() {
   return () => {
     turntableMotion.dispose();
     if (activeTurntableMotion === turntableMotion) activeTurntableMotion = null;
+    if (activeRecordFlight) {
+      activeRecordFlight.animation.pause();
+      activeRecordFlight.element.remove();
+      activeRecordFlight = null;
+    }
   };
 }
 
