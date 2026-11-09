@@ -155,8 +155,18 @@ public final class PocketNativeBridge {
             if (displayName == null || !displayName.toLowerCase(Locale.ROOT).endsWith(".ogg")) {
                 return audioImportResult(false, "Unsupported file. Please choose an .ogg file encoded with Vorbis.", false);
             }
-            String cleanTitle = displayName.substring(0, displayName.length() - 4)
-                .replaceAll("[\\\\/:*?\\"<>|]", " ").trim();
+            String rawTitle = displayName.substring(0, displayName.length() - 4);
+            StringBuilder safeTitle = new StringBuilder(rawTitle.length());
+            for (int i = 0; i < rawTitle.length(); i++) {
+                char ch = rawTitle.charAt(i);
+                if (ch == '/' || ch == 92 || ch == ':' || ch == '*' || ch == '?' ||
+                    ch == '"' || ch == '<' || ch == '>' || ch == '|' || Character.isISOControl(ch)) {
+                    safeTitle.append(' ');
+                } else {
+                    safeTitle.append(ch);
+                }
+            }
+            String cleanTitle = safeTitle.toString().trim();
             if (cleanTitle.isEmpty()) cleanTitle = "Untitled record";
 
             File directory = new File(activity.getFilesDir(), "music");
@@ -276,7 +286,7 @@ public final class PocketNativeBridge {
                 .put("tracks", new JSONArray(getCustomMusicLibrary()))
                 .toString();
         } catch (Exception ignored) {
-            return "{\\"ok\\":false,\\"cancelled\\":false,\\"message\\":\\"Audio import failed.\\",\\"tracks\\":[]}";
+            return "{}";
         }
     }
 
