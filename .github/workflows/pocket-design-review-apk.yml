@@ -119,3 +119,5 @@ jobs:
             dist/merzkava-pocket-shimaenaga.png
           if-no-files-found: error
           retention-days: 30
+
+# User music import and record-rack editing are packaged and verified by this APK workflow.
