@@ -15,6 +15,9 @@ import android.provider.OpenableColumns;
 import android.util.Base64;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
+import android.media.MediaCodecList;
+import android.media.MediaExtractor;
+import android.media.MediaFormat;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -94,10 +97,10 @@ public final class PocketNativeBridge {
 
     @JavascriptInterface public boolean isNative() { return true; }
 
-    @JavascriptInterface public boolean openAudioPicker() {
+    @JavascriptInterface public boolean openAudioPicker(String supportedAudioTypesJson) {
         if (!(activity instanceof MainActivity)) return false;
         activity.runOnUiThread(() -> {
-            if (!((MainActivity) activity).openAudioPicker()) {
+            if (!((MainActivity) activity).openAudioPicker(supportedAudioTypesJson)) {
                 String detail = audioImportResult(false, "The device file manager could not be opened.", false);
                 if (webView != null) webView.post(() -> webView.evaluateJavascript(
                     "window.dispatchEvent(new CustomEvent('pocket:music-library-changed',{detail:" + detail + "}));", null));
@@ -114,11 +117,15 @@ public final class PocketNativeBridge {
             JSONArray current = new JSONArray(getCustomMusicLibrary());
             JSONArray updated = new JSONArray();
             boolean found = false;
+            String extension = "ogg";
             for (int i = 0; i < current.length(); i++) {
                 JSONObject item = current.optJSONObject(i);
                 if (item == null) continue;
-                if (id.equalsIgnoreCase(item.optString("id", ""))) found = true;
-                else updated.put(item);
+                if (id.equalsIgnoreCase(item.optString("id", ""))) {
+                    found = true;
+                    String storedExtension = item.optString("extension", "ogg").toLowerCase(Locale.ROOT);
+                    if (isSupportedAudioExtension(storedExtension)) extension = storedExtension;
+                } else updated.put(item);
             }
             if (!found) {
                 return audioImportResult(false, "Only imported music can be removed. Pocket original music stays in the rack.", false);
@@ -126,7 +133,7 @@ public final class PocketNativeBridge {
             if (!prefs().edit().putString(PREF_CUSTOM_MUSIC_LIBRARY, updated.toString()).commit()) {
                 return audioImportResult(false, "Pocket could not update the music rack.", false);
             }
-            File musicFile = new File(new File(activity.getFilesDir(), "music"), id.toLowerCase(Locale.ROOT) + ".ogg");
+            File musicFile = new File(new File(activity.getFilesDir(), "music"), id.toLowerCase(Locale.ROOT) + "." + extension);
             if (musicFile.isFile()) musicFile.delete();
             return new JSONObject()
                 .put("ok", true)
@@ -148,14 +155,100 @@ public final class PocketNativeBridge {
         }
     }
 
-    public String importAudioFile(Uri uri) {
+    private boolean isSupportedAudioExtension(String extension) {
+        if (extension == null) return false;
+        switch (extension.toLowerCase(Locale.ROOT)) {
+            case "ogg": case "oga": case "opus": case "mp3": case "wav": case "wave":
+            case "m4a": case "aac": case "flac": case "3gp": case "amr":
+                return true;
+            default: return false;
+        }
+    }
+
+    private String contentTypeForAudioExtension(String extension) {
+        switch (extension.toLowerCase(Locale.ROOT)) {
+            case "ogg": case "oga": case "opus": return "audio/ogg";
+            case "mp3": return "audio/mpeg";
+            case "wav": case "wave": return "audio/wav";
+            case "m4a": return "audio/mp4";
+            case "aac": return "audio/aac";
+            case "flac": return "audio/flac";
+            case "3gp": return "audio/3gpp";
+            case "amr": return "audio/amr";
+            default: return null;
+        }
+    }
+
+    private String browserPlaybackTypeForTrack(String trackMime, String extension) {
+        String ext = extension.toLowerCase(Locale.ROOT);
+        switch (trackMime.toLowerCase(Locale.ROOT)) {
+            case "audio/vorbis": return (ext.equals("ogg") || ext.equals("oga")) ? "audio/ogg; codecs=\"vorbis\"" : null;
+            case "audio/opus": return (ext.equals("ogg") || ext.equals("oga") || ext.equals("opus")) ? "audio/ogg; codecs=\"opus\"" : null;
+            case "audio/mpeg": return ext.equals("mp3") ? "audio/mpeg" : null;
+            case "audio/raw": return (ext.equals("wav") || ext.equals("wave")) ? "audio/wav" : null;
+            case "audio/mp4a-latm":
+                if (ext.equals("m4a")) return "audio/mp4; codecs=\"mp4a.40.2\"";
+                if (ext.equals("aac")) return "audio/aac";
+                if (ext.equals("3gp")) return "audio/3gpp";
+                return null;
+            case "audio/aac": return ext.equals("aac") ? "audio/aac" : null;
+            case "audio/flac": return ext.equals("flac") ? "audio/flac" : null;
+            case "audio/3gpp": return (ext.equals("3gp") || ext.equals("amr")) ? "audio/3gpp" : null;
+            case "audio/amr": return (ext.equals("amr") || ext.equals("3gp")) ? "audio/amr" : null;
+            case "audio/amr-wb": return (ext.equals("amr") || ext.equals("3gp")) ? "audio/3gpp" : null;
+            default: return null;
+        }
+    }
+
+    private boolean webViewReportsAudioSupport(JSONArray supportedTypes, String playbackType) {
+        if (supportedTypes == null || playbackType == null) return false;
+        for (int i = 0; i < supportedTypes.length(); i++) {
+            if (playbackType.equalsIgnoreCase(supportedTypes.optString(i, "").trim())) return true;
+        }
+        return false;
+    }
+
+    private String findPlayableAudioType(File file, String extension, String supportedAudioTypesJson) throws Exception {
+        JSONArray supportedTypes = new JSONArray(supportedAudioTypesJson == null || supportedAudioTypesJson.trim().isEmpty() ? "[]" : supportedAudioTypesJson);
+        MediaExtractor extractor = new MediaExtractor();
+        try {
+            extractor.setDataSource(file.getAbsolutePath());
+            MediaCodecList codecs = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
+            for (int i = 0; i < extractor.getTrackCount(); i++) {
+                MediaFormat format = extractor.getTrackFormat(i);
+                String mime = format.getString(MediaFormat.KEY_MIME);
+                if (mime == null || !mime.toLowerCase(Locale.ROOT).startsWith("audio/")) continue;
+                String playbackType = browserPlaybackTypeForTrack(mime, extension);
+                if (playbackType == null || !webViewReportsAudioSupport(supportedTypes, playbackType)) continue;
+                if (!"audio/raw".equalsIgnoreCase(mime)) {
+                    try {
+                        String decoder = codecs.findDecoderForFormat(format);
+                        if (decoder == null || decoder.isEmpty()) continue;
+                    } catch (Exception unsupportedCodec) {
+                        continue;
+                    }
+                }
+                return playbackType;
+            }
+        } finally {
+            extractor.release();
+        }
+        return null;
+    }
+
+    public String importAudioFile(Uri uri, String supportedAudioTypesJson) {
         File temporary = null;
         try {
             String displayName = queryAudioDisplayName(uri);
-            if (displayName == null || !displayName.toLowerCase(Locale.ROOT).endsWith(".ogg")) {
-                return audioImportResult(false, "Unsupported file. Please choose an .ogg file encoded with Vorbis.", false);
+            int extensionDot = displayName == null ? -1 : displayName.lastIndexOf('.');
+            if (extensionDot <= 0) {
+                return audioImportResult(false, "Unsupported file. Choose an audio format that Pocket can play.", false);
             }
-            String rawTitle = displayName.substring(0, displayName.length() - 4);
+            String extension = displayName.substring(extensionDot + 1).toLowerCase(Locale.ROOT);
+            if (!isSupportedAudioExtension(extension)) {
+                return audioImportResult(false, "Unsupported file. Pocket only accepts recognized audio extensions its player can read.", false);
+            }
+            String rawTitle = displayName.substring(0, extensionDot);
             StringBuilder safeTitle = new StringBuilder(rawTitle.length());
             for (int i = 0; i < rawTitle.length(); i++) {
                 char ch = rawTitle.charAt(i);
@@ -168,7 +261,6 @@ public final class PocketNativeBridge {
             }
             String cleanTitle = safeTitle.toString().trim();
             if (cleanTitle.isEmpty()) cleanTitle = "Untitled record";
-
             File directory = new File(activity.getFilesDir(), "music");
             if (!directory.exists() && !directory.mkdirs()) {
                 return audioImportResult(false, "Pocket could not prepare its private music shelf.", false);
@@ -189,12 +281,16 @@ public final class PocketNativeBridge {
                 }
                 output.flush();
             }
-            if (total < 64 || !hasOggVorbisHeader(temporary)) {
-                return audioImportResult(false, "This .ogg file is not an Ogg Vorbis recording. Please choose OGG Vorbis, not OGG Opus or another audio format.", false);
+            if (total < 64) return audioImportResult(false, "This file is too small or is not a valid audio recording.", false);
+            String playbackType = findPlayableAudioType(temporary, extension, supportedAudioTypesJson);
+            if (playbackType == null) {
+                return audioImportResult(false, "Pocket cannot play this file on this device. Choose another supported audio format.", false);
             }
+            String contentType = contentTypeForAudioExtension(extension);
+            if (contentType == null) return audioImportResult(false, "Pocket does not have a playback route for this extension.", false);
 
             String id = UUID.randomUUID().toString();
-            File stored = new File(directory, id + ".ogg");
+            File stored = new File(directory, id + "." + extension);
             if (!temporary.renameTo(stored)) {
                 try (InputStream input = new java.io.FileInputStream(temporary);
                      FileOutputStream output = new FileOutputStream(stored)) {
@@ -208,13 +304,15 @@ public final class PocketNativeBridge {
                 }
             }
             temporary = null;
-
             JSONArray tracks;
             try { tracks = new JSONArray(getCustomMusicLibrary()); }
             catch (Exception ignored) { tracks = new JSONArray(); }
             JSONObject entry = new JSONObject();
             entry.put("id", id);
             entry.put("title", cleanTitle);
+            entry.put("extension", extension);
+            entry.put("mimeType", contentType);
+            entry.put("playbackType", playbackType);
             tracks.put(entry);
             if (!prefs().edit().putString(PREF_CUSTOM_MUSIC_LIBRARY, tracks.toString()).commit()) {
                 stored.delete();
@@ -227,7 +325,7 @@ public final class PocketNativeBridge {
                 .put("tracks", tracks)
                 .toString();
         } catch (Exception error) {
-            return audioImportResult(false, "The selected file could not be imported. Please choose another OGG Vorbis file.", false);
+            return audioImportResult(false, "The selected file could not be imported or its audio codec is not supported by Pocket.", false);
         } finally {
             if (temporary != null && temporary.exists()) temporary.delete();
         }
@@ -244,37 +342,6 @@ public final class PocketNativeBridge {
         } catch (Exception ignored) {}
         if (name == null) name = uri.getLastPathSegment();
         return name == null ? "" : name;
-    }
-
-    private boolean hasOggVorbisHeader(File file) {
-        byte[] sample = new byte[256 * 1024];
-        int read = 0;
-        try (InputStream input = new java.io.FileInputStream(file)) {
-            while (read < sample.length) {
-                int count = input.read(sample, read, sample.length - read);
-                if (count < 0) break;
-                read += count;
-            }
-        } catch (Exception ignored) {
-            return false;
-        }
-        boolean ogg = false;
-        boolean vorbis = false;
-        byte[] marker = new byte[]{1, 'v', 'o', 'r', 'b', 'i', 's'};
-        for (int i = 0; i <= read - 4; i++) {
-            if (sample[i] == 'O' && sample[i + 1] == 'g' && sample[i + 2] == 'g' && sample[i + 3] == 'S') {
-                ogg = true;
-                break;
-            }
-        }
-        for (int i = 0; i <= read - marker.length; i++) {
-            boolean match = true;
-            for (int j = 0; j < marker.length; j++) {
-                if (sample[i + j] != marker[j]) { match = false; break; }
-            }
-            if (match) { vorbis = true; break; }
-        }
-        return ogg && vorbis;
     }
 
     private String audioImportResult(boolean ok, String message, boolean cancelled) {
