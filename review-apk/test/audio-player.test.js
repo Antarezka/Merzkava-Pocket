@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createPocketAudioController, createTurntableMotion, createVinylDesignController, VINYL_STYLES } from "../web/src/audio-player.js";
+import { createPocketAudioController, createTurntableMotion, createVinylDesignController, getSupportedAudioPlaybackTypes, VINYL_STYLES } from "../web/src/audio-player.js";
 
 class FakeAudio {
   static instances = [];
@@ -94,6 +94,42 @@ test("music and effects volume values persist independently", () => {
   assert.equal(audio.getState().effectsVolume, 23);
 });
 
+
+
+test("custom tracks preserve the actual imported audio extension and MIME type", () => {
+  const id = "01234567-89ab-cdef-0123-456789abcdef";
+  const { audio } = harness({}, {
+    customTracks: [{ id, title: "Local MP3", extension: "mp3", mimeType: "audio/mpeg", playbackType: "audio/mpeg" }]
+  });
+  const track = audio.getTracks().find(item => item.id === id);
+  assert.equal(track.extension, "mp3");
+  assert.equal(track.mimeType, "audio/mpeg");
+  assert.equal(audio.selectTrack(id), true);
+  assert.match(FakeAudio.instances[0].src, /01234567-89ab-cdef-0123-456789abcdef\.mp3$/);
+});
+
+test("older custom music records without extension metadata remain readable as OGG", () => {
+  const id = "abcdef01-2345-6789-abcd-ef0123456789";
+  const { audio } = harness({}, {
+    customTracks: [{ id, title: "Older Pocket Record" }]
+  });
+  const track = audio.getTracks().find(item => item.id === id);
+  assert.equal(track.extension, "ogg");
+  assert.equal(track.mimeType, "audio/ogg");
+  assert.equal(audio.selectTrack(id), true);
+  assert.match(FakeAudio.instances[0].src, /\.ogg$/);
+});
+
+test("the picker profile contains only WebView audio types that canPlayType reports", () => {
+  const supported = getSupportedAudioPlaybackTypes({
+    canPlayType: type => type === "audio/mpeg" || type.startsWith("audio/ogg") ? "probably" : ""
+  });
+  assert.deepEqual(supported, [
+    'audio/ogg; codecs="vorbis"',
+    'audio/ogg; codecs="opus"',
+    "audio/mpeg"
+  ]);
+});
 
 function makeMotionHarness() {
   let nextId = 0;
