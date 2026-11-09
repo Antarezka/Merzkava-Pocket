@@ -5,6 +5,7 @@ import { mountHomeBase } from "./home-base.js";
 import { dailyLoginMarkup, mountDailyLogin } from "./daily-login.js";
 import { playerRecordsMarkup, mountPlayerRecords } from "./player-records.js";
 import { createPocketAudioController, createTurntableMotion, createVinylDesignController, getSupportedAudioPlaybackTypes, VINYL_STYLES } from "./audio-player.js";
+import { getAccessDiagnostics, getDiagnosticWordFrames, formatDiagnosticFrame } from "./access-diagnostics.js";
 
 const root = document.querySelector("#app");
 if (!root) throw new Error("Pocket root not found.");
@@ -560,35 +561,6 @@ function invokeNative(method, args, signal) {
   });
 }
 
-function accessStages(role) {
-  if (role === "transition") return [
-    ["Pocket session", "SESSION RESTORE"],
-    ["Local preferences", "LOCAL STATE SYNC"],
-    ["Android status", "FLOATING CONTROL STATE"],
-    ["Opening scene", "SPLASH PREPARATION"],
-    ["Archive handoff", "HOME HANDOFF"],
-    ["Pocket transition", "ARCHIVE TRANSITION"]
-  ];
-  return role === "player"
-    ? [
-        ["Player identity", "PLAYER IDENTITY"],
-        ["Universe source", "PINNED UNIVERSE SOURCE"],
-        ["Registry match", "EXACT REGISTRY MATCH"],
-        ["Local profile", "LOCAL PROFILE CACHE"],
-        ["Player session", "PLAYER SESSION"],
-        ["Floating Control", "FLOATING CONTROL HANDOFF"]
-      ]
-    : [
-        ["Developer identity", "DEVELOPER ID"],
-        ["Credential check", "PBKDF2 · SHA-256"],
-        ["Role permissions", "ROLE ISOLATION"],
-        ["Android Keystore", "ANDROID KEYSTORE"],
-        ["Developer session", "DEVELOPER SESSION"],
-        ["Floating Control", "FLOATING CONTROL HANDOFF"]
-      ];
-}
-const checkpoints = [15, 32, 51, 70, 88, 93];
-
 function cancellableWait(ms, signal) {
   if (signal?.aborted) return Promise.reject(new DOMException("Access cancelled.", "AbortError"));
   return new Promise((resolve, reject) => {
@@ -623,13 +595,13 @@ function accessBufferMarkup(mode = "ACCESS ROUTINE") {
           <div class="buffer-vapor" aria-hidden="true"><i></i><b></b><em></em><span></span></div>
         </div>
         <div class="buffer-copy">
-          <span data-access-label>IDENTITY LOOKUP</span>
-          <strong data-access-message aria-live="polite">Resolving account identity.</strong>
+          <span data-access-label>DIAGNOSTIC TRACE</span>
+          <strong data-access-message aria-live="polite">server int</strong>
         </div>
         <div class="buffer-progress">
-          <div class="buffer-progress-head"><span>ROUTINE STEP</span><b data-access-number>00 / 06</b></div>
+          <div class="buffer-progress-head"><span>TRACE INDEX</span><b data-access-number>00 / 40</b></div>
           <div class="buffer-track" aria-hidden="true"><i data-access-rail></i><span></span><span></span><span></span><span></span><span></span><span></span></div>
-          <small>VISUAL PACING · FINAL HANDSHAKE WAITS FOR THE VERIFIED RESULT</small>
+          <small>DIAGNOSTIC TRACE · FINAL HANDSHAKE WAITS FOR THE REAL RESULT</small>
         </div>
         <button type="button" class="buffer-cancel" data-access-cancel>CANCEL ROUTINE</button>
       </div>
@@ -640,19 +612,23 @@ async function runAccessSequence(role, operation, signal) {
   const overlay = root.querySelector("[data-access-buffer]");
   if (!overlay) throw new Error("The access transition surface is unavailable.");
   const rail = overlay.querySelector("[data-access-rail]");
+  const track = rail?.parentElement;
   const number = overlay.querySelector("[data-access-number]");
   const message = overlay.querySelector("[data-access-message]");
   const label = overlay.querySelector("[data-access-label]");
   const animations = [];
   const reduced = reducedMotion();
-  const stages = accessStages(role);
-  if (!stages.length) throw new Error("The access routine has no stages.");
+  const trace = getAccessDiagnostics(role);
+  const entries = trace.entries;
+  if (!entries.length) throw new Error("The access diagnostic trace is empty.");
 
   overlay.hidden = false;
   overlay.setAttribute("aria-hidden", "false");
   overlay.classList.add("is-active");
+  track?.classList.remove("is-waiting");
   rail.style.transform = "scaleX(0)";
-  number.textContent = "00 / " + String(stages.length).padStart(2,"0");
+  label.textContent = trace.heading;
+  number.textContent = "00 / " + String(entries.length).padStart(2,"0");
 
   const resultPromise = Promise.resolve().then(operation).then(
     value => ({ ok:true, value }),
@@ -663,67 +639,112 @@ async function runAccessSequence(role, operation, signal) {
     throw result.error;
   });
   let progress = 0;
-  let activeStage = "";
+  let activeGroup = "";
+  let messageAnimation = null;
+  let waitAnimation = null;
 
   const pause = ms => Promise.race([cancellableWait(ms,signal), failFast]);
-  const showFrame = (copy, technical, dots, entering = false) => {
-    if (technical !== activeStage) {
-      activeStage = technical;
-      label.textContent = technical;
+  const bounded = (value,min,max) => Math.max(min,Math.min(max,value));
+  const showFrame = (copy, group, dots = 0, entering = false) => {
+    if (group !== activeGroup) {
+      activeGroup = group;
+      label.textContent = group;
     }
-    message.textContent = copy + ".".repeat(dots);
-    // Animate once when the short stage label changes; dot frames update independently.
-    if (!reduced && entering) animations.push(animate(message,{
-      opacity:[.58,1],
-      translateY:[4,0],
-      duration:120,
-      ease:"outCubic"
-    }));
+    message.textContent = formatDiagnosticFrame(copy,dots);
+    if (!reduced && entering) {
+      messageAnimation?.pause();
+      messageAnimation = animate(message,{
+        opacity:[.58,1],
+        translateY:[4,0],
+        duration:112,
+        ease:"outCubic"
+      });
+    }
   };
-  const moveRail = async (target, copy, technical, index) => {
-    const duration = reduced ? 18 : 1650 + Math.min(index * 110, 550);
+
+  const runEntry = async (entry,index) => {
+    if (signal?.aborted) throw new DOMException("Access cancelled.","AbortError");
+    number.textContent = String(index+1).padStart(2,"0") + " / " + String(entries.length).padStart(2,"0");
+
+    const wordFrames = getDiagnosticWordFrames(entry.text);
+    const wordDelays = wordFrames.map(frame => reduced
+      ? 8
+      : Math.round(bounded(34 + frame.length * 3.2,46,112)));
+    const dotBase = reduced
+      ? 8
+      : Math.round(bounded(70 + entry.text.length * 2.5,88,164));
+    const dotDelays = [dotBase,Math.round(dotBase*1.18),Math.round(dotBase*1.48)];
+    const cycles = Math.max(0,Math.min(4,Math.trunc(entry.cycles || 0)));
+    const totalDuration = Math.max(16,
+      wordDelays.reduce((sum,value)=>sum+value,0) +
+      cycles * dotDelays.reduce((sum,value)=>sum+value,0)
+    );
+    const target = Math.min(93,Math.round(((index+1)/entries.length)*93));
+
+    // The rail moves continuously while text fragments are revealed. Longer dotted holds
+    // naturally slow this segment; short fragments move it on more quickly.
     if (reduced) {
-      showFrame(copy,technical,3,true);
       rail.style.transform = "scaleX(" + target/100 + ")";
-      await pause(18);
     } else {
-      // One uninterrupted linear rail movement per stage; text timing never restarts it.
       animations.push(animate(rail,{
         scaleX:[progress/100,target/100],
-        duration,
+        duration:totalDuration,
         ease:"linear"
       }));
-      showFrame(copy,technical,1,true);
-      await pause(180);
-      showFrame(copy,technical,2);
-      await pause(180);
-      showFrame(copy,technical,3);
-      await pause(duration - 360);
     }
-    progress = target;
+
+    for (let wordIndex=0;wordIndex<wordFrames.length;wordIndex++) {
+      showFrame(wordFrames[wordIndex],entry.group,0,true);
+      await pause(wordDelays[wordIndex]);
+    }
+    for (let cycle=0;cycle<cycles;cycle++) {
+      for (let dot=1;dot<=3;dot++) {
+        showFrame(entry.text,entry.group,dot,dot===1);
+        await pause(dotDelays[dot-1]);
+      }
+    }
+    progress=target;
   };
 
   try {
-    for (let index=0; index<stages.length; index++) {
-      if (signal?.aborted) throw new DOMException("Access cancelled.","AbortError");
-      const [copy,technical] = stages[index];
-      number.textContent = String(index+1).padStart(2,"0") + " / " + String(stages.length).padStart(2,"0");
-      await moveRail(checkpoints[index] ?? (92 + index),copy,technical,index);
+    for (let index=0;index<entries.length;index++) {
+      await runEntry(entries[index],index);
     }
 
     let result = null;
-    let finalDots = 1;
+    const pendingEntries = entries.filter(entry => entry.cycles > 0);
+    let pendingIndex = 0;
+    let pendingDots = 1;
+    track?.classList.add("is-waiting");
+    if (!reduced) {
+      waitAnimation = animate(rail,{
+        scaleX:[progress/100,.965],
+        duration:940,
+        ease:"inOutSine",
+        alternate:true,
+        loop:true
+      });
+    }
+    // The real operation may still be pending after the visual trace. Keep showing
+    // delayed diagnostic fragments while the rail gently breathes below completion.
     while (!result) {
+      const entry = pendingEntries[pendingIndex % pendingEntries.length] || entries[entries.length-1];
+      showFrame(entry.text,entry.group,pendingDots,pendingDots===1);
       result = await Promise.race([
         resultPromise,
-        cancellableWait(reduced ? 90 : 360,signal).then(() => null)
+        cancellableWait(reduced ? 72 : bounded(118 + entry.text.length*2.1,132,188),signal).then(()=>null)
       ]);
-      if (!result) {
-        const [copy,technical] = stages[stages.length-1];
-        showFrame(copy,technical,finalDots);
-        finalDots = finalDots === 3 ? 1 : finalDots + 1;
+      if (pendingDots === 3) {
+        pendingDots=1;
+        pendingIndex++;
+      } else {
+        pendingDots++;
       }
     }
+    waitAnimation?.pause();
+    waitAnimation=null;
+    track?.classList.remove("is-waiting");
+
     if (!result.ok) throw result.error;
     if (signal?.aborted) throw new DOMException("Access cancelled.","AbortError");
 
@@ -731,11 +752,14 @@ async function runAccessSequence(role, operation, signal) {
     label.textContent = role === "transition" ? "SESSION READY" : "ACCESS VERIFIED";
     message.textContent = role === "transition" ? "Pocket is ready." : "Identity verified.";
     if (reduced) rail.style.transform = "scaleX(1)";
-    else animations.push(animate(rail,{scaleX:[progress/100,1],duration:230,ease:"outCubic"}));
-    await cancellableWait(reduced ? 0 : 230,signal);
+    else animations.push(animate(rail,{scaleX:[progress/100,1],duration:260,ease:"outCubic"}));
+    await cancellableWait(reduced ? 0 : 260,signal);
     return result.value;
   } finally {
+    waitAnimation?.pause();
+    messageAnimation?.pause();
     animations.forEach(animation => animation.pause());
+    track?.classList.remove("is-waiting");
     overlay.classList.remove("is-active");
     overlay.hidden = true;
     overlay.setAttribute("aria-hidden","true");
