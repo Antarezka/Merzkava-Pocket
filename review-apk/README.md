@@ -7,7 +7,7 @@ Android shell implementation for the approved Pocket launch flow and homepage fr
 - Cold start always opens the independent Login Gate.
 - Player login accepts an exact character name from the currently pinned Merzkava Universe `players.md`. The native adapter resolves the active pinned SHA, verifies the registry, and caches the registered **names only** on the device for suggestions. It does not download or import `players/<Name>.md`; local names are suggestions only and never bypass the live registry check. Player status, progression, Wallet and gameplay records belong to Pocket's own local save.
 - Developer login uses the same PBKDF2-SHA-256 verifier contract as Merzkava APK (600,000 iterations). The password is not embedded or stored in plaintext. Optional Remember Me encrypts the credential pair with Android Keystore AES-GCM.
-- The access routine displays one diagnostic line with three punctuation frames, randomized pauses, and a monotonic `15 → 32 → 51 → 70 → 88 → 93` path. It holds below 100% while the real operation is pending and completes only after successful verification.
+- The access routine cycles 20–50 role-specific technical fragments (Player network / Universe checks, local Developer credential verification, or local Pocket initialization). Each fragment is revealed word by word; selected delayed fragments repeat a leading `.`, `..`, `...` buffer sequence while the progress rail continues moving at variable speed. The rail stays below 100% while the real operation is pending and completes only after success.
 - Successful login opens Floating Control. Pressing **Open game / continue playing** starts the local Pocket Transition routine, then the animated Splash hands off to Home.
 
 ## Floating Control
