@@ -57,3 +57,8 @@ Preserve the approved structure in `FLOATING_CONTROL.md`. Device Status remains 
 5. Donate
 
 Donate is a kindness panel only: no payment flow, no pressure, and no donation checkout. The thank-you state displays the approved Indonesian message.
+
+
+## Password tooling boundary
+
+The current Pocket Player gate verifies a character name against Pocket's local registered-name list and the live pinned Universe `players.md` registry. It does not store a separate Player password, so the Developer Settings password-change card is clearly labeled as World Atlas policy guidance only. The Master Reset control ports the APK's Developer-side request-generation workflow (local/Universe scan, ownership acknowledgment, account-bound random request and copy). It does not itself reset a Player password or issue the final Player confirmation code; a Pocket Player password credential flow and grant-consumption screen would need to exist before that final step can be enabled.

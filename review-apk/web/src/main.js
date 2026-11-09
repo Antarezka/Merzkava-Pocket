@@ -1432,9 +1432,9 @@ function renderPage(destination, transitionDuration=420) {
           <div class="developer-tools-scroll" data-developer-tools-scroll>
             <section class="developer-tool-card developer-password-policy">
               <div class="developer-tool-heading">
-                <span>PLAYER PASSWORD CHANGE</span><small>PLAYER-INITIATED</small>
+                <span>WORLD ATLAS PASSWORD CHANGE POLICY</span><small>PLAYER-INITIATED</small>
               </div>
-              <p>A player who still knows their current password changes it themselves from their World Atlas account. The current password is verified before the new-password fields appear.</p>
+              <p>In Merzkava World Atlas, a player who knows their current password changes it themselves after verifying the old password. Pocket's current Player gate is name-based and does not store a separate Player password, so this is policy guidance only—not a working Pocket password form.</p>
               <ul>
                 <li>8–128 characters</li>
                 <li>At least one uppercase letter, one lowercase letter, one number and one symbol</li>
