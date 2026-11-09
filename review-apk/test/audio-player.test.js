@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createPocketAudioController, createTurntableMotion } from "../web/src/audio-player.js";
+import { createPocketAudioController, createTurntableMotion, createVinylDesignController, VINYL_STYLES } from "../web/src/audio-player.js";
 
 class FakeAudio {
   static instances = [];
@@ -9,6 +9,8 @@ class FakeAudio {
     this.paused = true;
     this.ended = false;
     this.loop = false;
+    this.currentTime = 0;
+    this.duration = 100;
     this.volume = 1;
     this.listeners = new Map();
     FakeAudio.instances.push(this);
@@ -35,14 +37,14 @@ class FakeAudio {
   load() { this.ended = false; }
 }
 
-function harness(values = {}) {
+function harness(values = {}, callbacks = {}) {
   FakeAudio.instances = [];
   const data = new Map(Object.entries(values));
   const storage = {
     getItem: key => data.has(key) ? data.get(key) : null,
     setItem: (key, value) => data.set(key, String(value))
   };
-  const audio = createPocketAudioController({ AudioCtor: FakeAudio, storage });
+  const audio = createPocketAudioController({ AudioCtor: FakeAudio, storage, ...callbacks });
   return { audio, data };
 }
 
@@ -172,4 +174,63 @@ test("lifting the needle during the crackle cancels the pending music start", as
   assert.equal(audio.getState().isStarting, false);
   audio.enterMainMenu();
   assert.equal(audio.getState().isPlaying, false);
+});
+
+
+test("vinyl art rotates when a looping music track completes a full cycle", () => {
+  let cycles = 0;
+  const { audio } = harness({}, { onPlaybackCycle: () => { cycles += 1; } });
+  audio.enterMainMenu();
+  const music = FakeAudio.instances[0];
+  music.currentTime = 99.2;
+  music.dispatch("timeupdate");
+  music.currentTime = 0.15;
+  music.dispatch("timeupdate");
+  assert.equal(cycles, 1);
+});
+
+test("all twenty vinyl label designs are available and manually selectable", () => {
+  assert.equal(VINYL_STYLES.length, 20);
+  const data = new Map();
+  const storage = {
+    getItem: key => data.has(key) ? data.get(key) : null,
+    setItem: (key, value) => data.set(key, String(value))
+  };
+  const design = createVinylDesignController({ storage, random: () => 0 });
+  assert.equal(design.getState().id, "r01");
+  assert.equal(design.choose("r20"), true);
+  assert.equal(design.getState().id, "r20");
+  assert.equal(design.getState().mode, "manual");
+  assert.equal(data.get("mp-vinyl-style"), "r20");
+  assert.equal(data.get("mp-vinyl-style-mode"), "manual");
+});
+
+test("season-start design changes once for each distinct season key", () => {
+  const data = new Map();
+  const storage = {
+    getItem: key => data.has(key) ? data.get(key) : null,
+    setItem: (key, value) => data.set(key, String(value))
+  };
+  const design = createVinylDesignController({ storage, random: () => 0 });
+  const before = design.getState().id;
+  assert.equal(design.onSeasonStart("year-1-spring"), true);
+  const after = design.getState().id;
+  assert.notEqual(after, before);
+  assert.equal(design.getState().reason, "season-start");
+  assert.equal(design.onSeasonStart("year-1-spring"), false);
+  assert.equal(design.getState().id, after);
+});
+
+test("a manual style returns to automatic random rotation after a track cycle", () => {
+  const data = new Map();
+  const storage = {
+    getItem: key => data.has(key) ? data.get(key) : null,
+    setItem: (key, value) => data.set(key, String(value))
+  };
+  const design = createVinylDesignController({ storage, random: () => 0 });
+  design.choose("r20");
+  design.rotateRandom("track-end");
+  assert.equal(design.getState().mode, "auto");
+  assert.notEqual(design.getState().id, "r20");
+  assert.equal(design.getState().reason, "track-end");
 });
