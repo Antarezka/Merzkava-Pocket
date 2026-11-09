@@ -1053,10 +1053,13 @@ function renderHome() {
   pocketAudio.enterMainMenu();
 }
 function readLocalPlayerNames() {
-  if (!nativeReady() || typeof native.getLocalPlayerNames !== "function") return [];
+  if (!nativeReady()) return [];
   try {
-    const raw = native.getLocalPlayerNames();
-    const data = JSON.parse(raw || "[]");
+    const reader = typeof native.getPocketRegisteredPlayerNames === "function"
+      ? native.getPocketRegisteredPlayerNames
+      : native.getLocalPlayerNames;
+    if (typeof reader !== "function") return [];
+    const data = JSON.parse(reader.call(native) || "[]");
     return Array.isArray(data)
       ? data.map(value => String(value).trim()).filter(Boolean)
       : [];
@@ -1071,12 +1074,12 @@ function randomHex(byteLength) {
 function bytesToBase64Url(bytes) {
   let binary = "";
   bytes.forEach(byte => { binary += String.fromCharCode(byte); });
-  return btoa(binary).replace(/\\+/g,"-").replace(/\\//g,"_").replace(/=+$/g,"");
+  return btoa(binary).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");
 }
 
 async function createPocketMasterResetRequest(playerName) {
   const name = String(playerName || "").trim();
-  if (!name || name.length > 80 || /[\\u0000-\\u001f]/.test(name)) {
+  if (!name || name.length > 80 || /[\u0000-\u001f]/.test(name)) {
     throw new Error("Choose a valid registered player name.");
   }
   if (!globalThis.crypto?.subtle) throw new Error("Secure request generation is unavailable on this device.");
@@ -1093,12 +1096,48 @@ async function createPocketMasterResetRequest(playerName) {
     "Challenge: " + challenge,
     "Action: Generate one unique player confirmation code and add only its SHA-256 hash to the Pocket Master Reset grant registry for the next app build.",
     "Scope: This request is for the selected World Atlas player only."
-  ].join("\\n");
+  ].join("\n");
 }
 
 function mountDeveloperAccountTools() {
   const section = root.querySelector("[data-developer-settings]");
-  if (!section || accessIdentity?.role !== "developer") return () => {};
+  if (!section) return () => {};
+  const details = section.querySelector(".developer-tools-accordion");
+  const authorityNotice = root.querySelector("[data-developer-authority-notice]");
+  const denyAuthority = () => {
+    if (authorityNotice) {
+      authorityNotice.hidden = false;
+      authorityNotice.setAttribute("aria-hidden","false");
+    }
+    section.hidden = true;
+    section.inert = true;
+    section.setAttribute("aria-hidden","true");
+    if (details) details.open = false;
+  };
+  const hasDeveloperSession = () => {
+    if (accessIdentity?.role !== "developer" || !nativeReady() ||
+        typeof native.isDeveloperSessionAuthorized !== "function") return false;
+    try { return native.isDeveloperSessionAuthorized() === true; }
+    catch { return false; }
+  };
+  const requireDeveloperSession = () => {
+    if (hasDeveloperSession()) {
+      if (authorityNotice) {
+        authorityNotice.hidden = true;
+        authorityNotice.setAttribute("aria-hidden","true");
+      }
+      return true;
+    }
+    denyAuthority();
+    return false;
+  };
+  const summary = details?.querySelector("summary");
+  summary?.addEventListener("click",event => {
+    if (!requireDeveloperSession()) event.preventDefault();
+  });
+  details?.addEventListener("toggle",() => {
+    if (details.open && !requireDeveloperSession()) details.open = false;
+  });
   const status = section.querySelector("[data-developer-reset-scan-status]");
   const scanButton = section.querySelector("[data-developer-reset-scan]");
   const select = section.querySelector("[data-developer-reset-player]");
@@ -1136,6 +1175,7 @@ function mountDeveloperAccountTools() {
   };
 
   const scan = async () => {
+    if (!requireDeveloperSession()) return;
     if (busy || !nativeReady() || abort.signal.aborted) return;
     busy = true;
     if (scanButton) scanButton.disabled = true;
@@ -1179,6 +1219,7 @@ function mountDeveloperAccountTools() {
   };
 
   const resetRequest = async () => {
+    if (!requireDeveloperSession()) return;
     if (busy || !select?.value || !proof?.checked) {
       if (message) message.textContent = !select?.value
         ? "Select the exact player account first."
@@ -1212,6 +1253,7 @@ function mountDeveloperAccountTools() {
   };
 
   const copyRequest = async () => {
+    if (!requireDeveloperSession()) return;
     const text = output?.value || "";
     if (!text || !copy) return;
     try {
@@ -1234,11 +1276,15 @@ function mountDeveloperAccountTools() {
     if (message) message.textContent = "";
   };
   select?.addEventListener("change",() => {
+    if (!requireDeveloperSession()) return;
     if (proof) proof.checked = false;
     clearGeneratedRequest();
     renderOptions(select.value);
   });
-  proof?.addEventListener("change",() => renderOptions(select?.value || ""));
+  proof?.addEventListener("change",() => {
+    if (!requireDeveloperSession()) return;
+    renderOptions(select?.value || "");
+  });
   scanButton?.addEventListener("click",() => void scan());
   generate?.addEventListener("click",() => void resetRequest());
   copy?.addEventListener("click",() => void copyRequest());
@@ -1372,7 +1418,8 @@ function renderPage(destination, transitionDuration=420) {
       </article>
       <article class="destination-card personal-section"><div class="settings-section-heading"><i class="settings-symbol personal-symbol" aria-hidden="true"></i><span>PERSONAL STUFF</span><small>YOUR POCKET PROFILE</small></div><section class="personal-setting"><div class="personal-account-icon" aria-hidden="true"></div><div class="personal-account-copy"><span>ACCOUNT & ACCESS</span><strong>${escapeHtml(accessIdentity?.displayName||"Pocket User")}</strong><small>${(accessIdentity?.role||"player").toUpperCase()} SESSION</small></div><button class="logout-button" data-signout><i class="logout-symbol" aria-hidden="true"></i>LOCK / SIGN OUT</button></section></article>
       ${accessIdentity?.role === "developer" ? `
-      <article class="destination-card developer-settings" data-developer-settings>
+      <div class="developer-authority-notice" data-developer-authority-notice hidden aria-hidden="true" role="alert">You don't have authority access, too low!</div>
+      <article class="destination-card developer-settings" data-developer-settings${accessIdentity?.role === "developer" ? "" : " hidden inert aria-hidden=\"true\""}>
         <details class="developer-tools-accordion">
           <summary class="developer-tools-summary">
             <i class="settings-symbol developer-symbol" aria-hidden="true"></i>
@@ -1419,7 +1466,7 @@ function renderPage(destination, transitionDuration=420) {
             </section>
           </div>
         </details>
-      </article>` : ""}</main>`;
+      </article></main>`;
   }
   if(destination==="home")pageMarkup+=accessBufferMarkup("APP RELOAD");
   const backMarkup=(destination==="home"||destination==="daily-login")?"":'<button type="button" class="page-back" data-page-back aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5 7.5 12l7 7M8 12h11"/></svg></button>';
@@ -1462,7 +1509,7 @@ function renderPage(destination, transitionDuration=420) {
   if(destination==="settings"){
     const menuCleanup=currentDisposer;
     const audioCleanup=mountAudioSettings();
-    const developerCleanup=accessIdentity?.role==="developer"?mountDeveloperAccountTools():()=>{};
+    const developerCleanup=mountDeveloperAccountTools();
     currentDisposer=()=>{menuCleanup?.();audioCleanup?.();developerCleanup?.();};
   }
   if(destination==="economy"){

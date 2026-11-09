@@ -2263,3 +2263,32 @@
 @media(prefers-reduced-motion:reduce) {
   .developer-tools-chevron {transition:none}
 }
+
+
+/* Forced Developer-only access attempt: visible, breathing red authority warning. */
+.developer-authority-notice {
+  display:block;margin:8px 0 12px;padding:13px 14px;
+  border:1px solid #b72e3b;border-radius:3px;
+  background:linear-gradient(135deg,rgba(98,18,28,.30),rgba(16,10,12,.96));
+  color:#ffdadd;font:700 10px/1.55 var(--ui);
+  letter-spacing:.055em;text-align:center;
+  box-shadow:0 0 0 1px rgba(220,45,61,.20),0 0 12px rgba(194,29,50,.15),inset 0 0 12px rgba(170,20,38,.08);
+  animation:developer-authority-breathe 2.2s ease-in-out infinite;
+}
+@keyframes developer-authority-breathe {
+  0%,100% {border-color:rgba(183,46,59,.60);box-shadow:0 0 0 1px rgba(220,45,61,.15),0 0 8px rgba(194,29,50,.10),inset 0 0 8px rgba(170,20,38,.04)}
+  50% {border-color:#ff4355;box-shadow:0 0 0 1px rgba(255,67,85,.72),0 0 20px rgba(194,29,50,.40),inset 0 0 15px rgba(170,20,38,.17)}
+}
+:root[data-theme="light"] .developer-authority-notice {
+  background:linear-gradient(135deg,#fff4f3,#f8e7e5);
+  color:#76212c;
+  box-shadow:0 0 0 1px rgba(183,46,59,.16),0 0 12px rgba(194,29,50,.11),inset 0 0 10px rgba(170,20,38,.04);
+  animation-name:developer-authority-breathe-light;
+}
+@keyframes developer-authority-breathe-light {
+  0%,100% {border-color:rgba(171,42,56,.56);box-shadow:0 0 0 1px rgba(183,46,59,.14),0 0 8px rgba(194,29,50,.08)}
+  50% {border-color:#c51f35;box-shadow:0 0 0 1px rgba(197,31,53,.62),0 0 19px rgba(194,29,50,.25)}
+}
+@media(prefers-reduced-motion:reduce) {
+  .developer-authority-notice {animation:none}
+}

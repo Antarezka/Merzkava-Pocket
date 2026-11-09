@@ -303,6 +303,10 @@ public final class PocketNativeBridge {
         }
     }
 
+    @JavascriptInterface public boolean isDeveloperSessionAuthorized() {
+        return prefs().getBoolean(PREF_SESSION, false);
+    }
+
     @JavascriptInterface public void lockDeveloperSession() {
         prefs().edit().putBoolean(PREF_SESSION, false).apply();
     }
@@ -368,6 +372,11 @@ public final class PocketNativeBridge {
         }
     }
 
+    @JavascriptInterface public String getPocketRegisteredPlayerNames() {
+        try { return readPocketRegisteredPlayerNames().toString(); }
+        catch (Exception ignored) { return "[]"; }
+    }
+
     @JavascriptInterface public String getLocalPlayerNames() {
         try {
             return combinePlayerNames(readPocketRegisteredPlayerNames(), readCachedPlayerNames()).toString();
@@ -399,6 +408,8 @@ public final class PocketNativeBridge {
     }
 
     @JavascriptInterface public void verifyPlayerIdentity(String characterName, String requestId) {
+        // A Player login attempt always revokes any previous Developer session marker.
+        prefs().edit().putBoolean(PREF_SESSION, false).apply();
         if (requestId == null || characterName == null || characterName.isEmpty()) {
             completePlayer(requestId, false, "", "", "Enter the exact registered character name.");
             return;
@@ -484,7 +495,7 @@ public final class PocketNativeBridge {
                 if (cancelledRequests.contains(requestId)) return;
 
                 JSONArray registeredNames = new JSONArray();
-                Pattern rowPattern = Pattern.compile("^\\\\|\\\\s*([^|]+?)\\\\s*\\\\|\\\\s*\\\\[[^\\\\]]+\\\\]\\\\(players/[^)]+\\\\)", Pattern.MULTILINE);
+                Pattern rowPattern = Pattern.compile("^\\|\\s*([^|]+?)\\s*\\|\\s*\\[[^\\]]+\\]\\(players/[^)]+\\)", Pattern.MULTILINE);
                 Matcher rows = rowPattern.matcher(registry);
                 while (rows.find()) {
                     String name = rows.group(1).trim();
