@@ -1585,7 +1585,7 @@ function navigationMarkup() {
           <path d="M20.6 7.4v2.8m-1.7-1.4h2.8" fill="none" stroke="#d4b879" stroke-width="1.2" stroke-linecap="round"/>
           <path d="m34.2 8.8 1.2-1.2m-1.2 1.2 1.2 1.2" fill="none" stroke="#d4b879" stroke-width=".9" stroke-linecap="round"/>
           <path d="M6.3 31.8c3.4-1.1 6.2-.8 9 0m3.1-8 2.6 8" fill="none" stroke="#d4b879" stroke-width=".8" stroke-linecap="round"/>
-        </svg></span><b>PLAYER LIST</b></button>
+        </svg></span><b>${accessIdentity?.role === "developer" ? "DATABASED" : "PROFILE"}</b></button>
         <button class="dock-item" type="button" data-destination="settings"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M15 4h6l1 4 4 2 4-1 3 5-3 4v3l3 4-3 5-4-1-4 2-1 4h-6l-1-4-4-2-4 1-3-5 3-4v-3l-3-4 3-5 4 1 4-2Z" fill="#789783" stroke="#d8d4b7" transform="translate(0 -1) scale(1 .96)"/><circle cx="18" cy="18" r="5.5" fill="#f1eadb" stroke="#d4b879" stroke-width="1.2"/><circle cx="18" cy="18" r="2" fill="#789783" stroke="none"/></svg></span><b>SETTINGS</b></button>
       </nav>
     </div>
