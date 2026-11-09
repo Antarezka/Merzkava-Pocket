@@ -134,7 +134,7 @@ export function getAccessDiagnostics(role) {
 }
 
 export function getDiagnosticWordFrames(value) {
-  const words = String(value ?? "").trim().split(/\\s+/).filter(Boolean);
+  const words = String(value ?? "").trim().split(/\s+/).filter(Boolean);
   return words.map((_, index) => words.slice(0, index + 1).join(" "));
 }
 
