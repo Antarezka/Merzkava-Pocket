@@ -639,7 +639,14 @@ export function mountEconomy(root,identity){
     const filtered=data.recipes.filter(recipe=>!query||(recipe.name+" "+recipe.recipe_id+" "+recipe.facility_id).toLowerCase().includes(query.toLowerCase()));
     return "<div class='econ-toolbar'><input type='search' data-econ-search placeholder='Search 20 defined production recipes…' value='"+esc(query)+"'></div><div class='econ-list'><div class='econ-list-title'><b>DEFINED RECIPES</b><small>"+filtered.length+" records · no guessed recipes</small></div>"+filtered.map(recipe=>{
       const r=recipeRecord(data,state,recipe);
-      return "<article class='econ-row econ-recipe-row'><span class='econ-row-head'><b>"+esc(recipe.name)+"</b><small>"+esc(recipe.recipe_id)+"</small></span><span class='econ-row-meta'><i>"+esc(r.facility?.name||recipe.facility_id)+"</i><i>"+esc(duration(recipe.active_process_sim_minutes))+"</i><i>"+(r.ready?"READY":"REQUIREMENTS NOT MET")+"</i></span><button type='button' class='econ-inline-action' data-econ-action='start-recipe' data-id='"+esc(recipe.recipe_id)+"' "+(r.ready?"":"disabled")+">START PROCESS</button></article>";
+      const inputLines=(recipe.inputs||[]).map(row=>{
+        const item=data.byId.get(row.item_id),name=item?.name||row.item_name||row.item_id,required=num(row.quantity),owned=qty(state,row.item_id),unitPrice=item?.market?.base_price_xc;
+        const price=unitPrice===null||unitPrice===undefined?"Not priced":currency(num(unitPrice));
+        const lineValue=unitPrice===null||unitPrice===undefined?"Not valued":currency(num(unitPrice)*required);
+        return "<div><span>"+esc(required)+" × "+esc(name)+"</span><b>"+esc(price)+" / unit</b><small>"+esc(lineValue)+" · stock "+esc(tidy(owned))+"/"+esc(tidy(required))+"</small></div>";
+      }).join("");
+      const inputValue=materialCost(data,recipe.inputs);
+      return "<article class='econ-row econ-recipe-row'><span class='econ-row-head'><b>"+esc(recipe.name)+"</b><small>"+esc(recipe.recipe_id)+"</small></span><span class='econ-row-meta'><i>"+esc(r.facility?.name||recipe.facility_id)+"</i><i>"+esc(duration(recipe.active_process_sim_minutes))+"</i><i>"+(r.ready?"READY":"REQUIREMENTS NOT MET")+"</i></span><div class='econ-recipe-materials'><small>REQUIRED INPUT MATERIALS</small>"+(inputLines||"<p>No catalogue material inputs.</p>")+"<b>ESTIMATED MATERIAL VALUE · "+esc(currency(inputValue))+"</b></div><button type='button' class='econ-inline-action' data-econ-action='start-recipe' data-id='"+esc(recipe.recipe_id)+"' "+(r.ready?"":"disabled")+">START PROCESS</button></article>";
     }).join("")+"<p class='econ-hint'>Recipes run only with a built facility, exact inputs and station tools. Livestock-as-input recipes remain locked until reusable animal-asset handling is defined.</p></div>";
   };
   const renderInventory=()=>{
