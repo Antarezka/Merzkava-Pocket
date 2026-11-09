@@ -546,7 +546,7 @@ export function economyMarkup(){
       <header class="economy-heading"><span class="eyebrow">GAME / DAILY LIFE / ECONOMY</span><h1>Living <em>Economy.</em></h1><p class="page-lead">Items, gathering, construction, processing and local trade share one saved inventory and wallet.</p></header>
       <section class="econ-summary" data-econ-summary><div class="econ-loading">Opening the local economy archive…</div></section>
       <nav class="econ-tabs" aria-label="Economy sections">
-        <button type="button" data-econ-tab="items" class="is-active">ITEMS</button><button type="button" data-econ-tab="facilities">FACILITIES</button><button type="button" data-econ-tab="production">PRODUCTION</button><button type="button" data-econ-tab="inventory">INVENTORY</button><button type="button" data-econ-tab="operations">OPERATIONS</button>
+        <button type="button" data-econ-tab="items" class="is-active">ITEMS</button><button type="button" data-econ-tab="facilities">FACILITIES</button><button type="button" data-econ-tab="production">PRODUCTION</button><button type="button" data-econ-tab="inventory">INVENTORY</button><button type="button" data-econ-tab="operations">OPERATIONS</button><button type="button" data-econ-tab="ledger">LEDGER</button>
       </nav>
       <div class="econ-content" data-econ-content><div class="econ-loading">Loading Pocket catalogues…</div></div>
       <p class="econ-footnote">Pocket clock ×48 · <span data-econ-catalogue-meta>Verifying bundled catalogue…</span> · Per-profile inventory, wallet and transaction ledger.</p>
@@ -564,6 +564,7 @@ export function mountEconomy(root,identity){
     const items=inventoryRows(data,state),facilities=Object.values(state.facilities).filter(x=>x?.operational).length,running=state.processes.filter(x=>x.status==="running").length;
     summary.innerHTML="<div class='econ-stat'><small>WALLET</small><strong>"+esc(currency(state.wallet_xc))+"</strong></div><div class='econ-stat'><small>ITEM TYPES</small><strong>"+items.length+" / 1,000</strong></div><div class='econ-stat'><small>FACILITIES</small><strong>"+facilities+" / 200</strong></div><div class='econ-stat'><small>ACTIVE PROCESSES</small><strong>"+running+"</strong></div>";
   };
+  const sectionHead=(title,description)=>"<header class='econ-section-head'><span class='econ-section-kicker'>LIVING ECONOMY / ARCHIVE</span><div><h2>"+esc(title)+"</h2><p>"+esc(description)+"</p></div></header>";
   const itemDetail=item=>{
     if(!item)return "<div class='econ-item-preview'><div class='econ-item-preview-frame'><span class='econ-muted'>Select an item below</span></div><aside class='econ-detail econ-item-dialog'><div class='econ-detail-top'><span class='eyebrow'>ITEM RECORD</span></div><div class='econ-dialog-scroll'><p class='econ-muted'>The selected item's production data and full catalogue description appear here.</p></div><div class='econ-detail-dots'><button type='button' class='econ-page-dot is-active' aria-label='Production page' disabled><span></span></button><button type='button' class='econ-page-dot' aria-label='Description page' disabled><span></span></button></div></aside></div>";
     const acq=item.acquisition||{},g=gatherRecord(data,state,item),locations=acq.locations||[];
@@ -629,15 +630,15 @@ export function mountEconomy(root,identity){
     if(!filtered.some(x=>x.item_id===selectedItem)){selectedItem=filtered[0]?.item_id||"";detailPage=0;}
     const visible=showAll?filtered:filtered.slice(0,60);
     const categoryOptions=[...new Set(data.items.map(x=>x.category))].sort().map(x=>"<option value='"+esc(x)+"' "+(category===x?"selected":"")+">"+esc(x)+"</option>").join("");
-    return "<div class='econ-toolbar econ-items-toolbar'><input type='search' data-econ-search placeholder='Search all 1,000 items…' value='"+esc(query)+"'></div><div class='econ-category-row'><select data-econ-category aria-label='Item category'><option value='all'>All categories</option>"+categoryOptions+"</select></div><div class='econ-list-title econ-item-count'><b>ITEM RECORDS</b><small>"+filtered.length+" matched · showing "+visible.length+"</small></div>"+(filtered.length?itemDetail(data.byId.get(selectedItem)):"<p class='econ-empty'>No matching items.</p>")+"<div class='econ-list econ-matches'><div class='econ-list-title'><b>MATCHING ITEMS</b><small>Tap a record to preview</small></div><div class='econ-item-results'>"+(visible.length?visible.map(x=>itemCard(x,state,selectedItem)).join(""):"<p class='econ-empty'>No matching items.</p>")+"</div>"+(filtered.length>visible.length?"<button type='button' class='econ-more' data-econ-action='show-more'>SHOW MORE RECORDS</button>":"")+"</div>";
+    return sectionHead("ITEMS","1,000 catalogue records · search by name, ID or category.")+"<div class='econ-toolbar econ-items-toolbar'><input type='search' data-econ-search placeholder='Search all 1,000 items…' value='"+esc(query)+"'></div><div class='econ-category-row'><select data-econ-category aria-label='Item category'><option value='all'>All categories</option>"+categoryOptions+"</select></div><div class='econ-list-title econ-item-count'><b>SEARCH RESULTS</b><small>"+filtered.length+" matched · showing "+visible.length+"</small></div>"+(filtered.length?itemDetail(data.byId.get(selectedItem)):"<p class='econ-empty'>No matching items.</p>")+"<div class='econ-list econ-matches'><div class='econ-list-title'><b>MATCHING ITEMS</b><small>Tap a record to preview</small></div><div class='econ-item-results'>"+(visible.length?visible.map(x=>itemCard(x,state,selectedItem)).join(""):"<p class='econ-empty'>No matching items.</p>")+"</div>"+(filtered.length>visible.length?"<button type='button' class='econ-more' data-econ-action='show-more'>SHOW MORE RECORDS</button>":"")+"</div>";
   };
   const renderFacilities=()=>{
     const filtered=data.facilities.filter(x=>!query||(x.name+" "+x.facility_id+" "+x.family).toLowerCase().includes(query.toLowerCase())),visible=showAll?filtered:filtered.slice(0,45);
-    return "<div class='econ-toolbar'><input type='search' data-econ-search placeholder='Search 200 facilities…' value='"+esc(query)+"'></div><div class='econ-browser'><div class='econ-list'><div class='econ-list-title'><b>FACILITY REGISTER</b><small>"+filtered.length+" matched · showing "+visible.length+"</small></div>"+(visible.length?visible.map(x=>facilityCard(x,state,data)).join(""):"<p class='econ-empty'>No matching facilities.</p>")+(filtered.length>visible.length?"<button type='button' class='econ-more' data-econ-action='show-more'>SHOW MORE RECORDS</button>":"")+"</div>"+facilityDetail(data.facilitiesById.get(selectedFacility))+"</div>";
+    return sectionHead("FACILITIES","200 facility records · construction, site and operation requirements.")+"<div class='econ-toolbar'><input type='search' data-econ-search placeholder='Search 200 facilities…' value='"+esc(query)+"'></div><div class='econ-browser'><div class='econ-list'><div class='econ-list-title'><b>FACILITY REGISTER</b><small>"+filtered.length+" matched · showing "+visible.length+"</small></div>"+(visible.length?visible.map(x=>facilityCard(x,state,data)).join(""):"<p class='econ-empty'>No matching facilities.</p>")+(filtered.length>visible.length?"<button type='button' class='econ-more' data-econ-action='show-more'>SHOW MORE RECORDS</button>":"")+"</div>"+facilityDetail(data.facilitiesById.get(selectedFacility))+"</div>";
   };
   const renderProduction=()=>{
     const filtered=data.recipes.filter(recipe=>!query||(recipe.name+" "+recipe.recipe_id+" "+recipe.facility_id).toLowerCase().includes(query.toLowerCase()));
-    return "<div class='econ-toolbar'><input type='search' data-econ-search placeholder='Search 20 defined production recipes…' value='"+esc(query)+"'></div><div class='econ-list'><div class='econ-list-title'><b>DEFINED RECIPES</b><small>"+filtered.length+" records · no guessed recipes</small></div>"+filtered.map(recipe=>{
+    return sectionHead("PRODUCTION","20 defined recipes · inspect required inputs before starting a process.")+"<div class='econ-toolbar'><input type='search' data-econ-search placeholder='Search 20 defined production recipes…' value='"+esc(query)+"'></div><div class='econ-list'><div class='econ-list-title'><b>DEFINED RECIPES</b><small>"+filtered.length+" records · no guessed recipes</small></div>"+filtered.map(recipe=>{
       const r=recipeRecord(data,state,recipe);
       const inputLines=(recipe.inputs||[]).map(row=>{
         const item=data.byId.get(row.item_id),name=item?.name||row.item_name||row.item_id,required=num(row.quantity),owned=qty(state,row.item_id),unitPrice=item?.market?.base_price_xc;
@@ -650,13 +651,15 @@ export function mountEconomy(root,identity){
     }).join("")+"<p class='econ-hint'>Recipes run only with a built facility, exact inputs and station tools. Livestock-as-input recipes remain locked until reusable animal-asset handling is defined.</p></div>";
   };
   const renderInventory=()=>{
-    const rows=inventoryRows(data,state);
-    return "<div class='econ-list'><div class='econ-list-title'><b>LOCAL INVENTORY</b><small>"+rows.length+" item types · profile scoped</small></div>"+(rows.length?rows.map(x=>"<div class='econ-row econ-item-row econ-inventory-row'>"+itemVisualMarkup(x.item)+"<span class='econ-item-copy'><span class='econ-row-head'><b>"+esc(x.item.name)+"</b><small>"+esc(x.item.item_id)+"</small></span><span class='econ-row-meta'><i>"+esc(x.item.unit)+"</i><i>Owned "+esc(tidy(x.quantity))+"</i><i>Buyback "+esc(itemPriceLabel(x.item,"typical_merchant_buyback_price_xc"))+"</i></span></span></div>").join(""):"<p class='econ-empty'>This profile has no recorded inventory yet. Nothing is granted automatically.</p>")+"</div>"+renderLedger();
+    const rows=inventoryRows(data,state).filter(x=>!query||(x.item.name+" "+x.item.item_id+" "+x.item.category).toLowerCase().includes(query.toLowerCase()));
+    return sectionHead("INVENTORY","Profile-owned stock · quantities and merchant buyback references.")+"<div class='econ-toolbar econ-items-toolbar'><input type='search' data-econ-search placeholder='Search local inventory…' value='"+esc(query)+"'></div><div class='econ-list'><div class='econ-list-title'><b>LOCAL INVENTORY</b><small>"+rows.length+" item types · profile scoped</small></div>"+(rows.length?rows.map(x=>"<div class='econ-row econ-item-row econ-inventory-row'>"+itemVisualMarkup(x.item)+"<span class='econ-item-copy'><span class='econ-row-head'><b>"+esc(x.item.name)+"</b><small>"+esc(x.item.item_id)+"</small></span><span class='econ-row-meta'><i>"+esc(x.item.unit)+"</i><i>Owned "+esc(tidy(x.quantity))+"</i><i>Buyback "+esc(itemPriceLabel(x.item,"typical_merchant_buyback_price_xc"))+"</i></span></span></div>").join(""):"<p class='econ-empty'>This profile has no recorded inventory yet. Nothing is granted automatically.</p>")+"</div>"+renderLedger();
   };
   const renderOperations=()=>{
-    const running=state.processes.filter(x=>x.status==="running").sort((a,b)=>a.finish_at-b.finish_at);
-    const assets=Object.entries(state.facilities).filter(([,v])=>v?.operational).map(([id,v])=>({id,record:v,facility:data.facilitiesById.get(id)}));
-    const rows=inventoryRows(data,state);
+    const term=query.toLowerCase();
+    const matches=value=>!term||String(value||"").toLowerCase().includes(term);
+    const running=state.processes.filter(x=>x.status==="running"&&matches(x.label+" "+x.type)).sort((a,b)=>a.finish_at-b.finish_at);
+    const assets=Object.entries(state.facilities).filter(([id,v])=>v?.operational&&matches((data.facilitiesById.get(id)?.name||id)+" "+id)).map(([id,v])=>({id,record:v,facility:data.facilitiesById.get(id)}));
+    const rows=inventoryRows(data,state).filter(x=>matches(x.item.name+" "+x.item.item_id+" "+x.item.category));
     const cashIn=state.ledger.reduce((sum,x)=>sum+Math.max(0,num(x.amount_xc)),0);
     const cashOut=state.ledger.reduce((sum,x)=>sum+Math.max(0,-num(x.amount_xc)),0);
     const net=cashIn-cashOut;
@@ -677,12 +680,12 @@ export function mountEconomy(root,identity){
     }).join(""):"<p class='econ-empty'>No active production, gathering or construction process.</p>";
     const assetCards=assets.length?assets.map(({id,record,facility})=>"<div class='econ-asset-row'><span class='econ-asset-mark'>◆</span><span><b>"+esc(facility?.name||(id==="pocket.starter.hut"?"Small Hut":id==="pocket.starter.foraging"?"Foraging Patch":id==="pocket.starter.well"?"Small Well":id))+"</b><small>"+esc(id)+" · LEVEL "+esc(record.level)+"</small></span><em>ACTIVE</em></div>").join(""):"<p class='econ-empty'>No operational assets are registered.</p>";
     const stockCards=rows.slice(0,12).map(x=>"<div class='econ-stock-row'><span>"+esc(x.item.name)+"</span><b>"+esc(tidy(x.quantity))+" "+esc(x.item.unit)+"</b><small>BASE VALUE "+esc(currency(num(x.item.market?.base_price_xc)*num(x.quantity)))+"</small></div>").join("");
-    const expenseRows=state.ledger.filter(x=>num(x.amount_xc)<0||num(x.material_cost_xc)>0).slice(0,16).map(x=>{
+    const expenseRows=state.ledger.filter(x=>(num(x.amount_xc)<0||num(x.material_cost_xc)>0)&&matches(x.label+" "+x.type)).slice(0,16).map(x=>{
       const cash=num(x.amount_xc)<0?currency(-num(x.amount_xc)):"No cash debit";
       const materials=num(x.material_cost_xc)>0?currency(x.material_cost_xc):"Not separately valued";
       return "<div class='econ-expense-row'><span><b>"+esc(x.label)+"</b><small>"+esc(new Date(x.at).toLocaleDateString())+" · "+esc(x.type)+"</small></span><strong>"+esc(cash)+"</strong><small>INPUT VALUE · "+esc(materials)+"</small></div>";
     }).join("");
-    return "<div class='econ-operations'>"+
+    return sectionHead("OPERATIONS","Running processes, active facilities, stock value and recorded operating costs.")+"<div class='econ-toolbar econ-items-toolbar'><input type='search' data-econ-search placeholder='Search operations, assets and stock…' value='"+esc(query)+"'></div><div class='econ-operations'>"+
       "<section class='econ-ops-metrics'><div><small>NET CASH FLOW</small><b>"+esc(currency(net))+"</b></div><div><small>CASH INFLOW</small><b>"+esc(currency(cashIn))+"</b></div><div><small>CASH OUTFLOW</small><b>"+esc(currency(cashOut))+"</b></div><div><small>STOCK BOOK VALUE</small><b>"+esc(currency(stockValue))+"</b></div></section>"+
       chart+
       "<section class='econ-ops-section'><div class='econ-list-title'><b>ACTIVE PROCESSES</b><small>"+running.length+" running</small></div>"+processCards+"</section>"+
@@ -691,14 +694,16 @@ export function mountEconomy(root,identity){
       "<p class='econ-hint'>Net cash flow uses recorded Wallet movements. Material inputs are valued at catalogue base prices and shown separately; stock value is an estimate, not a guaranteed sale price. The ledger retains the latest 250 records.</p>"+
       renderLedger()+"</div>";
   };
-  const renderLedger=()=>{
-    return "<div class='econ-list'><div class='econ-list-title'><b>TRANSACTION LEDGER</b><small>Newest first · "+state.ledger.length+" records kept</small></div>"+(state.ledger.length?state.ledger.map(x=>"<div class='econ-row econ-ledger-row'><span class='econ-row-head'><b>"+esc(x.label)+"</b><small>"+esc(new Date(x.at).toLocaleString())+"</small></span><span class='econ-row-meta'><i>"+esc(x.type)+"</i><i>"+(x.amount_xc?esc(currency(Math.abs(x.amount_xc))):x.quantity?"Qty "+esc(tidy(x.quantity)):"")+"</i></span></div>").join(""):"<p class='econ-empty'>No transactions recorded.</p>")+"</div>";
+  const renderLedger=(standalone=false)=>{
+    const records=state.ledger.filter(x=>!standalone||!query||(x.label+" "+x.type+" "+new Date(x.at).toLocaleString()+" "+(x.transaction_id||"")).toLowerCase().includes(query.toLowerCase()));
+    const search=standalone?"<div class='econ-toolbar econ-items-toolbar'><input type='search' data-econ-search placeholder='Search item and wallet transactions…' value='"+esc(query)+"'></div>":"";
+    return sectionHead("ITEM LEDGER","Complete local transaction history · newest records first.")+search+"<div class='econ-list'><div class='econ-list-title'><b>TRANSACTION RECORDS</b><small>"+records.length+" shown · "+state.ledger.length+" kept</small></div>"+(records.length?records.map(x=>"<div class='econ-row econ-ledger-row'><span class='econ-row-head'><b>"+esc(x.label)+"</b><small>"+esc(new Date(x.at).toLocaleString())+"</small></span><span class='econ-row-meta'><i>"+esc(x.type)+"</i><i>"+(x.amount_xc?esc(currency(Math.abs(x.amount_xc))):x.quantity?"Qty "+esc(tidy(x.quantity)):"")+"</i></span></div>").join(""):"<p class='econ-empty'>No matching transactions recorded.</p>")+"</div>";
   };
   const render=()=>{
     if(disposed||!data)return;
     const focused=document.activeElement?.matches?.("[data-econ-search]"),cursor=focused?document.activeElement.selectionStart:null;
     refreshSummary();root.querySelectorAll("[data-econ-tab]").forEach(x=>x.classList.toggle("is-active",x.dataset.econTab===tab));
-    content.innerHTML=tab==="items"?renderItems():tab==="facilities"?renderFacilities():tab==="production"?renderProduction():tab==="inventory"?renderInventory():tab==="operations"?renderOperations():renderLedger();
+    content.innerHTML=tab==="items"?renderItems():tab==="facilities"?renderFacilities():tab==="production"?renderProduction():tab==="inventory"?renderInventory():tab==="operations"?renderOperations():tab==="ledger"?renderLedger(true):renderItems();
     let feedbackNode=root.querySelector("[data-econ-feedback]");
     if(!feedbackNode){content.insertAdjacentHTML("beforeend","<p class='econ-feedback' data-econ-feedback role='status'></p>");feedbackNode=root.querySelector("[data-econ-feedback]");}
     feedbackNode.textContent=feedbackText;feedbackNode.dataset.kind=feedbackType;
