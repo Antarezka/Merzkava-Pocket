@@ -2748,3 +2748,103 @@
 @keyframes buffer-wait-shimmer{from{transform:translateX(0)}to{transform:translateX(510%)}}
 :root[data-theme="light"] .buffer-track.is-waiting i::after{background:linear-gradient(90deg,transparent,rgba(39,49,42,.58),rgba(124,41,55,.48),transparent)}
 @media(prefers-reduced-motion:reduce){.buffer-track.is-waiting i::after{animation:none}}
+
+
+/* Profile / Databased toolbar illustration — Dusk Wanderer (concept 17).
+   The rear motif is outline-only; the icon itself follows the jade, ink,
+   ivory and antique-gold treatment used by the other dock symbols. */
+.profile-cultivator-icon{
+  position:relative;display:block;width:36px;height:36px;flex:0 0 36px;
+  overflow:visible;filter:drop-shadow(0 1px 1px #0002);
+}
+.profile-cultivator-icon i{position:absolute;display:block;box-sizing:border-box;font-style:normal;pointer-events:none}
+.profile-cultivator-aureole{
+  z-index:0;left:7px;top:3px;width:22px;height:29px;
+  border:1px solid #d4b879;background:transparent;opacity:.88;
+  clip-path:polygon(50% 0,100% 17%,91% 76%,50% 100%,9% 76%,0 17%);
+}
+.profile-cultivator-blade{
+  z-index:1;left:23px;top:1px;width:2px;height:22px;
+  border:1px solid #aeb9b4;border-radius:2px 2px 1px 1px;
+  background:linear-gradient(90deg,#9aa9a4 0%,#f1eadb 48%,#aeb8b0 100%);
+  transform:rotate(31deg);transform-origin:50% 100%;
+  clip-path:polygon(0 0,100% 0,100% 91%,50% 100%,0 91%);
+}
+.profile-cultivator-guard{
+  z-index:4;left:19px;top:20px;width:10px;height:2px;
+  border-radius:2px;background:#d4b879;transform:rotate(31deg);
+}
+.profile-cultivator-grip{
+  z-index:3;left:23px;top:20px;width:3px;height:9px;
+  border-radius:1px;background:repeating-linear-gradient(0deg,#292b2c 0 2px,#c7a45e 2px 3px);
+  transform:rotate(31deg);
+}
+.profile-cultivator-robe{
+  z-index:2;left:8px;top:14px;width:22px;height:21px;
+  background:#789783;border:1px solid #d8d4b7;
+  clip-path:polygon(25% 0,75% 0,100% 100%,0 100%);
+}
+.profile-cultivator-mantle{
+  z-index:3;left:6px;top:15px;width:25px;height:20px;
+  background:#252a29;clip-path:polygon(24% 0,76% 0,100% 100%,0 100%);
+}
+.profile-cultivator-inner{
+  z-index:4;left:15px;top:14px;width:8px;height:20px;
+  background:#f1eadb;clip-path:polygon(0 0,100% 0,78% 100%,20% 100%);
+}
+.profile-cultivator-lapel{
+  z-index:5;left:16px;top:14px;width:7px;height:13px;
+  background:#789783;clip-path:polygon(0 0,100% 0,70% 100%,34% 100%);
+  border-left:1px solid #d8d4b7;
+}
+.profile-cultivator-hem{
+  z-index:5;left:7px;top:28px;width:24px;height:7px;
+  background:#252a29;clip-path:polygon(10% 0,90% 0,100% 100%,0 100%);
+}
+.profile-cultivator-fold{
+  z-index:6;height:1px;border-radius:50%;background:#d8d4b7;opacity:.9;
+}
+.profile-cultivator-fold.fold-one{left:10px;top:22px;width:9px;transform:rotate(48deg)}
+.profile-cultivator-fold.fold-two{left:18px;top:27px;width:8px;background:#d4b879;transform:rotate(-55deg)}
+.profile-cultivator-belt{
+  z-index:7;left:10px;top:26px;width:18px;height:2px;
+  background:#d4b879;border-radius:2px;transform:rotate(-3deg);
+}
+.profile-cultivator-sleeve{
+  z-index:8;left:19px;top:16px;width:11px;height:10px;
+  background:#789783;border:1px solid #d8d4b7;
+  clip-path:polygon(0 0,100% 12%,83% 100%,24% 83%);
+}
+.profile-cultivator-sleeve:after{
+  content:"";position:absolute;left:2px;top:4px;width:7px;height:1px;
+  background:#f1eadb;transform:rotate(28deg);
+}
+.profile-cultivator-cuff{
+  z-index:9;left:24px;top:23px;width:6px;height:4px;
+  border:1px solid #d4b879;border-radius:1px;background:#252a29;
+  transform:rotate(16deg);
+}
+.profile-cultivator-hand{
+  z-index:11;left:24px;top:25px;width:7px;height:5px;
+  border:1px solid #98765f;border-radius:3px 3px 2px 2px;
+  background:#dfb68e;transform:rotate(16deg);
+  box-shadow:inset -1px 0 #c49572;
+}
+.profile-cultivator-neck{
+  z-index:6;left:15px;top:10px;width:6px;height:7px;background:#c99b78;
+}
+.profile-cultivator-face{
+  z-index:7;left:13px;top:5px;width:10px;height:11px;
+  border:1px solid #9d8067;border-radius:45% 45% 42% 42%;
+  background:linear-gradient(90deg,#c99773,#edc29b 64%,#c99570);
+}
+.profile-cultivator-hair{
+  z-index:8;left:11px;top:2px;width:14px;height:9px;
+  border:1px solid #17191b;border-radius:8px 8px 3px 3px;
+  background:#252a29;clip-path:polygon(8% 0,90% 0,100% 75%,77% 66%,68% 100%,48% 72%,29% 100%,20% 67%,0 78%);
+}
+.profile-cultivator-lock{
+  z-index:8;left:20px;top:6px;width:5px;height:12px;
+  border-radius:1px 2px 4px 4px;background:#252a29;
+  transform:rotate(-9deg);clip-path:polygon(0 0,100% 0,85% 100%,34% 78%);
+}
