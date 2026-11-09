@@ -92,6 +92,7 @@ export function createPocketAudioController({
   let lastPlaybackTime = 0;
   let lastPlaybackDuration = 0;
   let lastCycleNotification = 0;
+  let vinylNoiseStartToken = 0;
 
   const music = new AudioCtor(trackCatalog[selectedTrack].src);
   music.preload = "auto";
@@ -106,9 +107,9 @@ export function createPocketAudioController({
   const notify = () => onChange(getState());
   const isPlaying = () => music.paused === false && music.ended !== true;
   const stopVinylSurfaceNoise = () => {
-    if (!vinylSurfaceNoise.paused) {
-      try { vinylSurfaceNoise.pause(); } catch {}
-    }
+    // Invalidate any pending play() resolution before stopping and rewinding the ambience bed.
+    vinylNoiseStartToken += 1;
+    try { vinylSurfaceNoise.pause(); } catch {}
     try { vinylSurfaceNoise.currentTime = 0; } catch {}
   };
   const syncVinylSurfaceNoise = () => {
@@ -117,11 +118,19 @@ export function createPocketAudioController({
       return;
     }
     vinylSurfaceNoise.volume = (effectsVolume / 100) * VINYL_SURFACE_NOISE_GAIN;
-    if (vinylSurfaceNoise.paused) {
-      try {
-        const result = vinylSurfaceNoise.play();
-        result?.catch?.(() => {});
-      } catch {}
+    if (!vinylSurfaceNoise.paused) return;
+    const token = ++vinylNoiseStartToken;
+    try {
+      const result = vinylSurfaceNoise.play();
+      result?.then?.(() => {
+        if (token === vinylNoiseStartToken && (!menuEntered || !isPlaying() || effectsVolume <= 0)) {
+          stopVinylSurfaceNoise();
+        }
+      }).catch?.(() => {
+        if (token === vinylNoiseStartToken) stopVinylSurfaceNoise();
+      });
+    } catch {
+      if (token === vinylNoiseStartToken) stopVinylSurfaceNoise();
     }
   };
   const createEffect = name => {
@@ -151,12 +160,17 @@ export function createPocketAudioController({
     }
   };
   const startMusic = async () => {
-    if (!menuEntered) return false;
+    if (!menuEntered) {
+      stopVinylSurfaceNoise();
+      return false;
+    }
     try {
       await music.play();
+      syncVinylSurfaceNoise();
       notify();
       return true;
     } catch {
+      stopVinylSurfaceNoise();
       notify();
       return false;
     }
@@ -196,7 +210,9 @@ export function createPocketAudioController({
     notify();
   });
   music.addEventListener?.("pause", () => {
-    stopVinylSurfaceNoise();
+    // Ignore a stale pause event if the track has already resumed.
+    if (isPlaying()) syncVinylSurfaceNoise();
+    else stopVinylSurfaceNoise();
     notify();
   });
   music.addEventListener?.("ended", reportPlaybackCycle);
@@ -204,6 +220,7 @@ export function createPocketAudioController({
     stopVinylSurfaceNoise();
     notify();
   });
+  music.addEventListener?.("emptied", stopVinylSurfaceNoise);
   // Looping HTMLAudioElements do not fire "ended". Detect the natural wrap at the end
   // of a complete song so the record label still changes at every playback cycle.
   music.addEventListener?.("timeupdate", () => {
@@ -245,12 +262,14 @@ export function createPocketAudioController({
   function pauseForSplash() {
     resumeAfterSplash = isPlaying();
     cancelNeedleStart();
+    stopVinylSurfaceNoise();
     music.pause();
     notify();
   }
 
   function resetSession() {
     cancelNeedleStart();
+    stopVinylSurfaceNoise();
     music.pause();
     menuEntered = false;
     userPaused = false;
@@ -261,6 +280,7 @@ export function createPocketAudioController({
   function selectTrack(id) {
     if (!Object.hasOwn(trackCatalog, id) || id === selectedTrack) return false;
     cancelNeedleStart();
+    stopVinylSurfaceNoise();
     music.pause();
     music.currentTime = 0;
     lastPlaybackTime = 0;
@@ -302,6 +322,7 @@ export function createPocketAudioController({
     if (isPlaying() || needleStarting) {
       cancelNeedleStart();
       userPaused = true;
+      stopVinylSurfaceNoise();
       music.pause();
       notify();
       return Promise.resolve(false);
@@ -328,6 +349,7 @@ export function createPocketAudioController({
     normalizeCustomTracks(entries);
     if (!Object.hasOwn(trackCatalog, selectedTrack)) {
       const resumeBuiltIn = menuEntered && isPlaying() && !userPaused;
+      stopVinylSurfaceNoise();
       music.pause();
       selectedTrack = "happy";
       music.currentTime = 0;
