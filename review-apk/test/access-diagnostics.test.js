@@ -24,7 +24,7 @@ test("Developer trace stays local and Pocket transition trace stays device-orien
 });
 
 test("diagnostic copy reveals one word at a time without completing the final term", () => {
-  assert.deepEqual(getDiagnosticWordFrames("server internal"), ["server", "server internal"]);
+  assert.deepEqual(getDiagnosticWordFrames("server int"), ["server", "server int"]);
   assert.deepEqual(getDiagnosticWordFrames("TLS handsh"), ["TLS", "TLS handsh"]);
   assert.equal(getDiagnosticWordFrames("TLS handsh").at(-1), "TLS handsh");
 });
