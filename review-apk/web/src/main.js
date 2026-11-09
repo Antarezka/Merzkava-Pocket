@@ -3,7 +3,7 @@ import "./styles.css";
 import { economyMarkup, mountEconomy } from "./economy.js";
 import { mountHomeBase } from "./home-base.js";
 import { dailyLoginMarkup, mountDailyLogin } from "./daily-login.js";
-import { createPocketAudioController } from "./audio-player.js";
+import { createPocketAudioController, createTurntableMotion } from "./audio-player.js";
 
 const root = document.querySelector("#app");
 if (!root) throw new Error("Pocket root not found.");
@@ -27,6 +27,7 @@ let menuController = null;
 let backPrompt = null;
 let floatingReadiness = { displayOverApps:false, notifications:false, batteryExemption:false, serviceRunning:false, bubbleVisible:false, supported:false };
 let floatingBusy = false;
+let activeTurntableMotion = null;
 
 window.PocketNativeCallbacks = {
   access(id, ok, displayName, identityRef, error) {
@@ -85,6 +86,7 @@ function syncAudioUI() {
   const player = root.querySelector("[data-audio-player]");
   if (!player) return;
   const state = pocketAudio.getState();
+  activeTurntableMotion?.setPlaying(state.isPlaying && !reducedMotion());
   player.classList.toggle("is-playing", state.isPlaying);
   player.classList.toggle("is-starting", state.isStarting);
   const trackTitle = player.querySelector("[data-track-title]");
@@ -113,7 +115,12 @@ function syncAudioUI() {
 
 function mountAudioSettings() {
   const section = root.querySelector("[data-audio-section]");
-  if (!section) return;
+  if (!section) return () => {};
+  const disc = section.querySelector(".vinyl-disc");
+  const turntableMotion = createTurntableMotion({
+    onFrame: angle => { disc.style.transform = "rotate(" + angle.toFixed(3) + "deg)"; }
+  });
+  activeTurntableMotion = turntableMotion;
   const toggle = section.querySelector("[data-audio-toggle]");
   const content = section.querySelector("[data-audio-content]");
   toggle.addEventListener("click", () => {
@@ -150,6 +157,11 @@ function mountAudioSettings() {
   section.querySelector("[data-effects-volume]").addEventListener("input", event => {
     pocketAudio.setEffectsVolume(event.currentTarget.value);
   });
+  syncAudioUI();
+  return () => {
+    turntableMotion.dispose();
+    if (activeTurntableMotion === turntableMotion) activeTurntableMotion = null;
+  };
 }
 
 function paperLightControlMarkup() {
@@ -880,7 +892,7 @@ function renderPage(destination, transitionDuration=420) {
               <span class="turntable-speed">33⅓ RPM</span>
               <span class="turntable-status-light"></span>
             </div>
-            <div class="audio-current-track"><span>SELECTED RECORD</span><strong data-track-title>Happy-1a</strong><small data-audio-status>PLAYING · MAIN MENU MUSIC</small></div>
+            <div class="audio-current-track"><span>SELECTED RECORD</span><strong data-track-title>Happy-1a</strong><small data-audio-status>NEEDLE LIFTED · READY</small></div>
             <div class="audio-volume-controls">
               <label><span>MUSIC VOLUME</span><output data-music-volume-value>68%</output><input data-music-volume type="range" min="0" max="100" step="1" value="68" aria-label="Music volume"></label>
               <label><span>SOUND EFFECTS</span><output data-effects-volume-value>76%</output><input data-effects-volume type="range" min="0" max="100" step="1" value="76" aria-label="Sound effects volume"></label>
@@ -914,7 +926,6 @@ function renderPage(destination, transitionDuration=420) {
   applyPaperGlow();
   root.querySelectorAll("[data-theme-choice]").forEach(button=>button.addEventListener("click",()=>setTheme(button.dataset.themeChoice)));
   root.querySelector("[data-paper-glow]")?.addEventListener("input",event=>setPaperGlow(event.currentTarget.value));
-  if(destination==="settings")mountAudioSettings();
   root.querySelectorAll("[data-subroute]").forEach(button=>button.addEventListener("click",()=>navigate(button.dataset.subroute)));
   root.querySelector("[data-page-back]")?.addEventListener("click",navigateBack);
   root.querySelector("[data-signout]")?.addEventListener("click",()=>void signOut());
@@ -945,6 +956,11 @@ function renderPage(destination, transitionDuration=420) {
   const page=root.querySelector(".home-stage,.page-stage,.home-base-host");
   if(!reducedMotion()&&page)animate(page,{opacity:[0,1],translateY:[8,0],duration:transitionDuration,ease:"outCubic"});
   if(destination!=="daily-login")mountMenu();
+  if(destination==="settings"){
+    const menuCleanup=currentDisposer;
+    const audioCleanup=mountAudioSettings();
+    currentDisposer=()=>{menuCleanup?.();audioCleanup?.();};
+  }
   if(destination==="economy"){
     const menuCleanup=currentDisposer;
     const economyCleanup=mountEconomy(root.querySelector("[data-economy-root]"),accessIdentity);

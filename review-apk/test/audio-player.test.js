@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createPocketAudioController } from "../web/src/audio-player.js";
+import { createPocketAudioController, createTurntableMotion } from "../web/src/audio-player.js";
 
 class FakeAudio {
   static instances = [];
@@ -90,4 +90,61 @@ test("music and effects volume values persist independently", () => {
   assert.equal(data.get("mp-audio-effects-volume"), "23");
   assert.equal(audio.getState().musicVolume, 42);
   assert.equal(audio.getState().effectsVolume, 23);
+});
+
+test("turntable accelerates smoothly toward 33⅓ RPM", () => {
+  let callback;
+  let nextId = 0;
+  const pending = new Set();
+  const frames = [];
+  const motion = createTurntableMotion({
+    requestFrame: fn => { callback = fn; pending.add(++nextId); frames.push(nextId); return nextId; },
+    cancelFrame: id => pending.delete(id)
+  });
+  assert.equal(motion.getState().speed, 0);
+  motion.setPlaying(true);
+  assert.equal(motion.getState().targetSpeed, 200);
+  callback(0);
+  callback(500);
+  assert.ok(motion.getState().speed > 100);
+  assert.ok(motion.getState().speed < 200);
+  callback(1800);
+  assert.ok(motion.getState().angle > 0);
+  motion.dispose();
+  assert.equal(motion.getState().disposed, true);
+});
+
+test("turntable eases down instead of stopping abruptly", () => {
+  let callback;
+  let nextId = 0;
+  const pending = new Set();
+  const motion = createTurntableMotion({
+    requestFrame: fn => { callback = fn; pending.add(++nextId); return nextId; },
+    cancelFrame: id => pending.delete(id)
+  });
+  motion.setPlaying(true);
+  callback(0);
+  callback(3000);
+  const runningSpeed = motion.getState().speed;
+  assert.ok(runningSpeed > 150);
+  motion.setPlaying(false);
+  callback(3020);
+  assert.ok(motion.getState().speed < runningSpeed);
+  assert.ok(motion.getState().speed > 0);
+  motion.dispose();
+});
+
+test("turntable motion can be disposed when Settings is left", () => {
+  let callback;
+  let nextId = 0;
+  const pending = new Set();
+  const motion = createTurntableMotion({
+    requestFrame: fn => { callback = fn; pending.add(++nextId); return nextId; },
+    cancelFrame: id => pending.delete(id)
+  });
+  motion.setPlaying(true);
+  assert.equal(motion.getState().running, true);
+  motion.dispose();
+  assert.equal(motion.getState().running, false);
+  assert.equal(pending.size, 0);
 });

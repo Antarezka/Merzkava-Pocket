@@ -36,6 +36,7 @@ export function createPocketAudioController({
   let resumeAfterSplash = false;
   let needleStarting = false;
   let needleToken = 0;
+  let activeNeedleEffect = null;
 
   const music = new AudioCtor(TRACKS[selectedTrack].src);
   music.preload = "auto";
@@ -64,6 +65,11 @@ export function createPocketAudioController({
   const cancelNeedleStart = () => {
     needleToken += 1;
     needleStarting = false;
+    const effect = activeNeedleEffect;
+    activeNeedleEffect = null;
+    if (effect) {
+      try { effect.pause(); effect.currentTime = 0; } catch {}
+    }
   };
   const startMusic = async () => {
     if (!menuEntered) return false;
@@ -84,11 +90,13 @@ export function createPocketAudioController({
       clearTimeout(fallback);
       effect.removeEventListener?.("ended", finish);
       effect.removeEventListener?.("error", finish);
+      effect.removeEventListener?.("pause", finish);
       resolve();
     };
-    const fallback = setTimeout(finish, 2800);
+    const fallback = setTimeout(finish, 5000);
     effect.addEventListener?.("ended", finish, { once: true });
     effect.addEventListener?.("error", finish, { once: true });
+    effect.addEventListener?.("pause", finish, { once: true });
     if (effect.ended) finish();
   });
 
@@ -161,12 +169,15 @@ export function createPocketAudioController({
     needleStarting = true;
     notify();
     const effect = createEffect("needle");
+    activeNeedleEffect = effect;
     if (effect) {
       try {
-        const result = effect.play();
-        await result;
+        await effect.play();
         await waitForEffect(effect);
       } catch {}
+      finally {
+        if (activeNeedleEffect === effect) activeNeedleEffect = null;
+      }
     }
     if (token !== needleToken || userPaused) return false;
     needleStarting = false;
@@ -207,5 +218,65 @@ export function createPocketAudioController({
     playEffect,
     setMusicVolume,
     setEffectsVolume
+  };
+}
+
+export function createTurntableMotion({
+  onFrame = () => {},
+  requestFrame = globalThis.requestAnimationFrame,
+  cancelFrame = globalThis.cancelAnimationFrame
+} = {}) {
+  if (typeof requestFrame !== "function" || typeof cancelFrame !== "function") {
+    throw new Error("Smooth turntable motion requires animation-frame support.");
+  }
+  let angle = 0;
+  let speed = 0;
+  let targetSpeed = 0;
+  let lastTime = null;
+  let frameId = null;
+  let disposed = false;
+
+  const tick = now => {
+    frameId = null;
+    if (disposed) return;
+    if (lastTime === null) lastTime = now;
+    const delta = Math.max(0, Math.min(0.05, (now - lastTime) / 1000));
+    lastTime = now;
+    const timeConstant = targetSpeed > speed ? 0.48 : 0.32;
+    speed += (targetSpeed - speed) * (1 - Math.exp(-delta / timeConstant));
+    angle = (angle + speed * delta) % 360;
+    onFrame(angle, speed);
+
+    if (targetSpeed === 0 && speed < 0.8) {
+      speed = 0;
+      lastTime = null;
+      onFrame(angle, speed);
+      return;
+    }
+    frameId = requestFrame(tick);
+  };
+
+  function setPlaying(playing) {
+    if (disposed) return;
+    targetSpeed = playing ? 200 : 0;
+    if (frameId === null && (targetSpeed > 0 || speed > 0)) {
+      lastTime = null;
+      frameId = requestFrame(tick);
+    }
+  }
+
+  function dispose() {
+    disposed = true;
+    if (frameId !== null) cancelFrame(frameId);
+    frameId = null;
+    speed = 0;
+    targetSpeed = 0;
+    lastTime = null;
+  }
+
+  return {
+    setPlaying,
+    dispose,
+    getState: () => ({ angle, speed, targetSpeed, running: frameId !== null, disposed })
   };
 }

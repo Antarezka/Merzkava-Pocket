@@ -1455,17 +1455,19 @@
 .turntable-spindle{position:absolute;left:calc(8% + min(27%,95px));top:50%;width:5px;height:5px;border-radius:50%;background:#e0d2a9;box-shadow:0 0 0 2px #282a28,0 0 5px #e7d7b1;transform:translate(-50%,-50%);z-index:2}
 .turntable-needle{
   position:absolute;right:7%;top:10%;width:38%;height:72%;padding:0;border:0;background:transparent;z-index:4;
-  transform:rotate(-2deg);transform-origin:78% 15%;transition:transform .42s cubic-bezier(.2,.75,.25,1.2);touch-action:manipulation;
+  transform:rotate(0deg);transform-origin:89% 7%;transition:transform .82s cubic-bezier(.22,.61,.36,1),filter .45s ease;touch-action:manipulation;
 }
 .turntable-needle:focus-visible{outline:1px solid var(--lime);outline-offset:2px;border-radius:8px}
 .needle-pivot{position:absolute;right:11%;top:6%;width:24px;height:24px;border-radius:50%;border:2px solid #9f8b61;background:radial-gradient(circle,#e0d2a9 0 18%,#4a4c43 22% 55%,#181c1b 58%);box-shadow:0 3px 7px #0008}
-.needle-arm{position:absolute;right:20%;top:17%;width:4px;height:76%;border-radius:5px;background:linear-gradient(90deg,#777d78,#e7e0d0 45%,#555b58);transform:rotate(37deg);transform-origin:top center;box-shadow:1px 1px 2px #0008}
-.needle-head{position:absolute;left:17%;bottom:4%;width:26px;height:15px;border:1px solid #8d7851;border-radius:3px;background:linear-gradient(150deg,#dbd3bd,#7e755f);transform:rotate(31deg);box-shadow:0 2px 4px #0008}
-.needle-tip{position:absolute;left:21%;bottom:5%;width:2px;height:11px;background:#e7d8ae;transform:rotate(31deg);transform-origin:top}
-.audio-player.is-playing .turntable-needle{transform:rotate(8deg)}
-.audio-player.is-starting .turntable-needle{transform:rotate(8deg)}
-.audio-player.is-playing .vinyl-disc{animation:pocket-vinyl-spin 2.4s linear infinite}
-@keyframes pocket-vinyl-spin{to{transform:rotate(360deg)}}
+.needle-arm{position:absolute;right:12%;top:12%;width:4px;height:56%;border-radius:5px;background:linear-gradient(90deg,#777d78,#e7e0d0 45%,#555b58);transform:rotate(-40deg);transform-origin:top center;box-shadow:1px 1px 2px #0008}
+.needle-head{position:absolute;left:12%;bottom:28%;width:27px;height:15px;border:1px solid #8d7851;border-radius:3px;background:linear-gradient(150deg,#dbd3bd,#7e755f);transform:rotate(-40deg);transform-origin:80% 50%;transition:transform .68s cubic-bezier(.22,.61,.36,1);box-shadow:0 2px 4px #0008}
+.needle-tip{position:absolute;left:15%;bottom:28%;width:2px;height:11px;background:#e7d8ae;transform:translateY(0);transform-origin:top;transition:transform .52s cubic-bezier(.22,.61,.36,1)}
+.audio-player.is-playing .turntable-needle{transform:rotate(-8deg);filter:drop-shadow(0 1px 2px #0008)}
+.audio-player.is-starting .turntable-needle{transform:rotate(-8deg)}
+.audio-player.is-playing .needle-tip,.audio-player.is-starting .needle-tip{transform:translateY(2px)}
+.audio-player.is-playing .vinyl-disc{filter:brightness(1.06)}
+.audio-player.is-starting .vinyl-disc{filter:brightness(1.025)}
+.vinyl-disc{transition:filter .45s ease;will-change:transform;backface-visibility:hidden}
 .turntable-speed{position:absolute;left:10px;bottom:14px;color:#d6c8a5;font:7px var(--ui);letter-spacing:.1em}
 :root[data-theme="light"] .turntable-speed{color:#35382f}
 .turntable-status-light{position:absolute;right:14px;bottom:15px;width:6px;height:6px;border-radius:50%;background:#6e755f;box-shadow:0 0 0 2px #6e755f2b}
@@ -1501,4 +1503,4 @@
 .audio-record.is-selected .record-state{border-color:var(--lime);background:var(--lime);color:#151a15}
 .audio-rack-note{margin:0;color:var(--muted);font:10px/1.55 Georgia,serif}
 @media(max-width:360px){.audio-content{padding-inline:9px}.audio-player{padding:9px}.audio-volume-controls{gap:8px}.turntable{min-height:158px}.audio-section-toggle{grid-template-columns:30px auto 1fr 18px;padding-inline:10px;gap:7px}}
-@media(prefers-reduced-motion:reduce){.audio-player.is-playing .vinyl-disc{animation:none}}
+@media(prefers-reduced-motion:reduce){.vinyl-disc{transform:none!important;will-change:auto}.turntable-needle,.needle-head,.needle-tip{transition:none!important}}
