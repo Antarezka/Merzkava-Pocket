@@ -260,11 +260,15 @@ export function createPocketAudioController({
     trackCatalog = { ...TRACKS };
     normalizeCustomTracks(entries);
     if (!Object.hasOwn(trackCatalog, selectedTrack)) {
-      selectedTrack = "happy";
+      const resumeBuiltIn = menuEntered && isPlaying() && !userPaused;
       music.pause();
+      selectedTrack = "happy";
+      music.currentTime = 0;
       music.src = trackCatalog.happy.src;
+      music.loop = true;
       music.load?.();
       write("mp-audio-track", selectedTrack);
+      if (resumeBuiltIn) void startMusic();
     }
     notify();
     return getTracks();

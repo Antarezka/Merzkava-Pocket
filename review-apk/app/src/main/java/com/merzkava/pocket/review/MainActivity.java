@@ -17,6 +17,8 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.graphics.Color;
 import android.util.Log;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.io.InputStream;
 import java.io.File;
@@ -90,8 +92,16 @@ public final class MainActivity extends Activity {
         if (requestCode != REQUEST_AUDIO_PICKER) return;
         String detail;
         if (resultCode != RESULT_OK || data == null || data.getData() == null) {
-            detail = "{\\"ok\\":false,\\"cancelled\\":true,\\"message\\":\\"Music selection cancelled.\\",\\"tracks\\":"
-                + (nativeBridge == null ? "[]" : nativeBridge.getCustomMusicLibrary()) + "}";
+            try {
+                detail = new JSONObject()
+                    .put("ok", false)
+                    .put("cancelled", true)
+                    .put("message", "Music selection cancelled.")
+                    .put("tracks", new JSONArray(nativeBridge == null ? "[]" : nativeBridge.getCustomMusicLibrary()))
+                    .toString();
+            } catch (Exception ignored) {
+                detail = "{\\"ok\\":false,\\"cancelled\\":true,\\"message\\":\\"Music selection cancelled.\\",\\"tracks\\":[]}";
+            }
         } else if (nativeBridge != null) {
             detail = nativeBridge.importAudioFile(data.getData());
         } else {

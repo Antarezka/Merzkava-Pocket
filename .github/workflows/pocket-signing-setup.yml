@@ -1,0 +1,65 @@
+name: Create Pocket signing key
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  create-signing-key:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate signing secrets and prevent key replacement
+        shell: bash
+        env:
+          POCKET_SIGNING_PASSWORD: ${{ secrets.POCKET_SIGNING_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$POCKET_SIGNING_PASSWORD" ]]; then
+            echo "::error::Missing repository secret: POCKET_SIGNING_PASSWORD"
+            exit 1
+          fi
+          if [[ "${#POCKET_SIGNING_PASSWORD}" -lt 24 ]]; then
+            echo "::error::POCKET_SIGNING_PASSWORD must contain at least 24 characters. The value itself is never printed."
+            exit 1
+          fi
+          if [[ -e "signing/merzkava-pocket-upload.jks.gpg" ]]; then
+            echo "::error::A Pocket signing key already exists. Refusing to replace or rotate it."
+            exit 1
+          fi
+      - name: Generate and encrypt the Pocket key
+        shell: bash
+        env:
+          POCKET_SIGNING_PASSWORD: ${{ secrets.POCKET_SIGNING_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYSTORE_FILE="$RUNNER_TEMP/merzkava-pocket-upload.jks"
+          PASSPHRASE_FILE="$RUNNER_TEMP/pocket-keystore-passphrase"
+          ENCRYPTED_FILE="$RUNNER_TEMP/merzkava-pocket-upload.jks.gpg"
+          mkdir -p signing
+          umask 077
+          trap 'rm -f "$KEYSTORE_FILE" "$PASSPHRASE_FILE" "$ENCRYPTED_FILE"' EXIT
+          keytool -genkeypair -noprompt \
+            -alias "merzkava-pocket-upload" \
+            -keyalg RSA -keysize 3072 -validity 10000 \
+            -keystore "$KEYSTORE_FILE" -storetype JKS \
+            -storepass "$POCKET_SIGNING_PASSWORD" \
+            -keypass "$POCKET_SIGNING_PASSWORD" \
+            -dname "CN=Merzkava Pocket, OU=Android, O=Antarezka"
+          printf '%s' "$POCKET_SIGNING_PASSWORD" > "$PASSPHRASE_FILE"
+          gpg --batch --yes --pinentry-mode loopback \
+            --passphrase-file "$PASSPHRASE_FILE" \
+            --symmetric --cipher-algo AES256 \
+            --output "$ENCRYPTED_FILE" "$KEYSTORE_FILE"
+          test -s "$ENCRYPTED_FILE"
+          rm -f "$KEYSTORE_FILE" "$PASSPHRASE_FILE"
+          install -m 600 "$ENCRYPTED_FILE" "signing/merzkava-pocket-upload.jks.gpg"
+      - name: Commit encrypted key only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f signing/merzkava-pocket-upload.jks.gpg
+          git commit -m "Add encrypted Pocket signing key"
+          git push origin HEAD:main

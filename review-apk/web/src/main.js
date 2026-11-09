@@ -139,11 +139,16 @@ function vinylStyleOptionMarkup(style) {
 function audioRecordMarkup(track, index) {
   const custom = track.custom === true;
   return `
-    <button type="button" class="audio-record${custom ? " is-custom-record" : ""}" data-audio-record="${escapeHtml(track.id)}" aria-pressed="false">
-      <span class="record-sleeve"><i class="sleeve-vinyl"></i><b>${String(index + 1).padStart(2,"0")}</b></span>
-      <span class="record-copy"><strong>${escapeHtml(track.title)}</strong><small>${custom ? "YOUR MUSIC · OGG VORBIS" : "OGG · POCKET BGM"}</small></span>
-      <span class="record-state" aria-hidden="true">✓</span>
-    </button>`;
+    <div class="audio-record-row">
+      <button type="button" class="audio-record${custom ? " is-custom-record" : ""}" data-audio-record="${escapeHtml(track.id)}" aria-pressed="false">
+        <span class="record-sleeve"><i class="sleeve-vinyl"></i><b>${String(index + 1).padStart(2,"0")}</b></span>
+        <span class="record-copy"><strong>${escapeHtml(track.title)}</strong><small>${custom ? "YOUR MUSIC · OGG VORBIS" : "OGG · POCKET BGM"}</small></span>
+        <span class="record-state" aria-hidden="true">✓</span>
+      </button>
+      ${custom
+        ? `<button type="button" class="audio-record-remove" data-audio-remove="${escapeHtml(track.id)}" aria-label="Remove ${escapeHtml(track.title)}" title="Remove imported music">×</button>`
+        : `<span class="audio-record-locked" aria-label="Built-in music cannot be removed" title="Pocket original">◆</span>`}
+    </div>`;
 }
 
 function renderAudioRecordList() {
@@ -163,7 +168,9 @@ function showAudioImportNotice(message, success = false) {
   const title = overlay.querySelector("[data-audio-import-title]");
   const kicker = overlay.querySelector("[data-audio-import-kicker]");
   const copy = overlay.querySelector("[data-audio-import-message]");
-  if (title) title.textContent = success ? "A new record is ready" : "This file is not supported";
+  if (title) title.textContent = success
+    ? (overlay.dataset.noticeAction === "removed" ? "Record removed" : "A new record is ready")
+    : (overlay.dataset.noticeAction === "remove-failed" ? "Could not remove record" : "This file is not supported");
   if (kicker) kicker.textContent = success ? "ADDED TO YOUR RECORD RACK" : "A SMALL FORMAT CHECK";
   if (copy) copy.textContent = String(message || (success ? "Your music has joined the library." : "Choose an OGG Vorbis audio file to continue."));
   overlay.hidden = false;
@@ -177,7 +184,11 @@ window.addEventListener("pocket:music-library-changed", event => {
   const result = event.detail || {};
   if (Array.isArray(result.tracks)) pocketAudio.updateCustomTracks(result.tracks);
   syncAudioUI();
-  if (!result.cancelled && result.message) showAudioImportNotice(result.message, result.ok === true);
+  if (!result.cancelled && result.message) {
+    const overlay = root.querySelector("[data-audio-import-overlay]");
+    if (overlay) overlay.dataset.noticeAction = result.action || "";
+    showAudioImportNotice(result.message, result.ok === true);
+  }
 });
 
 function syncAudioUI() {
@@ -376,25 +387,74 @@ function mountAudioSettings() {
   drawer?.querySelector("[data-vinyl-auto]")?.addEventListener("click", () => vinylDesigns.returnToAuto());
 
   const recordList = section.querySelector("[data-audio-record-list]");
+  const editListButton = section.querySelector("[data-audio-edit-list]");
+  let editListMode = false;
+  let pendingRemoveId = "";
+  const setEditListMode = enabled => {
+    editListMode = !!enabled;
+    recordList?.classList.toggle("is-editing",editListMode);
+    editListButton?.setAttribute("aria-pressed",String(editListMode));
+    if (editListButton) editListButton.textContent = editListMode ? "DONE" : "EDIT LIST";
+  };
+  editListButton?.addEventListener("click",() => setEditListMode(!editListMode));
+
+  const importOverlay = section.querySelector("[data-audio-import-overlay]");
+  const hideImportOverlay = () => {
+    importOverlay.hidden = true;
+    importOverlay.setAttribute("aria-hidden","true");
+    importOverlay.dataset.noticeAction = "";
+    pendingRemoveId = "";
+    importOverlay.querySelector("[data-audio-import-confirm]").hidden = true;
+    importOverlay.querySelector("[data-audio-import-close]").textContent = "RETURN TO AUDIO";
+  };
   recordList?.addEventListener("click", event => {
+    const removeButton = event.target?.closest?.("[data-audio-remove]");
+    if (removeButton && recordList.contains(removeButton)) {
+      const id = removeButton.dataset.audioRemove || "";
+      const track = pocketAudio.getTracks().find(item => item.id === id && item.custom);
+      if (!track || !editListMode) return;
+      pendingRemoveId = id;
+      importOverlay.dataset.noticeAction = "confirm-remove";
+      importOverlay.querySelector("[data-audio-import-kicker]").textContent = "EDIT RECORD RACK";
+      importOverlay.querySelector("[data-audio-import-title]").textContent = "Remove this record?";
+      importOverlay.querySelector("[data-audio-import-message]").textContent =
+        track.title + " will be removed from Pocket's private music shelf. Original Pocket music is never removed.";
+      importOverlay.querySelector("[data-audio-import-confirm]").hidden = false;
+      importOverlay.querySelector("[data-audio-import-close]").textContent = "KEEP RECORD";
+      importOverlay.hidden = false;
+      importOverlay.setAttribute("aria-hidden","false");
+      if (!reducedMotion()) animate(importOverlay.querySelector(".audio-import-card"),{opacity:[0,1],translateY:[12,0],duration:260,ease:"outCubic"});
+      importOverlay.querySelector("[data-audio-import-confirm]").focus();
+      return;
+    }
     const button = event.target?.closest?.("[data-audio-record]");
-    if (!button || !recordList.contains(button)) return;
+    if (!button || !recordList.contains(button) || editListMode) return;
     const changed = pocketAudio.selectTrack(button.dataset.audioRecord);
     if (!changed) return;
     pocketAudio.playEffect("placement");
     animateRecordToPlatter(button);
   });
-
-  const importOverlay = section.querySelector("[data-audio-import-overlay]");
-  importOverlay?.querySelector("[data-audio-import-close]")?.addEventListener("click",() => {
-    importOverlay.hidden = true;
-    importOverlay.setAttribute("aria-hidden","true");
+  importOverlay?.querySelector("[data-audio-import-close]")?.addEventListener("click",hideImportOverlay);
+  importOverlay?.querySelector("[data-audio-import-confirm]")?.addEventListener("click",() => {
+    if (!pendingRemoveId || typeof native?.deleteCustomMusicTrack !== "function") {
+      hideImportOverlay();
+      const overlay = section.querySelector("[data-audio-import-overlay]");
+      overlay.dataset.noticeAction = "remove-failed";
+      showAudioImportNotice("Pocket could not remove this imported record.",false);
+      return;
+    }
+    let result;
+    try { result = JSON.parse(native.deleteCustomMusicTrack(pendingRemoveId) || "{}"); }
+    catch { result = {ok:false,message:"Pocket could not remove this record."}; }
+    if (Array.isArray(result.tracks)) pocketAudio.updateCustomTracks(result.tracks);
+    hideImportOverlay();
+    if (result.ok) setEditListMode(false);
+    const overlay = section.querySelector("[data-audio-import-overlay]");
+    overlay.dataset.noticeAction = result.ok ? "removed" : "remove-failed";
+    showAudioImportNotice(result.message || "Pocket could not remove this record.",result.ok === true);
   });
   importOverlay?.addEventListener("click",event => {
-    if (event.target === importOverlay) {
-      importOverlay.hidden = true;
-      importOverlay.setAttribute("aria-hidden","true");
-    }
+    if (event.target === importOverlay) hideImportOverlay();
   });
   section.querySelector("[data-audio-add]")?.addEventListener("click",() => {
     if (typeof native?.openAudioPicker !== "function" || native.openAudioPicker() !== true) {
@@ -1307,7 +1367,13 @@ function renderPage(destination, transitionDuration=420) {
             </div>
           </section>
           <section class="audio-rack">
-            <div class="audio-rack-heading"><span>RECORD RACK</span><small>SELECT A RECORD TO PLACE IT</small></div>
+            <div class="audio-rack-heading">
+              <span>RECORD RACK</span>
+              <div class="audio-rack-tools">
+                <small>SELECT A RECORD TO PLACE IT</small>
+                <button type="button" class="audio-edit-toggle" data-audio-edit-list aria-pressed="false">EDIT LIST</button>
+              </div>
+            </div>
             <div class="audio-record-list" data-audio-record-list aria-label="Music library"></div>
             <p class="audio-rack-note">Placing a record does not start playback. Lower the stylus to listen.</p>
             <div class="audio-import-tools">
@@ -1345,7 +1411,10 @@ function renderPage(destination, transitionDuration=420) {
             <h3 id="audio-import-title" data-audio-import-title>Record added</h3>
             <p class="audio-import-message" data-audio-import-message></p>
             <small class="audio-import-footnote">SUPPORTED FORMAT · OGG VORBIS · MAX 64 MB</small>
-            <button type="button" class="audio-import-close" data-audio-import-close>RETURN TO AUDIO</button>
+            <div class="audio-import-actions">
+              <button type="button" class="audio-import-confirm" data-audio-import-confirm hidden>REMOVE RECORD</button>
+              <button type="button" class="audio-import-close" data-audio-import-close>RETURN TO AUDIO</button>
+            </div>
           </section>
         </div>
       </article>

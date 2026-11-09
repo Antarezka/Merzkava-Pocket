@@ -98,13 +98,46 @@ public final class PocketNativeBridge {
         if (!(activity instanceof MainActivity)) return false;
         activity.runOnUiThread(() -> {
             if (!((MainActivity) activity).openAudioPicker()) {
-                String detail = "{\\"ok\\":false,\\"message\\":\\"The device file manager could not be opened.\\",\\"tracks\\":"
-                    + getCustomMusicLibrary() + "}";
+                String detail = audioImportResult(false, "The device file manager could not be opened.", false);
                 if (webView != null) webView.post(() -> webView.evaluateJavascript(
                     "window.dispatchEvent(new CustomEvent('pocket:music-library-changed',{detail:" + detail + "}));", null));
             }
         });
         return true;
+    }
+
+    @JavascriptInterface public String deleteCustomMusicTrack(String id) {
+        try {
+            if (id == null || !id.matches("[a-fA-F0-9-]{36}")) {
+                return audioImportResult(false, "Pocket original music cannot be removed.", false);
+            }
+            JSONArray current = new JSONArray(getCustomMusicLibrary());
+            JSONArray updated = new JSONArray();
+            boolean found = false;
+            for (int i = 0; i < current.length(); i++) {
+                JSONObject item = current.optJSONObject(i);
+                if (item == null) continue;
+                if (id.equalsIgnoreCase(item.optString("id", ""))) found = true;
+                else updated.put(item);
+            }
+            if (!found) {
+                return audioImportResult(false, "Only imported music can be removed. Pocket original music stays in the rack.", false);
+            }
+            if (!prefs().edit().putString(PREF_CUSTOM_MUSIC_LIBRARY, updated.toString()).commit()) {
+                return audioImportResult(false, "Pocket could not update the music rack.", false);
+            }
+            File musicFile = new File(new File(activity.getFilesDir(), "music"), id.toLowerCase(Locale.ROOT) + ".ogg");
+            if (musicFile.isFile()) musicFile.delete();
+            return new JSONObject()
+                .put("ok", true)
+                .put("cancelled", false)
+                .put("action", "removed")
+                .put("message", "Imported music has been removed from your Pocket record rack.")
+                .put("tracks", updated)
+                .toString();
+        } catch (Exception error) {
+            return audioImportResult(false, "Pocket could not remove this imported record.", false);
+        }
     }
 
     @JavascriptInterface public String getCustomMusicLibrary() {

@@ -2660,3 +2660,47 @@
   .audio-record-list{scroll-behavior:auto}
   .audio-add-button{transition:none}
 }
+
+
+/* Record rack editing: imported discs may be removed; built-in Pocket records stay locked. */
+.audio-rack-tools{display:flex;align-items:center;gap:8px;min-width:0}
+.audio-rack-tools>small{max-width:120px}
+.audio-edit-toggle{
+  flex:0 0 auto;min-height:27px;padding:0 8px;
+  border:1px solid color-mix(in srgb,var(--gold) 60%,var(--line));
+  background:color-mix(in srgb,var(--gold) 6%,var(--surface));
+  color:var(--gold);font-size:7px;font-weight:700;letter-spacing:.11em;
+}
+.audio-edit-toggle[aria-pressed="true"]{border-color:var(--lime);color:var(--lime);background:color-mix(in srgb,var(--lime) 8%,var(--surface))}
+.audio-record-row{display:grid;grid-template-columns:minmax(0,1fr) 32px;align-items:center;gap:6px;min-width:0}
+.audio-record-row .audio-record{min-width:0}
+.audio-record-remove{
+  display:none;place-items:center;width:30px;height:30px;justify-self:center;
+  border:1px solid rgba(163,70,76,.58);border-radius:50%;
+  background:linear-gradient(145deg,rgba(124,41,55,.18),var(--surface));
+  color:#c87980;font:18px/1 Georgia,serif;
+  transition:background .2s ease,transform .2s ease,border-color .2s ease;
+}
+.audio-record-remove:active{transform:scale(.92);background:rgba(124,41,55,.24)}
+.audio-record-list.is-editing .audio-record-remove{display:grid}
+.audio-record-locked{display:none;place-items:center;width:26px;height:26px;justify-self:center;color:var(--muted);font-size:9px;opacity:.7}
+.audio-record-list.is-editing .audio-record-locked{display:grid}
+.audio-record-list.is-editing .audio-record{opacity:.88}
+.audio-import-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%}
+.audio-import-confirm{
+  min-height:38px;border:1px solid rgba(163,70,76,.7);
+  background:linear-gradient(115deg,rgba(124,41,55,.26),rgba(124,41,55,.10));
+  color:#e0b7b9;font-size:8px;font-weight:700;letter-spacing:.1em;
+}
+.audio-import-actions .audio-import-close{margin-top:0}
+.audio-import-confirm[hidden]{display:none!important}
+.audio-import-actions:has(.audio-import-confirm[hidden]){grid-template-columns:1fr}
+:root[data-theme="light"] .audio-edit-toggle{background:#f5eee1;color:#7e6946}
+:root[data-theme="light"] .audio-edit-toggle[aria-pressed="true"]{color:#536c59}
+:root[data-theme="light"] .audio-record-remove{background:#f6ecea;color:#9d4d53}
+:root[data-theme="light"] .audio-import-confirm{background:#f4e7e6;color:#8d4149}
+@media(max-width:360px){
+  .audio-rack-tools{gap:5px}
+  .audio-rack-tools>small{max-width:88px;font-size:6px}
+  .audio-edit-toggle{padding-inline:6px}
+}
