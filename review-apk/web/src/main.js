@@ -1061,7 +1061,7 @@ function renderPage(destination, transitionDuration=420) {
               </div>
               <div class="turntable-spindle"></div>
               <button type="button" class="turntable-needle" data-audio-needle aria-label="Lower the stylus and play music" aria-pressed="false">
-                <i class="needle-pivot"></i><i class="needle-arm"></i><i class="needle-head"></i><i class="needle-tip"></i>
+                <i class="needle-pivot"></i><span class="needle-linkage" aria-hidden="true"><i class="needle-arm"></i><i class="needle-head"><i class="needle-tip"></i></i></span>
               </button>
               <span class="turntable-speed">33⅓ RPM</span>
               <span class="turntable-status-light"></span>
