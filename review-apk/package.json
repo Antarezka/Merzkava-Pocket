@@ -4,10 +4,11 @@
   "version": "0.2.0",
   "type": "module",
   "scripts": {
-    "build": "node scripts/copy-catalogs.mjs && node scripts/build-world-assets.mjs && vite build",
+    "build": "npm run test && node scripts/copy-catalogs.mjs && node scripts/build-world-assets.mjs && vite build",
     "dev": "vite --host 0.0.0.0",
     "predev": "node scripts/copy-catalogs.mjs",
-    "render:launcher-icon": "node scripts/render-shimaenaga-icon.mjs"
+    "render:launcher-icon": "node scripts/render-shimaenaga-icon.mjs",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "animejs": "4.5.0",
