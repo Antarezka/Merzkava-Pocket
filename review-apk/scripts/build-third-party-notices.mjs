@@ -86,6 +86,35 @@ async function scanModulesDirectory(directory) {
 }
 
 await scanModulesDirectory(nodeModulesRoot);
+
+// Some npm packages omit the licence file from their published tarball even though
+// the licence expression is present in package.json. Reuse the corresponding project
+// licence text for platform binaries, and vendor the upstream dual-licence texts for Takumi.
+function inheritLicenseFiles(targetName, sourceName) {
+  const target = [...packages.values()].find(item => item.name === targetName);
+  const source = [...packages.values()].find(item => item.name === sourceName);
+  if (target && source?.files.length && !target.files.length) {
+    target.files = source.files.map(file => ({
+      name: file.name + " (shared licence from " + source.name + "@" + source.version + ")",
+      text: file.text
+    }));
+  }
+}
+inheritLicenseFiles("@esbuild/linux-x64", "esbuild");
+inheritLicenseFiles("@rollup/rollup-linux-x64-gnu", "rollup");
+
+const takumiLicenseRoot = resolve(projectRoot, "..", "docs", "legal", "licenses");
+const takumiLicenseTexts = [
+  { name: "LICENSE-MIT (Takumi upstream)", text: await readFile(join(takumiLicenseRoot, "takumi-LICENSE-MIT.txt"), "utf8") },
+  { name: "LICENSE-APACHE (Takumi upstream)", text: await readFile(join(takumiLicenseRoot, "takumi-LICENSE-APACHE.txt"), "utf8") }
+];
+for (const item of packages.values()) {
+  if ((item.name === "takumi-js" || item.name.startsWith("@takumi-rs/")) &&
+      item.license.includes("MIT") && item.license.includes("Apache-2.0") && !item.files.length) {
+    item.files = takumiLicenseTexts;
+  }
+}
+
 const sortedPackages = [...packages.values()].sort((a, b) =>
   a.name.localeCompare(b.name) || a.version.localeCompare(b.version)
 );

@@ -30,7 +30,7 @@ The APK build scans the installed `node_modules` tree and copies package metadat
 Upstream licence references:
 - animejs: https://www.npmjs.com/package/animejs
 - Phaser: https://phaser.io/download/license
-- takumi-js: https://www.npmjs.com/package/takumi-js
+- takumi-js: https://www.npmjs.com/package/takumi-js\n- Takumi native packages: full MIT and Apache-2.0 texts are stored from the upstream repository in [docs/legal/licenses](./licenses/) and included in the generated APK notices.
 - Vite: https://github.com/vitejs/vite/blob/main/packages/vite/LICENSE.md
 
 ## 3. Android build toolchain (build-time; not bundled as Pocket app code)
