@@ -8,6 +8,32 @@ const EFFECTS = Object.freeze({
   placement: "/audio/record%20placement.mp3"
 });
 
+export const SUPPORTED_AUDIO_EXTENSIONS = Object.freeze([
+  "ogg", "oga", "opus", "mp3", "wav", "wave", "m4a", "aac", "flac", "3gp", "amr"
+]);
+
+export const AUDIO_PLAYBACK_TYPES = Object.freeze([
+  'audio/ogg; codecs="vorbis"',
+  'audio/ogg; codecs="opus"',
+  "audio/mpeg",
+  "audio/wav",
+  'audio/mp4; codecs="mp4a.40.2"',
+  "audio/aac",
+  "audio/flac",
+  "audio/3gpp",
+  "audio/amr"
+]);
+
+const supportedAudioExtensionSet = new Set(SUPPORTED_AUDIO_EXTENSIONS);
+
+export function getSupportedAudioPlaybackTypes(audioElement = globalThis.document?.createElement?.("audio")) {
+  if (!audioElement || typeof audioElement.canPlayType !== "function") return [];
+  return AUDIO_PLAYBACK_TYPES.filter(type => {
+    try { return audioElement.canPlayType(type) !== ""; }
+    catch { return false; }
+  });
+}
+
 const clampVolume = value => Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
 
 export function createPocketAudioController({
@@ -35,10 +61,16 @@ export function createPocketAudioController({
     for (const entry of entries) {
       const id = String(entry?.id ?? "");
       const title = String(entry?.title ?? "").trim();
-      if (!/^[a-f0-9-]{36}$/i.test(id) || !title) continue;
+      const extension = String(entry?.extension ?? entry?.ext ?? "ogg").trim().toLowerCase().replace(/^\./,"");
+      const mimeType = String(entry?.mimeType ?? "audio/ogg").trim().toLowerCase();
+      if (!/^[a-f0-9-]{36}$/i.test(id) || !title ||
+          !supportedAudioExtensionSet.has(extension) || !mimeType.startsWith("audio/")) continue;
       trackCatalog[id] = {
         title,
-        src: "https://pocket.local/user-audio/" + id + ".ogg",
+        extension,
+        mimeType,
+        playbackType: String(entry?.playbackType ?? ""),
+        src: "https://pocket.local/user-audio/" + id + "." + extension,
         custom: true
       };
     }
@@ -278,6 +310,8 @@ export function createPocketAudioController({
     return Object.entries(trackCatalog).map(([id, track]) => ({
       id,
       title: track.title,
+      extension: track.extension || "ogg",
+      mimeType: track.mimeType || "audio/ogg",
       custom: track.custom === true
     }));
   }
