@@ -131,7 +131,7 @@ export function createPocketAudioController({
   }
 
   function pauseForSplash() {
-    resumeAfterSplash = isPlaying() || needleStarting;
+    resumeAfterSplash = isPlaying();
     cancelNeedleStart();
     music.pause();
     notify();
