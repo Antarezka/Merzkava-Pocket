@@ -214,14 +214,13 @@ final class PocketFloatingWindow {
             0, ViewGroup.LayoutParams.MATCH_PARENT, 1));
         title.setOnTouchListener((view, event) -> handleWindowTouch(event, false));
 
-        TextView toStrip = control("—", 32, "Minimize to floating strip");
-        TextView toBubble = control("▣", 38, "Minimize to television bubble");
+        // The standard minimize control always collapses to Pocket's TV bubble.
+        // Do not route it to the text-only strip; the TV is the floating identity.
+        TextView minimize = control("—", 38, "Minimize to Pocket television bubble");
         TextView fullscreen = control("□", 36, "Restore full Pocket window");
-        header.addView(toStrip);
-        header.addView(toBubble);
+        header.addView(minimize);
         header.addView(fullscreen);
-        toStrip.setOnClickListener(view -> minimizeToStrip());
-        toBubble.setOnClickListener(view -> minimizeToBubble());
+        minimize.setOnClickListener(view -> minimizeToBubble());
         fullscreen.setOnClickListener(view -> restoreToActivity());
 
         contentFrame = new FrameLayout(activity);
