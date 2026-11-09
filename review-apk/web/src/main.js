@@ -1463,7 +1463,7 @@ function renderPage(destination, transitionDuration=420) {
       <details class="legal-credits">
         <summary><span>LEGAL & CREDITS</span><small>LICENCES · ATTRIBUTIONS · OPEN-SOURCE NOTICES</small></summary>
         <div class="legal-credits-body">
-          <p><b>VINYL SURFACE NOISE</b> · “Warm organic vinyl record crackle #6” — Sdanezis / Pixabay. AI-generated. Converted to OGG for Pocket. Used as a loop inside the player under the Pixabay Content License; not offered as a standalone audio file. <a href="https://pixabay.com/vi/sound-effects/phim-hi%25E1%25BB%2587u-%25E1%25BB%25A9ng-%C4%2591%25E1%25BA%25B7c-bi%25E1%25BB%2587t-warm-organic-vinyl-record-crackle-6-586283/" target="_blank" rel="noopener">SOURCE</a></p>
+          <p><b>VINYL SURFACE NOISE</b> · “Warm organic vinyl record crackle #6” — Sdanezis / Pixabay. AI-generated. Converted to OGG for Pocket. Used as a loop inside the player under the Pixabay Content License; not offered as a standalone audio file. <span class="legal-source-credit">SOURCE · PIXABAY / SDANEZIS</span></p>
           <p>Full npm dependency notices include direct and transitive packages. Existing built-in audio whose original source is not recorded is flagged separately in the notices.</p>
           <button type="button" data-legal-notices-toggle aria-expanded="false">VIEW FULL LICENCES</button>
           <pre data-legal-notices-output hidden></pre>
