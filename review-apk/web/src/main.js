@@ -752,6 +752,7 @@ function renderFloatingControl() {
         <div class="status-line" data-status="notifications"><span>Notifications</span><b>CHECKING</b></div>
         <div class="status-line" data-status="battery"><span>Background activity / battery</span><b>CHECKING</b></div>
         <div class="status-line" data-status="service"><span>Foreground service</span><b>CHECKING</b></div>
+        <div class="status-line" data-status="network"><span>Network status access</span><b>AUTOMATIC</b></div>
       </section>
       <div class="section-label"><span>INITIAL SETUP</span><small>01 — 03 · COMPLETE IN ORDER</small></div>
       <section class="setup-list">
@@ -814,11 +815,12 @@ function renderFloatingControl() {
       overlay: state.displayOverApps,
       notifications: state.notifications,
       battery: state.batteryExemption,
-      service: state.serviceRunning
+      service: state.serviceRunning,
+      network: state.networkStateAccess === true
     };
     for (const [key,ready] of Object.entries(status)) {
       const line=stage.querySelector('[data-status="'+key+'"]');
-      const value=key==="service" ? (ready?"RUNNING":"STOPPED") : (!state.supported?"UNSUPPORTED":(ready?"READY":"NOT READY"));
+      const value=key==="service" ? (ready?"RUNNING":"STOPPED") : key==="network" ? (ready?"AUTO GRANTED":"NOT AVAILABLE") : (!state.supported?"UNSUPPORTED":(ready?"READY":"NOT READY"));
       line.querySelector("b").textContent=value;
       line.classList.toggle("is-ready",!!ready);
       line.classList.toggle("is-unsupported",!state.supported);
