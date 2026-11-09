@@ -82,15 +82,14 @@ The antique CRT television is the approved replacement for the former M mark in 
 - Small active-state indicator at the right.
 
 ### Device Status
-A slightly elevated/floating panel with five status rows, in this order:
+A slightly elevated/floating panel with four status rows, in this order:
 1. Display over other apps — READY
 2. Notifications — NOT READY
 3. Background activity — NOT READY
    - Helper text: “Double-tap to open settings.”
 4. Floating service — STOPPED
-5. Network status access — AUTO GRANTED
-   - Android grants `ACCESS_NETWORK_STATE` automatically at install; no runtime permission prompt or setup action is shown.
-   - This permission lets the native floating TV follow validated internet connectivity and animate CRT static only while online.
+
+Below the panel, add one compact, muted micro-label: “NETWORK ACCESS · AUTOMATIC”. Android grants `ACCESS_NETWORK_STATE` at installation, so it must not be presented as a runtime permission or an additional setup step. It enables the native floating TV to animate CRT static only while a validated internet connection is available.
 
 **Future motion behavior:** the panel should respond to touch with a subtle elastic wobble centered around the touch point. It should not shake uniformly as one rigid block. This is a design requirement only; it is not implemented by this mockup.
 
