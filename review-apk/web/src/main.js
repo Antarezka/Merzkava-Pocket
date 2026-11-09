@@ -3,6 +3,7 @@ import "./styles.css";
 import { economyMarkup, mountEconomy } from "./economy.js";
 import { mountHomeBase } from "./home-base.js";
 import { dailyLoginMarkup, mountDailyLogin } from "./daily-login.js";
+import { playerRecordsMarkup, mountPlayerRecords } from "./player-records.js";
 import { createPocketAudioController, createTurntableMotion, createVinylDesignController, VINYL_STYLES } from "./audio-player.js";
 
 const root = document.querySelector("#app");
@@ -681,11 +682,27 @@ function renderLoginGate() {
           <button type="button" class="is-active" data-role-tab="player" role="tab" aria-selected="true">PLAYER</button>
           <button type="button" data-role-tab="developer" role="tab" aria-selected="false">DEVELOPER</button>
         </div>
+        <div class="player-gate-switch" data-player-gate-switch>
+          <button type="button" class="is-active" data-player-mode="login" aria-pressed="true">PLAYER LOGIN</button>
+          <button type="button" data-player-mode="register" aria-pressed="false">NEW PLAYER ACCOUNT</button>
+        </div>
         <form class="access-form" data-player-form>
           <label for="player-name">CHARACTER NAME</label>
           <input id="player-name" name="characterName" type="text" maxlength="80" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Exact registered name" required>
-          <p class="field-note">Internet access is required to confirm the exact name against the currently pinned Universe registry.</p>
-          <button type="submit" class="primary-action">VERIFY PLAYER IDENTITY <span>↗</span></button>
+          <label for="player-owner-password">PLAYER ACCOUNT PASSWORD</label>
+          <input id="player-owner-password" name="ownerPassword" type="password" maxlength="128" autocomplete="current-password" required>
+          <p class="field-note">Enter the Pocket password you registered, or the imported World Atlas owner password. Every Player login checks the current Universe pin online.</p>
+          <button type="submit" class="primary-action">VERIFY PLAYER OWNER <span>↗</span></button>
+        </form>
+        <form class="access-form" data-player-register-form hidden>
+          <label for="player-register-name">REGISTERED CHARACTER NAME</label>
+          <input id="player-register-name" name="characterName" type="text" maxlength="80" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Exact registered name" required>
+          <label for="player-register-password">CREATE PLAYER PASSWORD</label>
+          <input id="player-register-password" name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required>
+          <label for="player-register-confirm">CONFIRM PLAYER PASSWORD</label>
+          <input id="player-register-confirm" name="confirmPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" required>
+          <p class="field-note">Registration verifies the current Universe pin online and checks that this character has a local Developer-provisioned profile. Pocket creates a new session save code after registration; future successful logins rotate that code automatically.</p>
+          <button type="submit" class="primary-action">REGISTER THIS PLAYER <span>↗</span></button>
         </form>
         <form class="access-form" data-developer-form hidden>
           <label for="developer-id">DEVELOPER ID</label>
@@ -705,6 +722,9 @@ function renderLoginGate() {
   const stage = root.querySelector("[data-login-stage]");
   const message = stage.querySelector("[data-login-message]");
   const playerForm = stage.querySelector("[data-player-form]");
+  const playerRegisterForm = stage.querySelector("[data-player-register-form]");
+  const playerGateSwitch = stage.querySelector("[data-player-gate-switch]");
+  const playerModeButtons = [...stage.querySelectorAll("[data-player-mode]")];
   const developerForm = stage.querySelector("[data-developer-form]");
   const tabs = [...stage.querySelectorAll("[data-role-tab]")];
   let busy = false;
@@ -726,9 +746,29 @@ function renderLoginGate() {
     input.type = input.type === "password" ? "text" : "password";
     event.currentTarget.setAttribute("aria-label", input.type === "password" ? "Show password" : "Hide password");
   });
+  const choosePlayerMode = mode => {
+    if (busy) return;
+    const registering = mode === "register";
+    playerForm.hidden = registering;
+    playerRegisterForm.hidden = !registering;
+    playerModeButtons.forEach(button => {
+      const active = button.dataset.playerMode === mode;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    message.textContent = "";
+  };
+  playerModeButtons.forEach(button => button.addEventListener("click", () => choosePlayerMode(button.dataset.playerMode)));
   const chooseRole = role => {
     if (busy) return;
+    playerGateSwitch.hidden = role !== "player";
     playerForm.hidden = role !== "player";
+    playerRegisterForm.hidden = true;
+    playerModeButtons.forEach(button => {
+      const active = button.dataset.playerMode === "login";
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
     developerForm.hidden = role !== "developer";
     tabs.forEach(button => {
       const active = button.dataset.roleTab === role;
@@ -753,7 +793,8 @@ function renderLoginGate() {
     const name = String(values.get("characterName") ?? "");
     const identifier = String(values.get("identifier") ?? "");
     const password = String(values.get("password") ?? "");
-    if (role === "player" && !name) { message.textContent = "Enter the exact registered character name."; return; }
+    const ownerPassword = String(values.get("ownerPassword") ?? "");
+    if (role === "player" && (!name || !ownerPassword)) { message.textContent = "Enter the exact registered character name and its Player account password."; return; }
     if (role === "developer" && (!identifier || !password)) { message.textContent = "Enter both Developer ID and password."; return; }
     busy = true;
     stage.dataset.busy = "true";
@@ -762,7 +803,7 @@ function renderLoginGate() {
     activeAccessAbort = new AbortController();
     try {
       const identity = await runAccessSequence(role, () => role === "player"
-        ? invokeNative("verifyPlayerIdentity", [name], activeAccessAbort.signal)
+        ? invokeNative("verifyPlayerIdentity", [name, ownerPassword], activeAccessAbort.signal)
         : invokeNative("authenticateDeveloper", [identifier, password, values.get("remember") === "on"], activeAccessAbort.signal), activeAccessAbort.signal);
       accessIdentity = identity;
       showFloatingControl();
@@ -777,6 +818,43 @@ function renderLoginGate() {
     }
   };
   playerForm.addEventListener("submit", event => void submit(event,"player"));
+  playerRegisterForm.addEventListener("submit", event => {
+    event.preventDefault();
+    if (busy) return;
+    if (!nativeReady()) { message.textContent = "Android access adapter unavailable. This route remains locked."; return; }
+    const values = new FormData(playerRegisterForm);
+    const name = String(values.get("characterName") || "").trim();
+    const password = String(values.get("password") || "");
+    const confirmPassword = String(values.get("confirmPassword") || "");
+    if (!name || !password || !confirmPassword) { message.textContent = "Complete all registration fields."; return; }
+    if (password !== confirmPassword) { message.textContent = "The two passwords do not match."; return; }
+    if (password.length < 8 || password.length > 128 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9\\s]/.test(password)) {
+      message.textContent = "Use 8–128 characters with uppercase, lowercase, number and symbol.";
+      return;
+    }
+    busy = true;
+    stage.dataset.busy = "true";
+    message.textContent = "";
+    activeAccessAbort?.abort();
+    activeAccessAbort = new AbortController();
+    const signal = activeAccessAbort.signal;
+    const runRegistration = async () => {
+      await invokeNative("refreshPlayerRegistry", [], signal);
+      return invokeNative("registerPocketPlayerAccount", [name, password], signal);
+    };
+    void runAccessSequence("player", runRegistration, signal).then(identity => {
+      accessIdentity = identity;
+      showFloatingControl();
+    }).catch(error => {
+      if (error?.name === "AbortError") message.textContent = "Registration cancelled.";
+      else message.textContent = error instanceof Error ? error.message : "Player registration failed.";
+      if (!reducedMotion()) animate(message, { opacity:[.45,1], translateX:[-3,3,0], duration:260, ease:"outQuad" });
+    }).finally(() => {
+      busy = false;
+      stage.dataset.busy = "false";
+      activeAccessAbort = null;
+    });
+  });
   developerForm.addEventListener("submit", event => void submit(event,"developer"));
   const enter = stage.querySelector(".login-card");
   if (!reducedMotion()) animate(enter, { opacity:[0,1], translateY:[18,0], scale:[.985,1], duration:620, ease:"outCubic" });
@@ -1351,6 +1429,9 @@ function renderPage(destination, transitionDuration=420) {
     pageMarkup=economyMarkup();
   } else if(destination==="daily-login"){
     pageMarkup=dailyLoginMarkup();
+  } else if(destination==="player-list"){
+    if (!accessIdentity) { renderLoginGate(); return; }
+    pageMarkup=playerRecordsMarkup(accessIdentity);
   } else {
     pageMarkup=`
       <main class="page-stage settings-page-stage"><span class="eyebrow">SETTINGS / PREFERENCES</span><h1>Make it yours.</h1><p class="page-lead">Display, sound and account controls.</p>
@@ -1527,6 +1608,10 @@ function renderPage(destination, transitionDuration=420) {
       .catch(error=>{const host=root.querySelector("[data-home-base-root]");if(host)host.textContent="Home Base error: "+error.message;});
   }else if(destination==="daily-login"){
     currentDisposer=mountDailyLogin(root.querySelector("[data-daily-login-root]"),()=>navigateBack(2000));
+  }else if(destination==="player-list"){
+    const menuCleanup=currentDisposer;
+    const playerRecordsCleanup=mountPlayerRecords(root.querySelector("[data-player-records-stage]"),accessIdentity,invokeNative);
+    currentDisposer=()=>{menuCleanup?.();playerRecordsCleanup?.();};
   }
 }
 
@@ -1544,6 +1629,7 @@ function navigationMarkup() {
         <button class="dock-item is-active" type="button" data-destination="home" aria-current="page"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M4 16 18 5l14 11v15H4Z" fill="#789783" stroke="#d8d4b7"/><path d="M10 30V17l8-6 8 6v13" stroke="#f1eadb"/><path d="M14 30v-8h8v8" stroke="#d4b879"/><path d="M18 5V2" stroke="#d4b879"/></svg></span><b>HOME</b></button>
         <button class="dock-item" type="button" data-destination="game"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M8 12.5c1.3-3 4-4.5 7-4.5h6c3 0 5.7 1.5 7 4.5l3 10.2c1.2 4-2.7 6.6-5.7 4.2L20 23h-4l-5.3 3.9C7.7 29.3 3.8 26.7 5 22.7Z" fill="#789783" stroke="#d8d4b7"/><path d="M11 15v6m-3-3h6" stroke="#f1eadb" stroke-width="1.7"/><circle cx="24" cy="16.5" r="1.5" fill="#d4b879" stroke="none"/><circle cx="27" cy="20" r="1.3" fill="#d4b879" stroke="none"/></svg></span><b>GAME</b></button>
         <button class="dock-item" type="button" data-destination="daily-login"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true"><rect x="5" y="7" width="26" height="24" rx="3" fill="#789783" stroke="#d8d4b7"/><path d="M11 4v7M25 4v7M5 14h26" stroke="#f1eadb" stroke-width="1.5"/><path d="m18 17 2 4 4 .6-3 3 .7 4-3.7-2-3.7 2 .7-4-3-3 4-.6Z" fill="#d4b879" stroke="#f1eadb" stroke-width=".8"/></svg></span><b>DAILY LOG-IN</b></button>
+        <button class="dock-item" type="button" data-destination="player-list"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="13" cy="12" r="4.1" fill="#789783" stroke="#d8d4b7"/><path d="M5.8 27c.3-4.6 3.1-7.2 7.2-7.2s6.9 2.6 7.2 7.2z" fill="#789783" stroke="#d8d4b7"/><circle cx="25.2" cy="13.2" r="3.2" fill="#d4b879" stroke="#f1eadb"/><path d="M21.5 26.8c.2-3.3 1.8-5.5 4.5-5.5 2.6 0 4.2 2.1 4.4 5.5z" fill="#789783" stroke="#d8d4b7"/><path d="M20 7.2l1.5-2 1.5 2" fill="none" stroke="#d4b879"/></svg></span><b>PLAYER LIST</b></button>
         <button class="dock-item" type="button" data-destination="settings"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M15 4h6l1 4 4 2 4-1 3 5-3 4v3l3 4-3 5-4-1-4 2-1 4h-6l-1-4-4-2-4 1-3-5 3-4v-3l-3-4 3-5 4 1 4-2Z" fill="#789783" stroke="#d8d4b7" transform="translate(0 -1) scale(1 .96)"/><circle cx="18" cy="18" r="5.5" fill="#f1eadb" stroke="#d4b879" stroke-width="1.2"/><circle cx="18" cy="18" r="2" fill="#789783" stroke="none"/></svg></span><b>SETTINGS</b></button>
       </nav>
     </div>
@@ -1758,7 +1844,7 @@ function mountMenu() {
 }
 
 function navigate(destination) {
-  if(!["home","game","daily-login","settings","home-base","city","world-map","economy"].includes(destination))return;
+  if(!["home","game","daily-login","settings","home-base","city","world-map","economy","player-list"].includes(destination))return;
   if(destination===currentRoute)return;
   routeHistory.push(currentRoute);
   renderPage(destination);
@@ -1783,6 +1869,8 @@ async function signOut() {
   pocketAudio.resetSession();
   if (accessIdentity?.role==="developer") {
     try { native.lockDeveloperSession(); } catch {}
+  } else if (accessIdentity?.role==="player") {
+    try { native.lockPlayerSession?.(); } catch {}
   }
   accessIdentity=null;
   routeHistory.length=0;
