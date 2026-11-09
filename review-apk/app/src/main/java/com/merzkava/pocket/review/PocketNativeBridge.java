@@ -880,7 +880,7 @@ public final class PocketNativeBridge {
         byte[] encrypted = encrypt(normalized.toString().getBytes(StandardCharsets.UTF_8));
         boolean saved = prefs().edit().putString(PREF_PLAYER_PROFILES, Base64.encodeToString(encrypted, Base64.NO_WRAP))
             .putString(PREF_PLAYER_PROFILES_IV, lastIv).commit();
-        if (!saved) throw new Exception("Could not persist the encrypted local Player profile store.");
+        if (!saved) throw new Exception("Could not save the Player profile.");
         return normalized;
     }
 
@@ -1855,7 +1855,7 @@ public final class PocketNativeBridge {
                 rememberPlayerRegistry(registeredNames, fullSha);
                 if (!exactMatch && !localMatch) {
                     completePlayer(requestId, false, "", fullSha,
-                        "That exact character name is not registered in Pocket or the currently pinned Universe registry.");
+                        "The character identity could not be verified in Merzkava Universe. Check the name and try again.");
                     return;
                 }
 
@@ -1864,7 +1864,7 @@ public final class PocketNativeBridge {
                 if (player == null) player = createEmptyPocketPlayerProfile(requestedName);
                 player.put("name", requestedName);
                 player.put("lastSeenAt", System.currentTimeMillis());
-                player.put("source", player.optString("source", "Pocket local gate"));
+                player.put("source", player.optString("source", "Universe identity check"));
                 if (!"imported".equals(player.optString("profileStatus", ""))) player.put("profileStatus", "active");
                 String profileKey = ensurePocketPlayerId(player);
                 store.remove(pocketPlayerKey(requestedName));
@@ -1883,9 +1883,7 @@ public final class PocketNativeBridge {
             } catch (Exception error) {
                 if (!cancelledRequests.contains(requestId)) {
                     String message = error.getMessage();
-                    completePlayer(requestId, false, "", "", message == null
-                        ? "Could not verify the active Universe pin and player registry. Check the connection and try again."
-                        : message);
+                    completePlayer(requestId, false, "", "", "Character verification could not be completed. Please try again.");
                 }
             } finally {
                 cancelledRequests.remove(requestId);

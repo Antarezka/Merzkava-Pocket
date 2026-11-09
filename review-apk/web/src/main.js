@@ -846,14 +846,14 @@ function renderLoginGate() {
         </div>
         <form class="access-form" data-player-form>
           <label for="player-name">CHARACTER NAME</label>
-          <input id="player-name" name="characterName" type="text" maxlength="80" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Enter your exact Player name" required><p class="field-note local-player-hint" data-local-player-hint>Checking names saved in Pocket…</p>
-          <p class="field-note">Choose a name saved in this Pocket installation to enter locally, or enter a name listed in the pinned Universe registry. No Player password is required.</p>
+          <input id="player-name" name="characterName" type="text" maxlength="80" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Enter your exact Player name" required><p class="field-note local-player-hint" data-local-player-hint>ENTER YOUR CHARACTER NAME TO CONTINUE.</p>
+          <p class="field-note">Your character identity is matched with the Merzkava Universe registry. No Player password is required.</p>
           <button type="submit" class="primary-action">VERIFY PLAYER <span>↗</span></button>
         </form>
         <form class="access-form" data-player-register-form hidden>
           <label for="player-register-name">NEW POCKET PLAYER NAME</label>
           <input id="player-register-name" name="characterName" type="text" maxlength="80" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Exact registered name" required>
-          <p class="field-note">Create a new Player name stored on this device. Pocket enrolls this device and creates the first save code. Later successful logins rotate it.</p>
+          <p class="field-note">Create a new Player identity and prepare its first session. Pocket issues a save code when the identity check is complete.</p>
           <button type="submit" class="primary-action">REGISTER THIS PLAYER <span>↗</span></button>
         </form>
         <form class="access-form" data-developer-form hidden>
@@ -862,7 +862,7 @@ function renderLoginGate() {
           <label for="developer-password">PASSWORD</label>
           <div class="password-wrap"><input id="developer-password" name="password" type="password" maxlength="128" autocomplete="current-password" required><button type="button" data-password-toggle aria-label="Show password">◉</button></div>
           <label class="remember-row"><input type="checkbox" name="remember"> <span>Remember on this device</span></label>
-          <p class="field-note">Developer credentials are verified locally on this device; internet access is not required. Remember Me is optional and Developer-only.</p>
+          <p class="field-note">Developer access is verified through the online account gateway. Remember Me is optional and Developer-only.</p>
           <button type="submit" class="primary-action">VERIFY DEVELOPER <span>↗</span></button>
         </form>
         <p class="login-message" data-login-message role="status" aria-live="polite"></p>
@@ -881,28 +881,11 @@ function renderLoginGate() {
   const tabs = [...stage.querySelectorAll("[data-role-tab]")];
   const localNamesHint = stage.querySelector("[data-local-player-hint]");
   const playerNameInput = stage.querySelector("#player-name");
-  let localPlayerNames = [];
-  try {
-    const rawNames = JSON.parse(native?.getPocketRegisteredPlayerNames?.() || "[]");
-    localPlayerNames = Array.isArray(rawNames)
-      ? [...new Set(rawNames.map(value => String(value || "").trim()).filter(Boolean))]
-      : [];
-    if (localNamesHint) localNamesHint.textContent = localPlayerNames.length
-      ? localPlayerNames.length + " POCKET-LOCAL PLAYER NAME(S) FOUND · TYPE THE EXACT NAME. INTERNET CHECK IS STILL REQUIRED."
-      : "NO POCKET-LOCAL PLAYER NAME FOUND · USE NEW PLAYER ACCOUNT TO CREATE ONE ON THIS DEVICE.";
-  } catch {
-    if (localNamesHint) localNamesHint.textContent = "Pocket could not read local Player names.";
-  }
   playerNameInput?.addEventListener("input", () => {
-    const typed = String(playerNameInput.value || "").trim();
-    const match = localPlayerNames.find(name => name.toLocaleLowerCase() === typed.toLocaleLowerCase());
-    if (localNamesHint) localNamesHint.textContent = match
-      ? "POCKET-LOCAL PROFILE FOUND · " + match + " · ONLINE VERIFICATION IS STILL REQUIRED."
-      : typed
-        ? "NOT FOUND IN THIS POCKET LOCAL LIST · LOGIN CHECKS THE ONLINE UNIVERSE REGISTRY."
-        : (localPlayerNames.length
-          ? localPlayerNames.length + " LOCAL PLAYER NAME(S) FOUND · TYPE THE EXACT NAME."
-          : "NO LOCAL PLAYER NAME FOUND · USE NEW PLAYER ACCOUNT TO CREATE ONE ON THIS DEVICE.");
+    const hasName = String(playerNameInput.value || "").trim().length > 0;
+    if (localNamesHint) localNamesHint.textContent = hasName
+      ? "IDENTITY REQUEST PREPARED · READY TO CONTINUE."
+      : "ENTER YOUR CHARACTER NAME TO CONTINUE.";
   });
   let busy = false;
 

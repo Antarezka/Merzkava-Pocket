@@ -33,9 +33,9 @@ const PLAYER_TRACE = Object.freeze([
   makeEntry("name canon", "IDENT / MATC"),
   makeEntry("exact matc", "IDENT / MATC", 2),
   makeEntry("player entr", "IDENT / MATC"),
-  makeEntry("profile inde", "POCKET / CACH"),
-  makeEntry("local cach", "POCKET / CACH"),
-  makeEntry("save schema ver", "POCKET / CACH"),
+  makeEntry("profile quer", "PROFILE / FETCH"),
+  makeEntry("profile data", "PROFILE / FETCH"),
+  makeEntry("schema verif", "PROFILE / FETCH"),
   makeEntry("session tok", "SESSION / SEC"),
   makeEntry("nonce chec", "SESSION / SEC", 2),
   makeEntry("signature ver", "SESSION / SEC", 3),
@@ -120,7 +120,7 @@ const TRANSITION_TRACE = Object.freeze([
 
 export function getAccessDiagnostics(role) {
   if (role === "player") return Object.freeze({
-    heading: "PLAYER NETWORK TRAC",
+    heading: "UNIVERSE NETWORK TRAC",
     entries: PLAYER_TRACE
   });
   if (role === "developer") return Object.freeze({
