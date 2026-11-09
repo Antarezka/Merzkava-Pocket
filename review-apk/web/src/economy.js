@@ -160,6 +160,37 @@ function openState(identity){
  * Nothing is invented here: this is the same versioned state persisted by Pocket Economy
  * and Home Base (wallet, inventory, facilities, processes, needs, appearance and ledger).
  */
+/**
+ * Delete one Player's Pocket game save and all migration backups for that save.
+ * Player identity/profile records are deliberately stored elsewhere and are preserved.
+ */
+export function resetPocketEconomySaveForPlayerName(playerName){
+  const name=String(playerName||"").trim();
+  if(!name||name.length>80)throw new Error("A valid Player name is required.");
+  const key="mp-economy-v1:"+encodeURIComponent(["player",name].join(":"));
+  const backupPrefix=key+":backup:";
+  let removed=0;
+  try{
+    for(let index=localStorage.length-1;index>=0;index--){
+      const storedKey=localStorage.key(index);
+      if(storedKey===key||String(storedKey||"").startsWith(backupPrefix)){
+        localStorage.removeItem(storedKey);
+        removed++;
+      }
+    }
+  }catch(error){
+    throw new Error("Pocket could not clear the local game save: "+(error instanceof Error?error.message:"storage unavailable"));
+  }
+  return removed;
+}
+
+export function resetPocketEconomySave(identity){
+  if(identity?.role!=="player"||!String(identity.displayName||"").trim()){
+    throw new Error("Only the active Player can reset their own Pocket game save.");
+  }
+  return resetPocketEconomySaveForPlayerName(identity.displayName);
+}
+
 export function exportPocketEconomySnapshot(identity){
   if(identity?.role!=="player"||!String(identity.displayName||"").trim()){
     throw new Error("Only a verified Player session can export its local economy save.");
