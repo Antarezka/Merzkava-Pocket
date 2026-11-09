@@ -92,59 +92,84 @@ test("music and effects volume values persist independently", () => {
   assert.equal(audio.getState().effectsVolume, 23);
 });
 
-test("turntable accelerates smoothly toward 33⅓ RPM", () => {
-  let callback;
+
+function makeMotionHarness() {
   let nextId = 0;
-  const pending = new Set();
-  const frames = [];
+  const queue = new Map();
   const motion = createTurntableMotion({
-    requestFrame: fn => { callback = fn; pending.add(++nextId); frames.push(nextId); return nextId; },
-    cancelFrame: id => pending.delete(id)
+    requestFrame: callback => {
+      const id = ++nextId;
+      queue.set(id, callback);
+      return id;
+    },
+    cancelFrame: id => queue.delete(id)
   });
-  assert.equal(motion.getState().speed, 0);
-  motion.setPlaying(true);
-  assert.equal(motion.getState().targetSpeed, 200);
-  callback(0);
-  callback(500);
-  assert.ok(motion.getState().speed > 100);
-  assert.ok(motion.getState().speed < 200);
-  callback(1800);
-  assert.ok(motion.getState().angle > 0);
-  motion.dispose();
-  assert.equal(motion.getState().disposed, true);
+  return {
+    motion,
+    tick(time) {
+      const next = queue.entries().next().value;
+      assert.ok(next, "an animation frame should be queued");
+      const [id, callback] = next;
+      queue.delete(id);
+      callback(time);
+    },
+    pending: () => queue.size
+  };
+}
+
+test("turntable accelerates smoothly toward 33⅓ RPM", () => {
+  const h = makeMotionHarness();
+  h.motion.setPlaying(true);
+  assert.equal(h.motion.getState().targetSpeed, 200);
+  h.tick(0);
+  for (let time = 16; time <= 512; time += 16) h.tick(time);
+  const midRampSpeed = h.motion.getState().speed;
+  assert.ok(midRampSpeed > 100 && midRampSpeed < 200);
+  for (let time = 528; time <= 3200; time += 16) h.tick(time);
+  assert.ok(h.motion.getState().speed > 195);
+  assert.ok(h.motion.getState().angle > 0);
+  h.motion.dispose();
+  assert.equal(h.pending(), 0);
+  assert.equal(h.motion.getState().disposed, true);
 });
 
 test("turntable eases down instead of stopping abruptly", () => {
-  let callback;
-  let nextId = 0;
-  const pending = new Set();
-  const motion = createTurntableMotion({
-    requestFrame: fn => { callback = fn; pending.add(++nextId); return nextId; },
-    cancelFrame: id => pending.delete(id)
-  });
-  motion.setPlaying(true);
-  callback(0);
-  callback(3000);
-  const runningSpeed = motion.getState().speed;
-  assert.ok(runningSpeed > 150);
-  motion.setPlaying(false);
-  callback(3020);
-  assert.ok(motion.getState().speed < runningSpeed);
-  assert.ok(motion.getState().speed > 0);
-  motion.dispose();
+  const h = makeMotionHarness();
+  h.motion.setPlaying(true);
+  h.tick(0);
+  for (let time = 16; time <= 3200; time += 16) h.tick(time);
+  const runningSpeed = h.motion.getState().speed;
+  assert.ok(runningSpeed > 195);
+  h.motion.setPlaying(false);
+  assert.equal(h.motion.getState().targetSpeed, 0);
+  h.tick(3216);
+  assert.ok(h.motion.getState().speed < runningSpeed);
+  assert.ok(h.motion.getState().speed > 0);
+  for (let time = 3232; time <= 6200; time += 16) h.tick(time);
+  assert.equal(h.motion.getState().speed, 0);
+  assert.equal(h.pending(), 0);
+  h.motion.dispose();
 });
 
 test("turntable motion can be disposed when Settings is left", () => {
-  let callback;
-  let nextId = 0;
-  const pending = new Set();
-  const motion = createTurntableMotion({
-    requestFrame: fn => { callback = fn; pending.add(++nextId); return nextId; },
-    cancelFrame: id => pending.delete(id)
-  });
-  motion.setPlaying(true);
-  assert.equal(motion.getState().running, true);
-  motion.dispose();
-  assert.equal(motion.getState().running, false);
-  assert.equal(pending.size, 0);
+  const h = makeMotionHarness();
+  h.motion.setPlaying(true);
+  assert.equal(h.motion.getState().running, true);
+  h.motion.dispose();
+  assert.equal(h.motion.getState().running, false);
+  assert.equal(h.pending(), 0);
+});
+
+test("lifting the needle during the crackle cancels the pending music start", async () => {
+  const { audio } = harness();
+  audio.enterMainMenu();
+  audio.selectTrack("chill");
+  const start = audio.toggleNeedle();
+  assert.equal(audio.getState().isStarting, true);
+  audio.pauseForSplash();
+  await start;
+  assert.equal(audio.getState().isPlaying, false);
+  assert.equal(audio.getState().isStarting, false);
+  audio.enterMainMenu();
+  assert.equal(audio.getState().isPlaying, false);
 });
