@@ -19,7 +19,7 @@ import org.json.JSONObject;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.Deflater;
+import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.InflaterInputStream;
 import java.io.InputStream;
@@ -71,6 +71,7 @@ public final class PocketNativeBridge {
     private static final String PREF_REGISTRY_SHA = "pocket_latest_registry_sha";
     private static final String PREF_REGISTRY_AT = "pocket_latest_registry_verified_at";
     private static final String PREF_PLAYER_SESSION_NAME = "active_verified_player_name";
+    private static final String PREF_USED_MASTER_RESET_GRANTS = "pocket_used_master_reset_grants_v1";
     private static final String UNIVERSE = "Antarezka/merzkava-universe";
 
     private final Activity activity;
