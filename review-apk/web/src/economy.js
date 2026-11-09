@@ -190,7 +190,7 @@ function rewardRoll(seed,index,channel=0){
 }
 function makePocketReward(data,seed,index,hourly=false){
   const roll=rewardRoll(seed,index,hourly?2:1);
-  if(roll<(hourly?.56:.30)){
+  if(roll<(hourly?0.56:0.30)){
     const values=hourly?[4,6,9,12,18,25,35,45]:[20,35,50,75,100,150,220,350,500,750];
     return {kind:"currency",amount_xc:values[Math.floor(rewardRoll(seed,index,3)*values.length)]};
   }
