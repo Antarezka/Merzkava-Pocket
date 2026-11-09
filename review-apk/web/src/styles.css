@@ -1801,3 +1801,10 @@
   .vinyl-drawer-toggle>i{transition:none}
   .vinyl-drawer-panel,.vinyl-style-option{transition:none}
 }
+
+
+.network-access-note{
+  display:block;margin:6px 2px 0;padding-top:5px;border-top:1px solid rgba(169,140,84,.16);
+  color:var(--muted);font:500 6.5px/1.4 var(--ui);letter-spacing:.13em;text-align:right;opacity:.78;
+}
+:root[data-theme="light"] .network-access-note{color:#657168;border-top-color:rgba(85,118,95,.18)}
