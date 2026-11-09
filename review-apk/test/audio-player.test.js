@@ -145,7 +145,7 @@ test("turntable eases down instead of stopping abruptly", () => {
   h.tick(3216);
   assert.ok(h.motion.getState().speed < runningSpeed);
   assert.ok(h.motion.getState().speed > 0);
-  for (let time = 3232; time <= 6200; time += 16) h.tick(time);
+  for (let time = 3232; time <= 6200 && h.pending() > 0; time += 16) h.tick(time);
   assert.equal(h.motion.getState().speed, 0);
   assert.equal(h.pending(), 0);
   h.motion.dispose();
