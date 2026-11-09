@@ -224,13 +224,13 @@ public final class PocketFloatingService extends Service {
             stroke(Color.rgb(198, 164, 105), 1.25f);
             Path aerials = new Path();
             aerials.moveTo(28, 20);
-            aerials.lineTo(19.5f, 2.5f);
+            aerials.lineTo(13, 10);
             aerials.moveTo(28, 20);
-            aerials.lineTo(37.5f, 5f);
+            aerials.lineTo(35, 7);
             canvas.drawPath(aerials, paint);
             stroke(Color.rgb(224, 214, 191), .8f);
-            canvas.drawLine(19.5f, 2.5f, 20.4f, 2.5f, paint);
-            canvas.drawLine(37.5f, 5f, 38.4f, 5f, paint);
+            canvas.drawLine(13, 10, 14, 10.5f, paint);
+            canvas.drawLine(35, 7, 36, 7.4f, paint);
 
             fill(Color.argb(110, 0, 0, 0));
             canvas.drawRoundRect(6.5f, 20, 51, 49, 7, 7, paint);
@@ -272,8 +272,9 @@ public final class PocketFloatingService extends Service {
                 stroke(Color.argb(150, 236, 225, 190), .65f);
                 canvas.drawLine(13, scanY, 34, scanY, paint);
                 if (noise.nextInt(5) == 0) {
+                    float flashY = 25f + noise.nextFloat() * 13f;
                     fill(Color.argb(48, 238, 232, 210));
-                    canvas.drawRect(13, 25 + noise.nextInt(13), 34, 26 + noise.nextInt(13), paint);
+                    canvas.drawRect(13, flashY, 34, flashY + 1.2f, paint);
                 }
             } else {
                 fill(Color.argb(28, 195, 201, 184));
