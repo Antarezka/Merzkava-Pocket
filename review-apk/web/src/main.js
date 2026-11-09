@@ -1574,17 +1574,16 @@ function navigationMarkup() {
         <button class="dock-item" type="button" data-destination="game"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M8 12.5c1.3-3 4-4.5 7-4.5h6c3 0 5.7 1.5 7 4.5l3 10.2c1.2 4-2.7 6.6-5.7 4.2L20 23h-4l-5.3 3.9C7.7 29.3 3.8 26.7 5 22.7Z" fill="#789783" stroke="#d8d4b7"/><path d="M11 15v6m-3-3h6" stroke="#f1eadb" stroke-width="1.7"/><circle cx="24" cy="16.5" r="1.5" fill="#d4b879" stroke="none"/><circle cx="27" cy="20" r="1.3" fill="#d4b879" stroke="none"/></svg></span><b>GAME</b></button>
         <button class="dock-item" type="button" data-destination="daily-login"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true"><rect x="5" y="7" width="26" height="24" rx="3" fill="#789783" stroke="#d8d4b7"/><path d="M11 4v7M25 4v7M5 14h26" stroke="#f1eadb" stroke-width="1.5"/><path d="m18 17 2 4 4 .6-3 3 .7 4-3.7-2-3.7 2 .7-4-3-3 4-.6Z" fill="#d4b879" stroke="#f1eadb" stroke-width=".8"/></svg></span><b>DAILY LOG-IN</b></button>
         <button class="dock-item" type="button" data-destination="player-list"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true">
-          <path d="M5 32.5c1.2-4.9 3.4-7.8 7.3-9.9l1.4-4.1 5.1-.2 2.2 3.7c4.8 1.7 7.4 5.1 8.7 10.5H5Z" style="fill:#789783;stroke:#d8d4b7;stroke-width:1"/>
-          <path d="M7.4 22.4 3.9 29.8l6.8-2.4 3.8 5.1 2.2-9.8-4.7-3.4Z" style="fill:#789783;stroke:#d4b879;stroke-width:.8"/>
-          <path d="M12.1 17.5c-2.2 1.4-3.4 3.6-4.1 6.4l5.2 2.7 3.7-5.3-1.8-4.4Z" style="fill:#789783;stroke:#d8d4b7;stroke-width:.9"/>
-          <path d="M9.1 11.3c.1-4.5 2.3-6.8 5-6.8 3.1 0 5 2.5 4.6 6.7l-1.6 4.7-4.8 1.5-3.2-6.1Z" style="fill:#789783;stroke:#d8d4b7;stroke-width:.9"/>
-          <path d="M8.9 10.5C8.6 6.2 11.9 2.8 15.7 3c1.9.1 3.2 1.2 4.2 2.9l-1.5 1.1-2.1-.8-2.2 2.3-2.7-.4-2.5 2.4Z" style="fill:#789783;stroke:#d4b879;stroke-width:.8"/>
-          <path d="M12.4 17.4c2.1 1.1 4.2 1.1 6.2-.1l3.1 3.5-3.3 4.2-6.1-3.1Z" style="fill:#789783;stroke:#d8d4b7;stroke-width:.8"/>
-          <path d="M17.2 14.2 20.1 10.2 22 8.9" fill="none" stroke="#d8d4b7" stroke-width="2" stroke-linecap="round"/>
-          <path d="M19.6 8.8 34.2 8.8" fill="none" stroke="#f1eadb" stroke-width="2" stroke-linecap="round"/>
-          <path d="M20.6 7.4v2.8m-1.7-1.4h2.8" fill="none" stroke="#d4b879" stroke-width="1.2" stroke-linecap="round"/>
-          <path d="m34.2 8.8 1.2-1.2m-1.2 1.2 1.2 1.2" fill="none" stroke="#d4b879" stroke-width=".9" stroke-linecap="round"/>
-          <path d="M6.3 31.8c3.4-1.1 6.2-.8 9 0m3.1-8 2.6 8" fill="none" stroke="#d4b879" stroke-width=".8" stroke-linecap="round"/>
+          <path d="M8.2 32.2c.5-3.5 2.2-5.8 5.2-7.2l2.4-1.2 1.2-3.5 4.1.1 1.3 3.5 3 1.3c2.6 1.2 4.2 3.4 4.8 7H8.2Z" fill="#789783" stroke="#d8d4b7" stroke-width="1" stroke-linejoin="round"/>
+          <path d="m14.1 22.5 3.1 3.3 3.3-3.3-1.2-3.8-3.7.1Z" fill="#789783" stroke="#d4b879" stroke-width=".8" stroke-linejoin="round"/>
+          <path d="M14.2 11.4c0-4.2 1.7-6.5 4.1-6.5 2.7 0 4.3 2.4 4.1 6.5l-1.2 4.8-3 2.1-2.9-2.1Z" fill="#789783" stroke="#d8d4b7" stroke-width=".9"/>
+          <path d="M14.2 10.3c.1-3.9 2-6.4 4.4-6.4 1.8 0 3.1 1.1 3.8 3.1l-1.8.8-2-.8-1.7 2-2.7 1.3Z" fill="#789783" stroke="#d4b879" stroke-width=".8" stroke-linejoin="round"/>
+          <path d="m16.1 18.3 2.1 2.4 2.2-2.4" fill="none" stroke="#f1eadb" stroke-width=".9" stroke-linecap="round"/>
+          <path d="M21.2 19.3 27.4 12.8" fill="none" stroke="#d8d4b7" stroke-width="2.1" stroke-linecap="round"/>
+          <path d="M26.6 13.4 33.1 3.1" fill="none" stroke="#f1eadb" stroke-width="2.1" stroke-linecap="round"/>
+          <path d="m31.9 4.9 2.2-3.4" fill="none" stroke="#d4b879" stroke-width="1.2" stroke-linecap="round"/>
+          <path d="m24.7 15.2 4 2.5" fill="none" stroke="#d4b879" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M7.2 32c3.4-1 6.1-.8 9.1 0m3.2-6.1 2.4 6.1" fill="none" stroke="#d4b879" stroke-width=".8" stroke-linecap="round"/>
         </svg></span><b>${accessIdentity?.role === "developer" ? "DATABASED" : "PROFILE"}</b></button>
         <button class="dock-item" type="button" data-destination="settings"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M15 4h6l1 4 4 2 4-1 3 5-3 4v3l3 4-3 5-4-1-4 2-1 4h-6l-1-4-4-2-4 1-3-5 3-4v-3l-3-4 3-5 4 1 4-2Z" fill="#789783" stroke="#d8d4b7" transform="translate(0 -1) scale(1 .96)"/><circle cx="18" cy="18" r="5.5" fill="#f1eadb" stroke="#d4b879" stroke-width="1.2"/><circle cx="18" cy="18" r="2" fill="#789783" stroke="none"/></svg></span><b>SETTINGS</b></button>
       </nav>
