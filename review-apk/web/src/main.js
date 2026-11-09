@@ -171,7 +171,9 @@ function showAudioImportNotice(message, success = false) {
   if (title) title.textContent = success
     ? (overlay.dataset.noticeAction === "removed" ? "Record removed" : "A new record is ready")
     : (overlay.dataset.noticeAction === "remove-failed" ? "Could not remove record" : "This file is not supported");
-  if (kicker) kicker.textContent = success ? "ADDED TO YOUR RECORD RACK" : "A SMALL FORMAT CHECK";
+  if (kicker) kicker.textContent = success
+    ? (overlay.dataset.noticeAction === "removed" ? "REMOVED FROM YOUR RACK" : "ADDED TO YOUR RECORD RACK")
+    : (overlay.dataset.noticeAction === "remove-failed" ? "RECORD RACK · NOT CHANGED" : "A SMALL FORMAT CHECK");
   if (copy) copy.textContent = String(message || (success ? "Your music has joined the library." : "Choose an OGG Vorbis audio file to continue."));
   overlay.hidden = false;
   overlay.setAttribute("aria-hidden","false");

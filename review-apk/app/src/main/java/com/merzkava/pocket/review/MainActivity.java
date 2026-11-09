@@ -92,22 +92,26 @@ public final class MainActivity extends Activity {
         if (requestCode != REQUEST_AUDIO_PICKER) return;
         String detail;
         if (resultCode != RESULT_OK || data == null || data.getData() == null) {
-            try {
-                detail = new JSONObject()
-                    .put("ok", false)
-                    .put("cancelled", true)
-                    .put("message", "Music selection cancelled.")
-                    .put("tracks", new JSONArray(nativeBridge == null ? "[]" : nativeBridge.getCustomMusicLibrary()))
-                    .toString();
-            } catch (Exception ignored) {
-                detail = "{\\"ok\\":false,\\"cancelled\\":true,\\"message\\":\\"Music selection cancelled.\\",\\"tracks\\":[]}";
-            }
+            detail = buildMusicPickerNotice("Music selection cancelled.", true);
         } else if (nativeBridge != null) {
             detail = nativeBridge.importAudioFile(data.getData());
         } else {
-            detail = "{\\"ok\\":false,\\"message\\":\\"The Pocket audio service is unavailable.\\",\\"tracks\\":[]}";
+            detail = buildMusicPickerNotice("The Pocket audio service is unavailable.", false);
         }
         dispatchMusicLibraryChange(detail);
+    }
+
+    private String buildMusicPickerNotice(String message, boolean cancelled) {
+        try {
+            return new JSONObject()
+                .put("ok", false)
+                .put("cancelled", cancelled)
+                .put("message", message)
+                .put("tracks", new JSONArray(nativeBridge == null ? "[]" : nativeBridge.getCustomMusicLibrary()))
+                .toString();
+        } catch (Exception ignored) {
+            return "{}";
+        }
     }
 
     private void dispatchMusicLibraryChange(String detailJson) {
