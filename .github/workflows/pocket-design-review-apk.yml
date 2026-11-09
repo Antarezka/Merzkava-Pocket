@@ -1,7 +1,7 @@
 name: Merzkava Pocket Android APK
 on:
   push:
-    branches: [main, feat/daily-login-pixel-scene-frame11-mainline, fix/daily-login-japanese-shop-depth-2026-11-08, feat/claude-modular-appearance-expansion-2026-11-08, recovery/claude-full-updates-on-build-146-2026-11-09]
+    branches: [main, feat/daily-login-pixel-scene-frame11-mainline, fix/daily-login-japanese-shop-depth-2026-11-08, feat/claude-modular-appearance-expansion-2026-11-08, recovery/claude-full-updates-on-build-146-2026-11-09, feat/settings-vinyl-player-2026-11-09]
     paths:
       - "review-apk/**"
       - "docs/game/**"
