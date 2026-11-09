@@ -53,7 +53,6 @@ public final class PocketNativeBridge {
     private static final String PREF_IV = "developer_credentials_iv";
     private static final String PREF_SESSION = "developer_session_authorized";
     private static final String PREF_LOCAL_PLAYERS = "verified_local_player_profiles_v1";
-    private static final String PREF_POCKET_PLAYERS = "registered_pocket_player_profiles_v1";
     private static final String UNIVERSE = "Antarezka/merzkava-universe";
 
     private final Activity activity;
@@ -303,10 +302,6 @@ public final class PocketNativeBridge {
         }
     }
 
-    @JavascriptInterface public boolean isDeveloperSessionAuthorized() {
-        return prefs().getBoolean(PREF_SESSION, false);
-    }
-
     @JavascriptInterface public void lockDeveloperSession() {
         prefs().edit().putBoolean(PREF_SESSION, false).apply();
     }
@@ -329,58 +324,9 @@ public final class PocketNativeBridge {
         return names;
     }
 
-    private JSONArray readPocketRegisteredPlayerNames() throws Exception {
-        JSONArray previous = new JSONArray(prefs().getString(PREF_POCKET_PLAYERS, "[]"));
-        JSONArray names = new JSONArray();
-        Set<String> seen = ConcurrentHashMap.newKeySet();
-        for (int i = 0; i < previous.length(); i++) {
-            String name = previous.optString(i, "").trim();
-            if (!name.isEmpty() && seen.add(name)) names.put(name);
-        }
-        return names;
-    }
-
-    private boolean containsExactName(JSONArray names, String candidate) {
-        for (int i = 0; i < names.length(); i++) {
-            if (candidate.equals(names.optString(i, ""))) return true;
-        }
-        return false;
-    }
-
-    private JSONArray combinePlayerNames(JSONArray first, JSONArray second) {
-        JSONArray combined = new JSONArray();
-        Set<String> seen = ConcurrentHashMap.newKeySet();
-        for (int i = 0; i < first.length(); i++) {
-            String name = first.optString(i, "").trim();
-            if (!name.isEmpty() && seen.add(name)) combined.put(name);
-        }
-        for (int i = 0; i < second.length(); i++) {
-            String name = second.optString(i, "").trim();
-            if (!name.isEmpty() && seen.add(name)) combined.put(name);
-        }
-        return combined;
-    }
-
-    private void rememberPocketPlayerName(String name) {
-        try {
-            JSONArray previous = readPocketRegisteredPlayerNames();
-            if (containsExactName(previous, name)) return;
-            previous.put(name);
-            prefs().edit().putString(PREF_POCKET_PLAYERS, previous.toString()).apply();
-        } catch (Exception ignored) {
-            // The current verified session remains valid if the local index cannot be written.
-        }
-    }
-
-    @JavascriptInterface public String getPocketRegisteredPlayerNames() {
-        try { return readPocketRegisteredPlayerNames().toString(); }
-        catch (Exception ignored) { return "[]"; }
-    }
-
     @JavascriptInterface public String getLocalPlayerNames() {
-        try {
-            return combinePlayerNames(readPocketRegisteredPlayerNames(), readCachedPlayerNames()).toString();
-        } catch (Exception ignored) { return "[]"; }
+        try { return readCachedPlayerNames().toString(); }
+        catch (Exception ignored) { return "[]"; }
     }
 
     // Backward-compatible bridge name for older web bundles; the payload is names only.
@@ -408,8 +354,6 @@ public final class PocketNativeBridge {
     }
 
     @JavascriptInterface public void verifyPlayerIdentity(String characterName, String requestId) {
-        // A Player login attempt always revokes any previous Developer session marker.
-        prefs().edit().putBoolean(PREF_SESSION, false).apply();
         if (requestId == null || characterName == null || characterName.isEmpty()) {
             completePlayer(requestId, false, "", "", "Enter the exact registered character name.");
             return;
@@ -445,17 +389,12 @@ public final class PocketNativeBridge {
                     if (characterName.equals(registeredName)) exactMatch = true;
                 }
                 if (cancelledRequests.contains(requestId)) return;
-                boolean localMatch = containsExactName(readPocketRegisteredPlayerNames(), characterName)
-                    || containsExactName(readCachedPlayerNames(), characterName);
                 rememberPlayerRegistry(registeredNames, fullSha);
-                if (!exactMatch && !localMatch) {
-                    completePlayer(requestId, false, "", fullSha, "That exact character name is not registered in Pocket or the currently pinned Universe registry.");
+                if (!exactMatch) {
+                    completePlayer(requestId, false, "", fullSha, "That exact character name is not in the currently pinned Universe registry.");
                     return;
                 }
-                rememberPocketPlayerName(characterName);
-                String source = exactMatch && localMatch ? "pocket-local+universe"
-                    : exactMatch ? "universe" : "pocket-local";
-                completePlayer(requestId, true, characterName, source + ":" + fullSha, "");
+                completePlayer(requestId, true, characterName, "universe:" + fullSha, "");
             } catch (Exception error) {
                 if (!cancelledRequests.contains(requestId)) {
                     completePlayer(requestId, false, "", "", "Could not verify the active Universe pin and player registry. Check the connection and try again.");
@@ -470,51 +409,6 @@ public final class PocketNativeBridge {
 
     @JavascriptInterface public void cancelPlayerIdentity(String requestId) {
         if (requestId != null) cancelledRequests.add(requestId);
-    }
-
-    @JavascriptInterface public void refreshPlayerRegistry(String requestId) {
-        if (requestId == null) return;
-        Thread thread = new Thread(() -> {
-            try {
-                String readme = fetch("https://raw.githubusercontent.com/" + UNIVERSE + "/main/README.md");
-                String marker = "Latest pinned source:";
-                int markerIndex = readme.indexOf(marker);
-                if (markerIndex < 0) throw new Exception("The Universe source pin could not be verified.");
-                String remainder = readme.substring(markerIndex + marker.length());
-                int opening = remainder.indexOf((char)96);
-                int closing = opening < 0 ? -1 : remainder.indexOf((char)96, opening + 1);
-                if (opening < 0 || closing <= opening + 1) throw new Exception("The Universe source pin could not be verified.");
-                String shortSha = remainder.substring(opening + 1, closing).trim();
-                if (!shortSha.matches("[a-fA-F0-9]{7,40}")) throw new Exception("The Universe source pin is malformed.");
-
-                String commitJson = fetch("https://api.github.com/repos/" + UNIVERSE + "/commits/" + shortSha);
-                String fullSha = new JSONObject(commitJson).getString("sha");
-                if (!fullSha.matches("[a-fA-F0-9]{40}")) throw new Exception("The pinned Universe commit could not be verified.");
-
-                String registry = fetch("https://raw.githubusercontent.com/" + UNIVERSE + "/" + fullSha + "/players.md");
-                if (cancelledRequests.contains(requestId)) return;
-
-                JSONArray registeredNames = new JSONArray();
-                Pattern rowPattern = Pattern.compile("^\\|\\s*([^|]+?)\\s*\\|\\s*\\[[^\\]]+\\]\\(players/[^)]+\\)", Pattern.MULTILINE);
-                Matcher rows = rowPattern.matcher(registry);
-                while (rows.find()) {
-                    String name = rows.group(1).trim();
-                    if (!name.isEmpty()) registeredNames.put(name);
-                }
-                if (registeredNames.length() == 0) throw new Exception("No valid player entries were found in the pinned players.md registry.");
-                if (cancelledRequests.contains(requestId)) return;
-                rememberPlayerRegistry(registeredNames, fullSha);
-                completeRegistry(requestId, true, registeredNames.toString(), "universe:" + fullSha, "");
-            } catch (Exception error) {
-                if (!cancelledRequests.contains(requestId)) {
-                    completeRegistry(requestId, false, "[]", "", "Could not refresh the pinned Universe player registry. Check the connection and try again.");
-                }
-            } finally {
-                cancelledRequests.remove(requestId);
-            }
-        }, "Pocket-Player-Registry-Refresh");
-        thread.setDaemon(true);
-        thread.start();
     }
 
     private String fetch(String address) throws Exception {
@@ -539,18 +433,6 @@ public final class PocketNativeBridge {
         String script = "window.PocketNativeCallbacks && window.PocketNativeCallbacks.access("
             + JSONObject.quote(requestId) + "," + ok + ","
             + JSONObject.quote(displayName) + "," + JSONObject.quote(identityRef) + ","
-            + JSONObject.quote(error) + ");";
-        activity.runOnUiThread(() -> {
-            if (webView != null && !cancelledRequests.contains(requestId)) webView.evaluateJavascript(script, null);
-        });
-    }
-
-    private void completeRegistry(String requestId, boolean ok, String namesJson, String identityRef, String error) {
-        if (requestId == null || cancelledRequests.contains(requestId)) return;
-        String script = "window.PocketNativeCallbacks && window.PocketNativeCallbacks.registry("
-            + JSONObject.quote(requestId) + "," + ok + ","
-            + JSONObject.quote(namesJson) + ","
-            + JSONObject.quote(identityRef) + ","
             + JSONObject.quote(error) + ");";
         activity.runOnUiThread(() -> {
             if (webView != null && !cancelledRequests.contains(requestId)) webView.evaluateJavascript(script, null);

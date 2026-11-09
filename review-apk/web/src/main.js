@@ -1288,14 +1288,17 @@ function mountDeveloperAccountTools() {
   scanButton?.addEventListener("click",() => void scan());
   generate?.addEventListener("click",() => void resetRequest());
   copy?.addEventListener("click",() => void copyRequest());
-  window.addEventListener("online",scan);
-  window.addEventListener("offline",scan);
-  void scan();
+  const refreshOnNetworkChange = () => {
+    if (hasDeveloperSession()) void scan();
+  };
+  window.addEventListener("online",refreshOnNetworkChange);
+  window.addEventListener("offline",refreshOnNetworkChange);
+  if (hasDeveloperSession()) void scan();
 
   return () => {
     abort.abort();
-    window.removeEventListener("online",scan);
-    window.removeEventListener("offline",scan);
+    window.removeEventListener("online",refreshOnNetworkChange);
+    window.removeEventListener("offline",refreshOnNetworkChange);
   };
 }
 
