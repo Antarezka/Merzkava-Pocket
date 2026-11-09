@@ -1,4 +1,9 @@
-import { exportPocketEconomySnapshot } from "./economy.js";
+import {
+  exportPocketEconomySnapshot,
+  capturePocketEconomySaveForPlayerName,
+  resetPocketEconomySaveForPlayerName,
+  restorePocketEconomySaveForPlayerName
+} from "./economy.js";
 const native = window.PocketNative || null;
 
 const esc = value => String(value ?? "").replace(/[&<>"']/g, char => ({
@@ -110,6 +115,25 @@ function recordMarkup(record, developer) {
       '</div><p class="player-record-note">Use this complete save snapshot when sending your data to Developer. It rotates after login and refreshes when this page packages your latest local economy save.</p>' +
       (saveCode ? '<small class="player-record-muted">Issued · ' + esc(typeof record.sessionSaveCodeIssuedAt === "number" ? new Date(record.sessionSaveCodeIssuedAt).toLocaleString() : show(record.sessionSaveCodeIssuedAt)) + ' · session ' + esc(show(record.sessionSaveGeneration)) + '</small>' :
         '<p class="player-record-empty">No session save code is available for this session.</p>') + '</section>';
+  const resetMarkup = developer
+    ? '<section class="player-record-section player-master-reset-panel" data-master-reset-panel data-player-name="' + esc(record.name || "") + '">' +
+        '<h3>MASTER RESET <small>DEVELOPER ONLY</small></h3>' +
+        '<p class="player-record-note">Generate a one-time code for this Player to start the Pocket game from the beginning. The code itself is shared privately; only its hash enters the next build manifest.</p>' +
+        '<button type="button" data-master-reset-issue>GENERATE MASTER RESET CODE</button>' +
+        '<textarea data-master-reset-output rows="2" readonly hidden spellcheck="false" aria-label="Player Master Reset code"></textarea>' +
+        '<button type="button" data-master-reset-copy hidden>COPY RESET CODE</button>' +
+        '<small data-master-reset-feedback class="player-record-feedback" role="status" aria-live="polite"></small>' +
+      '</section>'
+    : '<section class="player-record-section player-master-reset-panel">' +
+        '<h3>RESET MY POCKET GAME</h3>' +
+        '<p class="player-record-note">Enter the one-time Master Reset code sent to you by Developer. It works only in the Pocket build prepared for your Player profile. This resets game progress, not your Player name or login.</p>' +
+        '<form data-player-master-reset-form>' +
+          '<label for="player-master-reset-code">MASTER RESET CODE</label>' +
+          '<input id="player-master-reset-code" data-player-master-reset-input type="text" maxlength="54" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="MZK-R-…" required>' +
+          '<button type="submit" data-player-master-reset-apply>RESET MY GAME</button>' +
+          '<p data-player-master-reset-feedback class="player-record-feedback" role="status" aria-live="polite"></p>' +
+        '</form>' +
+      '</section>';
 
   return '<details class="player-record-card" ' + (developer ? "" : "open") + '>' +
     '<summary class="player-record-summary">' +
@@ -134,9 +158,10 @@ function recordMarkup(record, developer) {
           '<div><small>REGISTERED DEVICE</small><strong class="' + (deviceBound ? 'is-ready' : 'is-pending') + '">' + (deviceBound ? 'BOUND · ' + esc(deviceFingerprint ? deviceFingerprint.slice(0,16) : 'THIS DEVICE') : 'NOT ENROLLED') + '</strong></div>' +
           '<div><small>KEY STORAGE</small><strong>' + esc(record.deviceBinding?.securityLevel || 'Pending first Player login') + '</strong></div>' +
         '</div>' +
-        (developer ? '<button type="button" class="player-rebind-button" data-player-reset-device="' + esc(record.name || '') + '">RESET DEVICE BINDING</button>' : '') +
+        '' +
       '</section>' +
       saveCodeMarkup +
+      resetMarkup +
       '<section class="player-record-section"><h3>BUILDING ASSETS <small>' + buildings.length + ' REGISTERED</small></h3>' +
         listMarkup(buildings, buildingsRaw || "No building assets recorded yet.") +
         (buildingsRaw && buildings.length ? '<p class="player-record-note">' + esc(buildingsRaw) + '</p>' : "") +
@@ -177,11 +202,11 @@ export function playerRecordsMarkup(identity) {
     '<p>' + (developer ? "Local player registry and imported game records." : "Your own character record and personal progress.") + '</p></header>' +
     (developer ?
       '<section class="player-transfer-panel"><div class="player-record-section-head"><span>PLAYER DATA / UPDATE TRANSFER</span><small>DEVELOPER ONLY</small></div>' +
-      '<p>Import a MERZKAVA_PLAYER_DATA_V1 profile bundle from Merzkava APK. Player save codes are compressed snapshots with a SHA-256 integrity check, not encryption, so a future build or AI migration tool can decode and restore the data. Pocket Player login uses no password.</p>' +
+      '<p>Save codes contain compressed Player profile, game save, achievements and session data with a SHA-256 integrity check. They are structured data, not encryption: an update tool can decode and restore them. Master Reset hashes are included in the export for the next app build.</p>' +
       '<textarea data-player-import-input rows="5" spellcheck="false" autocapitalize="off" placeholder="Paste MERZKAVA_PLAYER_DATA_V1 JSON here…"></textarea>' +
       '<div class="player-transfer-actions"><button type="button" data-player-import>IMPORT APK DATA</button><button type="button" data-player-export>COPY ALL SAVED PLAYER DATA</button></div>' +
       '<textarea data-player-export-output rows="5" readonly hidden spellcheck="false" aria-label="All saved Player data export"></textarea>' +
-      '<p class="player-record-note">Each Player opens their dropdown and shares the current MZKSV1 code. Paste it in that Player’s field and press SAVE. The header export contains only validated saves with their Player names, snapshots, achievements and session metadata.</p>' +
+      '<p class="player-record-note">Each Player opens their dropdown and shares the complete MZKSV1 snapshot. Paste it under the matching name and press SAVE. The header export includes validated saves plus the hash-only Master Reset manifest for the next APK build. Place its masterResetGrants array in review-apk/app/src/main/assets/player-master-reset-grants.json.</p>' +
       '<p class="player-record-feedback" data-player-transfer-message role="status" aria-live="polite"></p></section>' : "") +
     '<section class="player-record-directory"><div class="player-record-directory-head"><div><span class="eyebrow">' +
       (developer ? "ALL REGISTERED PLAYERS" : "PERSONAL PROFILE") + '</span><h2>' +
@@ -294,7 +319,8 @@ export function mountPlayerRecords(stage, identity, invokeNative) {
       if (!payload) throw new Error("The saved Player directory could not be exported.");
       const bundle = JSON.parse(payload);
       const players = Array.isArray(bundle.players) ? bundle.players : [];
-      if (!players.length) throw new Error("No Player has a validated saved code yet. Open a Player dropdown, paste their current MZKSV1 code, and press SAVE first.");
+      const grants = Array.isArray(bundle.masterResetGrants) ? bundle.masterResetGrants : [];
+      if (!players.length && !grants.length) throw new Error("There are no validated Player saves or Master Reset grants to export yet.");
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(payload);
         if (exportOutput) exportOutput.hidden = true;
@@ -306,13 +332,105 @@ export function mountPlayerRecords(stage, identity, invokeNative) {
         exportOutput.select();
         throw new Error("The full save directory is shown below. Select and copy it manually.");
       }
-      if (transferMessage) transferMessage.textContent = players.length + " validated Player save(s) copied in MERZKAVA_POCKET_SAVE_DIRECTORY_V1 format.";
+      if (transferMessage) transferMessage.textContent =
+        players.length + " validated Player save(s) and " + grants.length + " hash-only Master Reset grant(s) copied in MERZKAVA_POCKET_SAVE_DIRECTORY_V1 format.";
     } catch (error) {
       if (transferMessage) transferMessage.textContent = error instanceof Error ? error.message : "Could not copy saved Player data.";
     }
   });
   
+  listing?.addEventListener("submit", event => {
+    const form = event.target instanceof HTMLFormElement ? event.target.closest("[data-player-master-reset-form]") : null;
+    if (!form || developer || !authorized()) return;
+    event.preventDefault();
+    const field = form.querySelector("[data-player-master-reset-input]");
+    const feedback = form.querySelector("[data-player-master-reset-feedback]");
+    const button = form.querySelector("[data-player-master-reset-apply]");
+    const code = field instanceof HTMLInputElement ? field.value.trim().toUpperCase() : "";
+    if (!/^MZK-R-[A-F0-9]{48}$/.test(code)) {
+      if (feedback) feedback.textContent = "Enter the complete MZK-R Master Reset code.";
+      return;
+    }
+    if (!native.validatePocketMasterResetCode?.(code)) {
+      if (feedback) feedback.textContent = "This code is not valid for your Player in this installed build. Check that you installed the update prepared by Developer.";
+      return;
+    }
+    if (!window.confirm("Reset only your Pocket game save? Your Player name and login registration will remain.")) return;
+    if (button instanceof HTMLButtonElement) button.disabled = true;
+    if (feedback) feedback.textContent = "Resetting your local Pocket game and saved Player snapshot…";
+    let localBackup = [];
+    try {
+      localBackup = capturePocketEconomySaveForPlayerName(identity.displayName);
+      const removed = resetPocketEconomySaveForPlayerName(identity.displayName);
+      const result = JSON.parse(native.redeemPocketMasterResetCode?.(code) || "{}");
+      if (!result.ok) throw new Error(result.error || "Pocket Master Reset could not be completed.");
+      if (field instanceof HTMLInputElement) field.value = "";
+      refreshPlayerSaveSnapshot();
+      render();
+      const notice = stage.querySelector("[data-player-list-status]");
+      if (notice) notice.textContent = "MASTER RESET COMPLETE · " + identity.displayName + " · local game save records cleared: " + removed + ". Your Player account remains active.";
+    } catch (error) {
+      try {
+        if (localBackup.length) restorePocketEconomySaveForPlayerName(identity.displayName, localBackup);
+      } catch (restoreError) {
+        if (feedback) feedback.textContent = (error instanceof Error ? error.message : "Master Reset failed.") +
+          " Local save rollback also failed: " + (restoreError instanceof Error ? restoreError.message : "storage error") + ". Contact Developer before retrying.";
+        return;
+      }
+      if (feedback) feedback.textContent = error instanceof Error ? error.message : "Master Reset failed. Contact Developer before retrying.";
+    } finally {
+      if (button instanceof HTMLButtonElement && button.isConnected) button.disabled = false;
+    }
+  });
+
   listing?.addEventListener("click", async event => {
+    const issueButton = event.target instanceof Element ? event.target.closest("[data-master-reset-issue]") : null;
+    if (issueButton && developer && authorized()) {
+      const panel = issueButton.closest("[data-master-reset-panel]");
+      const name = panel?.getAttribute("data-player-name") || "";
+      const output = panel?.querySelector("[data-master-reset-output]");
+      const copy = panel?.querySelector("[data-master-reset-copy]");
+      const feedback = panel?.querySelector("[data-master-reset-feedback]");
+      if (!name || !(output instanceof HTMLTextAreaElement)) return;
+      issueButton.disabled = true;
+      try {
+        const result = JSON.parse(native.createPocketMasterResetGrant?.(name) || "{}");
+        if (!result.ok || !/^MZK-R-[A-F0-9]{48}$/.test(result.code || "")) {
+          throw new Error(result.error || "Pocket could not issue a valid Master Reset code.");
+        }
+        output.value = result.code;
+        output.hidden = false;
+        if (copy instanceof HTMLButtonElement) copy.hidden = false;
+        if (feedback) feedback.textContent = "ONE-TIME CODE ISSUED · expected save epoch " + result.expectedSaveEpoch + ". Send this code privately and include the updated masterResetGrants manifest in the next APK build.";
+      } catch (error) {
+        if (feedback) feedback.textContent = error instanceof Error ? error.message : "Could not issue the Master Reset code.";
+      } finally {
+        issueButton.disabled = false;
+      }
+      return;
+    }
+
+    const copyReset = event.target instanceof Element ? event.target.closest("[data-master-reset-copy]") : null;
+    if (copyReset && developer && authorized()) {
+      const panel = copyReset.closest("[data-master-reset-panel]");
+      const output = panel?.querySelector("[data-master-reset-output]");
+      const feedback = panel?.querySelector("[data-master-reset-feedback]");
+      const code = output instanceof HTMLTextAreaElement ? output.value : "";
+      if (!code) return;
+      try {
+        if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(code);
+        else {
+          if (!(output instanceof HTMLTextAreaElement)) throw new Error("Reset code field is unavailable.");
+          output.focus(); output.select();
+          if (!document.execCommand("copy")) throw new Error("Clipboard is unavailable.");
+        }
+        if (feedback) feedback.textContent = "Master Reset code copied. Share it privately with " + (panel?.getAttribute("data-player-name") || "the Player") + ".";
+      } catch (error) {
+        if (feedback) feedback.textContent = error instanceof Error ? error.message : "Could not copy Master Reset code.";
+      }
+      return;
+    }
+
     const saveButton = event.target instanceof Element ? event.target.closest("[data-player-save-code-save]") : null;
     if (saveButton && developer && authorized()) {
       const panel = saveButton.closest("[data-player-save-code-panel]");
@@ -322,7 +440,7 @@ export function mountPlayerRecords(stage, identity, invokeNative) {
       const supplied = field instanceof HTMLTextAreaElement ? field.value.trim() : "";
       if (!name || !supplied) { if (feedback) feedback.textContent = "Choose the Player and paste the complete MZKSV1 save code."; return; }
       saveButton.disabled = true;
-      if (feedback) feedback.textContent = "Validating Player identity, session and checksum…";
+      if (feedback) feedback.textContent = "Validating Player identity, session, reset epoch and checksum…";
       try {
         const result = JSON.parse(native.savePocketPlayerCodeForName?.(name, supplied) || "{}");
         if (!result.ok) throw new Error(result.error || "Pocket rejected this save code.");
@@ -337,6 +455,7 @@ export function mountPlayerRecords(stage, identity, invokeNative) {
       }
       return;
     }
+
     const toggle = event.target instanceof Element ? event.target.closest("[data-player-save-code-toggle]") : null;
     if (toggle && !developer && authorized()) {
       const field = listing.querySelector("[data-player-session-save-code]");
@@ -370,16 +489,6 @@ export function mountPlayerRecords(stage, identity, invokeNative) {
       }
       return;
     }
-
-    const target = event.target instanceof Element ? event.target.closest("[data-player-reset-device]") : null;
-    if (!target || !developer || !authorized()) return;
-    const name = target.getAttribute("data-player-reset-device") || "";
-    if (!name || !window.confirm("Reset the Pocket device binding for " + name + "? The next Player login will enroll a new device key.")) return;
-    const ok = native.resetPocketPlayerDeviceBinding?.(name) === true;
-    if (transferMessage) transferMessage.textContent = ok
-      ? "Device binding reset for " + name + ". The next successful owner login can enroll a device."
-      : "Pocket could not reset that device binding.";
-    render();
   });
 
   render();

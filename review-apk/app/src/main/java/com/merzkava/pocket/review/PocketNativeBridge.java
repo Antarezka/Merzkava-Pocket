@@ -487,7 +487,8 @@ public final class PocketNativeBridge {
         envelope.put("session", new JSONObject()
             .put("generation", generation)
             .put("issuedAt", issuedAt)
-            .put("nonce", nonce));
+            .put("nonce", nonce)
+            .put("resetEpoch", record.optInt("saveResetEpoch", 0)));
         JSONObject snapshot = new JSONObject(record.toString());
         snapshot.remove("ownerCredential");
         snapshot.remove("deviceBinding");
@@ -502,6 +503,10 @@ public final class PocketNativeBridge {
         snapshot.remove("lastSavedSaveCodeGeneration");
         snapshot.remove("lastSavedSaveCodeIssuedAt");
         snapshot.remove("sessionSaveCodePresent");
+        snapshot.remove("masterResetGrantHash");
+        snapshot.remove("masterResetGrantVersion");
+        snapshot.remove("masterResetGrantExpectedSaveEpoch");
+        snapshot.remove("masterResetGrantIssuedAt");
         envelope.put("data", snapshot);
         return envelope;
     }
@@ -547,7 +552,7 @@ public final class PocketNativeBridge {
             throw new Exception("Save code Player identity fields are invalid or inconsistent.");
         }
         if (session.optInt("generation", 0) < 1 || session.optLong("issuedAt", 0L) <= 0L ||
-            session.optString("nonce", "").length() < 20) {
+            session.optString("nonce", "").length() < 20 || session.optInt("resetEpoch", 0) < 0) {
             throw new Exception("Save code session metadata is incomplete.");
         }
         return envelope;
@@ -823,6 +828,10 @@ public final class PocketNativeBridge {
                 own.remove("deviceBinding");
                 own.remove("identityRef");
                 own.remove("playerId");
+                own.remove("masterResetGrantHash");
+                own.remove("masterResetGrantVersion");
+                own.remove("masterResetGrantExpectedSaveEpoch");
+                own.remove("masterResetGrantIssuedAt");
                 own.put("name", playerName);
                 own.put("sessionSaveCodePresent", !own.optString("sessionSaveCode", "").isEmpty());
                 output.put(own);
@@ -847,6 +856,10 @@ public final class PocketNativeBridge {
                 displayRecord.put("sessionSaveCodeGeneration", record.optInt("sessionSaveGeneration", 0));
                 displayRecord.put("savedSaveGeneration", record.optInt("lastSavedSaveCodeGeneration", 0));
                 displayRecord.put("savedAt", record.optLong("lastSavedAt", 0L));
+                displayRecord.put("masterResetGrantPresent", record.optString("masterResetGrantHash", "").matches("[a-fA-F0-9]{64}"));
+                displayRecord.put("masterResetGrantVersion", record.optInt("masterResetGrantVersion", 0));
+                displayRecord.put("masterResetExpectedEpoch", record.optInt("masterResetGrantExpectedSaveEpoch", 0));
+                displayRecord.remove("masterResetGrantHash");
                 displayRecord.remove("sessionSaveCode");
                 displayRecord.remove("playerId");
                 store.remove(pocketPlayerKey(name));
@@ -1026,9 +1039,24 @@ public final class PocketNativeBridge {
             }
             record.put("name", selectedPlayerName.trim());
             int incomingGeneration = envelope.getJSONObject("session").optInt("generation", 0);
+            int incomingResetEpoch = envelope.getJSONObject("session").optInt("resetEpoch", 0);
+            int requiredResetEpoch = record.optInt("masterResetGrantExpectedSaveEpoch", record.optInt("saveResetEpoch", 0));
             int previouslySavedGeneration = record.optInt("lastSavedSaveCodeGeneration", 0);
+            if (incomingResetEpoch < requiredResetEpoch) {
+                throw new Exception("This save belongs to the pre-reset game. The Player must send a fresh code after using Master Reset.");
+            }
             if (incomingGeneration <= previouslySavedGeneration) {
                 throw new Exception("This save code is older than or equal to the last accepted session for this Player.");
+            }
+            record.put("saveResetEpoch", incomingResetEpoch);
+            if (incomingResetEpoch >= record.optInt("masterResetGrantExpectedSaveEpoch", Integer.MAX_VALUE)) {
+                record.remove("masterResetGrantHash");
+                record.remove("masterResetGrantExpectedSaveEpoch");
+            }
+            record.put("saveResetEpoch", incomingResetEpoch);
+            if (incomingResetEpoch >= record.optInt("masterResetGrantExpectedSaveEpoch", Integer.MAX_VALUE)) {
+                record.remove("masterResetGrantHash");
+                record.remove("masterResetGrantExpectedSaveEpoch");
             }
             record.put("lastSavedSaveCode", suppliedCode.trim());
             record.put("lastSavedSaveCodeGeneration", incomingGeneration);
@@ -1071,8 +1099,11 @@ public final class PocketNativeBridge {
                 if (savedCode.isEmpty() || snapshot == null) continue;
                 JSONObject savedEnvelope = decodeAndValidatePocketSaveCode(savedCode);
                 JSONObject savedIdentity = savedEnvelope.getJSONObject("player");
+                int requiredEpoch = record.optInt("masterResetGrantExpectedSaveEpoch", record.optInt("saveResetEpoch", 0));
+                int savedEpoch = savedEnvelope.getJSONObject("session").optInt("resetEpoch", 0);
                 if (!name.equalsIgnoreCase(savedIdentity.optString("name", "")) ||
-                    !ensurePocketPlayerId(record).equals(savedIdentity.optString("profileKey", ""))) {
+                    !ensurePocketPlayerId(record).equals(savedIdentity.optString("profileKey", "")) ||
+                    savedEpoch < requiredEpoch) {
                     continue;
                 }
                 JSONObject item = new JSONObject();
@@ -1089,6 +1120,24 @@ public final class PocketNativeBridge {
             bundle.put("exportedAt", System.currentTimeMillis());
             bundle.put("checksumAlgorithm", "SHA-256 per embedded MZKSV1 save code");
             bundle.put("players", players);
+            JSONArray resetGrants = new JSONArray();
+            Iterator<String> grantKeys = store.keys();
+            while (grantKeys.hasNext()) {
+                JSONObject record = store.optJSONObject(grantKeys.next());
+                if (record == null) continue;
+                String grantHash = record.optString("masterResetGrantHash", "");
+                if (!grantHash.matches("[a-fA-F0-9]{64}")) continue;
+                JSONObject grant = new JSONObject();
+                grant.put("playerName", record.optString("name", ""));
+                grant.put("profileKey", ensurePocketPlayerId(record));
+                grant.put("sha256", grantHash.toLowerCase(Locale.ROOT));
+                grant.put("version", record.optInt("masterResetGrantVersion", 1));
+                grant.put("expectedSaveEpoch", record.optInt("masterResetGrantExpectedSaveEpoch", 1));
+                grant.put("issuedAt", record.optLong("masterResetGrantIssuedAt", 0L));
+                resetGrants.put(grant);
+            }
+            bundle.put("masterResetGrants", resetGrants);
+            bundle.put("masterResetAssetPath", "review-apk/app/src/main/assets/player-master-reset-grants.json");
             return bundle.toString();
         } catch (Exception ignored) {
             return "";
@@ -1107,6 +1156,10 @@ public final class PocketNativeBridge {
             }
             if (!ensurePocketPlayerId(record).equals(identity.optString("profileKey", ""))) {
                 throw new Exception("Player identity key mismatch. This save code does not belong to the matched profile.");
+            }
+            int requiredEpoch = record.optInt("masterResetGrantExpectedSaveEpoch", record.optInt("saveResetEpoch", 0));
+            if (session.optInt("resetEpoch", 0) < requiredEpoch) {
+                throw new Exception("This save code belongs to the game before Master Reset.");
             }
             if (session.optInt("generation", 0) <= record.optInt("lastSavedSaveCodeGeneration", 0)) {
                 throw new Exception("This save code's session has already been saved or is older than the latest accepted save.");
@@ -1171,7 +1224,10 @@ public final class PocketNativeBridge {
                     String[] pocketFields = {
                         "pocketEconomy", "pocketEconomySchemaVersion", "pocketEconomySavedAt",
                         "lastSavedSaveCode", "lastSavedSnapshot", "lastSavedSaveCodeGeneration",
-                        "lastSavedSaveCodeIssuedAt", "lastSavedAt"
+                        "lastSavedSaveCodeIssuedAt", "lastSavedAt", "saveResetEpoch",
+                        "masterResetGrantHash", "masterResetGrantVersion",
+                        "masterResetGrantExpectedSaveEpoch", "masterResetGrantIssuedAt",
+                        "lastGameResetAt"
                     };
                     for (String field : pocketFields) {
                         if (oldRecord.has(field) && !record.has(field)) record.put(field, oldRecord.get(field));
@@ -1219,6 +1275,207 @@ public final class PocketNativeBridge {
         } catch (Exception error) {
             try { return new JSONObject().put("ok", false).put("error", "Could not read transfer data: " + error.getMessage()).toString(); }
             catch (Exception ignored) { return "{}"; }
+        }
+    }
+
+    private String masterResetError(String message) {
+        try {
+            return new JSONObject().put("ok", false).put("error", message).toString();
+        } catch (Exception ignored) {
+            return "{}";
+        }
+    }
+
+    private JSONArray readUsedMasterResetHashes() {
+        try { return new JSONArray(prefs().getString(PREF_USED_MASTER_RESET_GRANTS, "[]")); }
+        catch (Exception ignored) { return new JSONArray(); }
+    }
+
+    private boolean usedMasterResetHash(String hash) {
+        JSONArray used = readUsedMasterResetHashes();
+        for (int i = 0; i < used.length(); i++) {
+            if (hash.equals(used.optString(i, ""))) return true;
+        }
+        return false;
+    }
+
+    private JSONObject findBundledMasterResetGrant(String playerName, String code) throws Exception {
+        if (code == null || !code.trim().matches("(?i)MZK-R-[A-F0-9]{48}")) {
+            throw new Exception("Invalid reset-code format. Enter the complete MZK-R code.");
+        }
+        JSONObject store = readPocketPlayerProfileStore();
+        JSONObject record = findPocketPlayerProfile(store, playerName);
+        if (record == null) throw new Exception("Your local Player profile could not be found.");
+        String profileKey = ensurePocketPlayerId(record);
+        String hash = sha256Hex(code.trim().toUpperCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8));
+        if (usedMasterResetHash(hash)) throw new Exception("This Master Reset code has already been used.");
+        JSONObject manifest;
+        try (InputStream input = activity.getAssets().open("player-master-reset-grants.json");
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[4096];
+            int count;
+            while ((count = input.read(buffer)) != -1) {
+                if (output.size() + count > 2 * 1024 * 1024) throw new Exception("The bundled Master Reset manifest is too large.");
+                output.write(buffer, 0, count);
+            }
+            manifest = new JSONObject(new String(output.toByteArray(), StandardCharsets.UTF_8));
+        } catch (Exception error) {
+            throw new Exception("This build does not contain a Player Master Reset grant. Install the build prepared for your account.");
+        }
+        if (!"MERZKAVA_POCKET_MASTER_RESET_GRANTS_V1".equals(manifest.optString("format", ""))) {
+            throw new Exception("This build's Master Reset manifest has an unsupported format.");
+        }
+        JSONArray grants = manifest.optJSONArray("grants");
+        if (grants == null) throw new Exception("This build has no Master Reset grant list.");
+        for (int i = 0; i < grants.length(); i++) {
+            JSONObject grant = grants.optJSONObject(i);
+            if (grant == null) continue;
+            if (profileKey.equalsIgnoreCase(grant.optString("profileKey", "")) &&
+                playerName.equalsIgnoreCase(grant.optString("playerName", "")) &&
+                MessageDigest.isEqual(hash.getBytes(StandardCharsets.US_ASCII),
+                    grant.optString("sha256", "").toLowerCase(Locale.ROOT).getBytes(StandardCharsets.US_ASCII))) {
+                int expectedEpoch = grant.optInt("expectedSaveEpoch", -1);
+                if (expectedEpoch < 1 || expectedEpoch != record.optInt("saveResetEpoch", 0) + 1) {
+                    throw new Exception("This reset grant does not match the current save generation for your Player.");
+                }
+                return grant;
+            }
+        }
+        throw new Exception("This reset code is not assigned to your Player in this installed build.");
+    }
+
+    @JavascriptInterface public boolean validatePocketMasterResetCode(String code) {
+        if (!isPlayerSessionAuthorized()) return false;
+        try {
+            String name = prefs().getString(PREF_PLAYER_SESSION_NAME, "").trim();
+            findBundledMasterResetGrant(name, code);
+            return true;
+        } catch (Exception ignored) { return false; }
+    }
+
+    @JavascriptInterface public String createPocketMasterResetGrant(String playerName) {
+        if (!prefs().getBoolean(PREF_SESSION, false)) return masterResetError("Developer authorization is required.");
+        if (playerName == null || playerName.trim().isEmpty()) return masterResetError("Choose a Player first.");
+        try {
+            JSONObject store = readPocketPlayerProfileStore();
+            JSONObject record = findPocketPlayerProfile(store, playerName.trim());
+            if (record == null) record = createEmptyPocketPlayerProfile(playerName.trim());
+            record.put("name", playerName.trim());
+            String profileKey = ensurePocketPlayerId(record);
+            byte[] random = new byte[24];
+            new java.security.SecureRandom().nextBytes(random);
+            StringBuilder raw = new StringBuilder("MZK-R-");
+            for (byte item : random) raw.append(String.format(Locale.ROOT, "%02X", item & 0xff));
+            String code = raw.toString();
+            String hash = sha256Hex(code.getBytes(StandardCharsets.UTF_8));
+            int version = record.optInt("masterResetGrantVersion", 0) + 1;
+            int expectedEpoch = record.optInt("saveResetEpoch", 0) + 1;
+            long issuedAt = System.currentTimeMillis();
+            record.put("masterResetGrantHash", hash);
+            record.put("masterResetGrantVersion", version);
+            record.put("masterResetGrantExpectedSaveEpoch", expectedEpoch);
+            record.put("masterResetGrantIssuedAt", issuedAt);
+            store.remove(pocketPlayerKey(playerName.trim()));
+            store.put(profileKey, record);
+            persistPocketPlayerProfileStore(store);
+            JSONObject result = new JSONObject();
+            result.put("ok", true);
+            result.put("playerName", playerName.trim());
+            result.put("code", code);
+            result.put("profileKey", profileKey);
+            result.put("grantVersion", version);
+            result.put("expectedSaveEpoch", expectedEpoch);
+            result.put("issuedAt", issuedAt);
+            result.put("note", "Keep the code private. The build update receives only its SHA-256 hash.");
+            return result.toString();
+        } catch (Exception error) {
+            return masterResetError(error.getMessage() == null ? "Could not issue the Player Master Reset code." : error.getMessage());
+        }
+    }
+
+    @JavascriptInterface public String exportPocketMasterResetGrantManifest() {
+        if (!prefs().getBoolean(PREF_SESSION, false)) return "";
+        try {
+            JSONObject store = readPocketPlayerProfileStore();
+            JSONArray grants = new JSONArray();
+            Iterator<String> keys = store.keys();
+            while (keys.hasNext()) {
+                JSONObject record = store.optJSONObject(keys.next());
+                if (record == null) continue;
+                String hash = record.optString("masterResetGrantHash", "");
+                if (!hash.matches("[a-fA-F0-9]{64}")) continue;
+                JSONObject item = new JSONObject();
+                item.put("playerName", record.optString("name", ""));
+                item.put("profileKey", ensurePocketPlayerId(record));
+                item.put("sha256", hash.toLowerCase(Locale.ROOT));
+                item.put("version", record.optInt("masterResetGrantVersion", 1));
+                item.put("expectedSaveEpoch", record.optInt("masterResetGrantExpectedSaveEpoch", 1));
+                item.put("issuedAt", record.optLong("masterResetGrantIssuedAt", 0L));
+                grants.put(item);
+            }
+            JSONObject manifest = new JSONObject();
+            manifest.put("format", "MERZKAVA_POCKET_MASTER_RESET_GRANTS_V1");
+            manifest.put("version", 1);
+            manifest.put("generatedAt", System.currentTimeMillis());
+            manifest.put("grants", grants);
+            return manifest.toString();
+        } catch (Exception ignored) { return ""; }
+    }
+
+    @JavascriptInterface public String redeemPocketMasterResetCode(String code) {
+        if (!isPlayerSessionAuthorized()) return masterResetError("A verified Player session is required.");
+        try {
+            String playerName = prefs().getString(PREF_PLAYER_SESSION_NAME, "").trim();
+            JSONObject grant = findBundledMasterResetGrant(playerName, code);
+            String hash = sha256Hex(code.trim().toUpperCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8));
+            JSONObject store = readPocketPlayerProfileStore();
+            JSONObject record = findPocketPlayerProfile(store, playerName);
+            if (record == null) throw new Exception("Your Player profile could not be loaded.");
+            int expectedEpoch = grant.optInt("expectedSaveEpoch", record.optInt("saveResetEpoch", 0) + 1);
+
+            // Clear Pocket game progress only. Keep Player name, local registration, device binding and active login.
+            String[] resetFields = {
+                "pocketEconomy", "pocketEconomySchemaVersion", "pocketEconomySavedAt",
+                "assets", "relationships", "inventory", "inventoryItems", "wealth", "wallet",
+                "walletLedger", "achievements", "dailyLogin", "gameplay",
+                "lastSavedSaveCode", "lastSavedSnapshot", "lastSavedSaveCodeGeneration",
+                "lastSavedSaveCodeIssuedAt", "lastSavedAt"
+            };
+            for (String field : resetFields) record.remove(field);
+            record.put("assets", new JSONObject().put("buildings", new JSONArray()));
+            record.put("relationships", new JSONObject().put("entries", new JSONArray()));
+            record.put("inventory", new JSONArray());
+            record.put("wealth", new JSONObject().put("xc", 0).put("xs", 0).put("xg", 0).put("zj", 0).put("az", 0));
+            record.put("achievements", new JSONObject().put("items", new JSONArray())
+                .put("dailyLogin", new JSONObject().put("currentStreak", 0).put("longestStreak", 0).put("totalClaims", 0)));
+            record.put("gameplay", new JSONObject().put("status", "new-game"));
+            record.put("profileStatus", "active");
+            record.put("saveResetEpoch", expectedEpoch);
+            record.put("lastGameResetAt", System.currentTimeMillis());
+            record.remove("masterResetGrantHash");
+            record.remove("masterResetGrantExpectedSaveEpoch");
+            JSONArray used = readUsedMasterResetHashes();
+            used.put(hash);
+            String profileKey = ensurePocketPlayerId(record);
+            store.remove(pocketPlayerKey(playerName));
+            store.put(profileKey, record);
+            byte[] encrypted = encrypt(store.toString().getBytes(StandardCharsets.UTF_8));
+            boolean committed = prefs().edit()
+                .putString(PREF_PLAYER_PROFILES, Base64.encodeToString(encrypted, Base64.NO_WRAP))
+                .putString(PREF_PLAYER_PROFILES_IV, lastIv)
+                .putString(PREF_USED_MASTER_RESET_GRANTS, used.toString())
+                .commit();
+            if (!committed) throw new Exception("Could not atomically apply and consume the one-time Master Reset grant.");
+            String newCode = rotatePocketSessionSaveCode(playerName);
+            JSONObject result = new JSONObject();
+            result.put("ok", true);
+            result.put("name", playerName);
+            result.put("saveResetEpoch", expectedEpoch);
+            result.put("newSessionCodeIssued", newCode.startsWith("MZKSV1."));
+            result.put("message", "Pocket game save reset. Your Player account and device registration remain active.");
+            return result.toString();
+        } catch (Exception error) {
+            return masterResetError(error.getMessage() == null ? "Master Reset could not be completed." : error.getMessage());
         }
     }
 

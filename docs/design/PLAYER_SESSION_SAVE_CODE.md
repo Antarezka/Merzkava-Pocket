@@ -1,57 +1,77 @@
-# Player List and MZKSV1 Portable Save Code
+# Player List, Session Save Codes and Master Reset
 
-## Player access
+## One toolbar destination
 
-Player Login asks only for the exact registered character name. Every Player login and registration must verify the current README-pinned Merzkava Universe source and its `players.md` registry online. Pocket does not ask a Player for a password. Developer login remains local/offline.
+Pocket has one Player List toolbar destination. The page reads the authenticated native role:
 
-On the first successful Player login on a device, Pocket creates a non-exportable signing key in Android Keystore and binds its public-key fingerprint to the local profile. Later sessions on that installation must prove possession of the same key. Developer can reset the device binding when a Player needs to enroll a replacement device.
+- **Player:** shows only that Player's own profile, current session save code and their own Master Reset input.
+- **Developer:** shows the local Player directory. Each Player is a collapsible row containing a save-code input, a per-row SAVE action and a Developer-only Master Reset grant issuer. The header action copies the complete validated save directory and reset-grant manifest.
 
-This is a local/device safeguard, not a global account-ownership service. Without a server or a password/one-time invitation, a name-only first login cannot prove the human owner of a public Universe character name, and Keystore binding does not synchronize across different phones. The app must not describe it as cross-device identity proof.
+No second toolbar destination is created for these functions.
 
-## Rotating save code
+## Player login and local registration
 
-The visible code is a portable complete save snapshot. It is generated from 128 bits of cryptographically secure randomness in the session nonce and is refreshed on every successful Player login. It is also refreshed when the Player opens Player List after the current Pocket Economy state has been synchronized into the encrypted profile store.
+Player login does not ask for a Player password.
+
+At gate startup, Pocket reads the names stored in this installation. The name field does not present an autocomplete/datalist popover; the helper text simply reports whether the exact typed name exists locally.
+
+Every Player login and every new local Player registration still requires internet access. Pocket fetches the pinned Universe README, resolves the current source commit, and verifies the current `players.md` registry. A local Pocket name is an additional accepted source, not an offline-login bypass.
+
+A name found locally or in the pinned Universe list can use Player Login. A new name can use the separate New Player Account panel. Registration uses the same online pin check, then saves the new name in Pocket's local player-name registry and creates its profile. A locally registered name can subsequently log in from that installation, but it still requires the online pin check each time.
+
+Developer login remains local/offline.
+
+## Full Player session save code
+
+The Player's current save code is a complete compressed snapshot, not a short lookup token.
 
 Format:
 
-`MZKSV1.<Base64URL(zlib(JSON))>.<SHA-256(compressed-bytes)>`
+`MZKSV1.<Base64URL-deflate-payload>.<SHA-256>`
 
-The decoded JSON envelope has this structure:
+The decoded envelope contains:
+- Player display name and the hidden Pocket profile key used to match the correct save owner
+- session generation, issue timestamp, nonce and save-reset epoch
+- character profile and stats
+- Pocket economy save: wallet, inventory, facilities/buildings, processes, home-rest state, needs, appearance slots, builder records and ledger
+- relationships, achievements and Daily Login tracking when those records exist
 
-- `format`: `MERZKAVA_POCKET_SAVE_V1`
-- `version`: save schema version
-- `player`: exact Player name and a hidden deterministic profile key
-- `session`: increasing session generation, issue timestamp and random nonce
-- `data`: Player profile, imported character data, achievements when recorded, and the full Pocket Economy snapshot
+The code is created from the Player's current local Pocket save when the Player List page packages their latest state. It is regenerated after every successful Player login and whenever the Player explicitly refreshes the save snapshot for handoff. The previous session code is replaced.
 
-The Pocket Economy snapshot is exported from the same local state used by Pocket Economy and Home Base. It carries wallet, inventory, facilities/buildings, production processes, transaction ledger, home-rest state, needs, appearance slots, save metadata and catalogue schema version.
+The save code is compressed and protected by a SHA-256 integrity checksum. **It is not encrypted.** The correct description is decoding/parsing and restoring the structured save format, not decrypting ciphertext. Do not treat the checksum as confidentiality or as account authentication.
 
-The session code is stored in Pocket's Android Keystore-encrypted local profile store. Player sees it as a password-style masked field by default, with Show/Hide and Copy actions. It is not shown in Developer's Player directory.
+## Developer SAVE workflow
 
-## Encoding, checksum and encryption
+Inside the single Player List page, each Player name opens its own dropdown. The Developer pastes that Player's full `MZKSV1` code into that row and presses **SAVE PLAYER DATA**.
 
-MZKSV1 is compressed and encoded, not encrypted. Base64URL is an encoding, zlib is compression, and SHA-256 is an integrity checksum. The checksum catches accidental truncation or modification, and strict schema validation rejects malformed or unsupported payloads. It is not a digital signature and does not prove that a snapshot was created by an official Pocket build. Anyone who knows the format can construct a new payload and recompute an ordinary checksum.
+Pocket validates the envelope format, checksum, Player name, hidden profile key, session generation and Master Reset epoch before changing the local Developer-side profile. Invalid or mismatched codes do not replace existing data. An accepted snapshot is stored under that Player's profile.
 
-Do not call MZKSV1 encrypted. It is intentionally decodable by a future Pocket build or an authorized migration tool so the save can be restored during app updates.
+The header **COPY ALL SAVED PLAYER DATA** action exports the validated saved snapshots and the outstanding Master Reset grants together. Only validated snapshots are included. Old saves from before a pending Master Reset epoch are excluded.
 
-## Developer Player List workflow
+## Developer Master Reset and Player reset input
 
-Every Player name appears in a collapsible profile row. Inside each row Developer can paste that Player's current MZKSV1 code and press **SAVE PLAYER DATA**. Pocket validates:
-- exact Player name selected in the dropdown;
-- the deterministic hidden profile key;
-- MZKSV1 envelope and version;
-- Base64URL/zlib payload and SHA-256 checksum;
-- required Player, session and data sections;
-- a session generation higher than the last generation already saved for that Player.
+The Developer issues a per-Player code from that Player's dropdown using **GENERATE MASTER RESET CODE**. The returned raw code is intentionally visible and copyable so the Developer can send it privately to the correct Player.
 
-A rejected code does not replace the previous saved profile. A successful save stores the incoming code, full snapshot and session metadata under the same hidden profile key.
+Code format:
 
-The header action **COPY ALL SAVED PLAYER DATA** exports only Player records with a successfully validated saved code. The output format is `MERZKAVA_POCKET_SAVE_DIRECTORY_V1` and contains each Player name, complete code, session generation, saved timestamp and decoded snapshot data. It is intended for a private Developer-to-AI/update handoff. Keep it private because it contains the Players' complete save data.
+`MZK-R-<48 uppercase hexadecimal characters>`
 
-## Session expiry limitation
+The raw reset code is never stored in the Player profile or placed in the update bundle. Pocket stores its SHA-256 hash, bound to the Player's hidden profile key, the name, and the expected next save-reset epoch.
 
-The Player device rotates its displayed code on each login. Developer rejects duplicate or older generations that have already been saved. However, without a shared online revocation service, a separate Developer device cannot know that a Player has logged in again until the new code is submitted. Therefore an old, never-before-saved code may still pass the monotonic-generation check. Instant cross-device revocation requires a shared online registry/backend; it cannot be guaranteed by two offline local stores alone.
+The header update export includes a `masterResetGrants` array. For the next APK build, copy that array into:
 
-## Daily Login and achievements
+`review-apk/app/src/main/assets/player-master-reset-grants.json`
 
-The current Daily Login scene is a shop/interior experience and does not yet persist claim events or consecutive streaks. The save schema carries the daily-login achievement fields, but they remain `null` / `not-recorded` until a real claim/streak system writes them. Do not infer or fabricate a longest streak from app logins.
+The asset has format `MERZKAVA_POCKET_MASTER_RESET_GRANTS_V1`. A default empty template is committed. Only the matching Player's installed build can validate that Player's grant. The raw code should be delivered privately (for example, via the Player's agreed Discord or email channel); do not put it in a public repository or the build asset.
+
+After installing the build that contains the grant, the Player opens their own Player List dropdown, enters the unmasked reset code and presses **RESET MY GAME**. Pocket checks the grant against the build asset, checks that it belongs to the active Player, and consumes it once. It clears that Player's local Pocket economy save and backup versions plus their Pocket game snapshot, inventory, facilities, relationships, wallet, achievements and gameplay progress. It preserves the Player name, local registration, account profile identity, device binding and active session. A fresh full save code is issued for the new game.
+
+Used grants are recorded locally and cannot be redeemed again. Issuing a newer grant replaces the outstanding hash in the next update manifest.
+
+## Data handling
+
+- Passwordless Player access is intentional in this Pocket gate. It is based on exact name recognition in Pocket-local or current Universe records plus online pin verification.
+- Android Keystore device binding remains an additional local device check.
+- Developer lists never receive a Player's raw current session save code or raw Master Reset code.
+- Master Reset manifests contain hashes, not raw codes.
+- Save codes are portable structured snapshots with checksum, not encrypted secrets.

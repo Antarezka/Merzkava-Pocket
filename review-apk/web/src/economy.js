@@ -161,6 +161,51 @@ function openState(identity){
  * and Home Base (wallet, inventory, facilities, processes, needs, appearance and ledger).
  */
 /**
+ * Capture one Player's current local save and migration backups before a reset.
+ * Used only to roll back localStorage if the native one-time reset grant fails.
+ */
+export function capturePocketEconomySaveForPlayerName(playerName){
+  const name=String(playerName||"").trim();
+  if(!name||name.length>80)throw new Error("A valid Player name is required.");
+  const key="mp-economy-v1:"+encodeURIComponent(["player",name].join(":"));
+  const prefix=key+":backup:";
+  const entries=[];
+  try{
+    for(let index=0;index<localStorage.length;index++){
+      const storedKey=localStorage.key(index);
+      if(storedKey===key||String(storedKey||"").startsWith(prefix)){
+        const value=localStorage.getItem(storedKey);
+        if(value!==null)entries.push([storedKey,value]);
+      }
+    }
+  }catch(error){
+    throw new Error("Pocket could not prepare a safe local reset: "+(error instanceof Error?error.message:"storage unavailable"));
+  }
+  return entries;
+}
+
+/**
+ * Restore the exact pre-reset local save if native Master Reset validation or commit fails.
+ */
+export function restorePocketEconomySaveForPlayerName(playerName,entries){
+  const name=String(playerName||"").trim();
+  if(!name||name.length>80||!Array.isArray(entries))throw new Error("The local Player save rollback data is invalid.");
+  const key="mp-economy-v1:"+encodeURIComponent(["player",name].join(":"));
+  const prefix=key+":backup:";
+  try{
+    for(const entry of entries){
+      if(!Array.isArray(entry)||entry.length!==2)continue;
+      const storedKey=String(entry[0]||"");
+      if(storedKey===key||storedKey.startsWith(prefix)){
+        localStorage.setItem(storedKey,String(entry[1]));
+      }
+    }
+  }catch(error){
+    throw new Error("Pocket could not restore the pre-reset local save: "+(error instanceof Error?error.message:"storage unavailable"));
+  }
+}
+
+/**
  * Delete one Player's Pocket game save and all migration backups for that save.
  * Player identity/profile records are deliberately stored elsewhere and are preserved.
  */

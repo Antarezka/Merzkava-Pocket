@@ -688,7 +688,7 @@ function renderLoginGate() {
         </div>
         <form class="access-form" data-player-form>
           <label for="player-name">CHARACTER NAME</label>
-          <input id="player-name" name="characterName" type="text" maxlength="80" list="pocket-local-player-names" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Choose or enter a Player name" required><datalist id="pocket-local-player-names"></datalist><p class="field-note local-player-hint" data-local-player-hint>Checking names saved in Pocket…</p>
+          <input id="player-name" name="characterName" type="text" maxlength="80" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Enter your exact Player name" required><p class="field-note local-player-hint" data-local-player-hint>Checking names saved in Pocket…</p>
           <p class="field-note">Choose a name saved in this Pocket installation to enter locally, or enter a name listed in the pinned Universe registry. No Player password is required.</p>
           <button type="submit" class="primary-action">VERIFY PLAYER <span>↗</span></button>
         </form>
@@ -721,18 +721,31 @@ function renderLoginGate() {
   const playerModeButtons = [...stage.querySelectorAll("[data-player-mode]")];
   const developerForm = stage.querySelector("[data-developer-form]");
   const tabs = [...stage.querySelectorAll("[data-role-tab]")];
-  const localNamesList = stage.querySelector("#pocket-local-player-names");
   const localNamesHint = stage.querySelector("[data-local-player-hint]");
+  const playerNameInput = stage.querySelector("#player-name");
+  let localPlayerNames = [];
   try {
-    const rawNames = JSON.parse(native?.getLocalPlayerNames?.() || "[]");
-    const names = Array.isArray(rawNames) ? [...new Set(rawNames.map(value => String(value || "").trim()).filter(Boolean))] : [];
-    if (localNamesList) localNamesList.innerHTML = names.map(name => '<option value="' + escapeHtml(name) + '"></option>').join("");
-    if (localNamesHint) localNamesHint.textContent = names.length
-      ? names.length + " LOCAL PLAYER NAME(S) FOUND · CHOOSE ONE OR TYPE A UNIVERSE NAME."
-      : "NO LOCAL PLAYER NAME FOUND · USE NEW PLAYER ACCOUNT TO CREATE ONE ON THIS DEVICE.";
+    const rawNames = JSON.parse(native?.getPocketRegisteredPlayerNames?.() || "[]");
+    localPlayerNames = Array.isArray(rawNames)
+      ? [...new Set(rawNames.map(value => String(value || "").trim()).filter(Boolean))]
+      : [];
+    if (localNamesHint) localNamesHint.textContent = localPlayerNames.length
+      ? localPlayerNames.length + " POCKET-LOCAL PLAYER NAME(S) FOUND · TYPE THE EXACT NAME. INTERNET CHECK IS STILL REQUIRED."
+      : "NO POCKET-LOCAL PLAYER NAME FOUND · USE NEW PLAYER ACCOUNT TO CREATE ONE ON THIS DEVICE.";
   } catch {
     if (localNamesHint) localNamesHint.textContent = "Pocket could not read local Player names.";
   }
+  playerNameInput?.addEventListener("input", () => {
+    const typed = String(playerNameInput.value || "").trim();
+    const match = localPlayerNames.find(name => name.toLocaleLowerCase() === typed.toLocaleLowerCase());
+    if (localNamesHint) localNamesHint.textContent = match
+      ? "POCKET-LOCAL PROFILE FOUND · " + match + " · ONLINE VERIFICATION IS STILL REQUIRED."
+      : typed
+        ? "NOT FOUND IN THIS POCKET LOCAL LIST · LOGIN CHECKS THE ONLINE UNIVERSE REGISTRY."
+        : (localPlayerNames.length
+          ? localPlayerNames.length + " LOCAL PLAYER NAME(S) FOUND · TYPE THE EXACT NAME."
+          : "NO LOCAL PLAYER NAME FOUND · USE NEW PLAYER ACCOUNT TO CREATE ONE ON THIS DEVICE.");
+  });
   let busy = false;
 
   stage.querySelectorAll("[data-theme-choice]").forEach(button => button.addEventListener("click", () => setTheme(button.dataset.themeChoice)));
@@ -1139,242 +1152,6 @@ function readLocalPlayerNames() {
   } catch { return []; }
 }
 
-function randomHex(byteLength) {
-  const bytes = crypto.getRandomValues(new Uint8Array(byteLength));
-  return Array.from(bytes, byte => byte.toString(16).padStart(2,"0")).join("");
-}
-
-function bytesToBase64Url(bytes) {
-  let binary = "";
-  bytes.forEach(byte => { binary += String.fromCharCode(byte); });
-  return btoa(binary).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");
-}
-
-async function createPocketMasterResetRequest(playerName) {
-  const name = String(playerName || "").trim();
-  if (!name || name.length > 80 || /[\u0000-\u001f]/.test(name)) {
-    throw new Error("Choose a valid registered player name.");
-  }
-  if (!globalThis.crypto?.subtle) throw new Error("Secure request generation is unavailable on this device.");
-  const normalized = name.toLocaleLowerCase();
-  const playerDigest = new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(normalized)));
-  const playerKey = bytesToBase64Url(playerDigest);
-  const requestId = randomHex(16);
-  const challenge = randomHex(32);
-  return [
-    "MERZKAVA_ATLAS_MASTER_RESET_REQUEST_V1",
-    "Request-ID: " + requestId,
-    "Player-Name: " + name,
-    "Player-Key: " + playerKey,
-    "Challenge: " + challenge,
-    "Action: Generate one unique player confirmation code and add only its SHA-256 hash to the Pocket Master Reset grant registry for the next app build.",
-    "Scope: This request is for the selected World Atlas player only."
-  ].join("\n");
-}
-
-function mountDeveloperAccountTools() {
-  const section = root.querySelector("[data-developer-settings]");
-  if (!section) return () => {};
-  const details = section.querySelector(".developer-tools-accordion");
-  const authorityNotice = root.querySelector("[data-developer-authority-notice]");
-  const denyAuthority = () => {
-    if (authorityNotice) {
-      authorityNotice.hidden = false;
-      authorityNotice.setAttribute("aria-hidden","false");
-    }
-    section.hidden = true;
-    section.inert = true;
-    section.setAttribute("aria-hidden","true");
-    if (details) details.open = false;
-  };
-  const hasDeveloperSession = () => {
-    if (accessIdentity?.role !== "developer" || !nativeReady() ||
-        typeof native.isDeveloperSessionAuthorized !== "function") return false;
-    try { return native.isDeveloperSessionAuthorized() === true; }
-    catch { return false; }
-  };
-  const requireDeveloperSession = () => {
-    if (hasDeveloperSession()) {
-      if (authorityNotice) {
-        authorityNotice.hidden = true;
-        authorityNotice.setAttribute("aria-hidden","true");
-      }
-      return true;
-    }
-    denyAuthority();
-    return false;
-  };
-  const summary = details?.querySelector("summary");
-  summary?.addEventListener("click",event => {
-    if (!requireDeveloperSession()) event.preventDefault();
-  });
-  details?.addEventListener("toggle",() => {
-    if (details.open && !requireDeveloperSession()) details.open = false;
-  });
-  const status = section.querySelector("[data-developer-reset-scan-status]");
-  const scanButton = section.querySelector("[data-developer-reset-scan]");
-  const select = section.querySelector("[data-developer-reset-player]");
-  const proof = section.querySelector("[data-developer-reset-proof]");
-  const message = section.querySelector("[data-developer-reset-message]");
-  const generate = section.querySelector("[data-developer-reset-generate]");
-  const output = section.querySelector("[data-developer-reset-output]");
-  const copy = section.querySelector("[data-developer-reset-copy]");
-  const abort = new AbortController();
-  let busy = false;
-  let records = new Map();
-
-  const renderOptions = (selected = "") => {
-    if (!select) return;
-    const prior = selected || select.value;
-    const entries = [...records.values()].sort((a,b)=>a.name.localeCompare(b.name));
-    select.innerHTML = '<option value="">— Select a player account —</option>' + entries.map(entry => {
-      const source = entry.local && entry.universe ? "Pocket Local + Universe"
-        : entry.local ? "Pocket Local" : "Universe";
-      return '<option value="' + escapeHtml(entry.name) + '">' +
-        escapeHtml(entry.name + " · " + source) + "</option>";
-    }).join("");
-    if (prior && entries.some(entry=>entry.name===prior)) select.value = prior;
-    if (generate) generate.disabled = !select.value || !proof?.checked || busy;
-  };
-
-  const readLocal = () => {
-    records = new Map();
-    for (const name of readLocalPlayerNames()) {
-      const key = name.toLocaleLowerCase();
-      const previous = records.get(key) || {name,local:false,universe:false};
-      previous.local = true;
-      records.set(key,previous);
-    }
-  };
-
-  const scan = async () => {
-    if (!requireDeveloperSession()) return;
-    if (busy || !nativeReady() || abort.signal.aborted) return;
-    busy = true;
-    if (scanButton) scanButton.disabled = true;
-    if (status) status.textContent = "Scanning Pocket-local player records…";
-    readLocal();
-    renderOptions();
-    if (!navigator.onLine) {
-      if (status) status.textContent = "Offline · " + records.size + " local account(s) available. Universe scan requires internet.";
-      busy = false;
-      if (scanButton) scanButton.disabled = false;
-      renderOptions();
-      return;
-    }
-    try {
-      const registry = await invokeNative("refreshPlayerRegistry",[],abort.signal);
-      if (abort.signal.aborted) return;
-      const selected = select?.value || "";
-      for (const rawName of registry.names || []) {
-        const name = String(rawName || "").trim();
-        if (!name) continue;
-        const key = name.toLocaleLowerCase();
-        const previous = records.get(key) || {name,local:false,universe:false};
-        previous.universe = true;
-        records.set(key,previous);
-      }
-      renderOptions(selected);
-      const localCount = [...records.values()].filter(entry=>entry.local).length;
-      const universeCount = [...records.values()].filter(entry=>entry.universe).length;
-      if (status) status.textContent = "Verified · Pocket Local " + localCount + " · Universe players.md " + universeCount;
-    } catch (error) {
-      if (abort.signal.aborted) return;
-      const selected = select?.value || "";
-      renderOptions(selected);
-      if (status) status.textContent = "Universe scan unavailable · " + records.size + " local account(s) retained. " +
-        (error instanceof Error ? error.message : "Connection failed.");
-    } finally {
-      busy = false;
-      if (scanButton) scanButton.disabled = false;
-      renderOptions();
-    }
-  };
-
-  const resetRequest = async () => {
-    if (!requireDeveloperSession()) return;
-    if (busy || !select?.value || !proof?.checked) {
-      if (message) message.textContent = !select?.value
-        ? "Select the exact player account first."
-        : "Verify account ownership before creating a Master Reset request.";
-      return;
-    }
-    const selected = records.get(select.value.toLocaleLowerCase());
-    if (!selected) {
-      if (message) message.textContent = "That account is not in the current local or Universe player records.";
-      return;
-    }
-    if (!accessIdentity || accessIdentity.role !== "developer") {
-      if (message) message.textContent = "Developer authentication is required.";
-      return;
-    }
-    busy = true;
-    if (generate) generate.disabled = true;
-    if (message) message.textContent = "Preparing an account-bound request…";
-    try {
-      const request = await createPocketMasterResetRequest(selected.name);
-      if (output) { output.value = request; output.hidden = false; }
-      if (copy) copy.hidden = false;
-      if (message) message.textContent = "Request ready. This is an AI handoff block, not the player's confirmation code. The existing password is unchanged.";
-      proof.checked = false;
-    } catch (error) {
-      if (message) message.textContent = error instanceof Error ? error.message : "Could not prepare the reset request.";
-    } finally {
-      busy = false;
-      renderOptions(select?.value || "");
-    }
-  };
-
-  const copyRequest = async () => {
-    if (!requireDeveloperSession()) return;
-    const text = output?.value || "";
-    if (!text || !copy) return;
-    try {
-      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
-      else {
-        output.focus();
-        output.select();
-        if (!document.execCommand("copy")) throw new Error("Clipboard is unavailable on this device.");
-      }
-      copy.textContent = "COPIED ✓";
-      if (message) message.textContent = "Request copied. Paste the full block into the Merzkava development AI conversation.";
-    } catch (error) {
-      if (message) message.textContent = error instanceof Error ? error.message : "Could not copy the request.";
-    }
-  };
-
-  const clearGeneratedRequest = () => {
-    if (output) { output.value = ""; output.hidden = true; }
-    if (copy) { copy.hidden = true; copy.textContent = "COPY REQUEST FOR AI"; }
-    if (message) message.textContent = "";
-  };
-  select?.addEventListener("change",() => {
-    if (!requireDeveloperSession()) return;
-    if (proof) proof.checked = false;
-    clearGeneratedRequest();
-    renderOptions(select.value);
-  });
-  proof?.addEventListener("change",() => {
-    if (!requireDeveloperSession()) return;
-    renderOptions(select?.value || "");
-  });
-  scanButton?.addEventListener("click",() => void scan());
-  generate?.addEventListener("click",() => void resetRequest());
-  copy?.addEventListener("click",() => void copyRequest());
-  const refreshOnNetworkChange = () => {
-    if (hasDeveloperSession()) void scan();
-  };
-  window.addEventListener("online",refreshOnNetworkChange);
-  window.addEventListener("offline",refreshOnNetworkChange);
-  if (hasDeveloperSession()) void scan();
-
-  return () => {
-    abort.abort();
-    window.removeEventListener("online",refreshOnNetworkChange);
-    window.removeEventListener("offline",refreshOnNetworkChange);
-  };
-}
-
 function renderPage(destination, transitionDuration=420) {
   disposeCurrent();
   currentRoute=destination;
@@ -1495,56 +1272,7 @@ function renderPage(destination, transitionDuration=420) {
           </section>
         </div>
       </article>
-      <article class="destination-card personal-section"><div class="settings-section-heading"><i class="settings-symbol personal-symbol" aria-hidden="true"></i><span>PERSONAL STUFF</span><small>YOUR POCKET PROFILE</small></div><section class="personal-setting"><div class="personal-account-icon" aria-hidden="true"></div><div class="personal-account-copy"><span>ACCOUNT & ACCESS</span><strong>${escapeHtml(accessIdentity?.displayName||"Pocket User")}</strong><small>${(accessIdentity?.role||"player").toUpperCase()} SESSION</small></div><button class="logout-button" data-signout><i class="logout-symbol" aria-hidden="true"></i>LOCK / SIGN OUT</button></section></article>
-      <div class="developer-authority-notice" data-developer-authority-notice hidden aria-hidden="true" role="alert">You don't have authority access, too low!</div>
-      <article class="destination-card developer-settings" data-developer-settings${accessIdentity?.role === "developer" ? "" : " hidden inert aria-hidden=\"true\""}>
-        <details class="developer-tools-accordion">
-          <summary class="developer-tools-summary">
-            <i class="settings-symbol developer-symbol" aria-hidden="true"></i>
-            <span>DEVELOPER</span>
-            <small>ACCOUNT RECOVERY & SECURITY</small>
-            <b class="developer-tools-chevron" aria-hidden="true">⌄</b>
-          </summary>
-          <div class="developer-tools-scroll" data-developer-tools-scroll>
-            <section class="developer-tool-card developer-password-policy">
-              <div class="developer-tool-heading">
-                <span>WORLD ATLAS PASSWORD CHANGE POLICY</span><small>PLAYER-INITIATED</small>
-              </div>
-              <p>In Merzkava World Atlas, a player who knows their current password changes it themselves after verifying the old password. Pocket's current Player gate is name-based and does not store a separate Player password, so this is policy guidance only—not a working Pocket password form.</p>
-              <ul>
-                <li>8–128 characters</li>
-                <li>At least one uppercase letter, one lowercase letter, one number and one symbol</li>
-                <li>The Developer never sees or chooses the replacement password</li>
-              </ul>
-              <p class="developer-tool-footnote">Forgotten passwords use the account-bound Developer Master Reset request below. Pocket's Player name verification remains separate and unchanged.</p>
-            </section>
-
-            <section class="developer-tool-card developer-master-reset" data-master-reset-tool>
-              <div class="developer-tool-heading">
-                <span>WORLD ATLAS MASTER RESET</span><small>DEVELOPER ONLY</small>
-              </div>
-              <p>Select the exact player account, verify ownership through an official channel, then create a request for a unique confirmation grant in a future Pocket update.</p>
-              <div class="developer-reset-scan-row">
-                <span data-developer-reset-scan-status role="status">Reading local Pocket player records…</span>
-                <button type="button" data-developer-reset-scan>SCAN AGAIN</button>
-              </div>
-              <label class="developer-reset-label" for="developer-reset-player">PLAYER ACCOUNT</label>
-              <select id="developer-reset-player" data-developer-reset-player>
-                <option value="">Loading player records…</option>
-              </select>
-              <label class="developer-reset-proof">
-                <input type="checkbox" data-developer-reset-proof>
-                <span>I have verified this player's account ownership through an official channel.</span>
-              </label>
-              <p class="developer-reset-message" data-developer-reset-message role="status" aria-live="polite"></p>
-              <button type="button" class="developer-reset-generate" data-developer-reset-generate disabled>GENERATE MASTER RESET REQUEST</button>
-              <textarea data-developer-reset-output rows="8" readonly hidden aria-label="Master Reset request for AI handoff"></textarea>
-              <button type="button" class="developer-reset-copy" data-developer-reset-copy hidden>COPY REQUEST FOR AI</button>
-              <p class="developer-tool-footnote">This request is not the player's reset code and does not change or clear the existing password. The actual one-time code is created only after the request is reviewed and its hash is included in a later app build.</p>
-            </section>
-          </div>
-        </details>
-      </article></main>`;
+      <article class="destination-card personal-section"><div class="settings-section-heading"><i class="settings-symbol personal-symbol" aria-hidden="true"></i><span>PERSONAL STUFF</span><small>YOUR POCKET PROFILE</small></div><section class="personal-setting"><div class="personal-account-icon" aria-hidden="true"></div><div class="personal-account-copy"><span>ACCOUNT & ACCESS</span><strong>${escapeHtml(accessIdentity?.displayName||"Pocket User")}</strong><small>${(accessIdentity?.role||"player").toUpperCase()} SESSION</small></div><button class="logout-button" data-signout><i class="logout-symbol" aria-hidden="true"></i>LOCK / SIGN OUT</button></section></article></main>`;
   }
   if(destination==="home")pageMarkup+=accessBufferMarkup("APP RELOAD");
   const backMarkup=(destination==="home"||destination==="daily-login")?"":'<button type="button" class="page-back" data-page-back aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5 7.5 12l7 7M8 12h11"/></svg></button>';
@@ -1587,8 +1315,7 @@ function renderPage(destination, transitionDuration=420) {
   if(destination==="settings"){
     const menuCleanup=currentDisposer;
     const audioCleanup=mountAudioSettings();
-    const developerCleanup=mountDeveloperAccountTools();
-    currentDisposer=()=>{menuCleanup?.();audioCleanup?.();developerCleanup?.();};
+    currentDisposer=()=>{menuCleanup?.();audioCleanup?.();};
   }
   if(destination==="economy"){
     const menuCleanup=currentDisposer;
@@ -1624,7 +1351,19 @@ function navigationMarkup() {
         <button class="dock-item is-active" type="button" data-destination="home" aria-current="page"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M4 16 18 5l14 11v15H4Z" fill="#789783" stroke="#d8d4b7"/><path d="M10 30V17l8-6 8 6v13" stroke="#f1eadb"/><path d="M14 30v-8h8v8" stroke="#d4b879"/><path d="M18 5V2" stroke="#d4b879"/></svg></span><b>HOME</b></button>
         <button class="dock-item" type="button" data-destination="game"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M8 12.5c1.3-3 4-4.5 7-4.5h6c3 0 5.7 1.5 7 4.5l3 10.2c1.2 4-2.7 6.6-5.7 4.2L20 23h-4l-5.3 3.9C7.7 29.3 3.8 26.7 5 22.7Z" fill="#789783" stroke="#d8d4b7"/><path d="M11 15v6m-3-3h6" stroke="#f1eadb" stroke-width="1.7"/><circle cx="24" cy="16.5" r="1.5" fill="#d4b879" stroke="none"/><circle cx="27" cy="20" r="1.3" fill="#d4b879" stroke="none"/></svg></span><b>GAME</b></button>
         <button class="dock-item" type="button" data-destination="daily-login"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true"><rect x="5" y="7" width="26" height="24" rx="3" fill="#789783" stroke="#d8d4b7"/><path d="M11 4v7M25 4v7M5 14h26" stroke="#f1eadb" stroke-width="1.5"/><path d="m18 17 2 4 4 .6-3 3 .7 4-3.7-2-3.7 2 .7-4-3-3 4-.6Z" fill="#d4b879" stroke="#f1eadb" stroke-width=".8"/></svg></span><b>DAILY LOG-IN</b></button>
-        <button class="dock-item" type="button" data-destination="player-list"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M7 32c1-5.6 4.2-8.8 9-10.4l1-3.2 4 .1 2.2 3.1c4.3 1.9 6.1 5.4 6.8 10.4H7Z" fill="#789783" stroke="#d8d4b7"/><path d="M11.8 21.3c1-2.4 2.9-4.4 5.1-5.2l4.2.2 2.7 3.5-4.2 3.7-7.8-2.2Z" fill="#789783" stroke="#d8d4b7"/><circle cx="16.3" cy="9.8" r="4.1" fill="#789783" stroke="#d8d4b7"/><path d="M12.2 8.7c.4-3.7 5.4-5.3 8.4-2l-.4 3-2.7-1.5-1.7 1.6-3.6-1.1Z" fill="#789783" stroke="#d4b879"/><path d="M19.5 11.5c2-1.1 3.4-1.2 4.7-.5M21.6 10.8l12.1-.2-2.5 1.4" fill="none" stroke="#d4b879" stroke-width="1.7" stroke-linecap="round"/><path d="M21.8 10.6 33.3 10.5" stroke="#f1eadb" stroke-width="2" stroke-linecap="round"/><path d="m33.3 10.5 1.5-1.1-.7 2.1" fill="#d4b879" stroke="#d4b879" stroke-width=".7"/><path d="M8.5 32c2.8-1.2 5.3-1.1 8.2 0m4.2-8.4-1 8.4" fill="none" stroke="#d4b879" stroke-width=".8"/></svg></span><b>PLAYER LIST</b></button>
+        <button class="dock-item" type="button" data-destination="player-list"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true">
+          <path d="M5 32.5c1.2-4.9 3.4-7.8 7.3-9.9l1.4-4.1 5.1-.2 2.2 3.7c4.8 1.7 7.4 5.1 8.7 10.5H5Z" style="fill:#789783;stroke:#d8d4b7;stroke-width:1"/>
+          <path d="M7.4 22.4 3.9 29.8l6.8-2.4 3.8 5.1 2.2-9.8-4.7-3.4Z" style="fill:#789783;stroke:#d4b879;stroke-width:.8"/>
+          <path d="M12.1 17.5c-2.2 1.4-3.4 3.6-4.1 6.4l5.2 2.7 3.7-5.3-1.8-4.4Z" style="fill:#789783;stroke:#d8d4b7;stroke-width:.9"/>
+          <path d="M9.1 11.3c.1-4.5 2.3-6.8 5-6.8 3.1 0 5 2.5 4.6 6.7l-1.6 4.7-4.8 1.5-3.2-6.1Z" style="fill:#789783;stroke:#d8d4b7;stroke-width:.9"/>
+          <path d="M8.9 10.5C8.6 6.2 11.9 2.8 15.7 3c1.9.1 3.2 1.2 4.2 2.9l-1.5 1.1-2.1-.8-2.2 2.3-2.7-.4-2.5 2.4Z" style="fill:#789783;stroke:#d4b879;stroke-width:.8"/>
+          <path d="M12.4 17.4c2.1 1.1 4.2 1.1 6.2-.1l3.1 3.5-3.3 4.2-6.1-3.1Z" style="fill:#789783;stroke:#d8d4b7;stroke-width:.8"/>
+          <path d="M17.2 14.2 20.1 10.2 22 8.9" fill="none" stroke="#d8d4b7" stroke-width="2" stroke-linecap="round"/>
+          <path d="M19.6 8.8 34.2 8.8" fill="none" stroke="#f1eadb" stroke-width="2" stroke-linecap="round"/>
+          <path d="M20.6 7.4v2.8m-1.7-1.4h2.8" fill="none" stroke="#d4b879" stroke-width="1.2" stroke-linecap="round"/>
+          <path d="m34.2 8.8 1.2-1.2m-1.2 1.2 1.2 1.2" fill="none" stroke="#d4b879" stroke-width=".9" stroke-linecap="round"/>
+          <path d="M6.3 31.8c3.4-1.1 6.2-.8 9 0m3.1-8 2.6 8" fill="none" stroke="#d4b879" stroke-width=".8" stroke-linecap="round"/>
+        </svg></span><b>PLAYER LIST</b></button>
         <button class="dock-item" type="button" data-destination="settings"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M15 4h6l1 4 4 2 4-1 3 5-3 4v3l3 4-3 5-4-1-4 2-1 4h-6l-1-4-4-2-4 1-3-5 3-4v-3l-3-4 3-5 4 1 4-2Z" fill="#789783" stroke="#d8d4b7" transform="translate(0 -1) scale(1 .96)"/><circle cx="18" cy="18" r="5.5" fill="#f1eadb" stroke="#d4b879" stroke-width="1.2"/><circle cx="18" cy="18" r="2" fill="#789783" stroke="none"/></svg></span><b>SETTINGS</b></button>
       </nav>
     </div>

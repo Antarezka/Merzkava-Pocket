@@ -2428,3 +2428,25 @@
 :root[data-theme="light"] .player-save-code-panel textarea,:root[data-theme="light"] .players-stage textarea[data-player-export-output]{border-color:#b8b4a8;background:#252c27;color:#f0eadb}
 :root[data-theme="light"] .player-save-code-actions button{border-color:#90764a;background:linear-gradient(135deg,#f4e8d0,#edf0e5);color:#26332b}
 @media(max-width:360px){.player-save-code-actions{grid-template-columns:1fr}.player-save-code-actions button{width:100%}.player-save-code-panel{padding:8px}}
+
+/* One role-aware Player List page: matching Pocket paper, jade, muted gold and cord-menu language. */
+.player-master-reset-panel{display:grid;gap:8px;padding:10px;border:1px solid rgba(169,140,84,.34);background:linear-gradient(135deg,rgba(169,140,84,.065),rgba(183,199,122,.025))}
+.player-master-reset-panel>p,.player-master-reset-panel form>p{margin:0}
+.player-master-reset-panel label{color:var(--gold);font-size:7px;font-weight:700;letter-spacing:.12em}
+.player-master-reset-panel input,.player-master-reset-panel textarea{display:block;width:100%;min-width:0;max-width:100%;padding:9px;border:1px solid var(--line);border-radius:0;background:var(--deep);color:var(--paper);font:700 9px/1.5 ui-monospace,monospace;letter-spacing:.04em;user-select:text;-webkit-user-select:text}
+.player-master-reset-panel textarea{min-height:58px;resize:vertical}
+.player-master-reset-panel button{min-height:36px;padding:0 10px;border:1px solid var(--gold);background:linear-gradient(135deg,rgba(169,140,84,.16),rgba(183,199,122,.055));color:var(--paper);font-size:7px;font-weight:700;letter-spacing:.1em}
+.player-master-reset-panel button:disabled{opacity:.45}
+.player-master-reset-panel [data-master-reset-copy]{border-color:rgba(183,199,122,.58)}
+.player-master-reset-panel form{display:grid;gap:8px}
+.player-master-reset-panel [data-player-master-reset-feedback],.player-master-reset-panel [data-master-reset-feedback]{min-height:16px;color:var(--muted);font-size:8px;line-height:1.5;overflow-wrap:anywhere}
+.player-master-reset-panel [data-master-reset-output]{border-color:var(--gold);color:var(--lime);font-size:10px;letter-spacing:.08em}
+:root[data-theme="light"] .player-master-reset-panel{border-color:rgba(120,43,58,.28);background:linear-gradient(135deg,#f8f0e3,#eef0e7)}
+:root[data-theme="light"] .player-master-reset-panel label{color:#8e7147}
+:root[data-theme="light"] .player-master-reset-panel input,:root[data-theme="light"] .player-master-reset-panel textarea{border-color:#b8b4a8;background:#252c27;color:#f0eadb}
+:root[data-theme="light"] .player-master-reset-panel button{border-color:#90764a;background:linear-gradient(135deg,#f4e8d0,#edf0e5);color:#26332b}
+:root[data-theme="light"] .player-master-reset-panel [data-master-reset-output]{color:#e9efd8}
+@media(max-width:360px){
+  .player-master-reset-panel{padding:8px}
+  .player-master-reset-panel button{min-height:34px;padding-inline:7px}
+}
