@@ -4,7 +4,7 @@ import { economyMarkup, mountEconomy } from "./economy.js";
 import { mountHomeBase } from "./home-base.js";
 import { dailyLoginMarkup, mountDailyLogin } from "./daily-login.js";
 import { playerRecordsMarkup, mountPlayerRecords } from "./player-records.js";
-import { createPocketAudioController, createTurntableMotion, createVinylDesignController, VINYL_STYLES } from "./audio-player.js";
+import { createPocketAudioController, createTurntableMotion, createVinylDesignController, getSupportedAudioPlaybackTypes, VINYL_STYLES } from "./audio-player.js";
 
 const root = document.querySelector("#app");
 if (!root) throw new Error("Pocket root not found.");
@@ -142,7 +142,7 @@ function audioRecordMarkup(track, index) {
     <div class="audio-record-row">
       <button type="button" class="audio-record${custom ? " is-custom-record" : ""}" data-audio-record="${escapeHtml(track.id)}" aria-pressed="false">
         <span class="record-sleeve"><i class="sleeve-vinyl"></i><b>${String(index + 1).padStart(2,"0")}</b></span>
-        <span class="record-copy"><strong>${escapeHtml(track.title)}</strong><small>${custom ? "YOUR MUSIC · OGG VORBIS" : "OGG · POCKET BGM"}</small></span>
+        <span class="record-copy"><strong>${escapeHtml(track.title)}</strong><small>${custom ? "YOUR MUSIC · " + escapeHtml((track.extension || "AUDIO").toUpperCase()) : "OGG · POCKET BGM"}</small></span>
         <span class="record-state" aria-hidden="true">✓</span>
       </button>
       ${custom
@@ -174,7 +174,7 @@ function showAudioImportNotice(message, success = false) {
   if (kicker) kicker.textContent = success
     ? (overlay.dataset.noticeAction === "removed" ? "REMOVED FROM YOUR RACK" : "ADDED TO YOUR RECORD RACK")
     : (overlay.dataset.noticeAction === "remove-failed" ? "RECORD RACK · NOT CHANGED" : "A SMALL FORMAT CHECK");
-  if (copy) copy.textContent = String(message || (success ? "Your music has joined the library." : "Choose an OGG Vorbis audio file to continue."));
+  if (copy) copy.textContent = String(message || (success ? "Your music has joined the library." : "Choose an audio format supported by Pocket."));
   overlay.hidden = false;
   overlay.setAttribute("aria-hidden","false");
   const panel = overlay.querySelector(".audio-import-card");
@@ -459,7 +459,13 @@ function mountAudioSettings() {
     if (event.target === importOverlay) hideImportOverlay();
   });
   section.querySelector("[data-audio-add]")?.addEventListener("click",() => {
-    if (typeof native?.openAudioPicker !== "function" || native.openAudioPicker() !== true) {
+    const supportedTypes = getSupportedAudioPlaybackTypes(document.createElement("audio"));
+    if (!supportedTypes.length) {
+      showAudioImportNotice("This WebView does not report a playable audio format.",false);
+      return;
+    }
+    if (typeof native?.openAudioPicker !== "function" ||
+        native.openAudioPicker(JSON.stringify(supportedTypes)) !== true) {
       showAudioImportNotice("Pocket could not open the device file manager. Please try again.",false);
     }
   });
@@ -556,29 +562,29 @@ function invokeNative(method, args, signal) {
 
 function accessStages(role) {
   if (role === "transition") return [
-    ["Restoring your verified Pocket session", "SESSION RESTORE"],
-    ["Synchronizing local Pocket preferences", "LOCAL STATE SYNC"],
-    ["Refreshing Android device status", "FLOATING CONTROL STATE"],
-    ["Preparing the opening scene", "SPLASH PREPARATION"],
-    ["Handing off to the Archive", "HOME HANDOFF"],
-    ["Opening Merzkava Pocket", "ARCHIVE TRANSITION"]
+    ["Pocket session", "SESSION RESTORE"],
+    ["Local preferences", "LOCAL STATE SYNC"],
+    ["Android status", "FLOATING CONTROL STATE"],
+    ["Opening scene", "SPLASH PREPARATION"],
+    ["Archive handoff", "HOME HANDOFF"],
+    ["Pocket transition", "ARCHIVE TRANSITION"]
   ];
   return role === "player"
     ? [
-        ["Resolving the Player identity", "PLAYER IDENTITY"],
-        ["Reading the pinned Universe source", "PINNED UNIVERSE SOURCE"],
-        ["Matching the registered character name", "EXACT REGISTRY MATCH"],
-        ["Saving the verified local profile", "LOCAL PROFILE CACHE"],
-        ["Preparing the Player session", "PLAYER SESSION"],
-        ["Handing off to Floating Control", "FLOATING CONTROL HANDOFF"]
+        ["Player identity", "PLAYER IDENTITY"],
+        ["Universe source", "PINNED UNIVERSE SOURCE"],
+        ["Registry match", "EXACT REGISTRY MATCH"],
+        ["Local profile", "LOCAL PROFILE CACHE"],
+        ["Player session", "PLAYER SESSION"],
+        ["Floating Control", "FLOATING CONTROL HANDOFF"]
       ]
     : [
-        ["Resolving the Developer identity", "DEVELOPER ID"],
-        ["Verifying the shared Developer credential", "PBKDF2 · SHA-256"],
-        ["Applying Developer-only permissions", "ROLE ISOLATION"],
-        ["Securing optional remembered credentials", "ANDROID KEYSTORE"],
-        ["Preparing the Developer session", "DEVELOPER SESSION"],
-        ["Handing off to Floating Control", "FLOATING CONTROL HANDOFF"]
+        ["Developer identity", "DEVELOPER ID"],
+        ["Credential check", "PBKDF2 · SHA-256"],
+        ["Role permissions", "ROLE ISOLATION"],
+        ["Android Keystore", "ANDROID KEYSTORE"],
+        ["Developer session", "DEVELOPER SESSION"],
+        ["Floating Control", "FLOATING CONTROL HANDOFF"]
       ];
 }
 const checkpoints = [15, 32, 51, 70, 88, 93];
@@ -666,37 +672,33 @@ async function runAccessSequence(role, operation, signal) {
       label.textContent = technical;
     }
     message.textContent = copy + ".".repeat(dots);
-    if (!reduced) animations.push(animate(message,{
-      opacity:[entering ? .58 : .82,1],
-      translateY:[entering ? 4 : 1,0],
-      duration:entering ? 150 : 72,
+    // Animate once when the short stage label changes; dot frames update independently.
+    if (!reduced && entering) animations.push(animate(message,{
+      opacity:[.58,1],
+      translateY:[4,0],
+      duration:120,
       ease:"outCubic"
     }));
   };
   const moveRail = async (target, copy, technical, index) => {
-    const duration = reduced ? 18 : 820 + Math.min(index * 65, 260);
+    const duration = reduced ? 18 : 1650 + Math.min(index * 110, 550);
     if (reduced) {
       showFrame(copy,technical,3,true);
       rail.style.transform = "scaleX(" + target/100 + ")";
       await pause(18);
     } else {
+      // One uninterrupted linear rail movement per stage; text timing never restarts it.
       animations.push(animate(rail,{
         scaleX:[progress/100,target/100],
         duration,
         ease:"linear"
       }));
-      const frameDurations = [
-        Math.round(duration * .36),
-        Math.round(duration * .34),
-        duration - Math.round(duration * .70)
-      ];
-      for (let dot = 1; dot <= 3; dot++) {
-        showFrame(copy,technical,dot,dot === 1);
-        await pause(frameDurations[dot - 1]);
-      }
-      // Small deliberate holds make the dots read as real buffering, not progress jumps.
+      showFrame(copy,technical,1,true);
+      await pause(180);
+      showFrame(copy,technical,2);
+      await pause(180);
       showFrame(copy,technical,3);
-      await pause(120 + (index % 3) * 55);
+      await pause(duration - 360);
     }
     progress = target;
   };
@@ -714,7 +716,7 @@ async function runAccessSequence(role, operation, signal) {
     while (!result) {
       result = await Promise.race([
         resultPromise,
-        cancellableWait(reduced ? 90 : 190,signal).then(() => null)
+        cancellableWait(reduced ? 90 : 360,signal).then(() => null)
       ]);
       if (!result) {
         const [copy,technical] = stages[stages.length-1];
@@ -1384,7 +1386,7 @@ function renderPage(destination, transitionDuration=420) {
                 <span><strong>ADD MUSIC</strong><small>CHOOSE FROM YOUR DEVICE</small></span>
                 <b aria-hidden="true">↗</b>
               </button>
-              <p class="audio-format-note">A little recommendation: <b>.ogg · Vorbis</b> for a smooth, compact record. Saved inside Pocket — no folder permission needed.</p>
+              <p class="audio-format-note">A little recommendation: <b>.ogg · Vorbis</b> for a smooth, compact record. Other audio formats supported by Pocket are accepted too. Saved inside Pocket — no folder permission needed.</p>
             </div>
           </section>
           <section class="vinyl-style-drawer" data-vinyl-drawer>
@@ -1412,7 +1414,7 @@ function renderPage(destination, transitionDuration=420) {
             <p class="audio-import-kicker" data-audio-import-kicker>RECORD ARCHIVE</p>
             <h3 id="audio-import-title" data-audio-import-title>Record added</h3>
             <p class="audio-import-message" data-audio-import-message></p>
-            <small class="audio-import-footnote">SUPPORTED FORMAT · OGG VORBIS · MAX 64 MB</small>
+            <small class="audio-import-footnote">SUPPORTED AUDIO · DEVICE / WEBVIEW DECODER CHECK · MAX 64 MB</small>
             <div class="audio-import-actions">
               <button type="button" class="audio-import-confirm" data-audio-import-confirm hidden>REMOVE RECORD</button>
               <button type="button" class="audio-import-close" data-audio-import-close>RETURN TO AUDIO</button>
