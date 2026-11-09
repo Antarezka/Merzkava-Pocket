@@ -2741,3 +2741,10 @@
 .legal-credits-body pre[hidden]{display:none}
 :root[data-theme="light"] .legal-credits{border-top-color:#9c835b55}
 :root[data-theme="light"] .legal-credits-body button{color:#62553f}
+
+/* While the verified operation is pending, the rail breathes below completion and carries a moving scan glint. */
+.buffer-track.is-waiting i{will-change:transform}
+.buffer-track.is-waiting i::after{content:"";position:absolute;top:-2px;bottom:-2px;left:-28%;width:27%;background:linear-gradient(90deg,transparent,rgba(255,253,244,.82),rgba(212,183,120,.7),transparent);filter:blur(.7px);pointer-events:none;animation:buffer-wait-shimmer .92s linear infinite}
+@keyframes buffer-wait-shimmer{from{transform:translateX(0)}to{transform:translateX(510%)}}
+:root[data-theme="light"] .buffer-track.is-waiting i::after{background:linear-gradient(90deg,transparent,rgba(39,49,42,.58),rgba(124,41,55,.48),transparent)}
+@media(prefers-reduced-motion:reduce){.buffer-track.is-waiting i::after{animation:none}}
