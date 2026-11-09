@@ -29,9 +29,9 @@ test("diagnostic copy reveals one word at a time without completing the final te
   assert.equal(getDiagnosticWordFrames("TLS handsh").at(-1), "TLS handsh");
 });
 
-test("delayed diagnostic dots are prefixed in the required one-two-three order", () => {
-  assert.equal(formatDiagnosticFrame("server int", 1), ". server int");
-  assert.equal(formatDiagnosticFrame("server int", 2), ".. server int");
-  assert.equal(formatDiagnosticFrame("server int", 3), "... server int");
+test("delayed diagnostic dots are appended after the text in one-two-three order", () => {
+  assert.equal(formatDiagnosticFrame("server int", 1), "server int.");
+  assert.equal(formatDiagnosticFrame("server int", 2), "server int..");
+  assert.equal(formatDiagnosticFrame("server int", 3), "server int...");
   assert.equal(formatDiagnosticFrame("server int", 0), "server int");
 });

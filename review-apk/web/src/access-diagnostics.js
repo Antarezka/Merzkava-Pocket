@@ -140,5 +140,5 @@ export function getDiagnosticWordFrames(value) {
 
 export function formatDiagnosticFrame(value, dots = 0) {
   const count = Math.max(0, Math.min(3, Math.trunc(Number(dots) || 0)));
-  return (count ? ".".repeat(count) + " " : "") + String(value ?? "");
+  return String(value ?? "") + (count ? ".".repeat(count) : "");
 }
