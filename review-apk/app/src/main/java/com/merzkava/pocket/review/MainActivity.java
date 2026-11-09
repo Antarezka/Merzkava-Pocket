@@ -49,7 +49,7 @@ public final class MainActivity extends Activity {
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
         settings.setJavaScriptCanOpenWindowsAutomatically(false);
-        settings.setMediaPlaybackRequiresUserGesture(true);
+        settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         webView.setWebViewClient(new PocketAssetClient(getAssets()));
         webView.setWebChromeClient(new WebChromeClient());
@@ -116,6 +116,8 @@ public final class MainActivity extends Activity {
             if (lower.endsWith(".png")) return "image/png";
             if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
             if (lower.endsWith(".webp")) return "image/webp";
+            if (lower.endsWith(".ogg")) return "audio/ogg";
+            if (lower.endsWith(".mp3")) return "audio/mpeg";
             if (lower.endsWith(".woff2")) return "font/woff2";
             if (lower.endsWith(".woff")) return "font/woff";
             return "application/octet-stream";

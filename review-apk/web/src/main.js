@@ -3,9 +3,11 @@ import "./styles.css";
 import { economyMarkup, mountEconomy } from "./economy.js";
 import { mountHomeBase } from "./home-base.js";
 import { dailyLoginMarkup, mountDailyLogin } from "./daily-login.js";
+import { createPocketAudioController } from "./audio-player.js";
 
 const root = document.querySelector("#app");
 if (!root) throw new Error("Pocket root not found.");
+const pocketAudio = createPocketAudioController({ onChange: syncAudioUI });
 
 const native = window.PocketNative || null;
 const reducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
@@ -78,6 +80,78 @@ function applyPaperGlow() {
     knob.style.top=y+"px";
   }
 }
+
+function syncAudioUI() {
+  const player = root.querySelector("[data-audio-player]");
+  if (!player) return;
+  const state = pocketAudio.getState();
+  player.classList.toggle("is-playing", state.isPlaying);
+  player.classList.toggle("is-starting", state.isStarting);
+  const trackTitle = player.querySelector("[data-track-title]");
+  const status = player.querySelector("[data-audio-status]");
+  const needle = player.querySelector("[data-audio-needle]");
+  if (trackTitle) trackTitle.textContent = state.title;
+  if (status) status.textContent = state.isPlaying ? "PLAYING · MAIN MENU MUSIC" : state.isStarting ? "STYLUS CONTACT · PREPARING" : "NEEDLE LIFTED · READY";
+  if (needle) {
+    needle.setAttribute("aria-label", state.isPlaying || state.isStarting ? "Lift the stylus and pause music" : "Lower the stylus and play music");
+    needle.setAttribute("aria-pressed", String(state.isPlaying || state.isStarting));
+  }
+  root.querySelectorAll("[data-audio-record]").forEach(button => {
+    const selected = button.dataset.audioRecord === state.track;
+    button.classList.toggle("is-selected", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  });
+  const musicSlider = root.querySelector("[data-music-volume]");
+  const musicOutput = root.querySelector("[data-music-volume-value]");
+  const effectsSlider = root.querySelector("[data-effects-volume]");
+  const effectsOutput = root.querySelector("[data-effects-volume-value]");
+  if (musicSlider) musicSlider.value = String(state.musicVolume);
+  if (musicOutput) musicOutput.textContent = state.musicVolume + "%";
+  if (effectsSlider) effectsSlider.value = String(state.effectsVolume);
+  if (effectsOutput) effectsOutput.textContent = state.effectsVolume + "%";
+}
+
+function mountAudioSettings() {
+  const section = root.querySelector("[data-audio-section]");
+  if (!section) return;
+  const toggle = section.querySelector("[data-audio-toggle]");
+  const content = section.querySelector("[data-audio-content]");
+  toggle.addEventListener("click", () => {
+    const expanded = toggle.getAttribute("aria-expanded") !== "true";
+    toggle.setAttribute("aria-expanded", String(expanded));
+    section.classList.toggle("is-expanded", expanded);
+    content.hidden = !expanded;
+    if (expanded) {
+      syncAudioUI();
+      if (!reducedMotion()) animate(content, { opacity:[0,1], translateY:[8,0], duration:340, ease:"outCubic" });
+    }
+  });
+  toggle.setAttribute("aria-expanded", "false");
+  section.classList.remove("is-expanded");
+
+  section.querySelectorAll("[data-audio-record]").forEach(button => {
+    button.addEventListener("click", () => {
+      const changed = pocketAudio.selectTrack(button.dataset.audioRecord);
+      if (!changed) return;
+      pocketAudio.playEffect("placement");
+      button.classList.remove("is-pulling");
+      void button.offsetWidth;
+      button.classList.add("is-pulling");
+      window.setTimeout(() => button.classList.remove("is-pulling"), 560);
+    });
+  });
+
+  section.querySelector("[data-audio-needle]").addEventListener("click", () => {
+    void pocketAudio.toggleNeedle();
+  });
+  section.querySelector("[data-music-volume]").addEventListener("input", event => {
+    pocketAudio.setMusicVolume(event.currentTarget.value);
+  });
+  section.querySelector("[data-effects-volume]").addEventListener("input", event => {
+    pocketAudio.setEffectsVolume(event.currentTarget.value);
+  });
+}
+
 function paperLightControlMarkup() {
   return `
     <section class="visual-setting paper-light-setting">
@@ -685,6 +759,7 @@ function showFloatingControl() {
 }
 
 function showSplash() {
+  pocketAudio.pauseForSplash();
   disposeCurrent();
   currentRoute="splash";
   root.innerHTML = `
@@ -728,6 +803,7 @@ function showSplash() {
 function renderHome() {
   routeHistory.length = 0;
   renderPage("home");
+  pocketAudio.enterMainMenu();
 }
 function renderPage(destination, transitionDuration=420) {
   disposeCurrent();
@@ -780,10 +856,53 @@ function renderPage(destination, transitionDuration=420) {
     pageMarkup=dailyLoginMarkup();
   } else {
     pageMarkup=`
-      <main class="page-stage"><span class="eyebrow">SETTINGS / PREFERENCES</span><h1>Make it yours.</h1><p class="page-lead">Display and account controls.</p>
+      <main class="page-stage settings-page-stage"><span class="eyebrow">SETTINGS / PREFERENCES</span><h1>Make it yours.</h1><p class="page-lead">Display, sound and account controls.</p>
       <article class="destination-card visual-section"><div class="settings-section-heading"><i class="settings-symbol visual-symbol" aria-hidden="true"></i><span>VISUAL</span><small>APPEARANCE & AMBIENCE</small></div>
         <section class="visual-setting"><strong>Display Theme</strong><div class="theme-options"><button data-theme-choice="dark" aria-pressed="false">DARK THEME</button><button data-theme-choice="light" aria-pressed="false">WHITE THEME</button></div></section>
         ${paperLightControlMarkup()}
+      </article>
+      <article class="destination-card audio-section" data-audio-section>
+        <button type="button" class="audio-section-toggle" data-audio-toggle aria-expanded="false">
+          <i class="settings-symbol audio-symbol" aria-hidden="true"></i>
+          <span>AUDIO</span><small>VINYL LIBRARY & PLAYBACK</small><b aria-hidden="true">⌄</b>
+        </button>
+        <div class="audio-content" data-audio-content hidden>
+          <section class="audio-player" data-audio-player>
+            <div class="audio-player-heading"><span>NOW ON THE PLATTER</span><small>POCKET RECORD DECK</small></div>
+            <div class="turntable">
+              <div class="turntable-platter">
+                <div class="vinyl-disc"><div class="vinyl-grooves"></div><div class="vinyl-label"><span>MERZKAVA</span><b>✦</b><small>POCKET · 01</small></div></div>
+              </div>
+              <div class="turntable-spindle"></div>
+              <button type="button" class="turntable-needle" data-audio-needle aria-label="Lower the stylus and play music" aria-pressed="false">
+                <i class="needle-pivot"></i><i class="needle-arm"></i><i class="needle-head"></i><i class="needle-tip"></i>
+              </button>
+              <span class="turntable-speed">33⅓ RPM</span>
+              <span class="turntable-status-light"></span>
+            </div>
+            <div class="audio-current-track"><span>SELECTED RECORD</span><strong data-track-title>Happy-1a</strong><small data-audio-status>PLAYING · MAIN MENU MUSIC</small></div>
+            <div class="audio-volume-controls">
+              <label><span>MUSIC VOLUME</span><output data-music-volume-value>68%</output><input data-music-volume type="range" min="0" max="100" step="1" value="68" aria-label="Music volume"></label>
+              <label><span>SOUND EFFECTS</span><output data-effects-volume-value>76%</output><input data-effects-volume type="range" min="0" max="100" step="1" value="76" aria-label="Sound effects volume"></label>
+            </div>
+          </section>
+          <section class="audio-rack">
+            <div class="audio-rack-heading"><span>RECORD RACK</span><small>SELECT A RECORD TO PLACE IT</small></div>
+            <div class="audio-record-list">
+              <button type="button" class="audio-record" data-audio-record="happy" aria-pressed="false">
+                <span class="record-sleeve"><i class="sleeve-vinyl"></i><b>01</b></span>
+                <span class="record-copy"><strong>Happy-1a</strong><small>OGG · POCKET BGM</small></span>
+                <span class="record-state" aria-hidden="true">✓</span>
+              </button>
+              <button type="button" class="audio-record" data-audio-record="chill" aria-pressed="false">
+                <span class="record-sleeve"><i class="sleeve-vinyl"></i><b>02</b></span>
+                <span class="record-copy"><strong>chill-1a</strong><small>OGG · POCKET BGM</small></span>
+                <span class="record-state" aria-hidden="true">✓</span>
+              </button>
+            </div>
+            <p class="audio-rack-note">Placing a record does not start playback. Lower the stylus to listen.</p>
+          </section>
+        </div>
       </article>
       <article class="destination-card personal-section"><div class="settings-section-heading"><i class="settings-symbol personal-symbol" aria-hidden="true"></i><span>PERSONAL STUFF</span><small>YOUR POCKET PROFILE</small></div><section class="personal-setting"><div class="personal-account-icon" aria-hidden="true"></div><div class="personal-account-copy"><span>ACCOUNT & ACCESS</span><strong>${escapeHtml(accessIdentity?.displayName||"Pocket User")}</strong><small>${(accessIdentity?.role||"player").toUpperCase()} SESSION</small></div><button class="logout-button" data-signout><i class="logout-symbol" aria-hidden="true"></i>LOCK / SIGN OUT</button></section></article></main>`;
   }
@@ -795,6 +914,7 @@ function renderPage(destination, transitionDuration=420) {
   applyPaperGlow();
   root.querySelectorAll("[data-theme-choice]").forEach(button=>button.addEventListener("click",()=>setTheme(button.dataset.themeChoice)));
   root.querySelector("[data-paper-glow]")?.addEventListener("input",event=>setPaperGlow(event.currentTarget.value));
+  if(destination==="settings")mountAudioSettings();
   root.querySelectorAll("[data-subroute]").forEach(button=>button.addEventListener("click",()=>navigate(button.dataset.subroute)));
   root.querySelector("[data-page-back]")?.addEventListener("click",navigateBack);
   root.querySelector("[data-signout]")?.addEventListener("click",()=>void signOut());
@@ -1091,6 +1211,7 @@ function navigateBack(transitionDuration=420) {
 
 async function signOut() {
   if (!nativeReady()) return;
+  pocketAudio.resetSession();
   if (accessIdentity?.role==="developer") {
     try { native.lockDeveloperSession(); } catch {}
   }
