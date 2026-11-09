@@ -331,8 +331,9 @@ function formatList(values){
   if(!values?.length)return "<span class='econ-muted'>None listed</span>";
   return "<ul class='econ-requirements'>"+values.map(x=>"<li>"+esc(x)+"</li>").join("")+"</ul>";
 }
-function itemCard(item,state){
-  return "<button type='button' class='econ-row econ-item-row' data-econ-open-item='"+esc(item.item_id)+"'>"+itemVisualMarkup(item)+"<span class='econ-item-copy'><span class='econ-row-head'><b>"+esc(item.name)+"</b><small>"+esc(item.item_id)+"</small></span><span class='econ-row-meta'><i>"+esc(item.category)+"</i><i>"+esc(item.unit)+"</i><i>"+esc(itemPriceLabel(item,"typical_shop_price_xc"))+"</i><i>Owned "+esc(tidy(qty(state,item.item_id)))+"</i></span></span></button>";
+function itemCard(item,state,selectedId=""){
+  const selected=item.item_id===selectedId;
+  return "<button type='button' class='econ-row econ-item-row"+(selected?" is-selected":"")+"' aria-pressed='"+(selected?"true":"false")+"' data-econ-open-item='"+esc(item.item_id)+"'>"+itemVisualMarkup(item)+"<span class='econ-item-copy'><span class='econ-row-head'><b>"+esc(item.name)+"</b><small>"+esc(item.item_id)+"</small></span><span class='econ-row-meta'><i>"+esc(item.category)+"</i><i>"+esc(item.unit)+"</i><i>"+esc(itemPriceLabel(item,"typical_shop_price_xc"))+"</i><i>Owned "+esc(tidy(qty(state,item.item_id)))+"</i></span></span></button>";
 }
 function itemFrameShape(item){
   const category=String(item?.category||"").trim().toLowerCase();
@@ -371,7 +372,7 @@ export function economyMarkup(){
       <header class="economy-heading"><span class="eyebrow">GAME / DAILY LIFE / ECONOMY</span><h1>Living <em>Economy.</em></h1><p class="page-lead">Items, gathering, construction, processing and local trade share one saved inventory and wallet.</p></header>
       <section class="econ-summary" data-econ-summary><div class="econ-loading">Opening the local economy archive…</div></section>
       <nav class="econ-tabs" aria-label="Economy sections">
-        <button type="button" data-econ-tab="items" class="is-active">ITEMS</button><button type="button" data-econ-tab="facilities">FACILITIES</button><button type="button" data-econ-tab="production">PRODUCTION</button><button type="button" data-econ-tab="inventory">INVENTORY</button><button type="button" data-econ-tab="ledger">LEDGER</button>
+        <button type="button" data-econ-tab="items" class="is-active">ITEMS</button><button type="button" data-econ-tab="facilities">FACILITIES</button><button type="button" data-econ-tab="production">PRODUCTION</button><button type="button" data-econ-tab="inventory">INVENTORY</button>
       </nav>
       <div class="econ-content" data-econ-content><div class="econ-loading">Loading Pocket catalogues…</div></div>
       <p class="econ-footnote">Pocket clock ×48 · <span data-econ-catalogue-meta>Verifying bundled catalogue…</span> · Per-profile inventory, wallet and transaction ledger.</p>
@@ -382,7 +383,7 @@ export function economyMarkup(){
 export function mountEconomy(root,identity){
   if(!root)return ()=>{};
   const summary=root.querySelector("[data-econ-summary]"),content=root.querySelector("[data-econ-content]");
-  let disposed=false,tab="items",query="",category="all",selectedItem="",selectedFacility="",showAll=false,data,state,key,tick=null,feedbackText="",feedbackType="info";
+  let disposed=false,tab="items",query="",category="all",selectedItem="",selectedFacility="",showAll=false,detailPage=0,detailSwipe=null,data,state,key,tick=null,feedbackText="",feedbackType="info";
   const feedback=(message,type="info")=>{feedbackText=message;feedbackType=type;const el=root.querySelector("[data-econ-feedback]");if(el){el.textContent=feedbackText;el.dataset.kind=feedbackType;}};
   const persist=()=>{const ok=saveState(state,key);if(!ok)feedback("Pocket could not write the local save. Free device storage before making more changes.","warning");return ok;};
   const refreshSummary=()=>{
@@ -390,20 +391,44 @@ export function mountEconomy(root,identity){
     summary.innerHTML="<div class='econ-stat'><small>WALLET</small><strong>"+esc(currency(state.wallet_xc))+"</strong></div><div class='econ-stat'><small>ITEM TYPES</small><strong>"+items.length+" / 1,000</strong></div><div class='econ-stat'><small>FACILITIES</small><strong>"+facilities+" / 200</strong></div><div class='econ-stat'><small>ACTIVE PROCESSES</small><strong>"+running+"</strong></div>";
   };
   const itemDetail=item=>{
-    if(!item)return "<aside class='econ-detail'><span class='eyebrow'>ITEM RECORD</span><h2>Select an item.</h2><p>Inspect its source, Requirements, tools, facilities, uses and market price.</p></aside>";
-    const acq=item.acquisition||{},g=gatherRecord(data,state,item),options=(acq.locations||[]).map(x=>"<option value='"+esc(x)+"' "+(g.selectedSite===x?"selected":"")+">"+esc(x)+"</option>").join("");
+    if(!item)return "<div class='econ-item-preview'><div class='econ-item-preview-frame'><span class='econ-muted'>Select an item below</span></div><aside class='econ-detail econ-item-dialog'><div class='econ-detail-top'><span class='eyebrow'>ITEM RECORD</span></div><div class='econ-dialog-scroll'><p class='econ-muted'>The selected item's production data and full catalogue description appear here.</p></div><div class='econ-detail-dots'><button type='button' class='econ-page-dot is-active' aria-label='Production page' disabled><span></span></button><button type='button' class='econ-page-dot' aria-label='Description page' disabled><span></span></button></div></aside></div>";
+    const acq=item.acquisition||{},g=gatherRecord(data,state,item),locations=acq.locations||[];
+    const options=locations.map(x=>"<option value='"+esc(x)+"' "+(g.selectedSite===x?"selected":"")+">"+esc(x)+"</option>").join("");
     const output=acq.output_per_active_sim_minute,buy=canBuy(item),sell=qty(state,item.item_id)>=1&&itemPrice(item,"typical_merchant_buyback_price_xc")!==null;
-    return "<aside class='econ-detail'><div class='econ-detail-top'><span class='eyebrow'>ITEM / "+esc(item.item_id)+"</span><span class='econ-chip'>"+esc(item.category)+"</span></div><div class='econ-detail-hero'>"+itemVisualMarkup(item,true)+"<div><h2>"+esc(item.name)+"</h2><p class='econ-muted'>"+esc(item.unit)+" · Quality tier "+esc(item.quality_tier??"Unknown")+"</p></div></div>" +
-      "<div class='econ-price-pair'><div><small>SHOP PRICE</small><b>"+esc(itemPriceLabel(item,"typical_shop_price_xc"))+"</b></div><div><small>MERCHANT BUYBACK</small><b>"+esc(itemPriceLabel(item,"typical_merchant_buyback_price_xc"))+"</b></div></div>" +
-      (item.market?.price_lot?"<p class='econ-lot-note'>Owner price anchor: "+esc(item.market.price_lot.price||"")+"</p>":"")+
-      "<h3>Acquisition</h3><p>"+esc(String(acq.method||"Unknown").replaceAll("_"," "))+"</p><p class='econ-muted'>Locations: "+esc((acq.locations||[]).join(" · ")||"Unknown")+"</p><h3>Requirements</h3>"+formatList(item.requirements)+"<h3>Tool Requirements</h3>"+formatList(acq.tool_requirements)+"<h3>Facility Requirements</h3>"+formatList(acq.facility_requirements)+"<h3>Output rate</h3><p>"+(output?esc(tidy(output.quantity)+" "+output.unit):"No active output rate")+"</p><p class='econ-muted'>Acquisition rates are Pocket simulation minutes, not real-world minutes. The ×48 clock is applied by the process scheduler.</p><h3>Uses</h3>"+formatList(item.uses)+
-      "<div class='econ-site-form'><label>RECORD ACCESSIBLE LOCATION<select data-econ-site-select='"+esc(item.item_id)+"'>"+options+"</select></label><button type='button' data-econ-action='record-item-site' data-id='"+esc(item.item_id)+"'>RECORD LOCATION ACCESS</button></div><div class='econ-action-row'>"+
+    const outputText=output?tidy(output.quantity)+" "+output.unit+" / active simulation minute":"Not specified in catalogue";
+    const paceNote=output&&num(output.quantity)>0?"Approx. "+tidy((60/CLOCK_RATE)/num(output.quantity))+" real seconds per unit at the listed expected rate.":"No active output rate is recorded for this item.";
+    const respawn=item.respawn_sim_minutes!==undefined&&item.respawn_sim_minutes!==null?"<div class='econ-data-row'><small>RESPAWN</small><p>"+esc(duration(item.respawn_sim_minutes))+"</p></div>":"";
+    const locationControl=locations.length
+      ?"<div class='econ-site-form'><label>RECORD ACCESSIBLE LOCATION<select data-econ-site-select='"+esc(item.item_id)+"'>"+options+"</select></label><button type='button' data-econ-action='record-item-site' data-id='"+esc(item.item_id)+"'>RECORD LOCATION ACCESS</button></div>"
+      :"<p class='econ-hint'>No location choices are listed for this item.</p>";
+    const actions="<div class='econ-action-row'>"+
       (buy?"<button type='button' data-econ-action='buy' data-id='"+esc(item.item_id)+"'>BUY 1 · "+esc(itemPriceLabel(item,"typical_shop_price_xc"))+"</button>":"")+
       (sell?"<button type='button' data-econ-action='sell' data-id='"+esc(item.item_id)+"'>SELL 1 · "+esc(itemPriceLabel(item,"typical_merchant_buyback_price_xc"))+"</button>":"")+
       (canGather(item)?"<button type='button' data-econ-action='gather' data-id='"+esc(item.item_id)+"' "+(g.ready?"":"disabled")+">GATHER · 60 SIM MIN</button>":"")+
-      "</div><p class='econ-hint'>"+(g.ready?"Requirements are met. Gathering output is an expected rate, not a guaranteed hunting result.":"Gathering remains locked until its listed site, tool and facility Requirements are recorded. Hunting, crop growth and undefined processing are not auto-granted.")+"</p></aside>";
+      "</div>";
+    const frame="<div class='econ-item-preview-frame'><div class='econ-preview-art'>"+itemVisualMarkup(item,true)+"</div><h2>"+esc(item.name)+"</h2><p>"+esc(item.item_id)+"</p><span class='econ-frame-category'>"+esc(item.category)+" · "+esc(item.unit)+"</span><strong>"+esc(itemPriceLabel(item,"typical_shop_price_xc"))+"</strong><small>SHOP PRICE</small></div>";
+    const productionPage="<section class='econ-dialog-page "+(detailPage===0?"is-active":"")+"' data-econ-page='0'><h3>PRODUCTION</h3><div class='econ-price-pair'><div><small>SHOP PRICE</small><b>"+esc(itemPriceLabel(item,"typical_shop_price_xc"))+"</b></div><div><small>MERCHANT BUYBACK</small><b>"+esc(itemPriceLabel(item,"typical_merchant_buyback_price_xc"))+"</b></div></div><div class='econ-data-grid'>"+
+      "<div class='econ-data-row'><small>ACQUISITION</small><p>"+esc(String(acq.method||"Unknown").replaceAll("_"," "))+"</p></div>"+
+      "<div class='econ-data-row'><small>LOCATIONS</small><p>"+esc(locations.join(" · ")||"Unknown")+"</p></div>"+
+      "<div class='econ-data-row'><small>TOOL REQUIREMENTS</small>"+formatList(acq.tool_requirements)+"</div>"+
+      "<div class='econ-data-row'><small>FACILITY REQUIREMENTS</small>"+formatList(acq.facility_requirements)+"</div>"+
+      "<div class='econ-data-row'><small>OUTPUT RATE</small><p>"+esc(outputText)+"</p><p class='econ-muted'>"+esc(paceNote)+"</p></div>"+respawn+
+      "</div>"+locationControl+actions+"<p class='econ-hint'>"+(g.ready?"Requirements are met. Gathering output is an expected rate, not a guaranteed result.":"Gathering remains locked until the listed site, tool and facility requirements are recorded. No unlisted output is granted.")+"</p></section>";
+    const descriptionText=item.description||item.long_description||item.flavour_text||"No separate prose description is stored for this item. This page presents its complete structured catalogue record.";
+    const descriptionPage="<section class='econ-dialog-page "+(detailPage===1?"is-active":"")+"' data-econ-page='1'><h3>FULL ITEM DESCRIPTION</h3><p>"+esc(descriptionText)+"</p><div class='econ-data-grid'>"+
+      "<div class='econ-data-row'><small>ITEM CLASS</small><p>"+esc(item.category)+"</p></div>"+
+      "<div class='econ-data-row'><small>UNIT</small><p>"+esc(item.unit)+"</p></div>"+
+      "<div class='econ-data-row'><small>QUALITY TIER</small><p>"+esc(item.quality_tier??"Unknown")+"</p></div>"+
+      "<div class='econ-data-row'><small>ITEM REQUIREMENTS</small>"+formatList(item.requirements)+"</div>"+
+      "<div class='econ-data-row'><small>TOOL REQUIREMENTS</small>"+formatList(acq.tool_requirements)+"</div>"+
+      "<div class='econ-data-row'><small>FACILITY REQUIREMENTS</small>"+formatList(acq.facility_requirements)+"</div>"+
+      "<div class='econ-data-row'><small>KNOWN USES</small>"+formatList(item.uses)+"</div></div>"+
+      (item.market?.price_lot?"<p class='econ-lot-note'>Trade-lot reference: "+esc(item.market.price_lot.price||"")+"</p>":"")+
+      (item.market?.note?"<p class='econ-muted'>"+esc(item.market.note)+"</p>":"")+
+      "<p class='econ-hint'>Catalogue-backed details only. No extra lore or unrecorded properties are assumed.</p></section>";
+    return "<div class='econ-item-preview'>"+frame+"<aside class='econ-detail econ-item-dialog'><div class='econ-detail-top'><span class='eyebrow'>ITEM / "+esc(item.item_id)+"</span><span class='econ-chip'>"+esc(item.category)+"</span></div><div class='econ-dialog-scroll'>"+productionPage+descriptionPage+"</div><div class='econ-detail-dots' aria-label='Item detail pages'><button type='button' class='econ-page-dot "+(detailPage===0?"is-active":"")+"' data-econ-detail-page='0' aria-label='Page 1: Production'><span></span></button><button type='button' class='econ-page-dot "+(detailPage===1?"is-active":"")+"' data-econ-detail-page='1' aria-label='Page 2: Full item description'><span></span></button></div></aside></div>";
   };
-  const facilityDetail=facility=>{
+    const facilityDetail=facility=>{
     if(!facility)return "<aside class='econ-detail'><span class='eyebrow'>FACILITY RECORD</span><h2>Select a facility.</h2><p>Inspect site Requirements, construction bill, workforce, tools, duration, outputs and upgrades.</p></aside>";
     const owned=state.facilities[facility.facility_id],r=buildRecord(data,state,facility),b=facility.build_requirements||{},u=upgradeRecord(data,state,facility);
     const site=state.facility_site_access[facility.facility_id]||"",options=(facility.location_requirements||[]).map(x=>"<option value='"+esc(x)+"' "+(site===x?"selected":"")+">"+esc(x)+"</option>").join("");
@@ -427,8 +452,10 @@ export function mountEconomy(root,identity){
   };
   const renderItems=()=>{
     const filtered=data.items.filter(x=>(category==="all"||x.category===category)&&(!query||(x.name+" "+x.item_id+" "+x.category+" "+(x.acquisition?.method||"")).toLowerCase().includes(query.toLowerCase())));
+    if(!filtered.some(x=>x.item_id===selectedItem)){selectedItem=filtered[0]?.item_id||"";detailPage=0;}
     const visible=showAll?filtered:filtered.slice(0,60);
-    return "<div class='econ-toolbar'><input type='search' data-econ-search placeholder='Search all 1,000 items…' value='"+esc(query)+"'><select data-econ-category><option value='all'>All categories</option>"+[...new Set(data.items.map(x=>x.category))].sort().map(x=>"<option value='"+esc(x)+"' "+(category===x?"selected":"")+">"+esc(x)+"</option>").join("")+"</select></div><div class='econ-browser'><div class='econ-list'><div class='econ-list-title'><b>ITEM RECORDS</b><small>"+filtered.length+" matched · showing "+visible.length+"</small></div>"+(visible.length?visible.map(x=>itemCard(x,state)).join(""):"<p class='econ-empty'>No matching items.</p>")+(filtered.length>visible.length?"<button type='button' class='econ-more' data-econ-action='show-more'>SHOW MORE RECORDS</button>":"")+"</div>"+itemDetail(data.byId.get(selectedItem))+"</div>";
+    const categoryOptions=[...new Set(data.items.map(x=>x.category))].sort().map(x=>"<option value='"+esc(x)+"' "+(category===x?"selected":"")+">"+esc(x)+"</option>").join("");
+    return "<div class='econ-toolbar econ-items-toolbar'><input type='search' data-econ-search placeholder='Search all 1,000 items…' value='"+esc(query)+"'></div><div class='econ-category-row'><select data-econ-category aria-label='Item category'><option value='all'>All categories</option>"+categoryOptions+"</select></div><div class='econ-list-title econ-item-count'><b>ITEM RECORDS</b><small>"+filtered.length+" matched · showing "+visible.length+"</small></div>"+(filtered.length?itemDetail(data.byId.get(selectedItem)):"<p class='econ-empty'>No matching items.</p>")+"<div class='econ-list econ-matches'><div class='econ-list-title'><b>MATCHING ITEMS</b><small>Tap a record to preview</small></div><div class='econ-item-results'>"+(visible.length?visible.map(x=>itemCard(x,state,selectedItem)).join(""):"<p class='econ-empty'>No matching items.</p>")+"</div>"+(filtered.length>visible.length?"<button type='button' class='econ-more' data-econ-action='show-more'>SHOW MORE RECORDS</button>":"")+"</div>";
   };
   const renderFacilities=()=>{
     const filtered=data.facilities.filter(x=>!query||(x.name+" "+x.facility_id+" "+x.family).toLowerCase().includes(query.toLowerCase())),visible=showAll?filtered:filtered.slice(0,45);
@@ -443,7 +470,7 @@ export function mountEconomy(root,identity){
   };
   const renderInventory=()=>{
     const rows=inventoryRows(data,state);
-    return "<div class='econ-list'><div class='econ-list-title'><b>LOCAL INVENTORY</b><small>"+rows.length+" item types · profile scoped</small></div>"+(rows.length?rows.map(x=>"<div class='econ-row econ-item-row econ-inventory-row'>"+itemVisualMarkup(x.item)+"<span class='econ-item-copy'><span class='econ-row-head'><b>"+esc(x.item.name)+"</b><small>"+esc(x.item.item_id)+"</small></span><span class='econ-row-meta'><i>"+esc(x.item.unit)+"</i><i>Owned "+esc(tidy(x.quantity))+"</i><i>Buyback "+esc(itemPriceLabel(x.item,"typical_merchant_buyback_price_xc"))+"</i></span></span></div>").join(""):"<p class='econ-empty'>This profile has no recorded inventory yet. Nothing is granted automatically.</p>")+"</div>";
+    return "<div class='econ-list'><div class='econ-list-title'><b>LOCAL INVENTORY</b><small>"+rows.length+" item types · profile scoped</small></div>"+(rows.length?rows.map(x=>"<div class='econ-row econ-item-row econ-inventory-row'>"+itemVisualMarkup(x.item)+"<span class='econ-item-copy'><span class='econ-row-head'><b>"+esc(x.item.name)+"</b><small>"+esc(x.item.item_id)+"</small></span><span class='econ-row-meta'><i>"+esc(x.item.unit)+"</i><i>Owned "+esc(tidy(x.quantity))+"</i><i>Buyback "+esc(itemPriceLabel(x.item,"typical_merchant_buyback_price_xc"))+"</i></span></span></div>").join(""):"<p class='econ-empty'>This profile has no recorded inventory yet. Nothing is granted automatically.</p>")+"</div>"+renderLedger();
   };
   const renderLedger=()=>{
     return "<div class='econ-list'><div class='econ-list-title'><b>TRANSACTION LEDGER</b><small>Newest first · "+state.ledger.length+" records kept</small></div>"+(state.ledger.length?state.ledger.map(x=>"<div class='econ-row econ-ledger-row'><span class='econ-row-head'><b>"+esc(x.label)+"</b><small>"+esc(new Date(x.at).toLocaleString())+"</small></span><span class='econ-row-meta'><i>"+esc(x.type)+"</i><i>"+(x.amount_xc?esc(currency(Math.abs(x.amount_xc))):x.quantity?"Qty "+esc(tidy(x.quantity)):"")+"</i></span></div>").join(""):"<p class='econ-empty'>No transactions recorded.</p>")+"</div>";
@@ -489,8 +516,9 @@ export function mountEconomy(root,identity){
     persist();feedback("Construction process started. Its stored finish time survives app restarts.");
   };
   const click=event=>{
-    const tabBtn=event.target.closest("[data-econ-tab]");if(tabBtn){tab=tabBtn.dataset.econTab;query="";showAll=false;render();return;}
-    const itemBtn=event.target.closest("[data-econ-open-item]");if(itemBtn){selectedItem=itemBtn.dataset.econOpenItem;render();return;}
+    const tabBtn=event.target.closest("[data-econ-tab]");if(tabBtn){tab=tabBtn.dataset.econTab;query="";showAll=false;detailPage=0;render();return;}
+    const pageBtn=event.target.closest("[data-econ-detail-page]");if(pageBtn){detailPage=Number(pageBtn.dataset.econDetailPage)===1?1:0;render();return;}
+    const itemBtn=event.target.closest("[data-econ-open-item]");if(itemBtn){selectedItem=itemBtn.dataset.econOpenItem;detailPage=0;render();return;}
     const facBtn=event.target.closest("[data-econ-open-facility]");if(facBtn){selectedFacility=facBtn.dataset.econOpenFacility;render();return;}
     const button=event.target.closest("[data-econ-action]");if(!button||button.disabled)return;
     const action=button.dataset.econAction,id=button.dataset.id;
@@ -530,7 +558,16 @@ export function mountEconomy(root,identity){
     if(event.target.matches("[data-econ-category]")){category=event.target.value;showAll=false;render();}
   };
   const change=event=>{if(event.target.matches("[data-econ-builder-count]")){state.builder_records[event.target.dataset.econBuilderCount]=Math.max(0,Math.min(50,Math.floor(num(event.target.value))));persist();}};
+  const pointerDown=event=>{if(event.target.closest(".econ-dialog-scroll"))detailSwipe={x:event.clientX,y:event.clientY};};
+  const pointerUp=event=>{
+    if(!detailSwipe)return;
+    const dx=event.clientX-detailSwipe.x,dy=event.clientY-detailSwipe.y;detailSwipe=null;
+    if(Math.abs(dx)<42||Math.abs(dx)<=Math.abs(dy))return;
+    detailPage=dx<0?1:0;render();
+  };
+  const pointerCancel=()=>{detailSwipe=null;};
   root.addEventListener("click",click);root.addEventListener("input",input);root.addEventListener("change",change);
+  root.addEventListener("pointerdown",pointerDown,{passive:true});root.addEventListener("pointerup",pointerUp,{passive:true});root.addEventListener("pointercancel",pointerCancel,{passive:true});
   const initialize=async()=>{
     try{
       data=await loadPocketEconomy();runtimeData=data;if(disposed)return;
@@ -546,7 +583,7 @@ export function mountEconomy(root,identity){
     }
   };
   void initialize();
-  return ()=>{disposed=true;if(tick!==null)window.clearInterval(tick);root.removeEventListener("click",click);root.removeEventListener("input",input);root.removeEventListener("change",change);};
+  return ()=>{disposed=true;if(tick!==null)window.clearInterval(tick);root.removeEventListener("click",click);root.removeEventListener("input",input);root.removeEventListener("change",change);root.removeEventListener("pointerdown",pointerDown);root.removeEventListener("pointerup",pointerUp);root.removeEventListener("pointercancel",pointerCancel);};
 }
 
 
