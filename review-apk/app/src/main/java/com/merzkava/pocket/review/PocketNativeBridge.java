@@ -79,9 +79,6 @@ public final class PocketNativeBridge {
             state.put("displayOverApps", overlay);
             state.put("notifications", notifications);
             state.put("batteryExemption", battery);
-            state.put("networkStateAccess", Build.VERSION.SDK_INT < 23 ||
-                activity.checkSelfPermission(Manifest.permission.ACCESS_NETWORK_STATE) ==
-                    android.content.pm.PackageManager.PERMISSION_GRANTED);
             state.put("serviceRunning", running);
             state.put("bubbleVisible", PocketFloatingService.isBubbleVisible());
             state.put("supported", true);
