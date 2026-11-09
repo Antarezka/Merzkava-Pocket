@@ -2357,7 +2357,7 @@
 .player-daily-streak span{color:var(--gold);font-size:7px;letter-spacing:.11em}
 .player-daily-streak strong{color:var(--paper);font-size:8px;line-height:1.5;font-weight:500}
 .player-record-empty-card{padding:18px 10px;border:1px dashed var(--line);color:var(--muted);font:10px/1.6 Georgia,serif;text-align:center}
-:root[data-theme="light"] .players-stage{background:radial-gradient(ellipse at 92% 3%,rgba(242,140,0,.12),transparent 34%),radial-gradient(ellipse at 5% 38%,rgba(85,118,95,.11),transparent 42%),var(--bg)}
+:root[data-theme="light"] .players-stage{background:radial-gradient(ellipse at 92% 3%,rgba(221,133,72,.12),transparent 34%),radial-gradient(ellipse at 5% 38%,rgba(85,118,95,.11),transparent 42%),var(--bg)}
 :root[data-theme="light"] .player-transfer-panel,:root[data-theme="light"] .player-record-directory{border-color:rgba(120,43,58,.38);background:linear-gradient(145deg,#fffdf8,#eeeae0);box-shadow:inset 0 0 0 1px rgba(255,255,255,.65),0 7px 20px rgba(70,59,43,.08)}
 :root[data-theme="light"] .player-record-section-head>span,:root[data-theme="light"] .player-record-section h3,:root[data-theme="light"] .player-daily-streak span{color:#8e7147}
 :root[data-theme="light"] .player-record-section-head>small,:root[data-theme="light"] .player-transfer-panel>p,:root[data-theme="light"] .player-record-feedback,:root[data-theme="light"] .player-record-summary-copy small,:root[data-theme="light"] .player-record-status>small,:root[data-theme="light"] .player-record-grid small,:root[data-theme="light"] .player-owner-proof-grid small,:root[data-theme="light"] .player-wallet-cell small,:root[data-theme="light"] .player-record-section h3 small,:root[data-theme="light"] .player-record-note,:root[data-theme="light"] .player-record-empty{color:#68736a}
@@ -2369,7 +2369,7 @@
 :root[data-theme="light"] .player-record-grid>div,:root[data-theme="light"] .player-owner-proof-grid>div,:root[data-theme="light"] .player-wallet-cell,:root[data-theme="light"] .player-record-list li{border-color:rgba(85,118,95,.18);background:rgba(85,118,95,.035)}
 :root[data-theme="light"] .player-record-status{border-top-color:rgba(85,118,95,.2)}
 :root[data-theme="light"] .player-record-status .is-pending,:root[data-theme="light"] .player-owner-proof-grid .is-pending{color:#8e7147}
-:root[data-theme="light"] .player-daily-streak{border-color:rgba(85,118,95,.35);background:linear-gradient(110deg,rgba(85,118,95,.07),rgba(242,140,0,.04))}
+:root[data-theme="light"] .player-daily-streak{border-color:rgba(85,118,95,.35);background:linear-gradient(110deg,rgba(85,118,95,.07),rgba(221,133,72,.04))}
 @media(max-width:360px){
   .players-stage{padding-inline:11px}
   .player-transfer-panel,.player-record-directory{padding:10px}
