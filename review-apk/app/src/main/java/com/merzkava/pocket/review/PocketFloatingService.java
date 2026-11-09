@@ -13,6 +13,8 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
+import android.graphics.LinearGradient;
+import android.graphics.Shader;
 import android.graphics.PixelFormat;
 import android.graphics.drawable.GradientDrawable;
 import android.net.ConnectivityManager;
@@ -219,44 +221,68 @@ public final class PocketFloatingService extends Service {
             canvas.save();
             canvas.scale(density, density);
 
-            // Match the pull-cord CRT silhouette: twin aerials, red-brown case,
-            // inset curved glass, right-side dials and two short feet.
-            stroke(Color.rgb(198, 164, 105), 1.25f);
+            // Reproduce the same approved Pocket pull-cord TV: asymmetric metal
+            // aerials, crimson rounded case, inset CRT glass, side tuning plate,
+            // two dials and short feet. The pull cord itself is not a loose lead.
+            stroke(Color.rgb(98, 92, 83), 1.8f);
             Path aerials = new Path();
             aerials.moveTo(28, 20);
-            aerials.lineTo(13, 10);
-            aerials.moveTo(28, 20);
-            aerials.lineTo(35, 7);
+            aerials.lineTo(13, 3);
+            aerials.moveTo(28, 19);
+            aerials.lineTo(34, 4);
             canvas.drawPath(aerials, paint);
-            stroke(Color.rgb(224, 214, 191), .8f);
-            canvas.drawLine(13, 10, 14, 10.5f, paint);
-            canvas.drawLine(35, 7, 36, 7.4f, paint);
+            stroke(Color.rgb(228, 216, 194), .75f);
+            canvas.drawLine(12.7f, 3.4f, 14.0f, 4.0f, paint);
+            canvas.drawLine(33.4f, 4.0f, 34.5f, 4.5f, paint);
 
-            fill(Color.argb(110, 0, 0, 0));
-            canvas.drawRoundRect(6.5f, 20, 51, 49, 7, 7, paint);
-            fill(Color.rgb(105, 48, 54));
+            fill(Color.argb(105, 0, 0, 0));
+            canvas.drawRoundRect(6.5f, 19.5f, 51, 49, 8, 8, paint);
+
+            paint.setStyle(Paint.Style.FILL);
+            paint.setShader(new LinearGradient(
+                7, 18, 45, 48,
+                new int[] {
+                    Color.rgb(169, 67, 77),
+                    Color.rgb(121, 38, 49),
+                    Color.rgb(59, 23, 29)
+                },
+                null,
+                Shader.TileMode.CLAMP
+            ));
             canvas.drawRoundRect(7, 18, 50, 48, 7, 8, paint);
-            fill(Color.rgb(59, 23, 29));
-            canvas.drawRoundRect(7, 39, 50, 48, 6, 6, paint);
-            stroke(Color.rgb(196, 193, 181), 1.2f);
+            paint.setShader(null);
+            stroke(Color.rgb(196, 193, 181), 1.35f);
             canvas.drawRoundRect(7, 18, 50, 48, 7, 8, paint);
 
-            // Screen well and CRT glass.
-            fill(Color.rgb(5, 7, 8));
-            RectF glass = new RectF(11, 22, 36, 42);
+            fill(Color.argb(115, 33, 11, 14));
+            canvas.drawRoundRect(8, 39, 49, 47, 5, 5, paint);
+
+            // Curved CRT glass in the exact left-side screen position.
+            fill(Color.rgb(5, 6, 7));
+            RectF glass = new RectF(10.5f, 21.5f, 36.5f, 42.5f);
             canvas.drawRoundRect(glass, 4, 4, paint);
-            fill(Color.rgb(18, 23, 24));
+            paint.setStyle(Paint.Style.FILL);
+            paint.setShader(new LinearGradient(
+                12, 23, 35, 41,
+                new int[] { Color.rgb(31, 32, 33), Color.rgb(5, 6, 7) },
+                null,
+                Shader.TileMode.CLAMP
+            ));
             canvas.drawRoundRect(12, 23, 35, 41, 3, 3, paint);
+            paint.setShader(null);
             stroke(Color.rgb(154, 130, 115), .85f);
             canvas.drawRoundRect(glass, 4, 4, paint);
-            stroke(Color.argb(95, 230, 221, 198), .45f);
+            stroke(Color.argb(105, 230, 221, 198), .5f);
             canvas.drawLine(14, 24, 20, 23.5f, paint);
 
+            Path screenClip = new Path();
+            screenClip.addRoundRect(
+                new RectF(13, 24, 34, 40), 2, 2, Path.Direction.CW);
+            canvas.save();
+            canvas.clipPath(screenClip);
             if (noiseEnabled) {
-                // Moving analogue snow and scan flicker are rendered only while
-                // Android reports a validated internet connection.
-                fill(Color.argb(36, 206, 219, 205));
-                canvas.drawRoundRect(13, 24, 34, 40, 2, 2, paint);
+                fill(Color.argb(34, 206, 219, 205));
+                canvas.drawRect(13, 24, 34, 40, paint);
                 for (int i = 0; i < 23; i++) {
                     float x = 13.5f + noise.nextFloat() * 20f;
                     float y = 24f + noise.nextFloat() * 15f;
@@ -280,37 +306,44 @@ public final class PocketFloatingService extends Service {
                 fill(Color.argb(28, 195, 201, 184));
                 canvas.drawRoundRect(13, 24, 34, 40, 2, 2, paint);
             }
+            canvas.restore();
 
-            // Right-side tuning controls and the brushed-metal panel strip.
-            fill(Color.rgb(133, 124, 105));
-            canvas.drawRoundRect(39, 22, 47, 44, 2.5f, 2.5f, paint);
-            stroke(Color.rgb(220, 201, 156), .75f);
-            canvas.drawRoundRect(39, 22, 47, 44, 2.5f, 2.5f, paint);
+            // Brushed-silver tuning plate and the three physical controls.
+            paint.setStyle(Paint.Style.FILL);
+            paint.setShader(new LinearGradient(
+                39, 21, 48, 43,
+                new int[] {
+                    Color.rgb(119, 123, 118),
+                    Color.rgb(222, 216, 200),
+                    Color.rgb(153, 152, 141)
+                },
+                null,
+                Shader.TileMode.CLAMP
+            ));
+            canvas.drawRoundRect(39, 21, 48, 43, 2.5f, 2.5f, paint);
+            paint.setShader(null);
+            stroke(Color.rgb(196, 193, 181), .8f);
+            canvas.drawRoundRect(39, 21, 48, 43, 2.5f, 2.5f, paint);
+
             fill(Color.rgb(169, 140, 84));
-            canvas.drawCircle(43, 29, 2.25f, paint);
+            canvas.drawCircle(44, 28.5f, 2.35f, paint);
             stroke(Color.rgb(241, 225, 185), .7f);
-            canvas.drawCircle(43, 29, 2.25f, paint);
-            fill(Color.rgb(74, 55, 43));
-            canvas.drawCircle(43, 38, 1.65f, paint);
-            stroke(Color.rgb(220, 201, 156), .65f);
-            canvas.drawCircle(43, 38, 1.65f, paint);
+            canvas.drawCircle(44, 28.5f, 2.35f, paint);
+            fill(Color.rgb(81, 64, 71));
+            canvas.drawCircle(44.5f, 36.5f, 1.55f, paint);
+            canvas.drawCircle(44.5f, 41.5f, 1.55f, paint);
+            stroke(Color.rgb(209, 197, 173), .55f);
+            canvas.drawCircle(44.5f, 36.5f, 1.55f, paint);
+            canvas.drawCircle(44.5f, 41.5f, 1.55f, paint);
 
-            // Feet and the deliberately unplugged dangling power lead.
+            // Two feet only; the pull cord remains visually separate above.
             stroke(Color.rgb(198, 164, 105), 1.15f);
             canvas.drawLine(14, 47, 12, 51, paint);
             canvas.drawLine(43, 47, 46, 51, paint);
-            Path looseLead = new Path();
-            looseLead.moveTo(29, 47);
-            looseLead.cubicTo(31, 50, 25, 51, 27, 54);
-            canvas.drawPath(looseLead, paint);
-            fill(Color.argb(205, 198, 164, 105));
-            canvas.drawRoundRect(25, 53, 29.5f, 56, 1, 1, paint);
-            stroke(Color.argb(205, 226, 198, 143), .7f);
-            canvas.drawLine(25.8f, 55.5f, 25.4f, 57, paint);
-            canvas.drawLine(28.7f, 55.5f, 29.1f, 57, paint);
 
             canvas.restore();
         }
+
     }
 
     private final class BubbleDismissZone extends View {
