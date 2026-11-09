@@ -149,3 +149,13 @@
 .econ-expense-row span{display:grid;gap:3px;min-width:0}
 .econ-expense-row b{color:var(--paper);font:10px Georgia,serif;overflow-wrap:anywhere}
 .econ-expense-row small{color:var(--muted);font:7px var(--ui);overflow-wrap:anywhere}
+
+
+.econ-recipe-materials{display:grid;gap:5px;padding:8px;border:1px solid #a98c5433;background:#0000000b}
+.econ-recipe-materials>small{color:var(--gold);font:600 7px var(--ui);letter-spacing:.11em}
+.econ-recipe-materials>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;padding:4px 0;border-bottom:1px solid #a98c5422}
+.econ-recipe-materials>div span{color:var(--paper);font:9px Georgia,serif;overflow-wrap:anywhere}
+.econ-recipe-materials>div b{color:var(--lime);font:8px var(--ui);white-space:nowrap}
+.econ-recipe-materials>div small{grid-column:1/-1;color:var(--muted);font:7px var(--ui)}
+.econ-recipe-materials>strong,.econ-recipe-materials>b{color:var(--gold);font:600 8px var(--ui);letter-spacing:.05em}
+.econ-recipe-materials>p{margin:0;color:var(--muted);font:9px Georgia,serif}
