@@ -79,7 +79,7 @@ public final class PocketFloatingService extends Service {
         } else if (ACTION_BUBBLE.equals(action) || action == null) {
             showBubble();
         }
-        return START_STICKY;
+        return START_NOT_STICKY;
     }
 
     private void registerNetworkListener() {
