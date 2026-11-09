@@ -15,12 +15,19 @@ import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.PixelFormat;
 import android.graphics.drawable.GradientDrawable;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
+
+import java.util.Random;
 
 public final class PocketFloatingService extends Service {
     static final String ACTION_BUBBLE = "com.merzkava.pocket.BUBBLE";
@@ -37,6 +44,17 @@ public final class PocketFloatingService extends Service {
     private WindowManager.LayoutParams bubbleParams;
     private View dismissZone;
     private WindowManager.LayoutParams dismissZoneParams;
+    private ConnectivityManager connectivityManager;
+    private ConnectivityManager.NetworkCallback networkCallback;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private volatile boolean internetAvailable = false;
+    private final Runnable noiseFrame = new Runnable() {
+        @Override public void run() {
+            if (!internetAvailable || bubble == null || !bubbleVisible) return;
+            bubble.invalidate();
+            mainHandler.postDelayed(this, 105);
+        }
+    };
     private static volatile boolean serviceRunning = false;
     private static volatile boolean bubbleVisible = false;
 
@@ -50,6 +68,7 @@ public final class PocketFloatingService extends Service {
         createChannel();
         startForegroundCompat();
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean("floating_service_running", true).apply();
+        registerNetworkListener();
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
@@ -61,6 +80,64 @@ public final class PocketFloatingService extends Service {
             showBubble();
         }
         return START_STICKY;
+    }
+
+    private void registerNetworkListener() {
+        connectivityManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+        refreshInternetState();
+        if (connectivityManager == null || Build.VERSION.SDK_INT < 24) return;
+        networkCallback = new ConnectivityManager.NetworkCallback() {
+            @Override public void onAvailable(Network network) {
+                refreshInternetState();
+            }
+
+            @Override public void onCapabilitiesChanged(Network network, NetworkCapabilities capabilities) {
+                setInternetState(hasUsableInternet(capabilities));
+            }
+
+            @Override public void onLost(Network network) {
+                refreshInternetState();
+            }
+        };
+        try {
+            connectivityManager.registerDefaultNetworkCallback(networkCallback);
+        } catch (Exception error) {
+            android.util.Log.w("PocketFloating", "Could not observe network changes", error);
+            networkCallback = null;
+            refreshInternetState();
+        }
+    }
+
+    private boolean hasUsableInternet(NetworkCapabilities capabilities) {
+        return capabilities != null
+            && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+    }
+
+    private void refreshInternetState() {
+        boolean connected = false;
+        if (connectivityManager != null && Build.VERSION.SDK_INT >= 23) {
+            try {
+                Network active = connectivityManager.getActiveNetwork();
+                NetworkCapabilities capabilities = active == null
+                    ? null : connectivityManager.getNetworkCapabilities(active);
+                connected = hasUsableInternet(capabilities);
+            } catch (Exception error) {
+                android.util.Log.w("PocketFloating", "Could not inspect active network", error);
+            }
+        }
+        setInternetState(connected);
+    }
+
+    private void setInternetState(boolean connected) {
+        internetAvailable = connected;
+        if (bubble instanceof TelevisionBubble) {
+            ((TelevisionBubble) bubble).setNoiseEnabled(connected);
+        }
+        mainHandler.removeCallbacks(noiseFrame);
+        if (connected && bubble != null && bubbleVisible) {
+            mainHandler.post(noiseFrame);
+        }
     }
 
     private void createChannel() {
@@ -112,15 +189,27 @@ public final class PocketFloatingService extends Service {
     private final class TelevisionBubble extends View {
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final float density = getResources().getDisplayMetrics().density;
-        private final RectF casing = new RectF(12, 20, 48, 45);
-        private final RectF glass = new RectF(16, 23, 39, 42);
+        private final Random noise = new Random();
+        private boolean noiseEnabled;
 
         TelevisionBubble(Context context) { super(context); }
 
+        void setNoiseEnabled(boolean enabled) {
+            if (noiseEnabled != enabled) {
+                noiseEnabled = enabled;
+                invalidate();
+            }
+        }
+
+        private void fill(int color) {
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(color);
+        }
+
         private void stroke(int color, float width) {
+            paint.setStyle(Paint.Style.STROKE);
             paint.setColor(color);
             paint.setStrokeWidth(width);
-            paint.setStyle(Paint.Style.STROKE);
             paint.setStrokeCap(Paint.Cap.ROUND);
             paint.setStrokeJoin(Paint.Join.ROUND);
         }
@@ -129,60 +218,96 @@ public final class PocketFloatingService extends Service {
             super.onDraw(canvas);
             canvas.save();
             canvas.scale(density, density);
-            int brass = Color.rgb(198, 164, 105);
-            int bright = Color.rgb(226, 198, 143);
-            stroke(brass, 1.5f);
-            Path antenna = new Path();
-            antenna.moveTo(28, 20); antenna.lineTo(20, 7);
-            antenna.moveTo(30, 20); antenna.lineTo(39, 7);
-            canvas.drawPath(antenna, paint);
-            paint.setStyle(Paint.Style.FILL);
-            paint.setColor(bright);
-            canvas.drawCircle(20, 7, 1.1f, paint);
-            canvas.drawCircle(39, 7, 1.1f, paint);
-            paint.setColor(Color.rgb(31, 25, 21));
-            canvas.drawRoundRect(casing.left - 1, casing.top + 2, casing.right + 1, casing.bottom + 3, 6, 6, paint);
-            paint.setColor(Color.rgb(76, 48, 34));
-            canvas.drawRoundRect(casing, 6, 6, paint);
-            stroke(brass, 1.5f);
-            canvas.drawRoundRect(casing, 6, 6, paint);
-            paint.setStyle(Paint.Style.FILL);
-            paint.setColor(Color.rgb(19, 27, 27));
-            canvas.drawRoundRect(glass, 4, 4, paint);
-            stroke(bright, .8f);
-            canvas.drawRoundRect(glass, 4, 4, paint);
-            // Quiet phosphor glow and a brief static flicker when the bubble is touched.
-            paint.setStyle(Paint.Style.FILL);
-            paint.setColor(Color.argb(42, 206, 193, 144));
-            canvas.drawRoundRect(glass.left + 2, glass.top + 2, glass.right - 2, glass.bottom - 2, 3, 3, paint);
-            stroke(bright, .7f);
-            canvas.drawLine(18, 27, 35, 27, paint);
-            canvas.drawLine(18, 30, 31, 30, paint);
-            paint.setStyle(Paint.Style.FILL);
-            paint.setColor(bright);
-            canvas.drawCircle(44, 29, 2.2f, paint);
-            stroke(brass, .8f);
-            canvas.drawCircle(44, 29, 2.2f, paint);
-            canvas.drawCircle(44, 36, 1.35f, paint);
-            stroke(brass, 1.2f);
-            canvas.drawLine(17, 46, 14, 50, paint);
-            canvas.drawLine(42, 46, 45, 50, paint);
 
-            // A loose, disconnected power lead makes the TV mark feel unplugged.
-            stroke(Color.argb(175, 226, 198, 143), 1.0f);
+            // Match the pull-cord CRT silhouette: twin aerials, red-brown case,
+            // inset curved glass, right-side dials and two short feet.
+            stroke(Color.rgb(198, 164, 105), 1.25f);
+            Path aerials = new Path();
+            aerials.moveTo(28, 20);
+            aerials.lineTo(19.5f, 2.5f);
+            aerials.moveTo(28, 20);
+            aerials.lineTo(37.5f, 5f);
+            canvas.drawPath(aerials, paint);
+            stroke(Color.rgb(224, 214, 191), .8f);
+            canvas.drawLine(19.5f, 2.5f, 20.4f, 2.5f, paint);
+            canvas.drawLine(37.5f, 5f, 38.4f, 5f, paint);
+
+            fill(Color.argb(110, 0, 0, 0));
+            canvas.drawRoundRect(6.5f, 20, 51, 49, 7, 7, paint);
+            fill(Color.rgb(105, 48, 54));
+            canvas.drawRoundRect(7, 18, 50, 48, 7, 8, paint);
+            fill(Color.rgb(59, 23, 29));
+            canvas.drawRoundRect(7, 39, 50, 48, 6, 6, paint);
+            stroke(Color.rgb(196, 193, 181), 1.2f);
+            canvas.drawRoundRect(7, 18, 50, 48, 7, 8, paint);
+
+            // Screen well and CRT glass.
+            fill(Color.rgb(5, 7, 8));
+            RectF glass = new RectF(11, 22, 36, 42);
+            canvas.drawRoundRect(glass, 4, 4, paint);
+            fill(Color.rgb(18, 23, 24));
+            canvas.drawRoundRect(12, 23, 35, 41, 3, 3, paint);
+            stroke(Color.rgb(154, 130, 115), .85f);
+            canvas.drawRoundRect(glass, 4, 4, paint);
+            stroke(Color.argb(95, 230, 221, 198), .45f);
+            canvas.drawLine(14, 24, 20, 23.5f, paint);
+
+            if (noiseEnabled) {
+                // Moving analogue snow and scan flicker are rendered only while
+                // Android reports a validated internet connection.
+                fill(Color.argb(36, 206, 219, 205));
+                canvas.drawRoundRect(13, 24, 34, 40, 2, 2, paint);
+                for (int i = 0; i < 23; i++) {
+                    float x = 13.5f + noise.nextFloat() * 20f;
+                    float y = 24f + noise.nextFloat() * 15f;
+                    float length = .5f + noise.nextFloat() * 4.5f;
+                    int alpha = 35 + noise.nextInt(105);
+                    int tint = noise.nextBoolean()
+                        ? Color.argb(alpha, 225, 226, 205)
+                        : Color.argb(alpha, 156, 190, 165);
+                    stroke(tint, noise.nextBoolean() ? .45f : .75f);
+                    canvas.drawLine(x, y, Math.min(34, x + length), y, paint);
+                }
+                float scanY = 25f + noise.nextFloat() * 14f;
+                stroke(Color.argb(150, 236, 225, 190), .65f);
+                canvas.drawLine(13, scanY, 34, scanY, paint);
+                if (noise.nextInt(5) == 0) {
+                    fill(Color.argb(48, 238, 232, 210));
+                    canvas.drawRect(13, 25 + noise.nextInt(13), 34, 26 + noise.nextInt(13), paint);
+                }
+            } else {
+                fill(Color.argb(28, 195, 201, 184));
+                canvas.drawRoundRect(13, 24, 34, 40, 2, 2, paint);
+            }
+
+            // Right-side tuning controls and the brushed-metal panel strip.
+            fill(Color.rgb(133, 124, 105));
+            canvas.drawRoundRect(39, 22, 47, 44, 2.5f, 2.5f, paint);
+            stroke(Color.rgb(220, 201, 156), .75f);
+            canvas.drawRoundRect(39, 22, 47, 44, 2.5f, 2.5f, paint);
+            fill(Color.rgb(169, 140, 84));
+            canvas.drawCircle(43, 29, 2.25f, paint);
+            stroke(Color.rgb(241, 225, 185), .7f);
+            canvas.drawCircle(43, 29, 2.25f, paint);
+            fill(Color.rgb(74, 55, 43));
+            canvas.drawCircle(43, 38, 1.65f, paint);
+            stroke(Color.rgb(220, 201, 156), .65f);
+            canvas.drawCircle(43, 38, 1.65f, paint);
+
+            // Feet and the deliberately unplugged dangling power lead.
+            stroke(Color.rgb(198, 164, 105), 1.15f);
+            canvas.drawLine(14, 47, 12, 51, paint);
+            canvas.drawLine(43, 47, 46, 51, paint);
             Path looseLead = new Path();
-            looseLead.moveTo(30, 45);
-            looseLead.cubicTo(31, 49, 25, 49, 27, 53);
+            looseLead.moveTo(29, 47);
+            looseLead.cubicTo(31, 50, 25, 51, 27, 54);
             canvas.drawPath(looseLead, paint);
-            paint.setStyle(Paint.Style.FILL);
-            paint.setColor(Color.argb(185, 198, 164, 105));
-            canvas.drawRoundRect(24.8f, 52.1f, 29.6f, 55.2f, 1.0f, 1.0f, paint);
-            stroke(Color.argb(185, 226, 198, 143), .7f);
-            canvas.drawLine(25.7f, 54.8f, 25.3f, 56.3f, paint);
-            canvas.drawLine(28.6f, 54.8f, 29.0f, 56.3f, paint);
+            fill(Color.argb(205, 198, 164, 105));
+            canvas.drawRoundRect(25, 53, 29.5f, 56, 1, 1, paint);
+            stroke(Color.argb(205, 226, 198, 143), .7f);
+            canvas.drawLine(25.8f, 55.5f, 25.4f, 57, paint);
+            canvas.drawLine(28.7f, 55.5f, 29.1f, 57, paint);
 
-            stroke(bright, .65f);
-            canvas.drawLine(16, 24, 21, 22, paint);
             canvas.restore();
         }
     }
@@ -366,6 +491,11 @@ public final class PocketFloatingService extends Service {
             bubble = mark;
             bubbleParams = params;
             bubbleVisible = true;
+            mark.setNoiseEnabled(internetAvailable);
+            if (internetAvailable) {
+                mainHandler.removeCallbacks(noiseFrame);
+                mainHandler.post(noiseFrame);
+            }
         } catch (Exception error) {
             bubble = null;
             bubbleParams = null;
@@ -387,6 +517,7 @@ public final class PocketFloatingService extends Service {
     }
 
     private void removeBubble() {
+        mainHandler.removeCallbacks(noiseFrame);
         hideDismissZone();
         if (bubble != null && windowManager != null) {
             try {
@@ -402,6 +533,14 @@ public final class PocketFloatingService extends Service {
 
     @Override public void onDestroy() {
         removeBubble();
+        mainHandler.removeCallbacksAndMessages(null);
+        if (connectivityManager != null && networkCallback != null && Build.VERSION.SDK_INT >= 24) {
+            try { connectivityManager.unregisterNetworkCallback(networkCallback); }
+            catch (Exception error) { android.util.Log.w("PocketFloating", "Network observer cleanup failed", error); }
+        }
+        networkCallback = null;
+        connectivityManager = null;
+        internetAvailable = false;
         serviceRunning = false;
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean("floating_service_running", false).apply();
         super.onDestroy();
