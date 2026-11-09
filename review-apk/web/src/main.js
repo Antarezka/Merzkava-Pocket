@@ -688,14 +688,14 @@ function renderLoginGate() {
         </div>
         <form class="access-form" data-player-form>
           <label for="player-name">CHARACTER NAME</label>
-          <input id="player-name" name="characterName" type="text" maxlength="80" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Exact registered name" required>
-          <p class="field-note">No Player password is required. Pocket checks the exact character name against the currently pinned Universe registry online, then checks this device's enrollment before opening the profile.</p>
+          <input id="player-name" name="characterName" type="text" maxlength="80" list="pocket-local-player-names" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Choose or enter a Player name" required><datalist id="pocket-local-player-names"></datalist><p class="field-note local-player-hint" data-local-player-hint>Checking names saved in Pocket…</p>
+          <p class="field-note">Choose a name saved in this Pocket installation to enter locally, or enter a name listed in the pinned Universe registry. No Player password is required.</p>
           <button type="submit" class="primary-action">VERIFY PLAYER <span>↗</span></button>
         </form>
         <form class="access-form" data-player-register-form hidden>
-          <label for="player-register-name">REGISTERED CHARACTER NAME</label>
+          <label for="player-register-name">NEW POCKET PLAYER NAME</label>
           <input id="player-register-name" name="characterName" type="text" maxlength="80" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Exact registered name" required>
-          <p class="field-note">Registration verifies the exact character name online, creates the local Player profile if needed, and enrolls this device. Pocket then creates the first complete save code. Later successful logins rotate it.</p>
+          <p class="field-note">Create a new Player name stored on this device. Pocket enrolls this device and creates the first save code. Later successful logins rotate it.</p>
           <button type="submit" class="primary-action">REGISTER THIS PLAYER <span>↗</span></button>
         </form>
         <form class="access-form" data-developer-form hidden>
@@ -721,6 +721,18 @@ function renderLoginGate() {
   const playerModeButtons = [...stage.querySelectorAll("[data-player-mode]")];
   const developerForm = stage.querySelector("[data-developer-form]");
   const tabs = [...stage.querySelectorAll("[data-role-tab]")];
+  const localNamesList = stage.querySelector("#pocket-local-player-names");
+  const localNamesHint = stage.querySelector("[data-local-player-hint]");
+  try {
+    const rawNames = JSON.parse(native?.getLocalPlayerNames?.() || "[]");
+    const names = Array.isArray(rawNames) ? [...new Set(rawNames.map(value => String(value || "").trim()).filter(Boolean))] : [];
+    if (localNamesList) localNamesList.innerHTML = names.map(name => '<option value="' + escapeHtml(name) + '"></option>').join("");
+    if (localNamesHint) localNamesHint.textContent = names.length
+      ? names.length + " LOCAL PLAYER NAME(S) FOUND · CHOOSE ONE OR TYPE A UNIVERSE NAME."
+      : "NO LOCAL PLAYER NAME FOUND · USE NEW PLAYER ACCOUNT TO CREATE ONE ON THIS DEVICE.";
+  } catch {
+    if (localNamesHint) localNamesHint.textContent = "Pocket could not read local Player names.";
+  }
   let busy = false;
 
   stage.querySelectorAll("[data-theme-choice]").forEach(button => button.addEventListener("click", () => setTheme(button.dataset.themeChoice)));
@@ -824,10 +836,7 @@ function renderLoginGate() {
     activeAccessAbort?.abort();
     activeAccessAbort = new AbortController();
     const signal = activeAccessAbort.signal;
-    const runRegistration = async () => {
-      await invokeNative("refreshPlayerRegistry", [], signal);
-      return invokeNative("registerPocketPlayerAccount", [name], signal);
-    };
+    const runRegistration = async () => invokeNative("registerPocketPlayerAccount", [name], signal);
     void runAccessSequence("player", runRegistration, signal).then(identity => {
       accessIdentity = identity;
       showFloatingControl();
@@ -1615,7 +1624,7 @@ function navigationMarkup() {
         <button class="dock-item is-active" type="button" data-destination="home" aria-current="page"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M4 16 18 5l14 11v15H4Z" fill="#789783" stroke="#d8d4b7"/><path d="M10 30V17l8-6 8 6v13" stroke="#f1eadb"/><path d="M14 30v-8h8v8" stroke="#d4b879"/><path d="M18 5V2" stroke="#d4b879"/></svg></span><b>HOME</b></button>
         <button class="dock-item" type="button" data-destination="game"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M8 12.5c1.3-3 4-4.5 7-4.5h6c3 0 5.7 1.5 7 4.5l3 10.2c1.2 4-2.7 6.6-5.7 4.2L20 23h-4l-5.3 3.9C7.7 29.3 3.8 26.7 5 22.7Z" fill="#789783" stroke="#d8d4b7"/><path d="M11 15v6m-3-3h6" stroke="#f1eadb" stroke-width="1.7"/><circle cx="24" cy="16.5" r="1.5" fill="#d4b879" stroke="none"/><circle cx="27" cy="20" r="1.3" fill="#d4b879" stroke="none"/></svg></span><b>GAME</b></button>
         <button class="dock-item" type="button" data-destination="daily-login"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true"><rect x="5" y="7" width="26" height="24" rx="3" fill="#789783" stroke="#d8d4b7"/><path d="M11 4v7M25 4v7M5 14h26" stroke="#f1eadb" stroke-width="1.5"/><path d="m18 17 2 4 4 .6-3 3 .7 4-3.7-2-3.7 2 .7-4-3-3 4-.6Z" fill="#d4b879" stroke="#f1eadb" stroke-width=".8"/></svg></span><b>DAILY LOG-IN</b></button>
-        <button class="dock-item" type="button" data-destination="player-list"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="13" cy="12" r="4.1" fill="#789783" stroke="#d8d4b7"/><path d="M5.8 27c.3-4.6 3.1-7.2 7.2-7.2s6.9 2.6 7.2 7.2z" fill="#789783" stroke="#d8d4b7"/><circle cx="25.2" cy="13.2" r="3.2" fill="#d4b879" stroke="#f1eadb"/><path d="M21.5 26.8c.2-3.3 1.8-5.5 4.5-5.5 2.6 0 4.2 2.1 4.4 5.5z" fill="#789783" stroke="#d8d4b7"/><path d="M20 7.2l1.5-2 1.5 2" fill="none" stroke="#d4b879"/></svg></span><b>PLAYER LIST</b></button>
+        <button class="dock-item" type="button" data-destination="player-list"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M7 32c1-5.6 4.2-8.8 9-10.4l1-3.2 4 .1 2.2 3.1c4.3 1.9 6.1 5.4 6.8 10.4H7Z" fill="#789783" stroke="#d8d4b7"/><path d="M11.8 21.3c1-2.4 2.9-4.4 5.1-5.2l4.2.2 2.7 3.5-4.2 3.7-7.8-2.2Z" fill="#789783" stroke="#d8d4b7"/><circle cx="16.3" cy="9.8" r="4.1" fill="#789783" stroke="#d8d4b7"/><path d="M12.2 8.7c.4-3.7 5.4-5.3 8.4-2l-.4 3-2.7-1.5-1.7 1.6-3.6-1.1Z" fill="#789783" stroke="#d4b879"/><path d="M19.5 11.5c2-1.1 3.4-1.2 4.7-.5M21.6 10.8l12.1-.2-2.5 1.4" fill="none" stroke="#d4b879" stroke-width="1.7" stroke-linecap="round"/><path d="M21.8 10.6 33.3 10.5" stroke="#f1eadb" stroke-width="2" stroke-linecap="round"/><path d="m33.3 10.5 1.5-1.1-.7 2.1" fill="#d4b879" stroke="#d4b879" stroke-width=".7"/><path d="M8.5 32c2.8-1.2 5.3-1.1 8.2 0m4.2-8.4-1 8.4" fill="none" stroke="#d4b879" stroke-width=".8"/></svg></span><b>PLAYER LIST</b></button>
         <button class="dock-item" type="button" data-destination="settings"><span class="dock-sigil"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M15 4h6l1 4 4 2 4-1 3 5-3 4v3l3 4-3 5-4-1-4 2-1 4h-6l-1-4-4-2-4 1-3-5 3-4v-3l-3-4 3-5 4 1 4-2Z" fill="#789783" stroke="#d8d4b7" transform="translate(0 -1) scale(1 .96)"/><circle cx="18" cy="18" r="5.5" fill="#f1eadb" stroke="#d4b879" stroke-width="1.2"/><circle cx="18" cy="18" r="2" fill="#789783" stroke="none"/></svg></span><b>SETTINGS</b></button>
       </nav>
     </div>
