@@ -689,19 +689,13 @@ function renderLoginGate() {
         <form class="access-form" data-player-form>
           <label for="player-name">CHARACTER NAME</label>
           <input id="player-name" name="characterName" type="text" maxlength="80" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Exact registered name" required>
-          <label for="player-owner-password">PLAYER ACCOUNT PASSWORD</label>
-          <input id="player-owner-password" name="ownerPassword" type="password" maxlength="128" autocomplete="current-password" required>
-          <p class="field-note">Enter the Pocket password you registered, or the imported World Atlas owner password. Every Player login checks the current Universe pin online.</p>
-          <button type="submit" class="primary-action">VERIFY PLAYER OWNER <span>↗</span></button>
+          <p class="field-note">No Player password is required. Pocket checks the exact character name against the currently pinned Universe registry online, then checks this device's enrollment before opening the profile.</p>
+          <button type="submit" class="primary-action">VERIFY PLAYER <span>↗</span></button>
         </form>
         <form class="access-form" data-player-register-form hidden>
           <label for="player-register-name">REGISTERED CHARACTER NAME</label>
           <input id="player-register-name" name="characterName" type="text" maxlength="80" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Exact registered name" required>
-          <label for="player-register-password">CREATE PLAYER PASSWORD</label>
-          <input id="player-register-password" name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required>
-          <label for="player-register-confirm">CONFIRM PLAYER PASSWORD</label>
-          <input id="player-register-confirm" name="confirmPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" required>
-          <p class="field-note">Registration verifies the current Universe pin online and checks that this character has a local Developer-provisioned profile. Pocket creates a new session save code after registration; future successful logins rotate that code automatically.</p>
+          <p class="field-note">Registration verifies the exact character name online, creates the local Player profile if needed, and enrolls this device. Pocket then creates the first complete save code. Later successful logins rotate it.</p>
           <button type="submit" class="primary-action">REGISTER THIS PLAYER <span>↗</span></button>
         </form>
         <form class="access-form" data-developer-form hidden>
@@ -793,8 +787,7 @@ function renderLoginGate() {
     const name = String(values.get("characterName") ?? "");
     const identifier = String(values.get("identifier") ?? "");
     const password = String(values.get("password") ?? "");
-    const ownerPassword = String(values.get("ownerPassword") ?? "");
-    if (role === "player" && (!name || !ownerPassword)) { message.textContent = "Enter the exact registered character name and its Player account password."; return; }
+    if (role === "player" && !name.trim()) { message.textContent = "Enter the exact registered character name."; return; }
     if (role === "developer" && (!identifier || !password)) { message.textContent = "Enter both Developer ID and password."; return; }
     busy = true;
     stage.dataset.busy = "true";
@@ -803,7 +796,7 @@ function renderLoginGate() {
     activeAccessAbort = new AbortController();
     try {
       const identity = await runAccessSequence(role, () => role === "player"
-        ? invokeNative("verifyPlayerIdentity", [name, ownerPassword], activeAccessAbort.signal)
+        ? invokeNative("verifyPlayerIdentity", [name.trim()], activeAccessAbort.signal)
         : invokeNative("authenticateDeveloper", [identifier, password, values.get("remember") === "on"], activeAccessAbort.signal), activeAccessAbort.signal);
       accessIdentity = identity;
       showFloatingControl();
@@ -824,14 +817,7 @@ function renderLoginGate() {
     if (!nativeReady()) { message.textContent = "Android access adapter unavailable. This route remains locked."; return; }
     const values = new FormData(playerRegisterForm);
     const name = String(values.get("characterName") || "").trim();
-    const password = String(values.get("password") || "");
-    const confirmPassword = String(values.get("confirmPassword") || "");
-    if (!name || !password || !confirmPassword) { message.textContent = "Complete all registration fields."; return; }
-    if (password !== confirmPassword) { message.textContent = "The two passwords do not match."; return; }
-    if (password.length < 8 || password.length > 128 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9\\s]/.test(password)) {
-      message.textContent = "Use 8–128 characters with uppercase, lowercase, number and symbol.";
-      return;
-    }
+    if (!name) { message.textContent = "Enter the exact registered character name."; return; }
     busy = true;
     stage.dataset.busy = "true";
     message.textContent = "";
@@ -840,7 +826,7 @@ function renderLoginGate() {
     const signal = activeAccessAbort.signal;
     const runRegistration = async () => {
       await invokeNative("refreshPlayerRegistry", [], signal);
-      return invokeNative("registerPocketPlayerAccount", [name, password], signal);
+      return invokeNative("registerPocketPlayerAccount", [name], signal);
     };
     void runAccessSequence("player", runRegistration, signal).then(identity => {
       accessIdentity = identity;

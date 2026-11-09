@@ -17,7 +17,11 @@ import android.webkit.WebView;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.Deflater;
+import java.util.zip.DeflaterOutputStream;
+import java.util.zip.InflaterInputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -425,21 +429,128 @@ public final class PocketNativeBridge {
         }
     }
 
-    // Internal profile key: never displayed as the Player's save/session code.
-    private String createPocketPlayerId() {
-        byte[] random = new byte[16];
-        new java.security.SecureRandom().nextBytes(random);
-        StringBuilder code = new StringBuilder("profile-");
-        for (byte value : random) code.append(String.format(Locale.ROOT, "%02X", value & 0xff));
-        return code.toString();
+    // Stable hidden profile key shared by a Player device and the Developer device.
+    // The visible MZKSV1 save code remains random and rotates after each successful login.
+    private String createPocketPlayerId(String playerName) throws Exception {
+        String normalized = pocketPlayerKey(playerName);
+        if (normalized.isEmpty()) throw new Exception("A Player name is required to derive the profile key.");
+        byte[] seed = ("MERZKAVA-POCKET-PROFILE-V1:" + normalized).getBytes(StandardCharsets.UTF_8);
+        return "profile-" + sha256Hex(seed).substring(0, 32).toUpperCase(Locale.ROOT);
     }
 
-    private String createPocketSessionSaveCode() {
+    private String randomSessionNonce() {
         byte[] random = new byte[16];
         new java.security.SecureRandom().nextBytes(random);
-        StringBuilder code = new StringBuilder("MZK-S-");
-        for (byte value : random) code.append(String.format(Locale.ROOT, "%02X", value & 0xff));
-        return code.toString();
+        return Base64.encodeToString(random, Base64.URL_SAFE | Base64.NO_WRAP | Base64.NO_PADDING);
+    }
+
+    private String sha256Hex(byte[] value) throws Exception {
+        byte[] digest = MessageDigest.getInstance("SHA-256").digest(value);
+        StringBuilder output = new StringBuilder(digest.length * 2);
+        for (byte item : digest) output.append(String.format(Locale.ROOT, "%02x", item & 0xff));
+        return output.toString();
+    }
+
+    private byte[] deflateSavePayload(byte[] plain) throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (DeflaterOutputStream stream = new DeflaterOutputStream(output, new Deflater(Deflater.BEST_COMPRESSION))) {
+            stream.write(plain);
+        }
+        return output.toByteArray();
+    }
+
+    private byte[] inflateSavePayload(byte[] compressed) throws Exception {
+        if (compressed.length == 0 || compressed.length > 4 * 1024 * 1024) {
+            throw new Exception("Save code compressed data is outside the allowed size.");
+        }
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (InflaterInputStream stream = new InflaterInputStream(new ByteArrayInputStream(compressed))) {
+            byte[] buffer = new byte[8192];
+            int count;
+            while ((count = stream.read(buffer)) != -1) {
+                if (output.size() + count > 8 * 1024 * 1024) {
+                    throw new Exception("Save code expands beyond the allowed 8 MB limit.");
+                }
+                output.write(buffer, 0, count);
+            }
+        }
+        return output.toByteArray();
+    }
+
+    private JSONObject buildPocketSaveEnvelope(JSONObject record, String profileKey, int generation, long issuedAt, String nonce) throws Exception {
+        JSONObject envelope = new JSONObject();
+        envelope.put("format", "MERZKAVA_POCKET_SAVE_V1");
+        envelope.put("version", 1);
+        envelope.put("player", new JSONObject()
+            .put("name", record.optString("name", ""))
+            .put("profileKey", profileKey));
+        envelope.put("session", new JSONObject()
+            .put("generation", generation)
+            .put("issuedAt", issuedAt)
+            .put("nonce", nonce));
+        JSONObject snapshot = new JSONObject(record.toString());
+        snapshot.remove("ownerCredential");
+        snapshot.remove("deviceBinding");
+        snapshot.remove("identityRef");
+        snapshot.remove("playerId");
+        snapshot.remove("sessionSaveCode");
+        snapshot.remove("sessionSaveNonce");
+        snapshot.remove("sessionSaveGeneration");
+        snapshot.remove("sessionSaveCodeIssuedAt");
+        snapshot.remove("lastSavedSaveCode");
+        snapshot.remove("lastSavedSnapshot");
+        snapshot.remove("lastSavedSaveCodeGeneration");
+        snapshot.remove("lastSavedSaveCodeIssuedAt");
+        snapshot.remove("sessionSaveCodePresent");
+        envelope.put("data", snapshot);
+        return envelope;
+    }
+
+    private String encodePocketSaveCode(JSONObject envelope) throws Exception {
+        byte[] plain = envelope.toString().getBytes(StandardCharsets.UTF_8);
+        byte[] compressed = deflateSavePayload(plain);
+        String body = Base64.encodeToString(compressed, Base64.URL_SAFE | Base64.NO_WRAP | Base64.NO_PADDING);
+        return "MZKSV1." + body + "." + sha256Hex(compressed);
+    }
+
+    private JSONObject decodeAndValidatePocketSaveCode(String code) throws Exception {
+        if (code == null || code.length() < 80 || code.length() > 6 * 1024 * 1024) {
+            throw new Exception("Save code is empty or exceeds the 6 MB limit.");
+        }
+        String[] parts = code.trim().split("\\.", -1);
+        if (parts.length != 3 || !"MZKSV1".equals(parts[0]) ||
+            !parts[1].matches("[A-Za-z0-9_-]+") || !parts[2].matches("[a-fA-F0-9]{64}")) {
+            throw new Exception("Invalid save code format. Expected MZKSV1.<compressed-data>.<SHA-256>.");
+        }
+        byte[] compressed;
+        try {
+            compressed = Base64.decode(parts[1], Base64.URL_SAFE | Base64.NO_PADDING);
+        } catch (Exception error) {
+            throw new Exception("Save code payload is not valid Base64URL.");
+        }
+        if (!MessageDigest.isEqual(sha256Hex(compressed).getBytes(StandardCharsets.US_ASCII),
+            parts[2].toLowerCase(Locale.ROOT).getBytes(StandardCharsets.US_ASCII))) {
+            throw new Exception("Save code checksum mismatch. The code may be cut off or altered.");
+        }
+        JSONObject envelope = new JSONObject(new String(inflateSavePayload(compressed), StandardCharsets.UTF_8));
+        if (!"MERZKAVA_POCKET_SAVE_V1".equals(envelope.optString("format", "")) || envelope.optInt("version", 0) != 1) {
+            throw new Exception("Unsupported Player save schema.");
+        }
+        JSONObject player = envelope.optJSONObject("player");
+        JSONObject session = envelope.optJSONObject("session");
+        JSONObject data = envelope.optJSONObject("data");
+        if (player == null || session == null || data == null) throw new Exception("Save code is missing required Player, session or data sections.");
+        String name = player.optString("name", "").trim();
+        String profileKey = player.optString("profileKey", "");
+        if (name.isEmpty() || name.length() > 80 || !profileKey.matches("profile-[A-Fa-f0-9]{32}") ||
+            !name.equalsIgnoreCase(data.optString("name", ""))) {
+            throw new Exception("Save code Player identity fields are invalid or inconsistent.");
+        }
+        if (session.optInt("generation", 0) < 1 || session.optLong("issuedAt", 0L) <= 0L ||
+            session.optString("nonce", "").length() < 20) {
+            throw new Exception("Save code session metadata is incomplete.");
+        }
+        return envelope;
     }
 
     private String rotatePocketSessionSaveCode(String name) throws Exception {
@@ -448,19 +559,21 @@ public final class PocketNativeBridge {
         if (record == null) throw new Exception("Player profile not found for this login.");
         String profileKey = ensurePocketPlayerId(record);
         int generation = record.optInt("sessionSaveGeneration", 0) + 1;
-        String code = createPocketSessionSaveCode();
-        record.put("sessionSaveCode", code);
+        long issuedAt = System.currentTimeMillis();
+        String nonce = randomSessionNonce();
         record.put("sessionSaveGeneration", generation);
-        record.put("sessionSaveCodeIssuedAt", System.currentTimeMillis());
+        record.put("sessionSaveCodeIssuedAt", issuedAt);
+        record.put("sessionSaveNonce", nonce);
+        record.put("sessionSaveCode", encodePocketSaveCode(buildPocketSaveEnvelope(record, profileKey, generation, issuedAt, nonce)));
         store.remove(pocketPlayerKey(name));
         store.put(profileKey, record);
         persistPocketPlayerProfileStore(store);
-        return code;
+        return record.getString("sessionSaveCode");
     }
 
     private String ensurePocketPlayerId(JSONObject record) throws Exception {
-        String code = record.optString("playerId", "").trim().toUpperCase(Locale.ROOT);
-        if (!code.matches("profile-[A-F0-9]{32}")) code = createPocketPlayerId();
+        String name = record.optString("name", "").trim();
+        String code = createPocketPlayerId(name);
         record.put("playerId", code);
         return code;
     }
@@ -512,7 +625,7 @@ public final class PocketNativeBridge {
         profile.put("schemaVersion", 1);
         profile.put("name", name);
         profile.put("source", "Pocket local registration");
-        profile.put("profileStatus", "registered");
+        profile.put("profileStatus", "provisioned");
         profile.put("lastSeenAt", JSONObject.NULL);
         JSONObject character = new JSONObject();
         character.put("age", JSONObject.NULL);
@@ -541,9 +654,10 @@ public final class PocketNativeBridge {
         JSONObject achievements = new JSONObject();
         achievements.put("items", new JSONArray());
         JSONObject daily = new JSONObject();
-        daily.put("currentStreak", 0);
-        daily.put("longestStreak", 0);
-        daily.put("totalClaims", 0);
+        daily.put("currentStreak", JSONObject.NULL);
+        daily.put("longestStreak", JSONObject.NULL);
+        daily.put("totalClaims", JSONObject.NULL);
+        daily.put("trackingStatus", "not-recorded");
         daily.put("lastClaimDate", JSONObject.NULL);
         daily.put("longestStreakDate", JSONObject.NULL);
         achievements.put("dailyLogin", daily);
@@ -682,79 +796,14 @@ public final class PocketNativeBridge {
             bundle.put("version", 1);
             bundle.put("createdAt", System.currentTimeMillis());
             bundle.put("players", new JSONArray(getPocketPlayerProfiles()));
-            bundle.put("passwordNote", "ownerCredential contains salted PBKDF2-HMAC-SHA256 verifiers only. No plaintext passwords are stored or exported.");
+            bundle.put("identityNote", "Player access is passwordless and verified against the current pinned Universe registry online. This bundle contains profile data only.");
             return bundle.toString();
         } catch (Exception ignored) { return ""; }
     }
 
-    @JavascriptInterface public void registerPocketPlayerAccount(String characterName, String password, String requestId) {
-        prefs().edit().putBoolean(PREF_SESSION, false).putString(PREF_PLAYER_SESSION_NAME, "").apply();
-        if (requestId == null || characterName == null || characterName.trim().isEmpty() ||
-            password == null || password.isEmpty()) {
-            completePlayer(requestId, false, "", "", "Enter the exact character name and a new Player password.");
-            return;
-        }
-        String name = characterName.trim();
-        if (name.length() > 80) {
-            completePlayer(requestId, false, "", "", "The character name is too long.");
-            return;
-        }
-        if (password.length() < 8 || password.length() > 128 ||
-            !password.matches("(?s).*[A-Z].*") || !password.matches("(?s).*[a-z].*") ||
-            !password.matches("(?s).*[0-9].*") || !password.matches("(?s).*[^A-Za-z0-9\\s].*")) {
-            completePlayer(requestId, false, "", "", "Password needs 8–128 characters with uppercase, lowercase, number and symbol.");
-            return;
-        }
-        Thread thread = new Thread(() -> {
-            try {
-                long verifiedAt = prefs().getLong(PREF_REGISTRY_AT, 0L);
-                String verifiedSha = prefs().getString(PREF_REGISTRY_SHA, "");
-                if (!verifiedSha.matches("[a-fA-F0-9]{40}") ||
-                    System.currentTimeMillis() - verifiedAt > 120000L || verifiedAt <= 0L) {
-                    throw new Exception("Refresh the online Universe player registry, then try registration again.");
-                }
-                boolean official = containsExactName(readCachedPlayerNames(), name);
-                boolean pocketLocal = containsExactName(readPocketRegisteredPlayerNames(), name);
-                if (!official && !pocketLocal) {
-                    throw new Exception("The exact name was not found in the current pinned Universe list or Pocket local registry.");
-                }
-
-                JSONObject store = readPocketPlayerProfileStore();
-                JSONObject record = findPocketPlayerProfile(store, name);
-                if (record == null) {
-                    throw new Exception("This Player has not been provisioned by Developer yet. Ask Developer to add the character to Pocket's local Player directory.");
-                }
-                String profileKey = ensurePocketPlayerId(record);
-                if (record.optJSONObject("ownerCredential") != null) {
-                    throw new Exception("This player account already has a password. Use PLAYER LOGIN instead.");
-                }
-
-                record.put("name", name);
-                record.put("ownerCredential", createPocketOwnerCredential(password));
-                record.put("source", record.optString("source", "Pocket local registration"));
-                record.put("profileStatus", "registered");
-                record.put("registeredAt", System.currentTimeMillis());
-                record.put("lastSeenAt", System.currentTimeMillis());
-                store.remove(pocketPlayerKey(name));
-                store.put(profileKey, record);
-                persistPocketPlayerProfileStore(store);
-                String fingerprint = enrollOrVerifyPocketDevice(name);
-                String sessionSaveCode = rotatePocketSessionSaveCode(name);
-                rememberPocketPlayerName(name);
-                prefs().edit().putBoolean(PREF_SESSION, false).putString(PREF_PLAYER_SESSION_NAME, name).apply();
-                completePlayer(requestId, true, name,
-                    "pocket-registration:" + verifiedSha + ":device:" + fingerprint + ":save-code-issued", "");
-            } catch (Exception error) {
-                if (!cancelledRequests.contains(requestId)) {
-                    completePlayer(requestId, false, "", "", error.getMessage() == null
-                        ? "Pocket account registration failed." : error.getMessage());
-                }
-            } finally {
-                cancelledRequests.remove(requestId);
-            }
-        }, "Pocket-Player-Registration");
-        thread.setDaemon(true);
-        thread.start();
+    @JavascriptInterface public void registerPocketPlayerAccount(String characterName, String requestId) {
+        // Registration and Player login share the same online identity + device enrollment flow.
+        verifyPlayerIdentity(characterName, requestId);
     }
 
     @JavascriptInterface public String getPocketPlayerProfiles() {
@@ -769,7 +818,6 @@ public final class PocketNativeBridge {
                 JSONObject own = findPocketPlayerProfile(store, playerName);
                 if (own == null) return "[]";
                 own = new JSONObject(own.toString());
-                own.put("ownerCredentialPresent", own.optJSONObject("ownerCredential") != null);
                 own.put("deviceBindingPresent", own.optJSONObject("deviceBinding") != null);
                 own.remove("ownerCredential");
                 own.remove("deviceBinding");
@@ -794,8 +842,11 @@ public final class PocketNativeBridge {
                 record.put("name", name);
                 String profileKey = ensurePocketPlayerId(record);
                 JSONObject displayRecord = new JSONObject(record.toString());
+                displayRecord.remove("ownerCredential");
                 displayRecord.put("sessionSaveCodePresent", !record.optString("sessionSaveCode", "").isEmpty());
                 displayRecord.put("sessionSaveCodeGeneration", record.optInt("sessionSaveGeneration", 0));
+                displayRecord.put("savedSaveGeneration", record.optInt("lastSavedSaveCodeGeneration", 0));
+                displayRecord.put("savedAt", record.optLong("lastSavedAt", 0L));
                 displayRecord.remove("sessionSaveCode");
                 displayRecord.remove("playerId");
                 store.remove(pocketPlayerKey(name));
@@ -812,6 +863,8 @@ public final class PocketNativeBridge {
                 JSONObject displayRecord = new JSONObject(record.toString());
                 displayRecord.put("sessionSaveCodePresent", !record.optString("sessionSaveCode", "").isEmpty());
                 displayRecord.put("sessionSaveCodeGeneration", record.optInt("sessionSaveGeneration", 0));
+                displayRecord.put("savedSaveGeneration", record.optInt("lastSavedSaveCodeGeneration", 0));
+                displayRecord.put("savedAt", record.optLong("lastSavedAt", 0L));
                 displayRecord.remove("sessionSaveCode");
                 displayRecord.remove("playerId");
                 if (emittedProfileKeys.add(profileKey)) output.put(displayRecord);
@@ -823,6 +876,83 @@ public final class PocketNativeBridge {
         }
     }
 
+    @JavascriptInterface public String updatePocketPlayerEconomySnapshot(String playerName, String snapshotJson) {
+        if (!isPlayerSessionAuthorized()) {
+            return "{\"ok\":false,\"error\":\"A verified Player session is required.\"}";
+        }
+        String activeName = prefs().getString(PREF_PLAYER_SESSION_NAME, "").trim();
+        if (playerName == null || !activeName.equalsIgnoreCase(playerName.trim())) {
+            return "{\"ok\":false,\"error\":\"A Player can only attach the economy save to their own active profile.\"}";
+        }
+        if (snapshotJson == null || snapshotJson.trim().isEmpty() || snapshotJson.length() > 4 * 1024 * 1024) {
+            return "{\"ok\":false,\"error\":\"The local economy snapshot is empty or exceeds the 4 MB limit.\"}";
+        }
+        try {
+            JSONObject supplied = new JSONObject(snapshotJson);
+            if (!"MERZKAVA_POCKET_ECONOMY_STATE_V1".equals(supplied.optString("format", ""))) {
+                throw new Exception("Unsupported Pocket economy snapshot format.");
+            }
+            if (!activeName.equalsIgnoreCase(supplied.optString("playerName", ""))) {
+                throw new Exception("The economy snapshot belongs to a different Player name.");
+            }
+            int version = supplied.optInt("schemaVersion", 0);
+            if (version < 1 || version > 6) throw new Exception("Unsupported Pocket economy schema version.");
+            JSONObject state = supplied.optJSONObject("state");
+            if (state == null) throw new Exception("The economy snapshot has no state object.");
+            JSONObject inventory = state.optJSONObject("inventory");
+            JSONObject facilities = state.optJSONObject("facilities");
+            JSONArray processes = state.optJSONArray("processes");
+            JSONArray ledger = state.optJSONArray("ledger");
+            JSONObject saveMeta = state.optJSONObject("save_meta");
+            if (inventory == null || facilities == null || processes == null || ledger == null || saveMeta == null) {
+                throw new Exception("The save is missing inventory, facilities, processes, ledger or save metadata.");
+            }
+            if (processes.length() > 1000 || ledger.length() > 5000 ||
+                inventory.length() > 3000 || facilities.length() > 500) {
+                throw new Exception("The economy snapshot exceeds Pocket's supported record counts.");
+            }
+
+            JSONObject store = readPocketPlayerProfileStore();
+            JSONObject record = findPocketPlayerProfile(store, activeName);
+            if (record == null) throw new Exception("The active Player profile could not be found.");
+            String profileKey = ensurePocketPlayerId(record);
+            record.put("pocketEconomy", state);
+            record.put("pocketEconomySchemaVersion", version);
+            record.put("pocketEconomySavedAt", System.currentTimeMillis());
+            store.remove(pocketPlayerKey(activeName));
+            store.put(profileKey, record);
+            persistPocketPlayerProfileStore(store);
+
+            JSONObject response = new JSONObject();
+            response.put("ok", true);
+            response.put("name", activeName);
+            response.put("schemaVersion", version);
+            response.put("savedAt", System.currentTimeMillis());
+            response.put("processes", processes.length());
+            response.put("inventoryTypes", inventory.length());
+            response.put("buildings", facilities.length());
+            return response.toString();
+        } catch (Exception error) {
+            try {
+                return new JSONObject().put("ok", false)
+                    .put("error", error.getMessage() == null ? "Could not save Pocket economy snapshot." : error.getMessage())
+                    .toString();
+            } catch (Exception ignored) {
+                return "{\"ok\":false,\"error\":\"Could not save Pocket economy snapshot.\"}";
+            }
+        }
+    }
+
+    @JavascriptInterface public String refreshCurrentPlayerSessionSaveCode() {
+        if (!isPlayerSessionAuthorized()) return "";
+        try {
+            String name = prefs().getString(PREF_PLAYER_SESSION_NAME, "").trim();
+            return rotatePocketSessionSaveCode(name);
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
+
     @JavascriptInterface public String getCurrentPlayerSessionSaveCode() {
         if (!isPlayerSessionAuthorized()) return "";
         try {
@@ -830,7 +960,7 @@ public final class PocketNativeBridge {
             JSONObject record = findPocketPlayerProfile(readPocketPlayerProfileStore(), name);
             if (record == null) return "";
             String code = record.optString("sessionSaveCode", "");
-            return code.matches("MZK-S-[A-F0-9]{32}") ? code : "";
+            return code.startsWith("MZKSV1.") && code.length() <= 6 * 1024 * 1024 ? code : "";
         } catch (Exception ignored) {
             return "";
         }
@@ -848,46 +978,151 @@ public final class PocketNativeBridge {
     }
 
     @JavascriptInterface public boolean isCurrentPlayerSaveCode(String playerName, String suppliedCode) {
-        if (playerName == null || suppliedCode == null || !suppliedCode.trim().matches("(?i)MZK-S-[A-F0-9]{32}")) return false;
+        if (playerName == null || suppliedCode == null) return false;
         try {
+            JSONObject envelope = decodeAndValidatePocketSaveCode(suppliedCode);
+            JSONObject player = envelope.optJSONObject("player");
+            if (player == null || !playerName.trim().equalsIgnoreCase(player.optString("name", ""))) return false;
             JSONObject record = findPocketPlayerProfile(readPocketPlayerProfileStore(), playerName);
             if (record == null) return false;
-            String current = record.optString("sessionSaveCode", "");
-            return !current.isEmpty() && MessageDigest.isEqual(
-                current.getBytes(StandardCharsets.UTF_8),
-                suppliedCode.trim().toUpperCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8)
-            );
+            String localKey = ensurePocketPlayerId(record);
+            return localKey.equals(player.optString("profileKey", "")) &&
+                envelope.getJSONObject("session").optInt("generation", 0) >
+                    record.optInt("lastSavedSaveCodeGeneration", 0);
         } catch (Exception ignored) {
             return false;
         }
     }
 
-    @JavascriptInterface public String lookupPocketPlayerBySessionSaveCode(String suppliedCode) {
+    @JavascriptInterface public String savePocketPlayerCodeForName(String selectedPlayerName, String suppliedCode) {
         if (!prefs().getBoolean(PREF_SESSION, false)) return "{\"ok\":false,\"error\":\"Developer authorization is required.\"}";
-        if (suppliedCode == null || !suppliedCode.trim().matches("(?i)MZK-S-[A-F0-9]{32}")) {
-            return "{\"ok\":false,\"error\":\"Invalid save code format.\"}";
-        }
+        if (selectedPlayerName == null || selectedPlayerName.trim().isEmpty()) return "{\"ok\":false,\"error\":\"Choose a Player profile first.\"}";
         try {
-            byte[] provided = suppliedCode.trim().toUpperCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8);
+            JSONObject envelope = decodeAndValidatePocketSaveCode(suppliedCode);
+            JSONObject identity = envelope.getJSONObject("player");
+            String codeName = identity.getString("name").trim();
+            if (!selectedPlayerName.trim().equalsIgnoreCase(codeName)) {
+                throw new Exception("The save code belongs to " + codeName + ", not " + selectedPlayerName + ".");
+            }
+            JSONObject data = envelope.getJSONObject("data");
             JSONObject store = readPocketPlayerProfileStore();
+            JSONObject record = findPocketPlayerProfile(store, selectedPlayerName);
+            if (record == null) record = createEmptyPocketPlayerProfile(selectedPlayerName);
+            String profileKey = ensurePocketPlayerId(record);
+            String codeProfileKey = identity.optString("profileKey", "");
+            if (!profileKey.equals(codeProfileKey)) {
+                throw new Exception("The save code belongs to a different underlying Player profile. No data was changed.");
+            }
+            // This snapshot is created on the Player's device and transferred to this Developer device.
+            // Validate its portable identity and monotonic session, not this device's local code cache.
+            String[] allowed = {
+                "name", "source", "profileStatus", "character", "stats", "assets", "relationships",
+                "inventory", "wealth", "wallet", "walletLedger", "achievements", "gameplay",
+                "pocketEconomy", "pocketEconomySchemaVersion", "pocketEconomySavedAt",
+                "profileMarkdown", "characterId", "lastSeenAt"
+            };
+            for (String key : allowed) {
+                if (data.has(key)) record.put(key, data.get(key));
+            }
+            record.put("name", selectedPlayerName.trim());
+            int incomingGeneration = envelope.getJSONObject("session").optInt("generation", 0);
+            int previouslySavedGeneration = record.optInt("lastSavedSaveCodeGeneration", 0);
+            if (incomingGeneration <= previouslySavedGeneration) {
+                throw new Exception("This save code is older than or equal to the last accepted session for this Player.");
+            }
+            record.put("lastSavedSaveCode", suppliedCode.trim());
+            record.put("lastSavedSaveCodeGeneration", incomingGeneration);
+            record.put("lastSavedSaveCodeIssuedAt", envelope.getJSONObject("session").optLong("issuedAt", 0L));
+            record.put("lastSavedAt", System.currentTimeMillis());
+            JSONObject safeSnapshot = new JSONObject(data.toString());
+            record.put("lastSavedSnapshot", safeSnapshot);
+            store.remove(pocketPlayerKey(selectedPlayerName));
+            store.put(profileKey, record);
+            persistPocketPlayerProfileStore(store);
+
+            JSONObject result = new JSONObject();
+            result.put("ok", true);
+            result.put("name", selectedPlayerName.trim());
+            result.put("session", envelope.getJSONObject("session").optInt("generation", 0));
+            result.put("savedAt", System.currentTimeMillis());
+            result.put("profileKey", profileKey);
+            result.put("checksumVerified", true);
+            return result.toString();
+        } catch (Exception error) {
+            try { return new JSONObject().put("ok", false)
+                .put("error", error.getMessage() == null ? "Save code could not be validated." : error.getMessage()).toString(); }
+            catch (Exception ignored) { return "{\"ok\":false,\"error\":\"Save code could not be validated.\"}"; }
+        }
+    }
+
+    @JavascriptInterface public String exportPocketPlayerSaveDirectory() {
+        if (!prefs().getBoolean(PREF_SESSION, false)) return "";
+        try {
+            JSONObject store = readPocketPlayerProfileStore();
+            JSONArray players = new JSONArray();
             Iterator<String> keys = store.keys();
             while (keys.hasNext()) {
                 JSONObject record = store.optJSONObject(keys.next());
                 if (record == null) continue;
-                String current = record.optString("sessionSaveCode", "");
-                if (!current.isEmpty() && MessageDigest.isEqual(current.getBytes(StandardCharsets.UTF_8), provided)) {
-                    JSONObject result = new JSONObject();
-                    result.put("ok", true);
-                    result.put("name", record.optString("name", "Unknown"));
-                    result.put("session", record.optInt("sessionSaveGeneration", 0));
-                    result.put("issuedAt", record.optLong("sessionSaveCodeIssuedAt", 0L));
-                    result.put("profileStatus", record.optString("profileStatus", "registered"));
-                    return result.toString();
+                String name = record.optString("name", "").trim();
+                if (name.isEmpty()) continue;
+                String savedCode = record.optString("lastSavedSaveCode", "");
+                JSONObject snapshot = record.optJSONObject("lastSavedSnapshot");
+                if (savedCode.isEmpty() || snapshot == null) continue;
+                JSONObject savedEnvelope = decodeAndValidatePocketSaveCode(savedCode);
+                JSONObject savedIdentity = savedEnvelope.getJSONObject("player");
+                if (!name.equalsIgnoreCase(savedIdentity.optString("name", "")) ||
+                    !ensurePocketPlayerId(record).equals(savedIdentity.optString("profileKey", ""))) {
+                    continue;
                 }
+                JSONObject item = new JSONObject();
+                item.put("name", name);
+                item.put("code", savedCode);
+                item.put("session", record.optInt("lastSavedSaveCodeGeneration", 0));
+                item.put("savedAt", record.optLong("lastSavedAt", 0L));
+                item.put("data", snapshot);
+                players.put(item);
             }
-            return "{\"ok\":false,\"error\":\"This code is expired, replaced, or does not exist in the current Pocket player registry.\"}";
+            JSONObject bundle = new JSONObject();
+            bundle.put("format", "MERZKAVA_POCKET_SAVE_DIRECTORY_V1");
+            bundle.put("version", 1);
+            bundle.put("exportedAt", System.currentTimeMillis());
+            bundle.put("checksumAlgorithm", "SHA-256 per embedded MZKSV1 save code");
+            bundle.put("players", players);
+            return bundle.toString();
         } catch (Exception ignored) {
-            return "{\"ok\":false,\"error\":\"Could not check the current Player save code.\"}";
+            return "";
+        }
+    }
+
+    @JavascriptInterface public String lookupPocketPlayerBySessionSaveCode(String suppliedCode) {
+        if (!prefs().getBoolean(PREF_SESSION, false)) return "{\"ok\":false,\"error\":\"Developer authorization is required.\"}";
+        try {
+            JSONObject envelope = decodeAndValidatePocketSaveCode(suppliedCode);
+            JSONObject identity = envelope.getJSONObject("player");
+            JSONObject session = envelope.getJSONObject("session");
+            JSONObject record = findPocketPlayerProfile(readPocketPlayerProfileStore(), identity.getString("name"));
+            if (record == null) {
+                throw new Exception("The selected Player does not exist in the Developer's local directory.");
+            }
+            if (!ensurePocketPlayerId(record).equals(identity.optString("profileKey", ""))) {
+                throw new Exception("Player identity key mismatch. This save code does not belong to the matched profile.");
+            }
+            if (session.optInt("generation", 0) <= record.optInt("lastSavedSaveCodeGeneration", 0)) {
+                throw new Exception("This save code's session has already been saved or is older than the latest accepted save.");
+            }
+            JSONObject result = new JSONObject();
+            result.put("ok", true);
+            result.put("name", identity.getString("name"));
+            result.put("session", session.optInt("generation", 0));
+            result.put("issuedAt", session.optLong("issuedAt", 0L));
+            result.put("checksumVerified", true);
+            result.put("currentSession", true);
+            return result.toString();
+        } catch (Exception error) {
+            try { return new JSONObject().put("ok", false)
+                .put("error", error.getMessage() == null ? "Save code is invalid." : error.getMessage()).toString(); }
+            catch (Exception ignored) { return "{\"ok\":false,\"error\":\"Save code is invalid.\"}"; }
         }
     }
 
@@ -925,16 +1160,23 @@ public final class PocketNativeBridge {
 
                 JSONObject oldRecord = findPocketPlayerProfile(store, name);
                 JSONObject record = new JSONObject(source.toString());
+                record.remove("ownerCredential");
                 if (oldRecord != null) {
                     if (oldRecord.optJSONObject("deviceBinding") != null && record.optJSONObject("deviceBinding") == null) {
                         record.put("deviceBinding", oldRecord.optJSONObject("deviceBinding"));
                     }
-                    if (oldRecord.optJSONObject("ownerCredential") != null && record.optJSONObject("ownerCredential") == null) {
-                        record.put("ownerCredential", oldRecord.optJSONObject("ownerCredential"));
-                    }
                     String existingId = oldRecord.optString("playerId", "");
                     if (existingId.matches("profile-[A-Fa-f0-9]{32}")) record.put("playerId", existingId);
-                    // Only the Pocket-local current token survives an ordinary profile import.
+                    // Preserve Pocket's local game save and validated backup when refreshing APK profile data.
+                    String[] pocketFields = {
+                        "pocketEconomy", "pocketEconomySchemaVersion", "pocketEconomySavedAt",
+                        "lastSavedSaveCode", "lastSavedSnapshot", "lastSavedSaveCodeGeneration",
+                        "lastSavedSaveCodeIssuedAt", "lastSavedAt"
+                    };
+                    for (String field : pocketFields) {
+                        if (oldRecord.has(field) && !record.has(field)) record.put(field, oldRecord.get(field));
+                    }
+                    // Keep only this installation's active code; it is regenerated on next Player login.
                     if (oldRecord.has("sessionSaveCode")) {
                         record.put("sessionSaveCode", oldRecord.optString("sessionSaveCode", ""));
                         record.put("sessionSaveGeneration", oldRecord.optInt("sessionSaveGeneration", 0));
@@ -1033,11 +1275,17 @@ public final class PocketNativeBridge {
         }
     }
 
-    @JavascriptInterface public void verifyPlayerIdentity(String characterName, String password, String requestId) {
-        // A fresh Player attempt clears both role markers before online owner verification.
+    @JavascriptInterface public void verifyPlayerIdentity(String characterName, String requestId) {
+        // Player access is name + mandatory online Universe pin/players.md verification.
+        // No Player password is requested or compared.
         prefs().edit().putBoolean(PREF_SESSION, false).putString(PREF_PLAYER_SESSION_NAME, "").apply();
-        if (requestId == null || characterName == null || characterName.isEmpty() || password == null || password.isEmpty()) {
-            completePlayer(requestId, false, "", "", "Enter the registered character name and its World Atlas account password.");
+        if (requestId == null || characterName == null || characterName.trim().isEmpty()) {
+            completePlayer(requestId, false, "", "", "Enter the exact registered character name.");
+            return;
+        }
+        final String requestedName = characterName.trim();
+        if (requestedName.length() > 80) {
+            completePlayer(requestId, false, "", "", "The character name is too long.");
             return;
         }
         Thread thread = new Thread(() -> {
@@ -1068,40 +1316,45 @@ public final class PocketNativeBridge {
                     String registeredName = rows.group(1).trim();
                     if (registeredName.isEmpty()) continue;
                     registeredNames.put(registeredName);
-                    if (characterName.equals(registeredName)) exactMatch = true;
+                    if (requestedName.equals(registeredName)) exactMatch = true;
                 }
                 if (cancelledRequests.contains(requestId)) return;
-                boolean localMatch = containsExactName(readPocketRegisteredPlayerNames(), characterName)
-                    || containsExactName(readCachedPlayerNames(), characterName);
+                boolean localMatch = containsExactName(readPocketRegisteredPlayerNames(), requestedName)
+                    || containsExactName(readCachedPlayerNames(), requestedName);
                 rememberPlayerRegistry(registeredNames, fullSha);
                 if (!exactMatch && !localMatch) {
-                    completePlayer(requestId, false, "", fullSha, "That exact character name is not registered in Pocket or the currently pinned Universe registry.");
+                    completePlayer(requestId, false, "", fullSha,
+                        "That exact character name is not registered in Pocket or the currently pinned Universe registry.");
                     return;
                 }
-                rememberPocketPlayerName(characterName);
-                if (!verifyImportedOwnerPassword(characterName, password)) {
-                    completePlayer(requestId, false, "", fullSha, "The Player account password did not match, or its password verifier has not been imported. Player names alone cannot open an account.");
-                    return;
-                }
-                String deviceFingerprint = enrollOrVerifyPocketDevice(characterName);
-                JSONObject profileStore = readPocketPlayerProfileStore();
-                JSONObject playerProfile = findPocketPlayerProfile(profileStore, characterName);
-                if (playerProfile != null) {
-                    playerProfile.put("lastSeenAt", System.currentTimeMillis());
-                    String profileKey = ensurePocketPlayerId(playerProfile);
-                    profileStore.remove(pocketPlayerKey(characterName));
-                    profileStore.put(profileKey, playerProfile);
-                    persistPocketPlayerProfileStore(profileStore);
-                }
-                String sessionSaveCode = rotatePocketSessionSaveCode(characterName);
+
+                JSONObject store = readPocketPlayerProfileStore();
+                JSONObject player = findPocketPlayerProfile(store, requestedName);
+                if (player == null) player = createEmptyPocketPlayerProfile(requestedName);
+                player.put("name", requestedName);
+                player.put("lastSeenAt", System.currentTimeMillis());
+                player.put("source", player.optString("source", "Pocket local gate"));
+                if (!"imported".equals(player.optString("profileStatus", ""))) player.put("profileStatus", "active");
+                String profileKey = ensurePocketPlayerId(player);
+                store.remove(pocketPlayerKey(requestedName));
+                store.put(profileKey, player);
+                persistPocketPlayerProfileStore(store);
+                rememberPocketPlayerName(requestedName);
+
+                // First successful login enrolls this device. Later logins require the same KeyStore key.
+                String deviceFingerprint = enrollOrVerifyPocketDevice(requestedName);
+                String saveCode = rotatePocketSessionSaveCode(requestedName);
+                prefs().edit().putBoolean(PREF_SESSION, false).putString(PREF_PLAYER_SESSION_NAME, requestedName).apply();
                 String source = exactMatch && localMatch ? "pocket-local+universe"
                     : exactMatch ? "universe" : "pocket-local";
-                prefs().edit().putBoolean(PREF_SESSION, false).putString(PREF_PLAYER_SESSION_NAME, characterName).apply();
-                completePlayer(requestId, true, characterName,
-                    source + ":" + fullSha + ":save-code-issued", "");
+                completePlayer(requestId, true, requestedName,
+                    source + ":" + fullSha + ":device:" + deviceFingerprint + ":save:" + sha256Hex(saveCode.getBytes(StandardCharsets.UTF_8)), "");
             } catch (Exception error) {
                 if (!cancelledRequests.contains(requestId)) {
-                    completePlayer(requestId, false, "", "", "Could not verify the active Universe pin and player registry. Check the connection and try again.");
+                    String message = error.getMessage();
+                    completePlayer(requestId, false, "", "", message == null
+                        ? "Could not verify the active Universe pin and player registry. Check the connection and try again."
+                        : message);
                 }
             } finally {
                 cancelledRequests.remove(requestId);

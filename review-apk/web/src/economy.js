@@ -154,6 +154,28 @@ function openState(identity){
   // Wallet, inventory, progression and gameplay data remain in this local save.
   return {key,state};
 }
+
+/**
+ * Return the exact per-player local economy save for the Player save-code handoff.
+ * Nothing is invented here: this is the same versioned state persisted by Pocket Economy
+ * and Home Base (wallet, inventory, facilities, processes, needs, appearance and ledger).
+ */
+export function exportPocketEconomySnapshot(identity){
+  if(identity?.role!=="player"||!String(identity.displayName||"").trim()){
+    throw new Error("Only a verified Player session can export its local economy save.");
+  }
+  const opened=openState(identity);
+  if(!saveState(opened.state,opened.key)){
+    throw new Error("Pocket could not read/write the current local economy save.");
+  }
+  return {
+    format:"MERZKAVA_POCKET_ECONOMY_STATE_V1",
+    schemaVersion:STATE_VERSION,
+    playerName:String(identity.displayName).trim(),
+    exportedAt:Date.now(),
+    state:opened.state
+  };
+}
 function addItems(state,rows){for(const row of rows||[]){const n=num(row.quantity);if(row.item_id&&n>0)state.inventory[row.item_id]=Math.round((qty(state,row.item_id)+n)*100)/100;}}
 function itemPrice(item,field){const value=item.market?.[field];return value===null||value===undefined||value===""?null:(Number.isFinite(Number(value))?num(value):null);}
 function itemPriceLabel(item,field){
