@@ -8,6 +8,7 @@
 
 The app opens in this order:
 
+0. First-launch bird mark — a high-resolution transparent Shimaenaga vector fades in and out over a black field.
 1. Login Gate — Player or Developer.
 2. Floating Control — identity is verified; Android permissions remain a separate check.
 3. Pocket Transition — appears only when the player presses **Open game / continue playing**.
@@ -19,10 +20,10 @@ The Pocket Transition must not skip Floating Control or silently jump from Login
 ## Clockwork access scene
 
 Use the same cinematic Victorian horological instrument in both themes, with theme-specific materials:
-- Dark: blackened steel recesses, dark enamel, ember-orange drive light, verdigris secondary gears, blood-red hairline outlines and luminous ivory reflections.
-- White: warm porcelain / vellum plate, charcoal engravings, patinated brass teeth, deeper green enamel, burnt-copper drive light and wine-red hairline outlines.
+- Dark: blackened steel recesses and dark enamel, driven by a breathing ivory-white glow. Orange is not used as the loading instrument's active energy color.
+- White: warm porcelain / vellum plate, charcoal-black gears and engravings, with soft black vapor or condensation rising around the mechanism. This is not a brightened copy of the Dark scene.
 
-Both variants retain the interlocking gear trains, rocking escapement, pendulum, Merzkava medallion, scanning reflection and six mechanical progress stations. The White version is a light archival instrument, not the Dark version with the brightness raised. Keep the mechanism legible on narrow Android screens.
+Both variants retain a mechanically coupled gear pair with a matched counter-rotation ratio, a rocking escapement, a pendulum, the Merzkava medallion, a scanning reflection and six mechanical progress stations. Keep the mechanism legible on narrow Android screens.
 
 The scene contains one active diagnostic message slot. It replaces the previous message rather than stacking a history. Each stage displays the same message in three successive frames:
 
@@ -30,14 +31,14 @@ The scene contains one active diagnostic message slot. It replaces the previous 
 - `Message..`
 - `Message...`
 
-The line changes in place with a short Anime.js arrival. The progress path is single-pass and strictly increasing through `15 → 32 → 51 → 70 → 88 → 93`. Advance and pause timing is deliberately uneven. Do not label checkpoints as a measured network percentage.
+The line changes in place with a short Anime.js arrival. Its `.`, `..`, and `...` frames are the buffer indicator: the progress rail continues smoothly while the dots advance, then takes brief, deliberate holds. Never make the rail jump from checkpoint to checkpoint. The progress path remains single-pass and strictly increasing through `15 → 32 → 51 → 70 → 88 → 93`. Do not label checkpoints as a measured network percentage.
 
 ## Operation contract
 
 - Login routine starts only after the Player or Developer form is submitted.
 - Pocket Transition starts only after **Open game / continue playing** is pressed.
-- Player diagnostics describe the pinned Universe registry and the local verified-player cache.
-- Developer PBKDF2 wording is reserved for the real local credential verifier; remembered credentials are protected by Android Keystore.
+- Player names have no local autocomplete or cached-name suggestions. Player identity is confirmed online against the currently pinned Universe registry.
+- Developer PBKDF2 verification is local and works fully offline; the same six-stage fake loading scene still runs. Remembered credentials are protected by Android Keystore.
 - Pocket transition wording describes actual local session, theme, and Android status reads. It does not claim a cloud sync.
 - Progress stays below full completion while the real operation is pending.
 - Hold near the last checkpoint while the actual operation remains unresolved.

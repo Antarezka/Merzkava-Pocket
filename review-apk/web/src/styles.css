@@ -1832,3 +1832,330 @@
   color:var(--muted);font:500 6.5px/1.4 var(--ui);letter-spacing:.13em;text-align:right;opacity:.78;
 }
 :root[data-theme="light"] .network-access-note{color:#657168;border-top-color:rgba(85,118,95,.18)}
+
+/* ACCESS CLOCKWORK REVISION — luminous ivory in Dark, ink-black vapor in White. */
+.access-buffer {
+  --buffer-energy:#fffef7;
+  --buffer-metal:rgba(238,242,241,.84);
+  --buffer-metal-dim:rgba(190,202,204,.30);
+  --buffer-glow:rgba(248,250,244,.70);
+  --buffer-shadow:rgba(239,245,242,.15);
+  background:
+    radial-gradient(ellipse at 50% 48%,rgba(224,236,238,.085),transparent 46%),
+    radial-gradient(ellipse at 50% 50%,rgba(255,255,255,.035),transparent 68%),
+    rgba(3,5,7,.975);
+  backdrop-filter:blur(11px);
+}
+.access-buffer .buffer-frame {
+  border-color:rgba(221,230,229,.48);
+  background:
+    radial-gradient(ellipse at 50% 31%,rgba(243,248,243,.055),transparent 49%),
+    linear-gradient(150deg,#151a1d,#080b0d 76%);
+  box-shadow:0 28px 90px #000e,inset 0 0 0 1px rgba(247,249,242,.12),inset 0 0 36px rgba(0,0,0,.78);
+}
+.access-buffer .buffer-frame:before {
+  border-color:rgba(227,234,230,.23);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.045);
+}
+.access-buffer .buffer-frame:after {
+  background:linear-gradient(90deg,transparent,#fffef7,rgba(255,255,255,.35),#fffef7,transparent);
+  box-shadow:0 0 9px rgba(255,255,255,.55);
+}
+.access-buffer .buffer-top,
+.access-buffer .buffer-progress-head {color:rgba(236,239,232,.77)}
+.access-buffer .buffer-top>span {color:#fffef7}
+.access-buffer .buffer-top b,
+.access-buffer .buffer-copy>span {color:var(--buffer-energy);text-shadow:0 0 12px var(--buffer-glow)}
+.access-buffer .buffer-instrument {
+  border-color:rgba(222,231,229,.54);
+  background:
+    radial-gradient(circle at 50% 47%,rgba(237,244,241,.13) 0 19%,rgba(27,35,37,.96) 20% 58%,rgba(4,7,9,.99) 59% 100%);
+  box-shadow:inset 0 0 0 4px rgba(231,239,236,.08),inset 0 0 34px #000,0 0 24px rgba(255,255,255,.10),0 0 48px rgba(237,243,242,.07);
+}
+.access-buffer .buffer-instrument:before {
+  border-color:rgba(255,255,255,.22);
+  box-shadow:0 0 12px rgba(255,255,255,.08);
+  animation:buffer-white-breath 4.2s ease-in-out infinite;
+}
+.access-buffer .buffer-instrument:after {border-color:rgba(238,243,240,.31)}
+.access-buffer .buffer-gear {
+  z-index:2;
+  border-radius:50%;
+  filter:drop-shadow(0 0 4px rgba(239,245,242,.20));
+}
+.access-buffer .buffer-gear-outer {
+  inset:auto;left:46%;top:47%;width:76%;height:76%;
+  translate:-50% -50%;transform:none;
+  background:repeating-conic-gradient(from 0deg,
+    rgba(247,249,243,.92) 0deg 3.3deg,
+    rgba(157,172,175,.72) 3.3deg 4.7deg,
+    transparent 4.7deg 7.5deg);
+  -webkit-mask:radial-gradient(circle,transparent 0 39%,#000 40% 62%,transparent 63%);
+  mask:radial-gradient(circle,transparent 0 39%,#000 40% 62%,transparent 63%);
+  animation:buffer-wheel-drive 56s linear infinite;
+}
+.access-buffer .buffer-gear-middle {
+  left:78%;top:47%;width:40%;height:40%;
+  translate:-50% -50%;transform:none;
+  background:repeating-conic-gradient(from 0deg,
+    rgba(241,246,241,.88) 0deg 6.4deg,
+    rgba(134,151,154,.74) 6.4deg 8.1deg,
+    transparent 8.1deg 15deg);
+  -webkit-mask:radial-gradient(circle,transparent 0 38%,#000 39% 63%,transparent 64%);
+  mask:radial-gradient(circle,transparent 0 38%,#000 39% 63%,transparent 64%);
+  animation:buffer-wheel-pinion 28s linear infinite;
+}
+.access-buffer .buffer-gear-small {
+  left:46%;top:76%;width:38%;height:38%;
+  translate:-50% -50%;transform:none;
+  background:repeating-conic-gradient(from 0deg,
+    rgba(232,239,236,.82) 0deg 6.4deg,
+    rgba(123,141,144,.74) 6.4deg 8.1deg,
+    transparent 8.1deg 15deg);
+  -webkit-mask:radial-gradient(circle,transparent 0 38%,#000 39% 63%,transparent 64%);
+  mask:radial-gradient(circle,transparent 0 38%,#000 39% 63%,transparent 64%);
+  animation:buffer-wheel-pinion 28s linear infinite;
+}
+.access-buffer .buffer-gear-small i {
+  background:#fffef7;
+  box-shadow:0 0 8px rgba(255,255,255,.82);
+}
+@keyframes buffer-wheel-drive {to{rotate:360deg}}
+@keyframes buffer-wheel-pinion {to{rotate:-720deg}}
+.access-buffer .buffer-orbit {
+  border-color:rgba(244,248,244,.40);
+  animation:buffer-orbit-turn 46s linear infinite;
+}
+.access-buffer .buffer-orbit:before {border-color:rgba(225,235,231,.28)}
+.access-buffer .buffer-orbit:after {border-color:rgba(244,248,244,.22)}
+.access-buffer .buffer-orbit i,
+.access-buffer .buffer-orbit b,
+.access-buffer .buffer-orbit span,
+.access-buffer .buffer-orbit em {
+  background:#fffef7;
+  box-shadow:0 0 9px rgba(255,255,255,.76);
+}
+.access-buffer .buffer-orbit b,
+.access-buffer .buffer-orbit em {background:#c4d0ce;box-shadow:0 0 8px rgba(220,232,228,.48)}
+@keyframes buffer-orbit-turn {to{rotate:360deg}}
+.access-buffer .buffer-escapement {
+  animation:buffer-escapement-tick .72s steps(2,end) infinite;
+}
+.access-buffer .buffer-escapement i {
+  background:linear-gradient(90deg,#9da9aa,#fffef7,#9da9aa);
+  box-shadow:0 0 7px rgba(255,255,255,.44);
+}
+.access-buffer .buffer-escapement b {
+  border-color:#f3f5ee;background:#0b1012;
+  box-shadow:0 0 7px rgba(255,255,255,.30);
+}
+.access-buffer .buffer-escapement span {border-color:#fffef7}
+.access-buffer .buffer-pendulum i {
+  background:linear-gradient(180deg,rgba(255,255,255,.85),#c7d0ce 45%,rgba(151,166,166,.66));
+  box-shadow:0 0 7px rgba(255,255,255,.26);
+}
+.access-buffer .buffer-pendulum b {
+  border-color:#e8efea;
+  background:radial-gradient(circle,#dce5e1,#182123 72%);
+  box-shadow:0 0 12px rgba(255,255,255,.20);
+}
+.access-buffer .buffer-scan {
+  background:linear-gradient(90deg,transparent,#fffef7,rgba(218,229,226,.78),transparent);
+  filter:drop-shadow(0 0 6px rgba(255,255,255,.74));
+}
+.access-buffer .buffer-medallion {
+  border-color:rgba(255,255,255,.72);
+  background:radial-gradient(circle at 40% 34%,#374247,#080d10 72%);
+  color:#fffef7;
+  box-shadow:inset 0 0 0 3px rgba(255,255,255,.12),0 0 16px rgba(255,255,255,.16),0 0 28px rgba(255,255,255,.10);
+  animation:buffer-white-breath 3.8s ease-in-out infinite;
+}
+.access-buffer .buffer-medallion span {text-shadow:0 0 14px rgba(255,255,255,.58)}
+.access-buffer .buffer-medallion i {border-color:rgba(240,246,241,.48)}
+.access-buffer .buffer-sparks i,
+.access-buffer .buffer-sparks b,
+.access-buffer .buffer-sparks em,
+.access-buffer .buffer-sparks span {
+  background:#fffef7;
+  box-shadow:0 0 10px rgba(255,255,255,.82);
+}
+.access-buffer .buffer-copy strong {color:#fffef7}
+.access-buffer .buffer-progress-head b {color:#f7f8f1;text-shadow:0 0 8px rgba(255,255,255,.25)}
+.access-buffer .buffer-track {
+  background:linear-gradient(90deg,rgba(226,235,231,.22),rgba(255,255,255,.12),rgba(226,235,231,.22));
+  box-shadow:0 0 9px rgba(255,255,255,.08);
+}
+.access-buffer .buffer-track:before {
+  background:repeating-linear-gradient(90deg,rgba(255,255,255,.30) 0 5px,transparent 5px 14px);
+}
+.access-buffer .buffer-track i {
+  background:linear-gradient(90deg,#bdc8c6,#fffef7,#edf2eb);
+  box-shadow:0 0 9px rgba(255,255,255,.66),0 0 16px rgba(255,255,255,.28);
+}
+.access-buffer .buffer-track span {
+  border-color:rgba(237,244,240,.72);background:#0a0e10;
+  box-shadow:0 0 5px rgba(255,255,255,.20);
+}
+.access-buffer .buffer-progress>small {color:rgba(226,233,228,.58)}
+.access-buffer .buffer-cancel {
+  border-color:rgba(231,238,232,.35);color:rgba(243,245,239,.76);
+  background:linear-gradient(145deg,rgba(255,255,255,.06),transparent);
+}
+.access-buffer .buffer-cancel:active {border-color:#fffef7;color:#fffef7}
+.access-buffer .buffer-vapor {display:none;pointer-events:none}
+
+/* White Theme: the same mechanism is rendered in charcoal, releasing soft black vapor. */
+:root[data-theme="light"] .access-buffer {
+  --buffer-energy:#101416;
+  --buffer-metal:rgba(20,25,26,.88);
+  --buffer-metal-dim:rgba(30,37,37,.28);
+  --buffer-glow:rgba(13,18,19,.30);
+  --buffer-shadow:rgba(12,16,17,.12);
+  background:
+    radial-gradient(ellipse at 50% 48%,rgba(34,42,40,.06),transparent 48%),
+    linear-gradient(150deg,rgba(245,242,233,.985),rgba(232,228,217,.985));
+  backdrop-filter:blur(10px);
+}
+:root[data-theme="light"] .access-buffer .buffer-frame {
+  border-color:rgba(32,38,36,.64);
+  background:
+    radial-gradient(ellipse at 50% 31%,rgba(27,34,32,.035),transparent 48%),
+    linear-gradient(150deg,#fffef9,#e8e3d8 78%);
+  box-shadow:0 28px 78px rgba(50,45,36,.22),inset 0 0 0 1px rgba(20,25,23,.10),inset 0 0 32px rgba(65,58,45,.08);
+}
+:root[data-theme="light"] .access-buffer .buffer-frame:before {border-color:rgba(31,38,35,.24);box-shadow:inset 0 0 0 1px rgba(31,38,35,.05)}
+:root[data-theme="light"] .access-buffer .buffer-frame:after {
+  background:linear-gradient(90deg,transparent,#202625,rgba(32,38,37,.28),#202625,transparent);
+  box-shadow:0 0 8px rgba(19,25,24,.18);
+}
+:root[data-theme="light"] .access-buffer .buffer-top,
+:root[data-theme="light"] .access-buffer .buffer-progress-head {color:#424a45}
+:root[data-theme="light"] .access-buffer .buffer-top>span {color:#171d1a}
+:root[data-theme="light"] .access-buffer .buffer-top b,
+:root[data-theme="light"] .access-buffer .buffer-copy>span {
+  color:#111617;text-shadow:0 0 9px rgba(10,14,15,.16)
+}
+:root[data-theme="light"] .access-buffer .buffer-instrument {
+  border-color:rgba(30,37,35,.62);
+  background:radial-gradient(circle at 50% 47%,#f7f5ed 0 19%,#d9d5ca 20% 58%,#b9b5aa 59% 100%);
+  box-shadow:inset 0 0 0 4px rgba(26,32,30,.07),inset 0 0 32px rgba(40,41,36,.13),0 0 22px rgba(23,29,27,.11);
+}
+:root[data-theme="light"] .access-buffer .buffer-instrument:before {
+  border-color:rgba(17,23,22,.30);
+  box-shadow:0 0 12px rgba(15,21,20,.12);
+}
+:root[data-theme="light"] .access-buffer .buffer-instrument:after {border-color:rgba(21,28,26,.30)}
+:root[data-theme="light"] .access-buffer .buffer-gear {filter:drop-shadow(0 1px 3px rgba(10,14,13,.24))}
+:root[data-theme="light"] .access-buffer .buffer-gear-outer {
+  background:repeating-conic-gradient(from 0deg,#18201e 0deg 3.3deg,#65706a 3.3deg 4.7deg,transparent 4.7deg 7.5deg)
+}
+:root[data-theme="light"] .access-buffer .buffer-gear-middle,
+:root[data-theme="light"] .access-buffer .buffer-gear-small {
+  background:repeating-conic-gradient(from 0deg,#151b19 0deg 6.4deg,#65706a 6.4deg 8.1deg,transparent 8.1deg 15deg)
+}
+:root[data-theme="light"] .access-buffer .buffer-gear-small i {background:#171e1b;box-shadow:0 0 5px rgba(11,16,15,.35)}
+:root[data-theme="light"] .access-buffer .buffer-orbit {border-color:rgba(20,27,25,.56)}
+:root[data-theme="light"] .access-buffer .buffer-orbit:before {border-color:rgba(28,35,32,.28)}
+:root[data-theme="light"] .access-buffer .buffer-orbit:after {border-color:rgba(28,35,32,.25)}
+:root[data-theme="light"] .access-buffer .buffer-orbit i,
+:root[data-theme="light"] .access-buffer .buffer-orbit b,
+:root[data-theme="light"] .access-buffer .buffer-orbit span,
+:root[data-theme="light"] .access-buffer .buffer-orbit em {
+  background:#111817;box-shadow:0 0 7px rgba(12,18,17,.38)
+}
+:root[data-theme="light"] .access-buffer .buffer-escapement i {background:linear-gradient(90deg,#333d39,#111714,#333d39);box-shadow:0 0 5px rgba(10,15,14,.24)}
+:root[data-theme="light"] .access-buffer .buffer-escapement b {border-color:#17201d;background:#eeeae0;box-shadow:0 0 5px rgba(10,15,14,.22)}
+:root[data-theme="light"] .access-buffer .buffer-escapement span {border-color:#101715}
+:root[data-theme="light"] .access-buffer .buffer-pendulum i {background:linear-gradient(180deg,#151c1a,#59635d 48%,#151c1a);box-shadow:0 0 5px rgba(10,15,14,.18)}
+:root[data-theme="light"] .access-buffer .buffer-pendulum b {border-color:#18211e;background:radial-gradient(circle,#4a5750,#d9d5ca 72%);box-shadow:0 0 9px rgba(13,18,17,.22)}
+:root[data-theme="light"] .access-buffer .buffer-scan {
+  background:linear-gradient(90deg,transparent,#111918,#48544f,transparent);
+  filter:drop-shadow(0 0 5px rgba(14,20,18,.36))
+}
+:root[data-theme="light"] .access-buffer .buffer-medallion {
+  border-color:rgba(21,29,26,.78);
+  background:radial-gradient(circle at 40% 34%,#d9d8cf,#202824 72%);
+  color:#f2efe5;
+  box-shadow:inset 0 0 0 3px rgba(10,15,14,.17),0 0 12px rgba(10,15,14,.18),0 0 23px rgba(10,15,14,.13);
+}
+:root[data-theme="light"] .access-buffer .buffer-medallion span {text-shadow:0 0 10px rgba(255,255,255,.24)}
+:root[data-theme="light"] .access-buffer .buffer-medallion i {border-color:rgba(17,24,22,.58)}
+:root[data-theme="light"] .access-buffer .buffer-sparks i,
+:root[data-theme="light"] .access-buffer .buffer-sparks b,
+:root[data-theme="light"] .access-buffer .buffer-sparks em,
+:root[data-theme="light"] .access-buffer .buffer-sparks span {
+  background:#1a211e;box-shadow:0 0 7px rgba(10,15,14,.36)
+}
+:root[data-theme="light"] .access-buffer .buffer-copy strong {color:#171d1b}
+:root[data-theme="light"] .access-buffer .buffer-progress-head b {color:#111816;text-shadow:0 0 7px rgba(10,15,14,.16)}
+:root[data-theme="light"] .access-buffer .buffer-track {background:linear-gradient(90deg,rgba(21,29,26,.16),rgba(21,29,26,.07),rgba(21,29,26,.16));box-shadow:0 0 8px rgba(20,25,23,.08)}
+:root[data-theme="light"] .access-buffer .buffer-track:before {background:repeating-linear-gradient(90deg,rgba(17,24,22,.27) 0 5px,transparent 5px 14px)}
+:root[data-theme="light"] .access-buffer .buffer-track i {background:linear-gradient(90deg,#4c5751,#101715,#303b35);box-shadow:0 0 8px rgba(11,16,15,.30),0 0 13px rgba(11,16,15,.14)}
+:root[data-theme="light"] .access-buffer .buffer-track span {border-color:#45514b;background:#e9e5da;box-shadow:0 0 4px rgba(15,20,18,.20)}
+:root[data-theme="light"] .access-buffer .buffer-progress>small {color:#6c746d}
+:root[data-theme="light"] .access-buffer .buffer-cancel {border-color:rgba(24,31,28,.36);color:#303833;background:linear-gradient(145deg,rgba(10,15,13,.055),transparent)}
+:root[data-theme="light"] .access-buffer .buffer-cancel:active {border-color:#101715;color:#101715}
+:root[data-theme="light"] .access-buffer .buffer-vapor {
+  display:block;position:absolute;z-index:9;inset:0;overflow:hidden;pointer-events:none;
+}
+:root[data-theme="light"] .access-buffer .buffer-vapor:before,
+:root[data-theme="light"] .access-buffer .buffer-vapor:after,
+:root[data-theme="light"] .access-buffer .buffer-vapor i,
+:root[data-theme="light"] .access-buffer .buffer-vapor b,
+:root[data-theme="light"] .access-buffer .buffer-vapor em,
+:root[data-theme="light"] .access-buffer .buffer-vapor span {
+  content:"";position:absolute;display:block;border-radius:50%;
+  background:radial-gradient(ellipse at 50% 55%,rgba(9,13,13,.25) 0 12%,rgba(14,19,18,.15) 36%,rgba(20,25,24,.055) 58%,transparent 74%);
+  filter:blur(7px);mix-blend-mode:multiply;opacity:0;
+}
+:root[data-theme="light"] .access-buffer .buffer-vapor:before {
+  left:24%;top:45%;width:53%;height:45%;
+  animation:buffer-vapor-rise 5.2s ease-in-out infinite;
+}
+:root[data-theme="light"] .access-buffer .buffer-vapor:after {
+  left:39%;top:58%;width:42%;height:35%;
+  animation:buffer-vapor-rise 6.1s ease-in-out -2.3s infinite;
+}
+:root[data-theme="light"] .access-buffer .buffer-vapor i {left:9%;top:49%;width:44%;height:34%;animation:buffer-vapor-rise 5.8s ease-in-out -1.2s infinite}
+:root[data-theme="light"] .access-buffer .buffer-vapor b {left:52%;top:43%;width:42%;height:39%;animation:buffer-vapor-rise 6.5s ease-in-out -3.4s infinite}
+:root[data-theme="light"] .access-buffer .buffer-vapor em {left:29%;top:63%;width:48%;height:32%;animation:buffer-vapor-rise 4.9s ease-in-out -2.8s infinite}
+:root[data-theme="light"] .access-buffer .buffer-vapor span {left:56%;top:66%;width:34%;height:28%;animation:buffer-vapor-rise 5.5s ease-in-out -.8s infinite}
+@keyframes buffer-vapor-rise {
+  0% {opacity:0;transform:translate3d(-4px,13px,0) scale(.72) rotate(-10deg)}
+  32% {opacity:.68}
+  66% {opacity:.36;transform:translate3d(10px,-22px,0) scale(1.18) rotate(8deg)}
+  100% {opacity:0;transform:translate3d(-5px,-53px,0) scale(1.52) rotate(-7deg)}
+}
+@keyframes buffer-white-breath {
+  0%,100% {opacity:.62;filter:drop-shadow(0 0 4px rgba(255,255,255,.18))}
+  50% {opacity:1;filter:drop-shadow(0 0 12px rgba(255,255,255,.48))}
+}
+@media(prefers-reduced-motion:reduce) {
+  .startup-splash,.startup-splash-bird {animation:none!important}
+  .access-buffer .buffer-instrument:before,
+  .access-buffer .buffer-medallion {animation:none!important}
+  .access-buffer .buffer-vapor,
+  .access-buffer .buffer-vapor:before,
+  .access-buffer .buffer-vapor:after,
+  .access-buffer .buffer-vapor i,
+  .access-buffer .buffer-vapor b,
+  .access-buffer .buffer-vapor em,
+  .access-buffer .buffer-vapor span {animation:none!important;opacity:0!important}
+}
+
+/* First-launch bird mark: transparent vector on a clean black field. */
+.startup-splash {
+  position:fixed;z-index:200;inset:0;display:grid;place-items:center;
+  width:100%;height:100dvh;overflow:hidden;background:#030405;opacity:0;
+}
+.startup-splash:before {
+  content:"";position:absolute;width:min(72vw,310px);aspect-ratio:1;border-radius:50%;
+  background:radial-gradient(circle,rgba(233,240,239,.075),rgba(233,240,239,.025) 42%,transparent 72%);
+  filter:blur(8px);pointer-events:none;
+}
+.startup-splash-bird {
+  position:relative;z-index:1;display:block;width:clamp(176px,58vw,272px);
+  height:auto;opacity:0;transform-origin:50% 50%;
+  filter:drop-shadow(0 8px 13px rgba(0,0,0,.65)) drop-shadow(0 0 23px rgba(244,248,244,.16));
+  will-change:opacity,transform;
+}

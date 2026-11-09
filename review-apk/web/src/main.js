@@ -466,6 +466,7 @@ function accessBufferMarkup(mode = "ACCESS ROUTINE") {
           <div class="buffer-scan"></div>
           <div class="buffer-medallion"><span>M</span><i></i></div>
           <div class="buffer-sparks"><i></i><b></b><em></em><span></span></div>
+          <div class="buffer-vapor" aria-hidden="true"><i></i><b></b><em></em><span></span></div>
         </div>
         <div class="buffer-copy">
           <span data-access-label>IDENTITY LOOKUP</span>
@@ -524,15 +525,31 @@ async function runAccessSequence(role, operation, signal) {
       ease:"outCubic"
     }));
   };
-  const moveRail = async target => {
-    const duration = reduced ? 18 : 205 + Math.random()*155;
-    if (reduced) rail.style.transform = "scaleX(" + target/100 + ")";
-    else animations.push(animate(rail,{
-      scaleX:[progress/100,target/100],
-      duration,
-      ease:"outSine"
-    }));
-    await pause(duration);
+  const moveRail = async (target, copy, technical, index) => {
+    const duration = reduced ? 18 : 820 + Math.min(index * 65, 260);
+    if (reduced) {
+      showFrame(copy,technical,3,true);
+      rail.style.transform = "scaleX(" + target/100 + ")";
+      await pause(18);
+    } else {
+      animations.push(animate(rail,{
+        scaleX:[progress/100,target/100],
+        duration,
+        ease:"linear"
+      }));
+      const frameDurations = [
+        Math.round(duration * .36),
+        Math.round(duration * .34),
+        duration - Math.round(duration * .70)
+      ];
+      for (let dot = 1; dot <= 3; dot++) {
+        showFrame(copy,technical,dot,dot === 1);
+        await pause(frameDurations[dot - 1]);
+      }
+      // Small deliberate holds make the dots read as real buffering, not progress jumps.
+      showFrame(copy,technical,3);
+      await pause(120 + (index % 3) * 55);
+    }
     progress = target;
   };
 
@@ -541,13 +558,7 @@ async function runAccessSequence(role, operation, signal) {
       if (signal?.aborted) throw new DOMException("Access cancelled.","AbortError");
       const [copy,technical] = stages[index];
       number.textContent = String(index+1).padStart(2,"0") + " / " + String(stages.length).padStart(2,"0");
-      showFrame(copy,technical,1,true);
-      await moveRail(checkpoints[index] ?? (92 + index));
-      showFrame(copy,technical,2);
-      await pause(reduced ? 16 : 72 + Math.random()*34);
-      showFrame(copy,technical,3);
-      await pause(reduced ? 16 : 92 + Math.random()*56);
-      await pause(reduced ? 18 : 115 + Math.random()*205);
+      await moveRail(checkpoints[index] ?? (92 + index),copy,technical,index);
     }
 
     let result = null;
@@ -581,6 +592,57 @@ async function runAccessSequence(role, operation, signal) {
     rail.style.transform = "scaleX(0)";
   }
 }
+function playStartupSplash() {
+  disposeCurrent();
+  currentRoute = "splash";
+  root.innerHTML = `
+    <main class="startup-splash" aria-label="Merzkava Pocket starting">
+      <img class="startup-splash-bird" src="/merzkava-pocket-shimaenaga.svg" alt="Merzkava Pocket shimaenaga bird" fetchpriority="high">
+    </main>`;
+  const stage = root.querySelector(".startup-splash");
+  const bird = root.querySelector(".startup-splash-bird");
+  let cancelled = false;
+  const animations = [];
+
+  const finish = () => {
+    if (cancelled) return;
+    currentDisposer = null;
+    renderLoginGate();
+  };
+  const run = async () => {
+    if (reducedMotion()) {
+      stage.style.opacity = "1";
+      bird.style.opacity = "1";
+      await wait(220);
+    } else {
+      await new Promise(resolve => animations.push(animate(stage,{
+        opacity:[0,1], duration:480, ease:"outCubic", onComplete:resolve
+      })));
+      if (cancelled) return;
+      animations.push(animate(bird,{
+        opacity:[0,1], scale:[.88,1], translateY:[10,0],
+        duration:880, ease:"outExpo"
+      }));
+      await wait(1080);
+      if (cancelled) return;
+      animations.push(animate(bird,{
+        opacity:[1,0], scale:[1,1.035],
+        duration:540, ease:"inCubic"
+      }));
+      await new Promise(resolve => animations.push(animate(stage,{
+        opacity:[1,0], duration:620, delay:80, ease:"inCubic", onComplete:resolve
+      })));
+    }
+    finish();
+  };
+
+  void run();
+  currentDisposer = () => {
+    cancelled = true;
+    animations.forEach(animation => animation.pause());
+  };
+}
+
 function renderLoginGate() {
   disposeCurrent();
   routeHistory.length = 0;
@@ -606,9 +668,8 @@ function renderLoginGate() {
         </div>
         <form class="access-form" data-player-form>
           <label for="player-name">CHARACTER NAME</label>
-          <input id="player-name" name="characterName" type="text" maxlength="80" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Exact registered name" list="local-player-list" required>
-          <datalist id="local-player-list"></datalist>
-          <p class="field-note">Use the exact name in the currently pinned Universe registry. Previously verified local identities appear as suggestions.</p>
+          <input id="player-name" name="characterName" type="text" maxlength="80" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Exact registered name" required>
+          <p class="field-note">Internet access is required to confirm the exact name against the currently pinned Universe registry.</p>
           <button type="submit" class="primary-action">VERIFY PLAYER IDENTITY <span>↗</span></button>
         </form>
         <form class="access-form" data-developer-form hidden>
@@ -617,7 +678,7 @@ function renderLoginGate() {
           <label for="developer-password">PASSWORD</label>
           <div class="password-wrap"><input id="developer-password" name="password" type="password" maxlength="128" autocomplete="current-password" required><button type="button" data-password-toggle aria-label="Show password">◉</button></div>
           <label class="remember-row"><input type="checkbox" name="remember"> <span>Remember on this device</span></label>
-          <p class="field-note">Developer access uses the same local verifier as Merzkava APK. Remember Me is optional and Developer-only.</p>
+          <p class="field-note">Developer credentials are verified locally on this device; internet access is not required. Remember Me is optional and Developer-only.</p>
           <button type="submit" class="primary-action">VERIFY DEVELOPER <span>↗</span></button>
         </form>
         <p class="login-message" data-login-message role="status" aria-live="polite"></p>
@@ -634,10 +695,6 @@ function renderLoginGate() {
   let busy = false;
 
   stage.querySelectorAll("[data-theme-choice]").forEach(button => button.addEventListener("click", () => setTheme(button.dataset.themeChoice)));
-  const localNames = readLocalPlayerNames();
-  const datalist = stage.querySelector("#local-player-list");
-  datalist.innerHTML = localNames.map(name=>'<option value="'+escapeHtml(name)+'"></option>').join("");
-
   if (nativeReady()) {
     try {
       const raw = native.getRememberedDeveloperCredentials();
@@ -709,17 +766,6 @@ function renderLoginGate() {
   const enter = stage.querySelector(".login-card");
   if (!reducedMotion()) animate(enter, { opacity:[0,1], translateY:[18,0], scale:[.985,1], duration:620, ease:"outCubic" });
   currentDisposer = () => { activeAccessAbort?.abort(); };
-}
-
-function readLocalPlayerNames() {
-  if (!nativeReady()) return [];
-  try {
-    const raw = typeof native.getLocalPlayerNames === "function"
-      ? native.getLocalPlayerNames()
-      : native.getLocalPlayerProfiles();
-    const data = JSON.parse(raw || "[]");
-    return Array.isArray(data) ? data.map(item=>typeof item === "string" ? item : item.name).filter(Boolean) : [];
-  } catch { return []; }
 }
 
 function disposeCurrent() {
@@ -1445,4 +1491,4 @@ window.addEventListener("pocket:android-back",()=>{
 });
 window.addEventListener("keydown",event=>{if(event.key==="Escape")window.dispatchEvent(new Event("pocket:android-back"));});
 applyTheme();
-renderLoginGate();
+void playStartupSplash();
