@@ -1,0 +1,39 @@
+{
+  "version": 3,
+  "doc": "High-detail layered character rig (96x128 cells). Built by art/tools/r3d (own cel-shaded 3D renderer, no pxl). One PNG per slot item, move and direction: frames run left to right, parts/expressions are stacked top to bottom in the order of the slot's `rows`. Ground anchor of every cell is (48,124). Layers share the frame index and the same skeleton/camera, so any combination lines up.",
+  "cell": { "w": 96, "h": 128, "anchor": [48, 124] },
+  "camera": { "pitchDeg": 18, "yawDeg": { "s": 0, "se": 45, "e": 90, "ne": 135, "n": 180, "nw": 225, "w": 270, "sw": 315 }, "unitsPerPixel": 0.8333 },
+  "dirs": ["n", "ne", "e", "se", "s", "sw", "w", "nw"],
+  "moves": {
+    "idle": { "frames": 4, "fps": 3, "repeat": -1 },
+    "walk": { "frames": 8, "fps": 10, "repeat": -1 }
+  },
+  "keyTemplate": "ch_{slot}_{item}_{move}_{dir}",
+  "slots": {
+    "body": {
+      "items": ["base"], "rows": ["body"],
+      "note": "bare chibi base: skin, head, hands, legs, feet and a plain neutral under-layer. No hair, no clothing, no face features."
+    },
+    "face": {
+      "items": ["default"], "rows": ["neutral", "happy", "angry", "sad", "surprised", "sleepy", "blink"],
+      "dirs": ["e", "se", "s", "sw", "w"],
+      "note": "eyes, brows, mouth and blush only, projected on the head surface so they turn and foreshorten with the head. The row is the expression (switching it needs no loading). `blink` is for a short periodic blink. Not generated for n, ne, nw (the face is hidden)."
+    }
+  },
+  "zOrder": {
+    "front": ["body.body", "face.@expression"],
+    "back": ["body.body"],
+    "dirGroup": { "s": "front", "se": "front", "sw": "front", "e": "front", "w": "front", "n": "back", "ne": "back", "nw": "back" },
+    "note": "bottom to top. `@expression` is the wearer's current expression row. Hair, outfit, hat and tail layers are added to these lists as they land."
+  },
+  "planned": {
+    "hair": {
+      "rows": ["back_tip", "back_mid", "back_extra", "back_root", "far_side_tip", "far_side", "top", "top_extra", "near_side_tip", "near_side", "front", "lock", "lock_tip"],
+      "note": "13 parts (back 4, far side 2, top 2, near side 2, front 1, locks 2) so a hat can hide exactly the parts that would clip through it"
+    },
+    "outfit": { "rows": ["shoes", "bottom", "top", "accessory"], "note": "separate garment layers, each swappable" },
+    "hat": { "rows": ["back", "front"], "note": "back sits behind hair and body, front covers what must stay under it; carries a `hides` list of hair parts" },
+    "tail": { "rows": ["tail"], "note": "attached at the hip, sways while walking" }
+  },
+  "defaults": { "expression": "neutral" }
+}
