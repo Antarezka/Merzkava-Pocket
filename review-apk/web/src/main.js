@@ -3,11 +3,19 @@ import "./styles.css";
 import { economyMarkup, mountEconomy } from "./economy.js";
 import { mountHomeBase } from "./home-base.js";
 import { dailyLoginMarkup, mountDailyLogin } from "./daily-login.js";
-import { createPocketAudioController, createTurntableMotion } from "./audio-player.js";
+import { createPocketAudioController, createTurntableMotion, createVinylDesignController, VINYL_STYLES } from "./audio-player.js";
 
 const root = document.querySelector("#app");
 if (!root) throw new Error("Pocket root not found.");
-const pocketAudio = createPocketAudioController({ onChange: syncAudioUI });
+const vinylDesigns = createVinylDesignController({ onChange: syncAudioUI });
+const pocketAudio = createPocketAudioController({
+  onChange: syncAudioUI,
+  onPlaybackCycle: () => vinylDesigns.rotateRandom("track-end")
+});
+window.addEventListener("pocket:season-start", event => {
+  const seasonKey = event.detail?.seasonId ?? event.detail?.seasonKey ?? "";
+  vinylDesigns.onSeasonStart(seasonKey);
+});
 
 const native = window.PocketNative || null;
 const reducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
@@ -83,27 +91,68 @@ function applyPaperGlow() {
   }
 }
 
+function vinylLabelContents(style) {
+  const text = value => escapeHtml(value ?? "").replace(/\n/g, "<br>");
+  return `
+    <span class="label-micro">${text(style.micro)}</span>
+    ${style.mark ? `<b class="label-mark">${text(style.mark)}</b>` : ""}
+    <b class="label-word">${text(style.word)}</b>
+    <span class="label-side">${text(style.side)}</span>
+    <small class="label-info">${text(style.info)}</small>
+    <i class="label-hole" aria-hidden="true"></i>`;
+}
+
+function vinylStyleOptionMarkup(style) {
+  return `
+    <button type="button" class="vinyl-style-option" data-vinyl-style="${style.id}" aria-pressed="false">
+      <span class="style-record-preview"><span class="style-record-grooves">
+        <span class="mini-label style-${style.id}">${vinylLabelContents(style)}</span>
+      </span></span>
+      <span class="style-option-copy"><b>${style.number}</b><span>${escapeHtml(style.name)}</span></span>
+      <span class="style-option-check" aria-hidden="true">✓</span>
+    </button>`;
+}
+
 function syncAudioUI() {
   const player = root.querySelector("[data-audio-player]");
   if (!player) return;
   const state = pocketAudio.getState();
+  const labelState = vinylDesigns.getState();
   activeTurntableMotion?.setPlaying(state.isPlaying && !reducedMotion());
   player.classList.toggle("is-playing", state.isPlaying);
   player.classList.toggle("is-starting", state.isStarting);
   const trackTitle = player.querySelector("[data-track-title]");
   const status = player.querySelector("[data-audio-status]");
   const needle = player.querySelector("[data-audio-needle]");
+  const currentLabel = player.querySelector("[data-vinyl-label]");
   if (trackTitle) trackTitle.textContent = state.title;
   if (status) status.textContent = state.isPlaying ? "PLAYING · MAIN MENU MUSIC" : state.isStarting ? "STYLUS CONTACT · PREPARING" : "NEEDLE LIFTED · READY";
   if (needle) {
     needle.setAttribute("aria-label", state.isPlaying || state.isStarting ? "Lift the stylus and pause music" : "Lower the stylus and play music");
     needle.setAttribute("aria-pressed", String(state.isPlaying || state.isStarting));
   }
+  if (currentLabel) {
+    currentLabel.className = "vinyl-label style-" + labelState.id;
+    currentLabel.innerHTML = vinylLabelContents(labelState.style);
+    currentLabel.setAttribute("aria-label", labelState.style.name + " center label");
+  }
   root.querySelectorAll("[data-audio-record]").forEach(button => {
     const selected = button.dataset.audioRecord === state.track;
     button.classList.toggle("is-selected", selected);
     button.setAttribute("aria-pressed", String(selected));
   });
+  root.querySelectorAll("[data-vinyl-style]").forEach(button => {
+    const selected = button.dataset.vinylStyle === labelState.id;
+    button.classList.toggle("is-selected", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  });
+  const styleMode = root.querySelector("[data-vinyl-style-mode]");
+  if (styleMode) styleMode.textContent = labelState.mode === "manual" ? "MANUAL PICK · NEXT CYCLE RETURNS TO AUTO" : "AUTO · CHANGES EACH TRACK / SEASON";
+  const autoButton = root.querySelector("[data-vinyl-auto]");
+  if (autoButton) {
+    autoButton.classList.toggle("is-selected", labelState.mode === "auto");
+    autoButton.setAttribute("aria-pressed", String(labelState.mode === "auto"));
+  }
   const musicSlider = root.querySelector("[data-music-volume]");
   const musicOutput = root.querySelector("[data-music-volume-value]");
   const effectsSlider = root.querySelector("[data-effects-volume]");
@@ -176,6 +225,87 @@ function mountAudioSettings() {
   });
   toggle.setAttribute("aria-expanded", "false");
   section.classList.remove("is-expanded");
+
+  const drawer = section.querySelector("[data-vinyl-drawer]");
+  const drawerToggle = drawer?.querySelector("[data-vinyl-drawer-toggle]");
+  const drawerPanel = drawer?.querySelector("[data-vinyl-drawer-panel]");
+  const drawerGrip = drawer?.querySelector("[data-vinyl-drawer-grip]");
+  let drawerOpen = false;
+  let drawerPointer = null;
+  let drawerStartY = 0;
+  let drawerDeltaY = 0;
+  let drawerDragged = false;
+  const setDrawerOpen = next => {
+    if (!drawerPanel || drawerOpen === next) return;
+    drawerOpen = next;
+    drawerToggle?.setAttribute("aria-expanded", String(next));
+    drawer?.classList.toggle("is-open", next);
+    if (next) {
+      drawerPanel.hidden = false;
+      drawerPanel.style.removeProperty("transform");
+      drawerPanel.style.removeProperty("opacity");
+      if (!reducedMotion()) animate(drawerPanel, { opacity:[0,1], translateY:[20,0], duration:290, ease:"outCubic" });
+    } else if (reducedMotion()) {
+      drawerPanel.hidden = true;
+      drawerPanel.style.removeProperty("transform");
+      drawerPanel.style.removeProperty("opacity");
+    } else {
+      animate(drawerPanel, {
+        opacity:[1,0], translateY:[0,26], duration:220, ease:"inCubic",
+        onComplete:() => {
+          if (!drawerOpen) drawerPanel.hidden = true;
+          drawerPanel.style.removeProperty("transform");
+          drawerPanel.style.removeProperty("opacity");
+        }
+      });
+    }
+  };
+  drawerToggle?.addEventListener("click", () => setDrawerOpen(!drawerOpen));
+  const gripDown = event => {
+    if (!drawerOpen || drawerPointer !== null || event.button !== 0) return;
+    drawerPointer = event.pointerId;
+    drawerStartY = event.clientY;
+    drawerDeltaY = 0;
+    drawerDragged = false;
+    drawerGrip.setPointerCapture?.(event.pointerId);
+    drawerPanel.classList.add("is-dragging");
+  };
+  const gripMove = event => {
+    if (drawerPointer !== event.pointerId) return;
+    drawerDeltaY = Math.max(0, event.clientY - drawerStartY);
+    if (drawerDeltaY > 4) drawerDragged = true;
+    drawerPanel.style.transform = "translateY(" + Math.min(150, drawerDeltaY) + "px)";
+    drawerPanel.style.opacity = String(Math.max(.42, 1 - drawerDeltaY / 190));
+  };
+  const gripUp = event => {
+    if (drawerPointer !== event.pointerId) return;
+    drawerGrip.releasePointerCapture?.(event.pointerId);
+    drawerPointer = null;
+    drawerPanel.classList.remove("is-dragging");
+    const close = drawerDeltaY > 48 || !drawerDragged;
+    drawerDeltaY = 0;
+    if (close) setDrawerOpen(false);
+    else {
+      drawerPanel.style.removeProperty("transform");
+      drawerPanel.style.removeProperty("opacity");
+    }
+  };
+  if (drawerGrip) {
+    drawerGrip.addEventListener("pointerdown", gripDown);
+    drawerGrip.addEventListener("pointermove", gripMove);
+    drawerGrip.addEventListener("pointerup", gripUp);
+    drawerGrip.addEventListener("pointercancel", gripUp);
+    drawerGrip.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        setDrawerOpen(false);
+      }
+    });
+  }
+  drawer?.querySelectorAll("[data-vinyl-style]").forEach(button => {
+    button.addEventListener("click", () => vinylDesigns.choose(button.dataset.vinylStyle));
+  });
+  drawer?.querySelector("[data-vinyl-auto]")?.addEventListener("click", () => vinylDesigns.returnToAuto());
 
   section.querySelectorAll("[data-audio-record]").forEach(button => {
     button.addEventListener("click", () => {
@@ -926,7 +1056,7 @@ function renderPage(destination, transitionDuration=420) {
             <div class="audio-player-heading"><span>NOW ON THE PLATTER</span><small>POCKET RECORD DECK</small></div>
             <div class="turntable">
               <div class="turntable-platter">
-                <div class="vinyl-disc"><div class="vinyl-grooves"></div><div class="vinyl-label"><span>MERZKAVA</span><b>✦</b><small>POCKET · 01</small></div></div>
+                <div class="vinyl-disc"><div class="vinyl-grooves"></div><div class="vinyl-label style-${vinylDesigns.getState().id}" data-vinyl-label>${vinylLabelContents(vinylDesigns.getState().style)}</div></div>
               </div>
               <div class="turntable-spindle"></div>
               <button type="button" class="turntable-needle" data-audio-needle aria-label="Lower the stylus and play music" aria-pressed="false">
@@ -956,6 +1086,24 @@ function renderPage(destination, transitionDuration=420) {
               </button>
             </div>
             <p class="audio-rack-note">Placing a record does not start playback. Lower the stylus to listen.</p>
+          </section>
+          <section class="vinyl-style-drawer" data-vinyl-drawer>
+            <button type="button" class="vinyl-drawer-toggle" data-vinyl-drawer-toggle aria-expanded="false">
+              <span><b>LABEL DRAWER</b><small>20 CENTER-LABEL DESIGNS</small></span>
+              <i aria-hidden="true">⌃</i>
+            </button>
+            <div class="vinyl-drawer-panel" data-vinyl-drawer-panel hidden>
+              <div class="vinyl-drawer-grip" data-vinyl-drawer-grip role="button" tabindex="0" aria-label="Swipe down or tap to close the label drawer">
+                <i></i><span>DRAG DOWN TO CLOSE</span>
+              </div>
+              <div class="vinyl-drawer-tools">
+                <span data-vinyl-style-mode>AUTO · CHANGES EACH TRACK / SEASON</span>
+                <button type="button" data-vinyl-auto aria-pressed="true">AUTO ROTATION</button>
+              </div>
+              <div class="vinyl-style-grid">
+                ${VINYL_STYLES.map(vinylStyleOptionMarkup).join("")}
+              </div>
+            </div>
           </section>
         </div>
       </article>
