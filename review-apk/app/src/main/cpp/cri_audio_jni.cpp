@@ -21,8 +21,8 @@ constexpr int kFormatWave = 2;
 
 std::mutex gMutex;
 bool gInitialized = false;
-std::atomic<bool> gServerRunning{false};
-std::thread gServerThread;
+std::atomic<bool> gLoopMonitorRunning{false};
+std::thread gLoopMonitorThread;
 void* gAtomWork = nullptr;
 CriAtomDbasId gDbasId = CRIATOMDBAS_ILLEGAL_ID;
 void* gDbasWork = nullptr;
@@ -211,19 +211,18 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
         criAtomExPlayer_AttachTween(gPlayers[index], gVolumeTweens[index]);
     }
 
-    // Android uses CRI's timer-driven MULTI model. CRI owns its worker threads,
-    // while the application services ExecuteMain at a frame-rate cadence.
-    gServerRunning.store(true, std::memory_order_release);
-    gServerThread = std::thread([]() {
-        auto nextTick = std::chrono::steady_clock::now();
-        while (gServerRunning.load(std::memory_order_acquire)) {
-            nextTick += std::chrono::milliseconds(16);
+    // Android's CRI default configuration uses the MULTI thread model: CRI's
+    // own high-priority server thread is the sole owner of server processing.
+    // This Pocket thread only watches for completed file streams and reissues
+    // BGM/ambience loops; it must never run the CRI server process itself.
+    gLoopMonitorRunning.store(true, std::memory_order_release);
+    gLoopMonitorThread = std::thread([]() {
+        auto nextCheck = std::chrono::steady_clock::now();
+        while (gLoopMonitorRunning.load(std::memory_order_acquire)) {
+            nextCheck += std::chrono::milliseconds(16);
             {
-                std::lock_guard<std::mutex> serverLock(gMutex);
+                std::lock_guard<std::mutex> monitorLock(gMutex);
                 if (gInitialized) {
-                    criAtomEx_ExecuteMain();
-                    // Keep continuous CRI file streams looping on the native
-                    // server cadence, not the slower Java UI-status poll.
                     for (int channel = 0; channel < kChannelCount; ++channel) {
                         if (!gLoopEnabled[channel] || gPlayers[channel] == nullptr) continue;
                         if (criAtomExPlayer_GetStatus(gPlayers[channel]) != CRIATOMEXPLAYER_STATUS_PLAYEND) continue;
@@ -241,12 +240,13 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
                 }
             }
             const auto now = std::chrono::steady_clock::now();
-            if (now > nextTick + std::chrono::milliseconds(32)) nextTick = now;
-            std::this_thread::sleep_until(nextTick);
+            if (now > nextCheck + std::chrono::milliseconds(32)) nextCheck = now;
+            std::this_thread::sleep_until(nextCheck);
         }
     });
 
-    __android_log_print(ANDROID_LOG_INFO, kTag, "CRI ADX LE initialized with six isolated players and a 60 Hz server pump");
+    __android_log_print(ANDROID_LOG_INFO, kTag,
+        "CRI ADX LE initialized with six isolated players; CRI MULTI server owns audio processing");
     return JNI_TRUE;
 
 fail:
@@ -317,8 +317,8 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeShutdown(JNIEnv*, jc
         if (allStopped) break;
         std::this_thread::sleep_for(std::chrono::milliseconds(4));
     }
-    gServerRunning.store(false, std::memory_order_release);
-    if (gServerThread.joinable()) gServerThread.join();
+    gLoopMonitorRunning.store(false, std::memory_order_release);
+    if (gLoopMonitorThread.joinable()) gLoopMonitorThread.join();
     std::lock_guard<std::mutex> lock(gMutex);
     if (!gInitialized) return;
     for (int index = 0; index < kChannelCount; ++index) {
