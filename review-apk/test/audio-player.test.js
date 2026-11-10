@@ -193,6 +193,41 @@ test("native start stays single-flight while Media3 reports its initial stopped 
   assert.equal(audio.getState().isStarting, false);
 });
 
+test("native decoder failure exits PREPARING and never creates a document-click restart loop", () => {
+  const calls = [];
+  let nativeState = { playing: false, preparing: false, trackId: "", cycleCount: 0, userPaused: false };
+  const nativeBridge = {
+    getPocketNativeMusicState: () => JSON.stringify(nativeState),
+    startPocketNativeMusic: (id) => {
+      calls.push(["start", id]);
+      nativeState = { playing: false, preparing: true, trackId: id, cycleCount: 0, userPaused: false };
+      return JSON.stringify({ ok: true });
+    },
+    stopPocketNativeMusic: () => true,
+    setPocketNativeMusicVolume: () => true
+  };
+  const { audio } = harness({}, { nativeBridge });
+  audio.enterMainMenu();
+  assert.equal(audio.getState().isStarting, true);
+
+  nativeState = {
+    playing: false,
+    preparing: false,
+    trackId: "happy",
+    cycleCount: 0,
+    userPaused: false,
+    error: "DECODER_INIT_FAILED"
+  };
+  audio.recoverAfterInterruption();
+
+  assert.equal(audio.getState().isPlaying, false);
+  assert.equal(audio.getState().isStarting, false);
+  assert.match(audio.getState().error, /DECODER_INIT_FAILED/);
+  for (let index = 0; index < 20; index += 1) audio.retryPendingPlayback();
+  assert.equal(calls.filter(call => call[0] === "start").length, 1,
+    "a failed native player must wait for an explicit needle action, not restart on arbitrary taps");
+});
+
 test("global gesture recovery does not race the needle-drop preparation", async () => {
   const calls = [];
   let nativeState = { playing: false, trackId: "", cycleCount: 0, userPaused: true };
