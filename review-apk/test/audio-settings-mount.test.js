@@ -103,6 +103,20 @@ test("CRI has separate, simultaneous channels for music, crackle, stylus and rec
   assert.match(nativeSource, /kChannelCount\s*=\s*6/);
 });
 
+test("CRI streaming initialization creates and destroys D-BAS before pools", () => {
+  const createDbas = nativeSource.indexOf("criAtomDbas_Create");
+  const adxPool = nativeSource.indexOf("criAtomExVoicePool_AllocateAdxVoicePool");
+  const destroyDbas = nativeSource.indexOf("criAtomDbas_Destroy");
+  assert.ok(createDbas >= 0 && adxPool > createDbas, "D-BAS must exist before streaming voice pools");
+  assert.match(nativeSource, /criAtomDbas_SetDefaultConfig\(&dbasConfig\)/);
+  assert.match(nativeSource, /dbasConfig\.max_streams\s*=\s*kChannelCount/);
+  assert.match(nativeSource, /criAtom_CalculateAdxBitrate\(2, 48000\)/);
+  assert.match(nativeSource, /criAtomDbas_CalculateWorkSize\(&dbasConfig\)/);
+  assert.match(nativeSource, /CRIATOMDBAS_ILLEGAL_ID/);
+  assert.ok(destroyDbas > adxPool, "D-BAS is destroyed after the voice pools");
+  assert.match(nativeSource, /std::free\(gDbasWork\)/);
+});
+
 test("ADX and imported Wave streams have their own CRI pools and retained work memory", () => {
   assert.match(nativeSource, /criAtomExVoicePool_CalculateWorkSizeForAdxVoicePool/);
   assert.match(nativeSource, /criAtomExVoicePool_AllocateAdxVoicePool/);
