@@ -87,7 +87,6 @@ jobs:
           } | tee "$REPORT"
       - name: Upload SDK inventory report (no SDK binaries)
         uses: actions/upload-artifact@v4
-        uses: actions/upload-artifact@v4
         with:
           name: cri-sdk-v2.31.01-inventory
           path: |
