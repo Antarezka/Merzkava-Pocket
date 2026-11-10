@@ -1486,10 +1486,9 @@
   background:#e7d8ae;transform:translateY(0);
   transform-origin:top;transition:transform .52s cubic-bezier(.22,.61,.36,1);
 }
-.audio-player.is-playing .turntable-needle{transform:rotate(12deg);filter:drop-shadow(0 1px 2px #0008)}
-.audio-player.is-starting .turntable-needle{transform:rotate(12deg)}
+.audio-player.is-needle-down .turntable-needle{transform:rotate(12deg);filter:drop-shadow(0 1px 2px #0008)}
 .audio-player.is-paused .turntable-needle{transform:rotate(0deg);filter:opacity(.88)}
-.audio-player.is-playing .needle-tip,.audio-player.is-starting .needle-tip{transform:translateY(2px)}
+.audio-player.is-needle-down .needle-tip{transform:translateY(2px)}
 .audio-player.is-playing .vinyl-disc{filter:brightness(1.06)}
 .audio-player.is-starting .vinyl-disc{filter:brightness(1.025)}
 .audio-player.is-paused .vinyl-disc{filter:brightness(.98)}
