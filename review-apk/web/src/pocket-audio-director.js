@@ -18,7 +18,8 @@ export function createPocketAudioDirector({
   native = globalThis.window?.PocketNative ?? null,
   customTracks = [],
   onChange = () => {},
-  onPlaybackCycle = () => {}
+  onPlaybackCycle = () => {},
+  startupEffectTimeoutMs = 6000
 } = {}) {
   let selectedTrack = readStored("mp-audio-track", "happy");
   let musicVolume = clampVolume(readStored("mp-audio-music-volume", "68"));
@@ -28,8 +29,13 @@ export function createPocketAudioDirector({
   let nativeError = "";
   let ambienceStatus = "idle";
   let ambienceRequested = false;
+  let needleDown = false;
+  let startupSequence = "idle";
+  let startupWaitingForRecord = false;
+  let startupWaitingForStylus = false;
+  let startupNeedleRequested = false;
+  let startupTimeout = null;
   let custom = [];
-  let automaticStartRequested = false;
 
   const normalizeCustomTracks = values => (Array.isArray(values) ? values : [])
     .filter(item => item && /^[a-f0-9-]{36}$/i.test(String(item.id || "")))
@@ -47,25 +53,41 @@ export function createPocketAudioDirector({
   const isPlaying = () => nativeStatus === "playing";
   const isStarting = () => nativeStatus === "preparing";
   const isPaused = () => nativeStatus === "paused";
+  const notify = () => { try { onChange(getState()); } catch {} };
   const getState = () => ({
     track:selectedTrack,
     title:getTrack().title,
     isPlaying:isPlaying(),
     isStarting:isStarting(),
     isPaused:isPaused(),
+    needleDown,
     status:nativeStatus,
     error:nativeError,
+    startupSequence,
     musicVolume,
     ambienceVolume,
     ambienceStatus,
     effectsVolume,
     tracks:getTracks()
   });
-  const notify = () => { try { onChange(getState()); } catch {} };
+
+  function clearStartupTimeout() {
+    if (startupTimeout !== null) {
+      clearTimeout(startupTimeout);
+      startupTimeout = null;
+    }
+  }
 
   function fail(message) {
     nativeStatus = "error";
     nativeError = String(message || "CRI audio could not complete the request.");
+    needleDown = false;
+    if (startupSequence !== "idle" && startupSequence !== "complete") {
+      startupSequence = "error";
+      startupWaitingForRecord = false;
+      startupWaitingForStylus = false;
+      clearStartupTimeout();
+    }
     notify();
     return false;
   }
@@ -101,8 +123,67 @@ export function createPocketAudioDirector({
     return accepted;
   }
 
+  function startStartupBgm() {
+    clearStartupTimeout();
+    startupWaitingForRecord = false;
+    startupWaitingForStylus = false;
+    startupSequence = "music";
+    startupNeedleRequested = false;
+    needleDown = true;
+    notify();
+    const accepted = requestTrackStart();
+    if (!accepted) startupSequence = "error";
+    notify();
+    return accepted;
+  }
+
+  function finishStartupRecord(status) {
+    if (!startupWaitingForRecord) return;
+    startupWaitingForRecord = false;
+    clearStartupTimeout();
+    if (status === "ended" && startupNeedleRequested) {
+      startupSequence = "stylus-drop";
+      startupWaitingForStylus = true;
+      needleDown = true;
+      notify();
+      if (!playEffect("stylus-drop")) {
+        startupWaitingForStylus = false;
+        startStartupBgm();
+      }
+      return;
+    }
+    startStartupBgm();
+  }
+
+  function finishStartupStylus() {
+    if (!startupWaitingForStylus) return;
+    startupWaitingForStylus = false;
+    if (startupNeedleRequested) {
+      startStartupBgm();
+    } else {
+      startupSequence = "cancelled";
+      needleDown = false;
+      notify();
+    }
+  }
+
   function updateNativeState(channel, nextStatus, nextError = "") {
     const next = String(nextStatus || "idle").toLowerCase();
+
+    if (channel === "record") {
+      if (startupWaitingForRecord && ["ended","error","idle"].includes(next)) {
+        finishStartupRecord(next);
+      }
+      return;
+    }
+
+    if (channel === "stylus") {
+      if (startupWaitingForStylus && ["ended","error","idle"].includes(next)) {
+        finishStartupStylus();
+      }
+      return;
+    }
+
     if (channel === "vinyl-crackle") {
       ambienceStatus = next;
       if (next === "preparing" || next === "playing" || next === "paused") ambienceRequested = true;
@@ -111,21 +192,32 @@ export function createPocketAudioDirector({
       notify();
       return;
     }
+
     if (channel !== "music") return;
     if (next === "cycle") {
       onPlaybackCycle();
       return;
     }
+
     nativeStatus = next;
     nativeError = String(nextError || "");
-    if (next === "ended") onPlaybackCycle();
-    if (next === "error") {
+    if (next === "ended") {
+      needleDown = false;
+      onPlaybackCycle();
+    } else if (next === "error") {
       if (!nativeError) nativeError = "CRI playback failed.";
+      needleDown = false;
       ambienceRequested = false;
       native?.criStopMusic?.();
+      if (startupSequence === "music") startupSequence = "error";
     } else if (next === "idle") {
+      needleDown = false;
       ambienceRequested = false;
+    } else if (next === "paused") {
+      needleDown = false;
     } else if (next === "playing") {
+      needleDown = true;
+      if (startupSequence === "music") startupSequence = "complete";
       ensureAmbienceForPlayingMusic();
     }
     notify();
@@ -135,32 +227,78 @@ export function createPocketAudioDirector({
     const track = getTracks().find(item => item.id === id);
     if (!track || selectedTrack === track.id) return false;
 
-    const replaceActivePlayback = isPlaying() || isStarting() || isPaused();
+    const previousTrack = selectedTrack;
     selectedTrack = track.id;
     writeStored("mp-audio-track", selectedTrack);
     nativeError = "";
 
-    if (replaceActivePlayback && !requestTrackStart()) return false;
+    const startupEffectInFlight = startupWaitingForRecord || startupWaitingForStylus;
+    const replaceActivePlayback = !startupEffectInFlight &&
+      (needleDown || isPlaying() || isStarting() || isPaused());
+
+    if (replaceActivePlayback && !requestTrackStart()) {
+      selectedTrack = previousTrack;
+      writeStored("mp-audio-track", selectedTrack);
+      notify();
+      return false;
+    }
     notify();
     return true;
   }
 
   function startPlayback() {
-    if (isPlaying() || isStarting()) return true;
+    if (needleDown && (isPlaying() || isStarting())) return true;
+
+    needleDown = true;
+    notify();
+    playEffect("stylus-drop");
+
     if (isPaused()) {
-      if (typeof native?.criPauseMusic !== "function") return fail("CRI pause control is unavailable.");
-      playEffect("stylus-drop");
-      native.criPauseMusic(false);
+      if (typeof native?.criPauseMusic !== "function") {
+        needleDown = false;
+        return fail("CRI pause control is unavailable.");
+      }
+      const resumed = native.criPauseMusic(false) === true;
+      if (!resumed) {
+        needleDown = false;
+        return fail("CRI could not resume the selected record.");
+      }
       return true;
     }
-    playEffect("stylus-drop");
-    return requestTrackStart();
+
+    const accepted = requestTrackStart();
+    if (!accepted) {
+      needleDown = false;
+      notify();
+    }
+    return accepted;
   }
 
   function toggleNeedle() {
-    if (isPlaying() || isStarting()) {
-      if (typeof native?.criPauseMusic !== "function") return fail("CRI pause control is unavailable.");
-      native.criPauseMusic(true);
+    if (startupWaitingForRecord) {
+      startupNeedleRequested = !startupNeedleRequested;
+      notify();
+      return true;
+    }
+    if (startupWaitingForStylus) {
+      startupNeedleRequested = !startupNeedleRequested;
+      needleDown = startupNeedleRequested;
+      notify();
+      return true;
+    }
+
+    if (needleDown || isPlaying()) {
+      needleDown = false;
+      notify();
+      if (typeof native?.criPauseMusic !== "function") {
+        needleDown = true;
+        return fail("CRI pause control is unavailable.");
+      }
+      const paused = native.criPauseMusic(true) === true;
+      if (!paused) {
+        needleDown = true;
+        return fail("CRI could not pause the selected record.");
+      }
       return true;
     }
     return startPlayback();
@@ -170,6 +308,28 @@ export function createPocketAudioDirector({
     const effect = String(name || "").trim().toLowerCase();
     if (!["stylus-drop","record-placement","door-chime","door-rattle"].includes(effect)) return false;
     return native?.criPlayEffect?.(effect) === true;
+  }
+
+  function startStartupSequence() {
+    if (startupSequence !== "idle") return false;
+    startupSequence = "record-placement";
+    startupWaitingForRecord = true;
+    startupNeedleRequested = false;
+    notify();
+
+    const accepted = playEffect("record-placement");
+    if (!accepted) {
+      startupWaitingForRecord = false;
+      startStartupBgm();
+      return true;
+    }
+
+    // The one-shot CRI record-placement cue normally signals its own END state.
+    // This guard prevents a broken/missing callback from keeping startup silent forever.
+    startupTimeout = setTimeout(() => {
+      if (startupWaitingForRecord) finishStartupRecord("timeout");
+    }, Math.max(1000, Number(startupEffectTimeoutMs) || 6000));
+    return true;
   }
 
   function setMusicVolume(value) {
@@ -193,17 +353,8 @@ export function createPocketAudioDirector({
     notify();
   }
 
-  function startAutomatically() {
-    if (automaticStartRequested) return false;
-    automaticStartRequested = true;
-    // Startup BGM has no visible stylus interaction yet. Keep stylus-drop
-    // SFX tied to an actual user pressing the on-screen needle.
-    return requestTrackStart();
-  }
-
   updateCustomTracks(customTracks);
-  // Apply persisted mixer levels to the native CRI channels before any
-  // automatic startup playback request is issued.
+  // Apply persisted mixer levels before any startup or user-requested playback.
   native?.criSetVolume?.("music", musicVolume);
   native?.criSetVolume?.("ambience", ambienceVolume);
   native?.criSetVolume?.("effects", effectsVolume);
@@ -215,15 +366,21 @@ export function createPocketAudioDirector({
     updateNativeState,
     selectTrack,
     startPlayback,
-    startAutomatically,
+    startStartupSequence,
     toggleNeedle,
     playEffect,
     setMusicVolume,
     setAmbienceVolume,
     setEffectsVolume,
     stop() {
+      clearStartupTimeout();
+      startupWaitingForRecord = false;
+      startupWaitingForStylus = false;
+      startupSequence = "cancelled";
+      needleDown = false;
       ambienceRequested = false;
       native?.criStopMusic?.();
+      notify();
     }
   };
 }
