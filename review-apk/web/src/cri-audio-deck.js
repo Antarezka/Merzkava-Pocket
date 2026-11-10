@@ -134,7 +134,7 @@ export function createCriAudioDeck({
 
   function playEffect(name) {
     const effect = String(name || "").trim().toLowerCase();
-    if (!["needle","placement","door-chime","door-rattle"].includes(effect)) return false;
+    if (!["stylus-drop","record-placement","door-chime","door-rattle"].includes(effect)) return false;
     return native?.criPlayEffect?.(effect) === true;
   }
 
