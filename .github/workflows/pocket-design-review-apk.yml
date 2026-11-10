@@ -107,9 +107,6 @@ jobs:
       - name: Run Pocket test suite
         working-directory: review-apk
         run: npm test
-      - name: Build Pocket web shell
-        working-directory: review-apk
-        run: npm run build
       - name: Verify native-only CRI audio sources and converted assets
         shell: bash
         run: |
