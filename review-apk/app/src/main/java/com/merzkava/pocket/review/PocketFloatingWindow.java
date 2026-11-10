@@ -112,6 +112,18 @@ final class PocketFloatingWindow {
         return stripView != null && stripView.getParent() != null;
     }
 
+    private void dispatchRenderMode(String renderMode, Runnable afterDispatch) {
+        if (webView == null) {
+            if (afterDispatch != null) mainHandler.post(afterDispatch);
+            return;
+        }
+        String script = "window.dispatchEvent(new CustomEvent('pocket:render-mode',{detail:{mode:"
+            + org.json.JSONObject.quote(renderMode) + "}}));";
+        webView.post(() -> webView.evaluateJavascript(script, result -> {
+            if (afterDispatch != null) afterDispatch.run();
+        }));
+    }
+
     void show() {
         if (Looper.myLooper() != Looper.getMainLooper()) {
             activity.runOnUiThread(this::show);
@@ -150,7 +162,7 @@ final class PocketFloatingWindow {
                 .apply();
 
             mode = MODE_WINDOW;
-            mainHandler.postDelayed(() -> {
+            dispatchRenderMode("window", () -> mainHandler.postDelayed(() -> {
                 if (token != transitionToken) return;
                 if (activity.isFinishing()) {
                     restoreToActivity();
@@ -163,7 +175,7 @@ final class PocketFloatingWindow {
                     transitionInProgress = false;
                     restoreToActivity();
                 }
-            }, 140L);
+            }, 140L));
         } catch (Exception error) {
             transitionInProgress = false;
             transitionToken++;
@@ -505,15 +517,19 @@ final class PocketFloatingWindow {
             mainHandler.postDelayed(() -> {
                 if (token != transitionToken) return;
                 if (PocketFloatingService.isBubbleVisible()) {
-                    transitionInProgress = false;
-                    activity.moveTaskToBack(true);
+                    dispatchRenderMode("bubble", () -> {
+                        transitionInProgress = false;
+                        activity.moveTaskToBack(true);
+                    });
                 } else {
                     android.util.Log.e("PocketFloating",
                         "The TV bubble was not attached; keeping Pocket in the foreground.");
-                    activity.stopService(new Intent(activity, PocketFloatingService.class));
-                    bringTaskToFront();
-                    mode = MODE_FULL_SCREEN;
-                    transitionInProgress = false;
+                    dispatchRenderMode("full", () -> {
+                        activity.stopService(new Intent(activity, PocketFloatingService.class));
+                        bringTaskToFront();
+                        mode = MODE_FULL_SCREEN;
+                        transitionInProgress = false;
+                    });
                 }
             }, 450L);
         } catch (Exception error) {
@@ -535,10 +551,12 @@ final class PocketFloatingWindow {
         activity.setContentView(webView);
         webView.evaluateJavascript(
             "document.body.classList.remove('native-floating-mode')", null);
-        activity.stopService(new Intent(activity, PocketFloatingService.class));
-        bringTaskToFront();
-        mode = MODE_FULL_SCREEN;
-        transitionInProgress = false;
+        dispatchRenderMode("full", () -> {
+            activity.stopService(new Intent(activity, PocketFloatingService.class));
+            bringTaskToFront();
+            mode = MODE_FULL_SCREEN;
+            transitionInProgress = false;
+        });
     }
 
     private void rollbackToActivity() {
@@ -546,10 +564,12 @@ final class PocketFloatingWindow {
         activity.setContentView(webView);
         webView.evaluateJavascript(
             "document.body.classList.remove('native-floating-mode')", null);
-        activity.stopService(new Intent(activity, PocketFloatingService.class));
-        bringTaskToFront();
-        mode = MODE_FULL_SCREEN;
-        transitionInProgress = false;
+        dispatchRenderMode("full", () -> {
+            activity.stopService(new Intent(activity, PocketFloatingService.class));
+            bringTaskToFront();
+            mode = MODE_FULL_SCREEN;
+            transitionInProgress = false;
+        });
     }
 
     private void bringTaskToFront() {
