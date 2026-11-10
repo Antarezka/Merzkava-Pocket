@@ -119,27 +119,27 @@ public final class PocketNativeBridge {
         return true;
     }
 
-    @JavascriptInterface public boolean playPocketAudio(String trackId) {
+    // Single CRI command surface. No WebView MediaPlayer/AudioContext or
+    // parallel legacy bridge methods are exposed to the application layer.
+    @JavascriptInterface public boolean criPlayTrack(String trackId) {
         return criAudio.playTrack(trackId);
     }
 
-    @JavascriptInterface public boolean startPocketAmbience() {
-        return criAudio.playAmbience();
-    }
-
-    @JavascriptInterface public boolean playPocketSound(String effectId) {
+    @JavascriptInterface public boolean criPlayEffect(String effectId) {
         return criAudio.playEffect(effectId);
     }
 
-    @JavascriptInterface public void pausePocketAudio(boolean paused) {
+    @JavascriptInterface public boolean criPauseMusic(boolean paused) {
         criAudio.pauseMusic(paused);
+        return true;
     }
 
-    @JavascriptInterface public void stopPocketAudio() {
+    @JavascriptInterface public boolean criStopMusic() {
         criAudio.stopMusic();
+        return true;
     }
 
-    @JavascriptInterface public void setPocketAudioVolume(String channel, int value) {
+    @JavascriptInterface public void criSetVolume(String channel, int value) {
         if ("music".equalsIgnoreCase(channel)) criAudio.setMusicVolume(value);
         else if ("effects".equalsIgnoreCase(channel)) criAudio.setEffectsVolume(value);
     }
