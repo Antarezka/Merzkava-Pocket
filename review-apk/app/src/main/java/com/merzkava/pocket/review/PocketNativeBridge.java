@@ -217,6 +217,7 @@ public final class PocketNativeBridge {
                 .put("playing", prefs().getBoolean("pocket_native_audio_playing", false))
                 .put("trackId", prefs().getString("pocket_native_audio_track", ""))
                 .put("cycleCount", prefs().getInt("pocket_native_audio_cycles", 0))
+                .put("userPaused", prefs().getBoolean("pocket_native_audio_user_paused", false))
                 .toString();
         } catch (Exception error) {
             return "{\"playing\":false,\"trackId\":\"\",\"cycleCount\":0}";
