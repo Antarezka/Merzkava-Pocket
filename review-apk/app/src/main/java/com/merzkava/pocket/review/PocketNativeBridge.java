@@ -90,6 +90,8 @@ public final class PocketNativeBridge {
     static final String PREF_UPDATE_FILE_NAME = "pocket_update_file_name_v1";
     static final String PREF_UPDATE_BUILD_NUMBER = "pocket_update_build_number_v1";
     private static final String PREF_UPDATE_NOTIFIED_BUILD = "pocket_update_notified_build_v1";
+    private static final String PREF_CUSTOM_MUSIC_LIBRARY = "pocket_custom_music_library_v1";
+    private static final long MAX_CUSTOM_MUSIC_BYTES = 64L * 1024L * 1024L;
     private static final String UPDATE_NOTIFICATION_CHANNEL_ID = "merzkava-pocket-updates";
     private static final int UPDATE_NOTIFICATION_ID = 8202;
     private static final String UNIVERSE = "Antarezka/merzkava-universe";
@@ -98,13 +100,176 @@ public final class PocketNativeBridge {
     private final WebView webView;
     private final Set<String> cancelledRequests = ConcurrentHashMap.newKeySet();
     private volatile String lastIv = "";
+    private final PocketCriAudioRuntime criAudio;
 
     PocketNativeBridge(Activity activity, WebView webView) {
         this.activity = activity;
         this.webView = webView;
+        this.criAudio = new PocketCriAudioRuntime(activity, webView);
+        this.criAudio.initialize();
     }
 
     @JavascriptInterface public boolean isNative() { return true; }
+
+    @JavascriptInterface public boolean openPocketAudioPicker() {
+        if (!(activity instanceof MainActivity)) return false;
+        activity.runOnUiThread(() -> ((MainActivity) activity).openPocketAudioPicker());
+        return true;
+    }
+
+    @JavascriptInterface public boolean playPocketAudio(String trackId) {
+        return criAudio.playTrack(trackId);
+    }
+
+    @JavascriptInterface public boolean startPocketAmbience() {
+        return criAudio.playAmbience();
+    }
+
+    @JavascriptInterface public boolean playPocketSound(String effectId) {
+        return criAudio.playEffect(effectId);
+    }
+
+    @JavascriptInterface public void pausePocketAudio(boolean paused) {
+        criAudio.pauseMusic(paused);
+    }
+
+    @JavascriptInterface public void stopPocketAudio() {
+        criAudio.stopMusic();
+    }
+
+    @JavascriptInterface public void setPocketAudioVolume(String channel, int value) {
+        if ("music".equalsIgnoreCase(channel)) criAudio.setMusicVolume(value);
+        else if ("effects".equalsIgnoreCase(channel)) criAudio.setEffectsVolume(value);
+    }
+
+    public void dispose() {
+        criAudio.dispose();
+    }
+
+    @JavascriptInterface public String getCustomMusicLibrary() {
+        try {
+            return prefs().getString(PREF_CUSTOM_MUSIC_LIBRARY, "[]");
+        } catch (Exception ignored) {
+            return "[]";
+        }
+    }
+
+    @JavascriptInterface public String deleteCustomMusicTrack(String id) {
+        try {
+            if (id == null || !id.matches("[a-fA-F0-9-]{36}")) {
+                return audioImportResult(false, "Pocket original music cannot be removed.", false);
+            }
+            JSONArray current = new JSONArray(getCustomMusicLibrary());
+            JSONArray updated = new JSONArray();
+            boolean found = false;
+            for (int i = 0; i < current.length(); i++) {
+                JSONObject item = current.optJSONObject(i);
+                if (item == null) continue;
+                if (id.equalsIgnoreCase(item.optString("id", ""))) found = true;
+                else updated.put(item);
+            }
+            if (!found) return audioImportResult(false, "Only imported music can be removed.", false);
+            if (!prefs().edit().putString(PREF_CUSTOM_MUSIC_LIBRARY, updated.toString()).commit()) {
+                return audioImportResult(false, "Pocket could not update the music rack.", false);
+            }
+            criAudio.stopMusic();
+            File wav = new File(new File(activity.getFilesDir(), "music"), id.toLowerCase(Locale.ROOT) + ".wav");
+            if (wav.isFile()) wav.delete();
+            return new JSONObject()
+                .put("ok", true)
+                .put("cancelled", false)
+                .put("action", "removed")
+                .put("message", "Imported music has been removed from your Pocket record rack.")
+                .put("tracks", updated)
+                .toString();
+        } catch (Exception error) {
+            return audioImportResult(false, "Pocket could not remove this imported record.", false);
+        }
+    }
+
+    public String importAudioFile(Uri uri) {
+        File temporary = null;
+        try {
+            if (uri == null) return audioImportResult(false, "No music file was selected.", true);
+            long sourceSize = queryCustomAudioSize(uri);
+            if (sourceSize > MAX_CUSTOM_MUSIC_BYTES) {
+                return audioImportResult(false, "This record is too large. The source-file limit is 64 MB.", false);
+            }
+            File directory = new File(activity.getFilesDir(), "music");
+            if (!directory.isDirectory() && !directory.mkdirs()) {
+                return audioImportResult(false, "Pocket could not prepare its private music shelf.", false);
+            }
+            temporary = File.createTempFile("cri-import-", ".wav", directory);
+            PocketAudioImporter.Result decoded = PocketAudioImporter.decodeToWav(activity, uri, temporary);
+            if (!decoded.ok) return audioImportResult(false, decoded.message, false);
+
+            String id = java.util.UUID.randomUUID().toString();
+            File stored = new File(directory, id + ".wav");
+            if (!temporary.renameTo(stored)) {
+                try (InputStream input = new java.io.FileInputStream(temporary);
+                     FileOutputStream output = new FileOutputStream(stored)) {
+                    byte[] buffer = new byte[32 * 1024];
+                    int count;
+                    while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+                    output.getFD().sync();
+                }
+                if (!stored.isFile() || stored.length() < 44) {
+                    stored.delete();
+                    throw new IOException("Pocket could not save the decoded record.");
+                }
+            }
+            temporary = null;
+            JSONArray tracks;
+            try { tracks = new JSONArray(getCustomMusicLibrary()); }
+            catch (Exception ignored) { tracks = new JSONArray(); }
+            JSONObject entry = new JSONObject();
+            entry.put("id", id);
+            entry.put("title", decoded.title);
+            entry.put("extension", decoded.sourceExtension);
+            entry.put("mimeType", "audio/wav");
+            entry.put("playbackType", "CRI_WAVE");
+            tracks.put(entry);
+            if (!prefs().edit().putString(PREF_CUSTOM_MUSIC_LIBRARY, tracks.toString()).commit()) {
+                stored.delete();
+                return audioImportResult(false, "Pocket could not update the music rack. Please try again.", false);
+            }
+            return new JSONObject()
+                .put("ok", true)
+                .put("cancelled", false)
+                .put("message", decoded.message)
+                .put("tracks", tracks)
+                .toString();
+        } catch (Exception error) {
+            return audioImportResult(false, "The selected audio could not be converted for CRI playback: " +
+                (error.getMessage() == null ? "unknown decoder error." : error.getMessage()), false);
+        } finally {
+            if (temporary != null && temporary.exists()) temporary.delete();
+        }
+    }
+
+    private long queryCustomAudioSize(Uri uri) {
+        try (Cursor cursor = activity.getContentResolver().query(uri,
+                new String[]{android.provider.OpenableColumns.SIZE}, null, null, null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                int column = cursor.getColumnIndex(android.provider.OpenableColumns.SIZE);
+                if (column >= 0 && !cursor.isNull(column)) return cursor.getLong(column);
+            }
+        } catch (Exception ignored) {}
+        return -1L;
+    }
+
+    private String audioImportResult(boolean ok, String message, boolean cancelled) {
+        try {
+            return new JSONObject()
+                .put("ok", ok)
+                .put("cancelled", cancelled)
+                .put("message", message)
+                .put("tracks", new JSONArray(getCustomMusicLibrary()))
+                .toString();
+        } catch (Exception ignored) {
+            return "{}";
+        }
+    }
 
     private static final String POCKET_REPOSITORY = "Antarezka/Merzkava-Pocket";
     private static final long POCKET_VERSION_CODE_OFFSET = 10000L;
