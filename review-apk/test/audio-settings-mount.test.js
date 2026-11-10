@@ -9,6 +9,8 @@ const runtimeSource = readFileSync(new URL("../app/src/main/java/com/merzkava/po
 const bridgeSource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketNativeBridge.java", import.meta.url), "utf8");
 const nativeSource = readFileSync(new URL("../app/src/main/cpp/cri_audio_jni.cpp", import.meta.url), "utf8");
 const cssSource = readFileSync(new URL("../web/src/styles.css", import.meta.url), "utf8");
+const activitySource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/MainActivity.java", import.meta.url), "utf8");
+const floatingSource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketFloatingWindow.java", import.meta.url), "utf8");
 
 test("Settings mounts and disposes the vinyl deck controls", () => {
   const start = source.indexOf('if(destination==="settings"){');
@@ -159,9 +161,11 @@ test("CRI playback state drives visual-only disc, motor and stylus motion", () =
   assert.match(source, /activeTurntableMotion\?\.setPlaying\(state\.isPlaying/);
   assert.match(source, /player\.classList\.toggle\("is-playing", state\.isPlaying\)/);
   assert.match(source, /player\.classList\.toggle\("is-paused", state\.isPaused\)/);
+  assert.match(source, /player\.classList\.toggle\("is-needle-down", state\.needleDown\)/);
+  assert.match(source, /activeTurntableMotion\?\.setPlaying\(state\.needleDown/);
   assert.match(audioVisualSource, /targetSpeed = playing \? 200 : 0/);
   assert.match(audioVisualSource, /requestFrame\(tick\)/);
-  assert.match(cssSource, /\.audio-player\.is-playing \.turntable-needle/);
+  assert.match(cssSource, /\.audio-player\.is-needle-down \.turntable-needle/);
   assert.match(cssSource, /\.audio-player\.is-paused \.turntable-needle/);
   assert.match(cssSource, /\.audio-player\.is-playing \.vinyl-disc/);
 });
@@ -254,4 +258,156 @@ test("The Audio Director tracks ambience failures separately from BGM playback",
   director.updateNativeState("vinyl-crackle", "error", "Vinyl stream unavailable");
   assert.equal(director.getState().status, "playing");
   assert.equal(director.getState().ambienceStatus, "error");
+});
+
+
+test("Startup waits for the record-placement cue before fading in the selected BGM", async () => {
+  const { createPocketAudioDirector } = await import("../web/src/pocket-audio-director.js?startup-sequence-test");
+  const calls = [];
+  const director = createPocketAudioDirector({
+    native: {
+      criPlayEffect(id) { calls.push(["effect", id]); return true; },
+      criPlayTrack(id) { calls.push(["track", id]); return true; },
+      criPlayAmbience() { calls.push(["ambience"]); return true; },
+      criSetVolume() {},
+      criPauseMusic() { return true; },
+      criStopMusic() { return true; }
+    }
+  });
+  assert.equal(director.startStartupSequence(), true);
+  assert.deepEqual(calls, [["effect", "record-placement"]]);
+  assert.equal(director.getState().startupSequence, "record-placement");
+  assert.equal(director.getState().needleDown, false);
+  director.updateNativeState("record", "playing");
+  assert.equal(calls.length, 1, "BGM must not start while the record-placement cue is still playing");
+  director.updateNativeState("record", "ended");
+  assert.deepEqual(calls[1], ["track", "happy"]);
+  assert.equal(director.getState().needleDown, true);
+  director.updateNativeState("music", "playing");
+  assert.deepEqual(calls[2], ["ambience"]);
+  assert.equal(director.getState().startupSequence, "complete");
+});
+
+test("A user stylus request during startup is queued after record placement, not mixed over it", async () => {
+  const { createPocketAudioDirector } = await import("../web/src/pocket-audio-director.js?startup-needle-test");
+  const calls = [];
+  const director = createPocketAudioDirector({
+    native: {
+      criPlayEffect(id) { calls.push(["effect", id]); return true; },
+      criPlayTrack(id) { calls.push(["track", id]); return true; },
+      criPlayAmbience() { calls.push(["ambience"]); return true; },
+      criSetVolume() {},
+      criPauseMusic() { return true; },
+      criStopMusic() { return true; }
+    }
+  });
+  director.startStartupSequence();
+  director.toggleNeedle();
+  assert.equal(director.getState().needleDown, false);
+  director.updateNativeState("record", "ended");
+  assert.deepEqual(calls, [
+    ["effect", "record-placement"],
+    ["effect", "stylus-drop"]
+  ]);
+  assert.equal(director.getState().needleDown, true);
+  director.updateNativeState("stylus", "ended");
+  assert.deepEqual(calls[2], ["track", "happy"]);
+});
+
+test("Selecting another record while playing keeps the needle down through CRI PREP", async () => {
+  const { createPocketAudioDirector } = await import("../web/src/pocket-audio-director.js?switch-track-state-test");
+  const calls = [];
+  const director = createPocketAudioDirector({
+    native: {
+      criPlayTrack(id) { calls.push(["track", id]); return true; },
+      criPlayEffect(id) { calls.push(["effect", id]); return true; },
+      criPlayAmbience() { calls.push(["ambience"]); return true; },
+      criSetVolume() {},
+      criPauseMusic() { return true; },
+      criStopMusic() { return true; }
+    }
+  });
+  director.startPlayback();
+  director.updateNativeState("music", "playing");
+  assert.equal(director.getState().needleDown, true);
+  assert.equal(director.selectTrack("chill"), true);
+  director.updateNativeState("music", "preparing");
+  assert.equal(director.getState().needleDown, true);
+  assert.equal(director.getState().isStarting, true);
+  director.updateNativeState("music", "playing");
+  assert.equal(director.getState().needleDown, true);
+});
+
+test("Changing the selected record while paused keeps the stylus lifted until the user lowers it", async () => {
+  const { createPocketAudioDirector } = await import("../web/src/pocket-audio-director.js?paused-track-change-test");
+  const calls = [];
+  const director = createPocketAudioDirector({
+    native: {
+      criPlayTrack(id) { calls.push(["track", id]); return true; },
+      criPlayEffect(id) { calls.push(["effect", id]); return true; },
+      criPlayAmbience() { calls.push(["ambience"]); return true; },
+      criSetVolume() {},
+      criPauseMusic(paused) { calls.push(["pause", paused]); return true; },
+      criStopMusic() { return true; }
+    }
+  });
+  director.startPlayback();
+  director.updateNativeState("music", "playing");
+  director.toggleNeedle();
+  director.updateNativeState("music", "paused");
+  assert.equal(director.getState().needleDown, false);
+  director.selectTrack("retroatrical1");
+  director.updateNativeState("music", "paused");
+  assert.equal(director.getState().needleDown, false);
+  director.toggleNeedle();
+  assert.equal(calls.at(-1)[0], "pause");
+  assert.equal(calls.at(-1)[1], false);
+  assert.equal(director.getState().needleDown, true);
+});
+
+test("Turntable render loop suspends only in bubble mode and resumes at its retained angle", async () => {
+  const callbacks = new Map();
+  let nextId = 1;
+  const { createTurntableMotion } = await import("../web/src/audio-player.js?floating-motion-test");
+  const motion = createTurntableMotion({
+    requestFrame(callback) { const id = nextId++; callbacks.set(id, callback); return id; },
+    cancelFrame(id) { callbacks.delete(id); }
+  });
+  const step = time => {
+    const entry = callbacks.entries().next().value;
+    assert.ok(entry, "a visible running platter should schedule a frame");
+    callbacks.delete(entry[0]);
+    entry[1](time);
+  };
+  motion.setPlaying(true);
+  step(0);
+  for (let i = 1; i <= 25; i++) step(i * 16);
+  const beforeHide = motion.getState();
+  motion.setRenderEnabled(false);
+  assert.equal(callbacks.size, 0, "bubble mode must not keep a hidden animation-frame loop alive");
+  assert.equal(motion.getState().angle, beforeHide.angle);
+  assert.equal(motion.getState().speed, beforeHide.speed);
+  motion.setRenderEnabled(true);
+  assert.equal(callbacks.size, 1, "full and mini-window mode restore the visual motor");
+  step(500);
+  assert.ok(motion.getState().angle !== beforeHide.angle);
+  motion.setRenderEnabled(false);
+  motion.setPlaying(false);
+  assert.equal(motion.getState().speed, 0, "a pause received in bubble mode must be reflected on restore");
+  motion.setRenderEnabled(true);
+  assert.equal(callbacks.size, 0, "a stopped platter must stay stopped after restore");
+  motion.dispose();
+});
+
+test("Floating window transitions reuse the same CRI runtime and do not pause playback", () => {
+  assert.match(activitySource, /nativeBridge = new PocketNativeBridge\(this, webView\)/);
+  assert.match(activitySource, /nativeBridge\.dispose\(\)/);
+  assert.match(floatingSource, /contentFrame\.addView\(webView/);
+  assert.match(floatingSource, /activity\.setContentView\(webView\)/);
+  assert.match(floatingSource, /dispatchRenderMode\("window"/);
+  assert.match(floatingSource, /dispatchRenderMode\("bubble"/);
+  assert.match(floatingSource, /dispatchRenderMode\("full"/);
+  assert.doesNotMatch(floatingSource, /criStopMusic|criPauseMusic|PocketCriAudioRuntime/,
+    "window mode changes must not issue playback stop or pause commands");
+  assert.match(source, /activeTurntableMotion\?\.setRenderEnabled\(!bubbleVisualSuspended\)/);
 });
