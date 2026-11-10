@@ -267,7 +267,6 @@ jobs:
           grep -q 'dbasConfig.max_streams = kChannelCount' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'criAtom_CalculateAdxBitrate(2, 48000)' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'criAtomDbas_Destroy' review-apk/app/src/main/cpp/cri_audio_jni.cpp
-          grep -q 'criAtom_CalculateAdxBitrate(2, 48000)' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'criAtomExVoicePool_AllocateWaveVoicePool' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'criAtomExTween_MoveTo' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'criAtomExPlayer_Update' review-apk/app/src/main/cpp/cri_audio_jni.cpp
