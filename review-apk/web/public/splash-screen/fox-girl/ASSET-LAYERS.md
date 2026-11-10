@@ -16,7 +16,7 @@ These are the actual uploaded transparent PNG layers used by the **main Merzkava
 
 All layers should use a shared canvas size and origin so the PNGs stay aligned when stacked. Transparent pixels must be preserved. Do not crop the parts independently or flatten the illustration.
 
-The three tail PNGs are animated together as one assembly so their edges remain aligned. The body stays above the tail; both ear layers and the apple sit above the body.
+The three tail PNGs remain stacked on their shared transparent canvas, but each piece gets its own pivot, direction, travel distance, duration, and delay. Their opposing micro-rotations create a slow wave from the base toward the tip. The body stays above the tail; both ear layers and the apple sit above the body.
 
 ## Apple color
 
