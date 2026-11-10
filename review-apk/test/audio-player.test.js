@@ -53,6 +53,14 @@ function harness(values = {}, callbacks = {}) {
   return { audio, data };
 }
 
+test("the two new built-in BGM records use the approved Retroatrical names", () => {
+  const { audio } = harness();
+  const titles = audio.getTracks().map(track => track.title);
+  assert.ok(titles.includes("Retroatrical-1"));
+  assert.ok(titles.includes("Retroatrical-2"));
+  assert.equal(titles.includes("Retroatrical-a1"), false);
+});
+
 test("background music stays silent until the main menu is entered", () => {
   const { audio } = harness();
   assert.equal(audio.getState().isPlaying, false);
