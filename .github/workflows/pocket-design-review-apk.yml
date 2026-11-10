@@ -35,6 +35,9 @@ jobs:
       - name: Install web dependencies
         working-directory: review-apk
         run: npm install
+      - name: Run Pocket test suite
+        working-directory: review-apk
+        run: npm test
       - name: Build Pocket web shell
         working-directory: review-apk
         run: npm run build
