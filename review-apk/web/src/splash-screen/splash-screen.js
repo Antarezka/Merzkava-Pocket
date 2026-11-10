@@ -15,7 +15,7 @@ const FOX_LAYERS = Object.freeze([
 
 export function renderFoxSplashMarkup() {
   const tailImages = FOX_TAIL_FILES.map((file, index) =>
-    `<img class="splash-fox-tail-layer tail-part-${index + 1}" src="${FOX_ASSET_ROOT}/${file}" alt="" aria-hidden="true" draggable="false" decoding="async">`
+    `<img class="splash-fox-tail-layer tail-part-${index + 1}" data-splash-fox-tail-part="${index + 1}" src="${FOX_ASSET_ROOT}/${file}" alt="" aria-hidden="true" draggable="false" decoding="async">`
   ).join("");
   const images = FOX_LAYERS.map(({ id, file }) =>
     `<img class="splash-fox-layer splash-fox-${id}" data-splash-fox-layer="${id}" src="${FOX_ASSET_ROOT}/${file}" alt="" aria-hidden="true" draggable="false" decoding="async">`
@@ -61,17 +61,38 @@ export function mountFoxSplashMotion(stage, { animate, reducedMotion = () => fal
   refreshArtVisibility();
 
   if (!reducedMotion()) {
-    const tail = stage.querySelector("[data-splash-fox-tail]");
+    const tailOne = stage.querySelector('[data-splash-fox-tail-part="1"]');
+    const tailTwo = stage.querySelector('[data-splash-fox-tail-part="2"]');
+    const tailThree = stage.querySelector('[data-splash-fox-tail-part="3"]');
     const earOne = getLayer("ear-one");
     const earTwo = getLayer("ear-two");
     const apple = getLayer("apple");
 
-    // Animate the tail as one aligned assembly so the separate PNG pieces
-    // never pull apart at their transparent edges.
-    if (tail) animations.push(animate(tail, {
-      rotate: [-1.1, 2.2, -1.1],
-      translateY: [0, -1.5, 0],
-      duration: 3600,
+    // Each tail plate has its own pivot and rhythm. The opposing rotations
+    // create a soft wave traveling from the tail base to its outer tip.
+    if (tailOne) animations.push(animate(tailOne, {
+      rotate: [0, -2.8, 1.1, 0],
+      translateX: [0, -1.4, 0.7, 0],
+      translateY: [0, -1.2, 0.4, 0],
+      duration: 4300,
+      ease: "inOutSine",
+      loop: true
+    }));
+    if (tailTwo) animations.push(animate(tailTwo, {
+      rotate: [0, 2.1, -1.5, 0],
+      translateX: [0, 1.2, -0.8, 0],
+      translateY: [0, 0.7, -0.9, 0],
+      duration: 3650,
+      delay: 150,
+      ease: "inOutSine",
+      loop: true
+    }));
+    if (tailThree) animations.push(animate(tailThree, {
+      rotate: [0, -3.6, 2.7, 0],
+      translateX: [0, 1.5, -1.1, 0],
+      translateY: [0, -1.8, 1.1, 0],
+      duration: 3050,
+      delay: 310,
       ease: "inOutSine",
       loop: true
     }));
