@@ -75,10 +75,14 @@ jobs:
           echo "CRI_SDK_ROOT=$CRI_ROOT" >> "$GITHUB_ENV"
           echo "Verified and normalized CRI ADX LE 2.31.01 Android libraries and headers for ARM64 and ARMv7."
 
-      - name: Install FFmpeg
+      - name: Ensure FFmpeg with ADX encoder is available
+        shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          set -euo pipefail
+          if ! command -v ffmpeg >/dev/null 2>&1 || ! ffmpeg -hide_banner -encoders 2>/dev/null | grep -q "adpcm_adx"; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
           ffmpeg -hide_banner -encoders | grep -q "adpcm_adx"
       - name: Install web dependencies
         working-directory: review-apk
