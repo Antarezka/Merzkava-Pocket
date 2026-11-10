@@ -57,24 +57,29 @@ test("Selecting a record while idle only changes selection; playback commands go
     criStopMusic() { calls.push(["stop"]); return true; }
   };
   const deck = createCriAudioDeck({ native });
+  assert.deepEqual(calls.slice(0, 2), [
+    ["volume", "music", 68],
+    ["volume", "effects", 76]
+  ], "saved mix levels should be applied to CRI at deck initialization");
+  calls.length = 0;
   assert.equal(deck.selectTrack("chill"), true);
   assert.equal(calls.length, 0, "placing a record while idle must not start playback");
   assert.equal(deck.startAutomatically(), true);
-  assert.deepEqual(calls[0], ["play", "chill"]);
+  assert.deepEqual(calls.slice(0, 2), [["effect", "needle"], ["play", "chill"]]);
   deck.updateNativeState("music", "playing");
   assert.equal(deck.selectTrack("retroatrical1"), true);
-  assert.deepEqual(calls[1], ["play", "retroatrical1"]);
+  assert.deepEqual(calls[2], ["play", "retroatrical1"]);
   deck.updateNativeState("music", "paused");
   deck.toggleNeedle();
-  assert.deepEqual(calls[2], ["pause", false]);
+  assert.deepEqual(calls.slice(3, 5), [["effect", "needle"], ["pause", false]]);
   deck.updateNativeState("music", "playing");
   deck.toggleNeedle();
-  assert.deepEqual(calls[3], ["pause", true]);
+  assert.deepEqual(calls[5], ["pause", true]);
   deck.setMusicVolume(52);
   deck.setEffectsVolume(41);
   deck.playEffect("needle");
   deck.stop();
-  assert.deepEqual(calls.slice(4), [
+  assert.deepEqual(calls.slice(6), [
     ["volume", "music", 52],
     ["volume", "effects", 41],
     ["effect", "needle"],
