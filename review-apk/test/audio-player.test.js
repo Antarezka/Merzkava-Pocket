@@ -18,6 +18,7 @@ class FakeAudio {
     this.playAttemptedInsideEnded = 0;
     this.failNextPlay = false;
     FakeAudio.instances.push(this);
+    if (src) queueMicrotask(() => this.dispatch("loadedmetadata"));
   }
   addEventListener(name, callback) {
     if (!this.listeners.has(name)) this.listeners.set(name, new Set());
@@ -53,7 +54,10 @@ class FakeAudio {
     this.paused = true;
     this.dispatch("pause");
   }
-  load() { this.ended = false; }
+  load() {
+    this.ended = false;
+    queueMicrotask(() => this.dispatch("loadedmetadata"));
+  }
   finish() {
     this.currentTime = this.duration;
     this.ended = true;
