@@ -432,12 +432,12 @@ function createNativePocketAudioController({
     return Promise.resolve(nativePlaying);
   }
   function retryPendingPlayback() {
-    // Document-level gesture recovery must not race the needle-drop sequence
-    // or restart a service that has already accepted an in-flight play request.
-    if (!shouldMaintainPlayback() || userPaused || needleStarting || nativeStarting || nativePlaying) return false;
+    // This is called for every document click. For native Media3, arbitrary
+    // gestures must never create another ACTION_PLAY or restart a failed service.
+    // Only main-menu entry and an explicit needle action may start BGM.
+    if (!shouldMaintainPlayback()) return false;
     syncNativeState();
-    if (!nativePlaying && !nativeStarting && !userPaused && !needleStarting) void startMusic();
-    return true;
+    return false;
   }
   function recoverAfterInterruption() {
     syncNativeState();
