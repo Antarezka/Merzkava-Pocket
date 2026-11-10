@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - fix/build239-manual-audio-floating-fox-splash
+      - feat/pocket-audio-architecture-2026-11-11
     paths:
       - "review-apk/**"
       - ".github/workflows/pocket-audio-splash-checks.yml"
