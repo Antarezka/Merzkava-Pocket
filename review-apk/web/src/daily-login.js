@@ -1,14 +1,33 @@
 import { animate } from "animejs";
 import { openPocketGiftSession } from "./economy.js";
+import { createDailyLoginWeatherProfile } from "./daily-login-weather.js";
 import "./daily-login.css";
 
 const reducedMotion=()=>window.matchMedia?.("(prefers-reduced-motion: reduce)").matches??false;
+
+function fillWeatherParticles(container,count,className,styleFactory){
+ if(!container)return;
+ const fragment=document.createDocumentFragment();
+ for(let index=0;index<count;index++){
+  const particle=document.createElement("i");
+  particle.className=className;
+  for(const [name,value] of Object.entries(styleFactory(index)))particle.style.setProperty(name,String(value));
+  fragment.append(particle);
+ }
+ container.replaceChildren(fragment);
+}
+const randomBetween=(minimum,maximum)=>minimum+Math.random()*(maximum-minimum);
 
 export function dailyLoginMarkup(){
  return `
  <main class="daily-login-scene" data-daily-login-root aria-label="Daily Login Japanese shop">
   <section class="dl-layer dl-outside" data-dl-outside aria-label="Bagian depan kedai Jepang">
-   <div class="dl-night-sky" aria-hidden="true"><i class="dl-star dl-star-one"></i><i class="dl-star dl-star-two"></i><i class="dl-star dl-star-three"></i><span class="dl-moon"></span></div>
+   <div class="dl-night-sky" data-dl-sky aria-hidden="true">
+    <div class="dl-weather-cloudbank"><i class="dl-cloud dl-cloud-one"></i><i class="dl-cloud dl-cloud-two"></i><i class="dl-cloud dl-cloud-three"></i></div>
+    <div class="dl-rainbow"></div>
+    <div class="dl-starfield" data-dl-starfield></div>
+    <span class="dl-moon"></span>
+   </div>
    <div class="dl-shop-scene">
     <div class="dl-art-stage">
      <img class="dl-shop-art" src="/game-assets/pxl/sprites/daily_login_shop_front.png" alt="" draggable="false">
@@ -25,6 +44,15 @@ export function dailyLoginMarkup(){
       </button>
      </div>
     </div>
+   </div>
+   <div class="dl-weather-overlay" aria-hidden="true">
+    <div class="dl-weather-rain"></div><div class="dl-weather-snow" data-dl-snowfall></div>
+    <div class="dl-weather-sleet" data-dl-sleet></div><div class="dl-weather-leaves" data-dl-weather-leaves></div>
+    <div class="dl-lightning-flash"></div><i class="dl-lightning-bolt"></i>
+   </div>
+   <div class="dl-weather-ground" aria-hidden="true">
+    <div class="dl-ground-water"></div><div class="dl-ground-snow"></div>
+    <div class="dl-ground-snow-wet"></div><div class="dl-ground-leaves" data-dl-ground-leaves></div>
    </div>
    <button class="dl-back" type="button" data-dl-back aria-label="Kembali ke menu">KEMBALI <span>↙</span></button>
   </section>
@@ -133,6 +161,11 @@ export function mountDailyLogin(scene,onBack,identity){
  const leave=scene.querySelector("[data-dl-leave]");
  const tvNoise=scene.querySelector("[data-dl-tv-noise]");
  const tvScan=scene.querySelector("[data-dl-tv-scan]");
+ const starfield=scene.querySelector("[data-dl-starfield]");
+ const snowfall=scene.querySelector("[data-dl-snowfall]");
+ const sleet=scene.querySelector("[data-dl-sleet]");
+ const fallingLeaves=scene.querySelector("[data-dl-weather-leaves]");
+ const groundLeaves=scene.querySelector("[data-dl-ground-leaves]");
  const bulb=scene.querySelector(".dl-bulb-lamp");
  const assistant=scene.querySelector("[data-dl-assistant]");
  const assistantText=scene.querySelector("[data-dl-assistant-text]");
@@ -274,11 +307,47 @@ export function mountDailyLogin(scene,onBack,identity){
  }
  rewardTick=window.setInterval(refreshGiftUI,1000);
 
+ fillWeatherParticles(starfield,112,"dl-star",()=>({
+  "--star-left":randomBetween(1,99).toFixed(2)+"%","--star-top":randomBetween(2,58).toFixed(2)+"%",
+  "--star-size":randomBetween(.55,1.35).toFixed(2)+"px","--star-opacity":randomBetween(.28,.76).toFixed(2),
+  "--star-duration":randomBetween(2.4,7.8).toFixed(2)+"s","--star-delay":(-randomBetween(0,7.8)).toFixed(2)+"s"
+ }));
+ fillWeatherParticles(snowfall,38,"dl-snowflake",()=>({
+  "--snow-left":randomBetween(0,100).toFixed(2)+"%","--snow-top":randomBetween(-8,78).toFixed(2)+"%",
+  "--snow-size":randomBetween(1.1,2.7).toFixed(2)+"px","--snow-duration":randomBetween(7,15).toFixed(2)+"s",
+  "--snow-delay":(-randomBetween(0,15)).toFixed(2)+"s","--snow-drift":randomBetween(-34,34).toFixed(1)+"px",
+  "--snow-opacity":randomBetween(.28,.76).toFixed(2)
+ }));
+ fillWeatherParticles(sleet,24,"dl-snowflake",()=>({
+  "--snow-left":randomBetween(0,100).toFixed(2)+"%","--snow-top":randomBetween(-8,78).toFixed(2)+"%",
+  "--snow-size":randomBetween(.8,1.8).toFixed(2)+"px","--snow-duration":randomBetween(3.5,7).toFixed(2)+"s",
+  "--snow-delay":(-randomBetween(0,7)).toFixed(2)+"s","--snow-drift":randomBetween(-22,22).toFixed(1)+"px",
+  "--snow-opacity":randomBetween(.18,.52).toFixed(2)
+ }));
+ fillWeatherParticles(fallingLeaves,18,"dl-falling-leaf",()=>({
+  "--leaf-left":randomBetween(0,100).toFixed(2)+"%","--leaf-top":randomBetween(-8,52).toFixed(2)+"%",
+  "--leaf-size":randomBetween(3,6.2).toFixed(2)+"px","--leaf-duration":randomBetween(8,17).toFixed(2)+"s",
+  "--leaf-delay":(-randomBetween(0,17)).toFixed(2)+"s","--leaf-drift":randomBetween(-64,64).toFixed(1)+"px",
+  "--leaf-turn":randomBetween(240,720).toFixed(0)+"deg",
+  "--leaf-color":["#b65f32","#d58a3f","#9b4930","#c6a34c","#7e633c"][Math.floor(Math.random()*5)]
+ }));
+ fillWeatherParticles(groundLeaves,22,"dl-road-leaf",()=>({
+  "--ground-left":randomBetween(1,99).toFixed(2)+"%","--ground-top":randomBetween(10,85).toFixed(2)+"%",
+  "--leaf-size":randomBetween(3,6).toFixed(2)+"px","--leaf-turn":randomBetween(0,360).toFixed(0)+"deg",
+  "--leaf-color":["#b65f32","#d58a3f","#9b4930","#c6a34c","#7e633c"][Math.floor(Math.random()*5)]
+ }));
+ let selectedSeason=null,selectedNight=null;
  const refreshSky=()=>{
-  const now=new Date();
-  const hour=now.getHours()+now.getMinutes()/60;
+  const now=new Date(),hour=now.getHours()+now.getMinutes()/60;
   const phase=hour>=5&&hour<7?"dawn":hour>=7&&hour<11?"morning":hour>=11&&hour<16?"day":hour>=16&&hour<18.5?"golden":hour>=18.5&&hour<20.5?"dusk":"night";
   outside.dataset.dlTimeOfDay=phase;
+  const night=hour<5||hour>=18.5;
+  if(selectedNight!==night){
+   const profile=createDailyLoginWeatherProfile({hour,season:selectedSeason,random:Math.random});
+   selectedNight=night;selectedSeason=profile.season;
+   outside.dataset.dlWeather=profile.weather;outside.dataset.dlSeason=profile.season;
+   outside.dataset.dlPrecipitation=profile.precipitation;
+  }
  };
  refreshSky();
  const skyTimer=window.setInterval(refreshSky,30000);

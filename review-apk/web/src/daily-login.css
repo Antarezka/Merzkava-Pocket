@@ -1344,3 +1344,151 @@
   .dl-assistant-bubble{top:-88px}
 }
 @media(prefers-reduced-motion:reduce){.dl-assistant-sprite{animation:none;background-position:0 0}}
+
+
+/* Daily Login weather atlas: layered sky, seasonal atmosphere, and a changing road surface. */
+.dl-outside .dl-night-sky{z-index:0;overflow:hidden}
+.dl-outside .dl-moon{opacity:0;z-index:1;transition:opacity 1.4s ease}
+.dl-weather-cloudbank{position:absolute;z-index:2;inset:0;overflow:hidden;opacity:0;pointer-events:none;transition:opacity 1.4s ease}
+.dl-cloud{position:absolute;display:block;width:42vw;height:7.5vh;min-height:38px;max-height:84px;border-radius:50%;filter:blur(1.6px);background:radial-gradient(ellipse at 22% 70%,#e2e6e4 0 24%,transparent 52%),radial-gradient(ellipse at 48% 42%,#f3f2e9 0 35%,transparent 62%),radial-gradient(ellipse at 76% 70%,#cfd8d8 0 30%,transparent 58%);opacity:.72;animation:dl-cloud-drift 58s linear infinite}
+.dl-cloud-one{left:-12%;top:12%;transform:scale(1.05)}
+.dl-cloud-two{right:-15%;top:30%;transform:scale(.82);animation-duration:76s;animation-direction:reverse;opacity:.58}
+.dl-cloud-three{left:32%;top:5%;transform:scale(.7);animation-duration:94s;opacity:.46}
+@keyframes dl-cloud-drift{from{translate:-5vw 0}to{translate:16vw 0}}
+.dl-starfield{position:absolute;z-index:1;inset:0;opacity:0;pointer-events:none;transition:opacity 1.5s ease}
+.dl-star{position:absolute;left:var(--star-left);top:var(--star-top);width:var(--star-size);height:var(--star-size);min-width:1px;min-height:1px;border-radius:50%;background:#fff6d9;opacity:var(--star-opacity);box-shadow:0 0 2px #fff1c7;animation:dl-star-breathe var(--star-duration) ease-in-out var(--star-delay) infinite alternate;will-change:opacity}
+@keyframes dl-star-breathe{0%{opacity:.16;scale:.78}48%{opacity:var(--star-opacity);scale:1}100%{opacity:.28;scale:.86}}
+.dl-rainbow{position:absolute;z-index:3;left:-9%;right:-9%;top:7%;height:53%;opacity:0;pointer-events:none;filter:blur(3px);background:radial-gradient(ellipse at 50% 112%,transparent 0 42%,#e3a6a91c 42.4% 43.5%,#e8c9961b 44% 45.1%,#dbe3b51a 45.6% 46.7%,#9bc8c51a 47.2% 48.3%,#9aaad51a 48.8% 49.8%,#b6a0cf15 50.3% 51.3%,transparent 51.8% 100%);transition:opacity 1.8s ease}
+.dl-weather-overlay{position:absolute;z-index:17;inset:0;overflow:hidden;pointer-events:none}
+.dl-weather-rain{position:absolute;inset:-28% -18%;opacity:0;background:repeating-linear-gradient(104deg,transparent 0 13px,#dceaf04c 13.5px 14.2px,transparent 15px 28px);transform:translate3d(-3%,0,0);animation:dl-rain-fall .48s linear infinite}
+.dl-weather-rain:after{content:"";position:absolute;inset:0;opacity:.48;background:repeating-linear-gradient(101deg,transparent 0 31px,#d2e4ec5e 31.6px 32.2px,transparent 33px 52px);transform:translateX(9%);animation:dl-rain-fall .72s linear infinite}
+@keyframes dl-rain-fall{from{translate:0 -5%}to{translate:9% 18%}}
+.dl-weather-snow,.dl-weather-sleet,.dl-weather-leaves{position:absolute;inset:0;overflow:hidden}
+.dl-snowflake{position:absolute;left:var(--snow-left);top:var(--snow-top);width:var(--snow-size);height:var(--snow-size);border-radius:50%;background:#f1f4ef;opacity:var(--snow-opacity);box-shadow:0 0 2px #edf4f3;animation:dl-snow-drift var(--snow-duration) linear var(--snow-delay) infinite;will-change:transform}
+@keyframes dl-snow-drift{from{transform:translate3d(0,-12vh,0)}to{transform:translate3d(var(--snow-drift),115vh,0)}}
+.dl-falling-leaf{position:absolute;left:var(--leaf-left);top:var(--leaf-top);width:var(--leaf-size);height:calc(var(--leaf-size)*.62);border-radius:85% 10% 85% 10%;background:var(--leaf-color);opacity:.78;box-shadow:0 0 2px #24180d66;animation:dl-leaf-fall var(--leaf-duration) linear var(--leaf-delay) infinite;will-change:transform}
+@keyframes dl-leaf-fall{from{transform:translate3d(0,-12vh,0) rotate(0)}to{transform:translate3d(var(--leaf-drift),112vh,0) rotate(var(--leaf-turn))}}
+.dl-lightning-flash{position:absolute;inset:0;opacity:0;background:#e7edf0;mix-blend-mode:screen}
+.dl-lightning-bolt{position:absolute;z-index:2;left:63%;top:17%;width:10vw;height:19vh;max-width:48px;max-height:140px;opacity:0;background:#fff9da;clip-path:polygon(57% 0,23% 54%,48% 54%,26% 100%,82% 38%,54% 38%);filter:drop-shadow(0 0 8px #eef6ff);transform:skewX(-8deg)}
+.dl-weather-ground{position:absolute;z-index:16;left:0;right:0;bottom:0;height:clamp(54px,12vh,108px);overflow:hidden;pointer-events:none;border-top:2px solid #c6ad7c88;background:linear-gradient(180deg,#605c52 0%,#393b39 17%,#262b2c 100%),repeating-linear-gradient(90deg,#333b3b 0 38px,#414342 39px 41px,#2c3233 43px 76px);box-shadow:0 -5px 18px #070b0b2c}
+.dl-weather-ground:before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent 0 15px,#b8b8aa11 15px 16px,transparent 17px 33px);opacity:.8}
+.dl-ground-water,.dl-ground-snow,.dl-ground-snow-wet,.dl-ground-leaves{position:absolute;inset:0;opacity:0;transition:opacity 1.4s ease}
+.dl-ground-water{background:radial-gradient(ellipse at 14% 40%,#9ab5c355 0 1%,transparent 14%),radial-gradient(ellipse at 46% 76%,#b5c6c733 0 2%,transparent 19%),radial-gradient(ellipse at 82% 42%,#b8c9ce44 0 1%,transparent 16%),linear-gradient(180deg,#a5bdc51a,#0f171b77);animation:dl-water-shimmer 6.5s ease-in-out infinite alternate}
+@keyframes dl-water-shimmer{from{filter:brightness(.82)}to{filter:brightness(1.18)}}
+.dl-ground-snow{background:linear-gradient(180deg,#dce6e8 0%,#b9cbd0 23%,#7d9293 100%);box-shadow:inset 0 6px 8px #f4f7ef99}
+.dl-ground-snow-wet{background:linear-gradient(180deg,#bbcacc 0%,#839595 35%,#455454 100%);opacity:0}
+.dl-road-leaf{position:absolute;left:var(--ground-left);top:var(--ground-top);width:var(--leaf-size);height:calc(var(--leaf-size)*.62);border-radius:85% 10% 85% 10%;background:var(--leaf-color);transform:rotate(var(--leaf-turn));box-shadow:0 1px 2px #10100d88}
+.dl-ground-leaves{background:radial-gradient(ellipse at 50% 0%,#8f653244,transparent 65%)}
+.dl-outside[data-dl-weather="cloudy"] .dl-weather-cloudbank{opacity:.48}
+.dl-outside[data-dl-weather="overcast"] .dl-weather-cloudbank{opacity:.82;filter:brightness(.76)}
+.dl-outside[data-dl-weather="thunder"] .dl-weather-cloudbank,.dl-outside[data-dl-weather="storm"] .dl-weather-cloudbank{opacity:.94;filter:brightness(.62) saturate(.84)}
+.dl-outside[data-dl-weather="moon-cloud"] .dl-weather-cloudbank{opacity:.64;filter:brightness(.86) saturate(.62)}
+.dl-outside[data-dl-weather="night-rain"] .dl-weather-cloudbank{opacity:.78;filter:brightness(.66)}
+.dl-outside[data-dl-weather="drizzle"] .dl-weather-cloudbank{opacity:.38}
+.dl-outside[data-dl-weather="thunder"] .dl-lightning-flash,.dl-outside[data-dl-weather="storm"] .dl-lightning-flash{animation:dl-lightning-flash 6.8s linear infinite}
+.dl-outside[data-dl-weather="thunder"] .dl-lightning-bolt,.dl-outside[data-dl-weather="storm"] .dl-lightning-bolt{animation:dl-lightning-bolt 6.8s linear infinite}
+@keyframes dl-lightning-flash{0%,38%,40%,43%,100%{opacity:0}39%{opacity:.48}41%{opacity:.12}42%{opacity:.66}}
+@keyframes dl-lightning-bolt{0%,38%,43%,100%{opacity:0}39%{opacity:.92}40%{opacity:.05}41%{opacity:.78}42%{opacity:0}}
+.dl-outside[data-dl-weather="drizzle"] .dl-weather-rain,.dl-outside[data-dl-weather="night-rain"] .dl-weather-rain{opacity:.3}
+.dl-outside[data-dl-weather="storm"] .dl-weather-rain{opacity:.8}
+.dl-outside[data-dl-weather="thunder"] .dl-weather-rain{opacity:.42}
+.dl-outside[data-dl-precipitation="snow"] .dl-weather-snow{opacity:1}
+.dl-outside[data-dl-precipitation="sleet"] .dl-weather-sleet{opacity:.88}
+.dl-outside[data-dl-precipitation="rain"] .dl-ground-water,.dl-outside[data-dl-precipitation="sleet"] .dl-ground-water{opacity:.72}
+.dl-outside[data-dl-precipitation="snow"] .dl-ground-snow{opacity:.98}
+.dl-outside[data-dl-precipitation="sleet"] .dl-ground-snow-wet{opacity:.86}
+.dl-outside[data-dl-precipitation="sleet"] .dl-ground-snow{opacity:.34}
+.dl-outside[data-dl-weather="rainbow"] .dl-rainbow{opacity:.12}
+.dl-outside[data-dl-weather="starfield"] .dl-starfield{opacity:1}
+.dl-outside[data-dl-time-of-day="night"] .dl-moon{opacity:0}
+.dl-outside[data-dl-weather="moon-cloud"] .dl-moon{opacity:.94}
+.dl-outside[data-dl-weather="moon-cloud"] .dl-moon:after{content:"";position:absolute;inset:-8px;border-radius:50%;background:transparent;box-shadow:0 0 18px 7px #dce7ed42}
+.dl-outside[data-dl-weather="rainbow"] .dl-weather-cloudbank{opacity:.14}
+.dl-outside[data-dl-weather="rainbow"] .dl-weather-rain{opacity:0}
+.dl-outside[data-dl-season="autumn"] .dl-weather-leaves{opacity:1}
+.dl-outside[data-dl-season="autumn"] .dl-ground-leaves{opacity:.92}
+.dl-outside[data-dl-season="autumn"][data-dl-precipitation="rain"] .dl-ground-water{opacity:.82}
+.dl-outside[data-dl-season="autumn"][data-dl-precipitation="rain"] .dl-ground-leaves{filter:brightness(.62) saturate(.76)}
+.dl-outside[data-dl-season="winter"][data-dl-precipitation="snow"] .dl-weather-rain{opacity:0}
+.dl-outside[data-dl-season="winter"][data-dl-precipitation="sleet"] .dl-weather-rain{opacity:.48}
+.dl-outside[data-dl-weather="overcast"] .dl-night-sky{filter:brightness(.87) saturate(.78)}
+.dl-outside[data-dl-weather="storm"] .dl-night-sky{filter:brightness(.7) saturate(.8)}
+.dl-outside[data-dl-weather="thunder"] .dl-night-sky{filter:brightness(.78) saturate(.82)}
+@media(prefers-reduced-motion:reduce){
+ .dl-cloud,.dl-star,.dl-weather-rain,.dl-weather-rain:after,.dl-snowflake,.dl-falling-leaf,.dl-ground-water,.dl-lightning-flash,.dl-lightning-bolt{animation:none!important}
+ .dl-starfield{opacity:1}
+}
+
+
+/* Daily Login weather atlas: layered sky, seasonal atmosphere, and a changing road surface. */
+.dl-outside .dl-night-sky{z-index:0;overflow:hidden}
+.dl-outside .dl-moon{opacity:0;z-index:1;transition:opacity 1.4s ease}
+.dl-weather-cloudbank{position:absolute;z-index:2;inset:0;overflow:hidden;opacity:0;pointer-events:none;transition:opacity 1.4s ease}
+.dl-cloud{position:absolute;display:block;width:42vw;height:7.5vh;min-height:38px;max-height:84px;border-radius:50%;filter:blur(1.6px);background:radial-gradient(ellipse at 22% 70%,#e2e6e4 0 24%,transparent 52%),radial-gradient(ellipse at 48% 42%,#f3f2e9 0 35%,transparent 62%),radial-gradient(ellipse at 76% 70%,#cfd8d8 0 30%,transparent 58%);opacity:.72;animation:dl-cloud-drift 58s linear infinite}
+.dl-cloud-one{left:-12%;top:12%;transform:scale(1.05)}
+.dl-cloud-two{right:-15%;top:30%;transform:scale(.82);animation-duration:76s;animation-direction:reverse;opacity:.58}
+.dl-cloud-three{left:32%;top:5%;transform:scale(.7);animation-duration:94s;opacity:.46}
+@keyframes dl-cloud-drift{from{translate:-5vw 0}to{translate:16vw 0}}
+.dl-starfield{position:absolute;z-index:1;inset:0;opacity:0;pointer-events:none;transition:opacity 1.5s ease}
+.dl-star{position:absolute;left:var(--star-left);top:var(--star-top);width:var(--star-size);height:var(--star-size);min-width:1px;min-height:1px;border-radius:50%;background:#fff6d9;opacity:var(--star-opacity);box-shadow:0 0 2px #fff1c7;animation:dl-star-breathe var(--star-duration) ease-in-out var(--star-delay) infinite alternate;will-change:opacity}
+@keyframes dl-star-breathe{0%{opacity:.16;scale:.78}48%{opacity:var(--star-opacity);scale:1}100%{opacity:.28;scale:.86}}
+.dl-rainbow{position:absolute;z-index:3;left:-9%;right:-9%;top:7%;height:53%;opacity:0;pointer-events:none;filter:blur(3px);background:radial-gradient(ellipse at 50% 112%,transparent 0 42%,#e3a6a91c 42.4% 43.5%,#e8c9961b 44% 45.1%,#dbe3b51a 45.6% 46.7%,#9bc8c51a 47.2% 48.3%,#9aaad51a 48.8% 49.8%,#b6a0cf15 50.3% 51.3%,transparent 51.8% 100%);transition:opacity 1.8s ease}
+.dl-weather-overlay{position:absolute;z-index:17;inset:0;overflow:hidden;pointer-events:none}
+.dl-weather-rain{position:absolute;inset:-28% -18%;opacity:0;background:repeating-linear-gradient(104deg,transparent 0 13px,#dceaf04c 13.5px 14.2px,transparent 15px 28px);transform:translate3d(-3%,0,0);animation:dl-rain-fall .48s linear infinite}
+.dl-weather-rain:after{content:"";position:absolute;inset:0;opacity:.48;background:repeating-linear-gradient(101deg,transparent 0 31px,#d2e4ec5e 31.6px 32.2px,transparent 33px 52px);transform:translateX(9%);animation:dl-rain-fall .72s linear infinite}
+@keyframes dl-rain-fall{from{translate:0 -5%}to{translate:9% 18%}}
+.dl-weather-snow,.dl-weather-sleet,.dl-weather-leaves{position:absolute;inset:0;overflow:hidden}
+.dl-snowflake{position:absolute;left:var(--snow-left);top:var(--snow-top);width:var(--snow-size);height:var(--snow-size);border-radius:50%;background:#f1f4ef;opacity:var(--snow-opacity);box-shadow:0 0 2px #edf4f3;animation:dl-snow-drift var(--snow-duration) linear var(--snow-delay) infinite;will-change:transform}
+@keyframes dl-snow-drift{from{transform:translate3d(0,-12vh,0)}to{transform:translate3d(var(--snow-drift),115vh,0)}}
+.dl-falling-leaf{position:absolute;left:var(--leaf-left);top:var(--leaf-top);width:var(--leaf-size);height:calc(var(--leaf-size)*.62);border-radius:85% 10% 85% 10%;background:var(--leaf-color);opacity:.78;box-shadow:0 0 2px #24180d66;animation:dl-leaf-fall var(--leaf-duration) linear var(--leaf-delay) infinite;will-change:transform}
+@keyframes dl-leaf-fall{from{transform:translate3d(0,-12vh,0) rotate(0)}to{transform:translate3d(var(--leaf-drift),112vh,0) rotate(var(--leaf-turn))}}
+.dl-lightning-flash{position:absolute;inset:0;opacity:0;background:#e7edf0;mix-blend-mode:screen}
+.dl-lightning-bolt{position:absolute;z-index:2;left:63%;top:17%;width:10vw;height:19vh;max-width:48px;max-height:140px;opacity:0;background:#fff9da;clip-path:polygon(57% 0,23% 54%,48% 54%,26% 100%,82% 38%,54% 38%);filter:drop-shadow(0 0 8px #eef6ff);transform:skewX(-8deg)}
+.dl-weather-ground{position:absolute;z-index:16;left:0;right:0;bottom:0;height:clamp(54px,12vh,108px);overflow:hidden;pointer-events:none;border-top:2px solid #c6ad7c88;background:linear-gradient(180deg,#605c52 0%,#393b39 17%,#262b2c 100%),repeating-linear-gradient(90deg,#333b3b 0 38px,#414342 39px 41px,#2c3233 43px 76px);box-shadow:0 -5px 18px #070b0b2c}
+.dl-weather-ground:before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent 0 15px,#b8b8aa11 15px 16px,transparent 17px 33px);opacity:.8}
+.dl-ground-water,.dl-ground-snow,.dl-ground-snow-wet,.dl-ground-leaves{position:absolute;inset:0;opacity:0;transition:opacity 1.4s ease}
+.dl-ground-water{background:radial-gradient(ellipse at 14% 40%,#9ab5c355 0 1%,transparent 14%),radial-gradient(ellipse at 46% 76%,#b5c6c733 0 2%,transparent 19%),radial-gradient(ellipse at 82% 42%,#b8c9ce44 0 1%,transparent 16%),linear-gradient(180deg,#a5bdc51a,#0f171b77);animation:dl-water-shimmer 6.5s ease-in-out infinite alternate}
+@keyframes dl-water-shimmer{from{filter:brightness(.82)}to{filter:brightness(1.18)}}
+.dl-ground-snow{background:linear-gradient(180deg,#dce6e8 0%,#b9cbd0 23%,#7d9293 100%);box-shadow:inset 0 6px 8px #f4f7ef99}
+.dl-ground-snow-wet{background:linear-gradient(180deg,#bbcacc 0%,#839595 35%,#455454 100%);opacity:0}
+.dl-road-leaf{position:absolute;left:var(--ground-left);top:var(--ground-top);width:var(--leaf-size);height:calc(var(--leaf-size)*.62);border-radius:85% 10% 85% 10%;background:var(--leaf-color);transform:rotate(var(--leaf-turn));box-shadow:0 1px 2px #10100d88}
+.dl-ground-leaves{background:radial-gradient(ellipse at 50% 0%,#8f653244,transparent 65%)}
+.dl-outside[data-dl-weather="cloudy"] .dl-weather-cloudbank{opacity:.48}
+.dl-outside[data-dl-weather="overcast"] .dl-weather-cloudbank{opacity:.82;filter:brightness(.76)}
+.dl-outside[data-dl-weather="thunder"] .dl-weather-cloudbank,.dl-outside[data-dl-weather="storm"] .dl-weather-cloudbank{opacity:.94;filter:brightness(.62) saturate(.84)}
+.dl-outside[data-dl-weather="moon-cloud"] .dl-weather-cloudbank{opacity:.64;filter:brightness(.86) saturate(.62)}
+.dl-outside[data-dl-weather="night-rain"] .dl-weather-cloudbank{opacity:.78;filter:brightness(.66)}
+.dl-outside[data-dl-weather="drizzle"] .dl-weather-cloudbank{opacity:.38}
+.dl-outside[data-dl-weather="thunder"] .dl-lightning-flash,.dl-outside[data-dl-weather="storm"] .dl-lightning-flash{animation:dl-lightning-flash 6.8s linear infinite}
+.dl-outside[data-dl-weather="thunder"] .dl-lightning-bolt,.dl-outside[data-dl-weather="storm"] .dl-lightning-bolt{animation:dl-lightning-bolt 6.8s linear infinite}
+@keyframes dl-lightning-flash{0%,38%,40%,43%,100%{opacity:0}39%{opacity:.48}41%{opacity:.12}42%{opacity:.66}}
+@keyframes dl-lightning-bolt{0%,38%,43%,100%{opacity:0}39%{opacity:.92}40%{opacity:.05}41%{opacity:.78}42%{opacity:0}}
+.dl-outside[data-dl-weather="drizzle"] .dl-weather-rain,.dl-outside[data-dl-weather="night-rain"] .dl-weather-rain{opacity:.3}
+.dl-outside[data-dl-weather="storm"] .dl-weather-rain{opacity:.8}
+.dl-outside[data-dl-weather="thunder"] .dl-weather-rain{opacity:.42}
+.dl-outside[data-dl-precipitation="snow"] .dl-weather-snow{opacity:1}
+.dl-outside[data-dl-precipitation="sleet"] .dl-weather-sleet{opacity:.88}
+.dl-outside[data-dl-precipitation="rain"] .dl-ground-water,.dl-outside[data-dl-precipitation="sleet"] .dl-ground-water{opacity:.72}
+.dl-outside[data-dl-precipitation="snow"] .dl-ground-snow{opacity:.98}
+.dl-outside[data-dl-precipitation="sleet"] .dl-ground-snow-wet{opacity:.86}
+.dl-outside[data-dl-precipitation="sleet"] .dl-ground-snow{opacity:.34}
+.dl-outside[data-dl-weather="rainbow"] .dl-rainbow{opacity:.12}
+.dl-outside[data-dl-weather="starfield"] .dl-starfield{opacity:1}
+.dl-outside[data-dl-time-of-day="night"] .dl-moon{opacity:0}
+.dl-outside[data-dl-weather="moon-cloud"] .dl-moon{opacity:.94}
+.dl-outside[data-dl-weather="moon-cloud"] .dl-moon:after{content:"";position:absolute;inset:-8px;border-radius:50%;background:transparent;box-shadow:0 0 18px 7px #dce7ed42}
+.dl-outside[data-dl-weather="rainbow"] .dl-weather-cloudbank{opacity:.14}
+.dl-outside[data-dl-weather="rainbow"] .dl-weather-rain{opacity:0}
+.dl-outside[data-dl-season="autumn"] .dl-weather-leaves{opacity:1}
+.dl-outside[data-dl-season="autumn"] .dl-ground-leaves{opacity:.92}
+.dl-outside[data-dl-season="autumn"][data-dl-precipitation="rain"] .dl-ground-water{opacity:.82}
+.dl-outside[data-dl-season="autumn"][data-dl-precipitation="rain"] .dl-ground-leaves{filter:brightness(.62) saturate(.76)}
+.dl-outside[data-dl-season="winter"][data-dl-precipitation="snow"] .dl-weather-rain{opacity:0}
+.dl-outside[data-dl-season="winter"][data-dl-precipitation="sleet"] .dl-weather-rain{opacity:.48}
+.dl-outside[data-dl-weather="overcast"] .dl-night-sky{filter:brightness(.87) saturate(.78)}
+.dl-outside[data-dl-weather="storm"] .dl-night-sky{filter:brightness(.7) saturate(.8)}
+.dl-outside[data-dl-weather="thunder"] .dl-night-sky{filter:brightness(.78) saturate(.82)}
+@media(prefers-reduced-motion:reduce){
+ .dl-cloud,.dl-star,.dl-weather-rain,.dl-weather-rain:after,.dl-snowflake,.dl-falling-leaf,.dl-ground-water,.dl-lightning-flash,.dl-lightning-bolt{animation:none!important}
+ .dl-starfield{opacity:1}
+}

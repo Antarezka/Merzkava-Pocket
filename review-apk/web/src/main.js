@@ -112,7 +112,7 @@ window.PocketNativeCallbacks = {
 let latestPocketUpdate = null;
 let pocketUpdateCheckBusy = false;
 let pocketUpdateStartupCheckStarted = false;
-let updateToastElement = null;
+
 
 function nativePocketAppInfo() {
   try { const value=JSON.parse(native?.getPocketAppInfo?.()||"{}");return value&&typeof value==="object"?value:{}; }
@@ -130,31 +130,17 @@ function formatPocketBytes(value) {
   return amount.toFixed(amount>=100?0:amount>=10?1:2)+" "+units[index];
 }
 function showPocketUpdateNotification(update) {
-  if(!update?.hasUpdate)return;
-  const build=Number(update.buildNumber)||0;if(!build)return;
-  let already=false;try{already=localStorage.getItem("mp-update-notified-build")===String(build);}catch{}
-  if(already)return;
-  try{localStorage.setItem("mp-update-notified-build",String(build));}catch{}
-  updateToastElement?.remove();
-  const toast=document.createElement("aside");
-  toast.className="pocket-update-toast";toast.setAttribute("role","status");toast.setAttribute("aria-live","polite");
-  toast.innerHTML=`
-    <span class="pocket-update-toast-emblem" aria-hidden="true"><i></i></span>
-    <div class="pocket-update-toast-copy"><small>MERZKAVA POCKET · UPDATE SIGNAL</small>
-      <strong>A new build is ready</strong>
-      <span>Build #${escapeHtml(build)} · ${escapeHtml(update.versionName||"Pocket update")} is available.</span>
-      <button type="button" data-update-toast-action>VIEW UPDATE DETAILS <b aria-hidden="true">↗</b></button>
-    </div>
-    <button type="button" class="pocket-update-toast-close" data-update-toast-close aria-label="Dismiss update notification">×</button>
-    <i class="pocket-update-toast-edge" aria-hidden="true"></i>`;
-  const dismiss=()=>{toast.classList.add("is-leaving");window.setTimeout(()=>toast.remove(),240);if(updateToastElement===toast)updateToastElement=null;};
-  toast.querySelector("[data-update-toast-close]")?.addEventListener("click",dismiss);
-  toast.querySelector("[data-update-toast-action]")?.addEventListener("click",()=>{
-    dismiss();
-    if(accessIdentity)navigate("settings");
-    else {const message=root.querySelector("[data-login-message]");if(message)message.textContent="A Pocket update is ready. Sign in, then open Settings → Pocket Update.";}
-  });
-  updateToastElement=toast;document.body.append(toast);
+  if(!update?.hasUpdate)return false;
+  const build=Number(update.buildNumber)||0;if(!build)return false;
+  const key="mp-update-notified-build";
+  try{if(localStorage.getItem(key)===String(build))return false;}catch{}
+  const notes=Array.isArray(update.notes)?update.notes:[];
+  const releaseLines=notes.slice(0,4).map(note=>"• "+String(note||"").trim()).filter(line=>line!=="•");
+  const details=releaseLines.join("\n")||"A new Merzkava Pocket build is ready. Open Pocket Settings → Pocket Update to review the release notes and install it.";
+  let shown=false;
+  try{shown=native?.showPocketUpdateNotification?.(build,String(update.versionName||"Pocket update"),details,theme)===true;}catch{}
+  if(shown){try{localStorage.setItem(key,String(build));}catch{}}
+  return shown;
 }
 async function checkPocketUpdates(notifyOnAvailable=false) {
   if(!nativeReady()||pocketUpdateCheckBusy)return latestPocketUpdate;
@@ -234,7 +220,7 @@ function mountPocketUpdateSettings() {
   const check=async()=>{if(checkButton){checkButton.disabled=true;checkButton.textContent="CHECKING…";}await checkPocketUpdates(false);refresh();};
   const download=()=>{
     if(!latestPocketUpdate?.apkUrl||!latestPocketUpdate?.apkSha256||!latestPocketUpdate?.apkName)return;
-    let result={};try{result=JSON.parse(native.startPocketUpdateDownload(latestPocketUpdate.apkUrl,latestPocketUpdate.apkName,latestPocketUpdate.apkSha256)||"{}");}
+    let result={};try{result=JSON.parse(native.startPocketUpdateDownload(latestPocketUpdate.apkUrl,latestPocketUpdate.apkName,latestPocketUpdate.apkSha256,Number(latestPocketUpdate.buildNumber)||0)||"{}");}
     catch{result={ok:false,message:"Pocket could not start the download. Check available storage."};}
     if(!result.ok){const status=panel.querySelector("[data-update-status]");if(status){status.textContent=result.message||"DOWNLOAD COULD NOT START";status.dataset.tone="warning";}}
     refresh();

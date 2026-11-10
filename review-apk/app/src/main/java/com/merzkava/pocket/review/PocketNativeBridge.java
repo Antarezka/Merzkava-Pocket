@@ -3,11 +3,15 @@ package com.merzkava.pocket.review;
 import android.Manifest;
 import android.app.Activity;
 import android.app.DownloadManager;
+import android.app.Notification;
+import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.content.pm.PackageInfo;
 import android.net.Uri;
 import android.os.Build;
@@ -88,6 +92,10 @@ public final class PocketNativeBridge {
     private static final String PREF_CUSTOM_MUSIC_LIBRARY = "pocket_custom_music_library_v1";
     private static final String PREF_UPDATE_DOWNLOAD_ID = "pocket_update_download_id_v1";
     private static final String PREF_UPDATE_SHA256 = "pocket_update_sha256_v1";
+    static final String PREF_UPDATE_FILE_NAME = "pocket_update_file_name_v1";
+    static final String PREF_UPDATE_BUILD_NUMBER = "pocket_update_build_number_v1";
+    private static final String UPDATE_NOTIFICATION_CHANNEL_ID = "merzkava-pocket-updates";
+    private static final int UPDATE_NOTIFICATION_ID = 8202;
     private static final long MAX_CUSTOM_MUSIC_BYTES = 64L * 1024L * 1024L;
     private static final String UNIVERSE = "Antarezka/merzkava-universe";
 
@@ -129,6 +137,69 @@ public final class PocketNativeBridge {
             } catch (Exception ignored) {}
             return result.toString();
         }
+    }
+
+    @JavascriptInterface public boolean showPocketUpdateNotification(
+        int buildNumber, String versionName, String releaseDetails, String theme) {
+        if (buildNumber <= 0 || !notificationsGranted()) return false;
+        try {
+            NotificationManager manager = (NotificationManager) activity.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (manager == null || !manager.areNotificationsEnabled()) return false;
+            int accent = "light".equalsIgnoreCase(theme)
+                ? Color.rgb(111, 137, 113)
+                : Color.rgb(198, 166, 111);
+            if (Build.VERSION.SDK_INT >= 26) {
+                NotificationChannel channel = new NotificationChannel(
+                    UPDATE_NOTIFICATION_CHANNEL_ID, "Pocket Updates", NotificationManager.IMPORTANCE_DEFAULT);
+                channel.setDescription("New Merzkava Pocket builds and release notes.");
+                channel.enableLights(true);
+                channel.setLightColor(accent);
+                channel.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
+                manager.createNotificationChannel(channel);
+            }
+            String version = notificationText(versionName, 72);
+            String details = notificationText(releaseDetails, 520);
+            if (details.isEmpty()) details = "A new Merzkava Pocket build is ready. Open Pocket Settings to review and install it.";
+            Intent launch = activity.getPackageManager().getLaunchIntentForPackage(activity.getPackageName());
+            PendingIntent openPocket = null;
+            if (launch != null) {
+                launch.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                openPocket = PendingIntent.getActivity(activity, UPDATE_NOTIFICATION_ID, launch,
+                    PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0));
+            }
+            Notification.Builder builder = Build.VERSION.SDK_INT >= 26
+                ? new Notification.Builder(activity, UPDATE_NOTIFICATION_CHANNEL_ID)
+                : new Notification.Builder(activity);
+            builder.setSmallIcon(R.drawable.ic_notification_tv)
+                .setContentTitle("Merzkava Pocket")
+                .setContentText("A new update is ready · Build #" + buildNumber)
+                .setStyle(new Notification.BigTextStyle().bigText(details)
+                    .setBigContentTitle("Pocket Build #" + buildNumber + " is ready")
+                    .setSummaryText("MERZKAVA POCKET  ·  UPDATE ARCHIVE"))
+                .setColor(accent)
+                .setCategory(Notification.CATEGORY_STATUS)
+                .setPriority(Notification.PRIORITY_DEFAULT)
+                .setVisibility(Notification.VISIBILITY_PRIVATE)
+                .setAutoCancel(true)
+                .setOnlyAlertOnce(false)
+                .setShowWhen(true);
+            if (Build.VERSION.SDK_INT >= 24 && !version.isEmpty()) builder.setSubText(version);
+            else if (!version.isEmpty()) builder.setContentInfo(version);
+            if (openPocket != null) builder.setContentIntent(openPocket);
+            manager.cancel(UPDATE_NOTIFICATION_ID);
+            manager.notify(UPDATE_NOTIFICATION_ID, builder.build());
+            return true;
+        } catch (Exception error) {
+            android.util.Log.w("PocketUpdate", "Could not post the native update notification", error);
+            return false;
+        }
+    }
+
+    private String notificationText(String value, int maximumLength) {
+        if (value == null) return "";
+        String normalized = value.replaceAll("[\\p{Cntrl}&&[^\\n\\t]]", "").trim();
+        if (normalized.length() > maximumLength) normalized = normalized.substring(0, maximumLength - 1) + "…";
+        return normalized;
     }
 
     @JavascriptInterface public String getPocketStorageInfo() {
@@ -264,19 +335,19 @@ public final class PocketNativeBridge {
         });
     }
 
-    @JavascriptInterface public String startPocketUpdateDownload(String address, String fileName, String sha256) {
+    @JavascriptInterface public String startPocketUpdateDownload(String address, String fileName, String sha256, int buildNumber) {
         try {
-            if (address == null || fileName == null || sha256 == null ||
+            if (address == null || fileName == null || sha256 == null || buildNumber <= 0 ||
                 !fileName.matches("[A-Za-z0-9._-]+\\.apk") ||
                 !sha256.toLowerCase(Locale.ROOT).matches("[a-f0-9]{64}")) {
                 return new JSONObject().put("ok", false).put("message", "The Pocket update download details are invalid.").toString();
             }
             Uri uri = Uri.parse(address);
             String prefix = "/" + POCKET_REPOSITORY + "/releases/download/pocket-build-";
-            if (!"https".equals(uri.getScheme()) ||
-                !"github.com".equalsIgnoreCase(uri.getHost()) ||
-                uri.getPath() == null || !uri.getPath().startsWith(prefix) ||
-                !uri.getPath().endsWith("/" + fileName)) {
+            Matcher releasePath = uri.getPath() == null ? Pattern.compile("$").matcher("") :
+                Pattern.compile("^" + Pattern.quote(prefix) + "([0-9]+)/" + Pattern.quote(fileName) + "$").matcher(uri.getPath());
+            if (!"https".equals(uri.getScheme()) || !"github.com".equalsIgnoreCase(uri.getHost()) ||
+                !releasePath.matches() || Integer.parseInt(releasePath.group(1)) != buildNumber) {
                 return new JSONObject().put("ok", false).put("message", "The Pocket update download address is not trusted.").toString();
             }
             DownloadManager manager = (DownloadManager) activity.getSystemService(Context.DOWNLOAD_SERVICE);
@@ -290,7 +361,9 @@ public final class PocketNativeBridge {
             request.setAllowedOverRoaming(false);
             long id = manager.enqueue(request);
             if (!prefs().edit().putLong(PREF_UPDATE_DOWNLOAD_ID, id)
-                .putString(PREF_UPDATE_SHA256, sha256.toLowerCase(Locale.ROOT)).commit()) {
+                .putString(PREF_UPDATE_SHA256, sha256.toLowerCase(Locale.ROOT))
+                .putString(PREF_UPDATE_FILE_NAME, fileName)
+                .putInt(PREF_UPDATE_BUILD_NUMBER, buildNumber).commit()) {
                 manager.remove(id);
                 return new JSONObject().put("ok", false).put("message", "Pocket could not save the update download state.").toString();
             }
@@ -368,7 +441,8 @@ public final class PocketNativeBridge {
             for (byte value : digest.digest()) actual.append(String.format(Locale.ROOT, "%02x", value & 0xff));
             if (!expected.equalsIgnoreCase(actual.toString())) {
                 manager.remove(id);
-                prefs().edit().remove(PREF_UPDATE_DOWNLOAD_ID).remove(PREF_UPDATE_SHA256).apply();
+                prefs().edit().remove(PREF_UPDATE_DOWNLOAD_ID).remove(PREF_UPDATE_SHA256)
+                    .remove(PREF_UPDATE_FILE_NAME).remove(PREF_UPDATE_BUILD_NUMBER).apply();
                 throw new IOException("The downloaded APK failed its SHA-256 integrity check. The file was removed.");
             }
             if (Build.VERSION.SDK_INT >= 26 && !activity.getPackageManager().canRequestPackageInstalls()) {

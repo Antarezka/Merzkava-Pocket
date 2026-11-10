@@ -107,7 +107,7 @@ export function createPocketAudioController({
 
   const music = new AudioCtor(trackCatalog[selectedTrack].src);
   music.preload = "auto";
-  music.loop = true;
+  music.loop = false;
   music.volume = musicVolume / 100;
   // Dedicated ambience bed: independent of needle-drop and record-placement SFX.
   const vinylSurfaceNoise = new AudioCtor(VINYL_SURFACE_NOISE_SRC);
@@ -255,28 +255,19 @@ export function createPocketAudioController({
     endFadeStarted = false;
     applyMusicVolume();
     reportPlaybackCycle();
-    // Native looping keeps playback alive; only the gain and label cycle here.
+    // Fallback for a WebView that reports a time wrap despite ended handling.
     animateMusicFade(1, MUSIC_FADE_DURATION_MS);
     syncVinylSurfaceNoise();
   };
 
-  // Defensive fallback for a WebView that reports "ended" despite loop=true.
-  // Normal track repeats are handled by the timeupdate wrap detector below.
+  // Do not enable HTMLMediaElement.loop: WebView may omit "ended" while it is
+  // true. Explicitly restart after the end event, including in Floating Control.
   const handleMusicEnded = () => {
     if (!menuEntered || userPaused) return;
     try { music.currentTime = 0; } catch {}
     previousMusicTime = 0;
-    stopMusicFade();
-    musicFadeGain = 0;
-    endFadeStarted = false;
-    applyMusicVolume();
     reportPlaybackCycle();
-    if (music.paused || music.ended) {
-      void startMusic();
-    } else {
-      animateMusicFade(1, MUSIC_FADE_DURATION_MS);
-      syncVinylSurfaceNoise();
-    }
+    void startMusic();
   };
 
   music.addEventListener?.("play", () => {
@@ -287,7 +278,8 @@ export function createPocketAudioController({
   });
   music.addEventListener?.("pause", () => {
     if (isPlaying()) syncVinylSurfaceNoise();
-    else if (!(endFadeStarted && menuEntered && !userPaused)) stopVinylSurfaceNoise();
+    else if (!(music.ended && menuEntered && !userPaused) &&
+             !(endFadeStarted && menuEntered && !userPaused)) stopVinylSurfaceNoise();
     notify();
   });
   music.addEventListener?.("ended", handleMusicEnded);
@@ -390,7 +382,7 @@ export function createPocketAudioController({
     selectedTrack = id;
     userPaused = true;
     music.src = trackCatalog[selectedTrack].src;
-    music.loop = true;
+    music.loop = false;
     music.load?.();
     write("mp-audio-track", selectedTrack);
     notify();
@@ -464,7 +456,7 @@ export function createPocketAudioController({
       selectedTrack = "happy";
       music.currentTime = 0;
       music.src = trackCatalog.happy.src;
-      music.loop = true;
+      music.loop = false;
       music.load?.();
       write("mp-audio-track", selectedTrack);
       if (resumeBuiltIn) void startMusic();
