@@ -506,11 +506,73 @@ function makeAudioFadeClock() {
     clearInterval: id => intervals.delete(id),
     advance(milliseconds) {
       time += milliseconds;
+      for (const audio of FakeAudio.instances) {
+        if (audio.paused || !Number.isFinite(audio.duration) || audio.duration <= 0) continue;
+        const nextPosition = (Number(audio.currentTime) || 0) + milliseconds / 1000;
+        audio.currentTime = audio.loop && nextPosition >= audio.duration
+          ? nextPosition % audio.duration
+          : Math.min(nextPosition, audio.duration);
+        audio.dispatch("timeupdate");
+      }
       for (const callback of [...intervals.values()]) callback();
     },
     pending: () => intervals.size
   };
 }
+
+test("a delayed background loop event does not start a late fade over a song already in progress", async () => {
+  const clock = makeAudioFadeClock();
+  let cycles = 0;
+  const { audio } = harness({}, {
+    now: clock.now,
+    setIntervalFn: clock.setInterval,
+    clearIntervalFn: clock.clearInterval,
+    onPlaybackCycle: () => { cycles += 1; }
+  });
+  audio.enterMainMenu();
+  await flushAudioMicrotasks();
+
+  const music = FakeAudio.instances[0];
+  clock.advance(2200);
+  assert.ok(Math.abs(music.volume - 0.68) < 0.001);
+
+  music.currentTime = 98;
+  music.dispatch("timeupdate");
+  clock.advance(1900);
+  assert.ok(music.volume < 0.68, "the end fade is underway");
+
+  // Simulate Android keeping native audio alive but delaying WebView callbacks
+  // until the next window/focus transition, twelve seconds into the new cycle.
+  music.currentTime = 12;
+  assert.equal(audio.recoverAfterInterruption(), true);
+
+  assert.equal(cycles, 1, "the missed media loop is counted exactly once");
+  assert.ok(Math.abs(music.volume - 0.68) < 0.001,
+    "a late callback restores the current track instead of fading it after the fact");
+  assert.equal(music.paused, false);
+});
+
+test("resuming in the middle of a track does not replay the full start fade", async () => {
+  const clock = makeAudioFadeClock();
+  const { audio } = harness({}, {
+    now: clock.now,
+    setIntervalFn: clock.setInterval,
+    clearIntervalFn: clock.clearInterval
+  });
+  audio.enterMainMenu();
+  await flushAudioMicrotasks();
+
+  const music = FakeAudio.instances[0];
+  clock.advance(4000);
+  assert.ok(Math.abs(music.volume - 0.68) < 0.001);
+  music.pause();
+  assert.equal(audio.recoverAfterInterruption(), true);
+  await flushAudioMicrotasks();
+
+  assert.equal(music.paused, false);
+  assert.ok(Math.abs(music.volume - 0.68) < 0.001,
+    "resume at an existing media position must not drop to silence and fade back up");
+});
 
 test("native looping keeps one playback session, fades into the next cycle, and leaves vinyl noise running", async () => {
   const clock = makeAudioFadeClock();
@@ -531,7 +593,8 @@ test("native looping keeps one playback session, fades into the next cycle, and 
   music.currentTime = 98;
   music.dispatch("timeupdate");
   clock.advance(2200);
-  assert.equal(music.volume, 0, "the outgoing native loop fades all the way down");
+  assert.ok(music.volume > 0 && music.volume < 0.68,
+    "the fade-in is already aligned to the media loop boundary");
   music.wrapToStart();
   assert.equal(cycles, 1, "the loop boundary rotates the vinyl design once");
   assert.equal(music.playCount, 1, "the media engine continues the same playback session");
