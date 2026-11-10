@@ -6,7 +6,8 @@ import { dailyLoginMarkup, mountDailyLogin } from "./daily-login.js";
 import { playerRecordsMarkup, mountPlayerRecords } from "./player-records.js";
 import { getAccessDiagnostics, getDiagnosticWordFrames, formatDiagnosticFrame } from "./access-diagnostics.js";
 import { renderFoxSplashMarkup, mountFoxSplashMotion } from "./splash-screen/splash-screen.js";
-import { createPocketAudioController, createTurntableMotion, createVinylDesignController, VINYL_STYLES } from "./audio-player.js";
+import { createTurntableMotion, createVinylDesignController, VINYL_STYLES } from "./audio-player.js";
+import { createCriAudioDeck } from "./cri-audio-deck.js";
 import "./splash-screen/splash-screen.css";
 
 const root = document.querySelector("#app");
@@ -21,7 +22,8 @@ function readNativeMusicLibrary() {
 let activeTurntableMotion = null;
 let activeRecordFlight = null;
 const vinylDesigns = createVinylDesignController({ onChange: syncAudioUI });
-const pocketAudio = createPocketAudioController({
+const criAudioDeck = createCriAudioDeck({
+  native,
   customTracks: readNativeMusicLibrary(),
   onChange: syncAudioUI,
   onPlaybackCycle: () => {
@@ -30,7 +32,7 @@ const pocketAudio = createPocketAudioController({
 });
 window.addEventListener("pocket:audio-effect", event => {
   const effect = String(event.detail?.effect || "").trim().toLowerCase();
-  pocketAudio.playEffect(effect);
+  criAudioDeck.playEffect(effect);
 });
 window.addEventListener("pocket:season-start", event => {
   const seasonKey = event.detail?.seasonId ?? event.detail?.seasonKey ?? "";
@@ -99,7 +101,7 @@ window.PocketNativeCallbacks = {
     }
   },
   audioState(channel, state, error) {
-    pocketAudio.updateNativeState(channel, state, error);
+    criAudioDeck.updateNativeState(channel, state, error);
     syncAudioUI();
   },
   updateCheck(id, ok, updateJson, error) {
@@ -338,7 +340,7 @@ function audioRecordMarkup(track, index) {
 function renderAudioRecordList() {
   const list = root.querySelector("[data-audio-record-list]");
   if (!list) return;
-  const tracks = pocketAudio.getTracks();
+  const tracks = criAudioDeck.getTracks();
   const signature = tracks.map(track => track.id + ":" + track.title).join("|");
   if (list.dataset.renderSignature !== signature) {
     list.innerHTML = tracks.map(audioRecordMarkup).join("");
@@ -368,7 +370,7 @@ function showAudioImportNotice(message, success = false) {
 
 window.addEventListener("pocket:music-library-changed", event => {
   const result = event.detail || {};
-  if (Array.isArray(result.tracks)) pocketAudio.updateCustomTracks(result.tracks);
+  if (Array.isArray(result.tracks)) criAudioDeck.updateCustomTracks(result.tracks);
   syncAudioUI();
   if (!result.cancelled && result.message) {
     const overlay = root.querySelector("[data-audio-import-overlay]");
@@ -380,12 +382,13 @@ window.addEventListener("pocket:music-library-changed", event => {
 function syncAudioUI() {
   const player = root.querySelector("[data-audio-player]");
   if (!player) return;
-  const state = pocketAudio.getState();
+  const state = criAudioDeck.getState();
   const labelState = vinylDesigns.getState();
   renderAudioRecordList();
   activeTurntableMotion?.setPlaying(state.isPlaying && !reducedMotion());
   player.classList.toggle("is-playing", state.isPlaying);
   player.classList.toggle("is-starting", state.isStarting);
+  player.classList.toggle("is-paused", state.isPaused);
   const trackTitle = player.querySelector("[data-track-title]");
   const status = player.querySelector("[data-audio-status]");
   const needle = player.querySelector("[data-audio-needle]");
@@ -598,7 +601,7 @@ function mountAudioSettings() {
     const removeButton = event.target?.closest?.("[data-audio-remove]");
     if (removeButton && recordList.contains(removeButton)) {
       const id = removeButton.dataset.audioRemove || "";
-      const track = pocketAudio.getTracks().find(item => (item.nativeId || item.id) === id && item.custom);
+      const track = criAudioDeck.getTracks().find(item => (item.nativeId || item.id) === id && item.custom);
       if (!track || !editListMode) return;
       pendingRemoveId = id;
       importOverlay.dataset.noticeAction = "confirm-remove";
@@ -616,10 +619,10 @@ function mountAudioSettings() {
     }
     const button = event.target?.closest?.("[data-audio-record]");
     if (!button || !recordList.contains(button) || editListMode) return;
-    const changed = pocketAudio.selectTrack(button.dataset.audioRecord);
+    const changed = criAudioDeck.selectTrack(button.dataset.audioRecord);
     if (!changed) return;
     if (vinylDesigns.getState().mode === "auto") vinylDesigns.rotateRandom("track-change");
-    pocketAudio.playEffect("placement");
+    criAudioDeck.playEffect("placement");
     animateRecordToPlatter(button);
   });
   importOverlay?.querySelector("[data-audio-import-close]")?.addEventListener("click",hideImportOverlay);
@@ -634,7 +637,7 @@ function mountAudioSettings() {
     let result;
     try { result = JSON.parse(native.deleteCustomMusicTrack(pendingRemoveId) || "{}"); }
     catch { result = {ok:false,message:"Pocket could not remove this record."}; }
-    if (Array.isArray(result.tracks)) pocketAudio.updateCustomTracks(result.tracks);
+    if (Array.isArray(result.tracks)) criAudioDeck.updateCustomTracks(result.tracks);
     hideImportOverlay();
     if (result.ok) setEditListMode(false);
     const overlay = section.querySelector("[data-audio-import-overlay]");
@@ -652,13 +655,13 @@ function mountAudioSettings() {
   });
 
   section.querySelector("[data-audio-needle]").addEventListener("click", () => {
-    void pocketAudio.toggleNeedle();
+    void criAudioDeck.toggleNeedle();
   });
   section.querySelector("[data-music-volume]").addEventListener("input", event => {
-    pocketAudio.setMusicVolume(event.currentTarget.value);
+    criAudioDeck.setMusicVolume(event.currentTarget.value);
   });
   section.querySelector("[data-effects-volume]").addEventListener("input", event => {
-    pocketAudio.setEffectsVolume(event.currentTarget.value);
+    criAudioDeck.setEffectsVolume(event.currentTarget.value);
   });
   syncAudioUI();
   return () => {
@@ -1474,7 +1477,7 @@ function showSplash() {
 function renderHome() {
   routeHistory.length = 0;
   renderPage("home");
-  pocketAudio.enterMainMenu();
+  criAudioDeck.enterMainMenu();
 }
 function readLocalPlayerNames() {
   if (!nativeReady()) return [];
@@ -2062,4 +2065,6 @@ if (!pocketUpdateStartupCheckStarted) {
 window.addEventListener("pocket:native-resume", () => {
   if (!pocketUpdateCheckBusy) void checkPocketUpdates(true);
 });
+// CRI owns startup playback; the visual deck only reflects native player status.
+criAudioDeck.startAutomatically();
 void playStartupSplash();
