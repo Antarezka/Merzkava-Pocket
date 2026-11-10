@@ -11,11 +11,18 @@ export function createTurntableMotion({
   let targetSpeed = 0;
   let lastTime = null;
   let frameId = null;
+  let renderEnabled = true;
   let disposed = false;
+
+  const schedule = () => {
+    if (disposed || !renderEnabled || frameId !== null || (targetSpeed === 0 && speed < 0.8)) return;
+    lastTime = null;
+    frameId = requestFrame(tick);
+  };
 
   const tick = now => {
     frameId = null;
-    if (disposed) return;
+    if (disposed || !renderEnabled) return;
     if (lastTime === null) lastTime = now;
     const delta = Math.max(0, Math.min(0.05, (now - lastTime) / 1000));
     lastTime = now;
@@ -36,10 +43,28 @@ export function createTurntableMotion({
   function setPlaying(playing) {
     if (disposed) return;
     targetSpeed = playing ? 200 : 0;
-    if (frameId === null && (targetSpeed > 0 || speed > 0)) {
+    if (!renderEnabled && !playing) {
+      // If playback pauses while hidden in bubble mode, remember the stopped
+      // state instead of replaying a stale spin when Pocket is restored.
+      speed = 0;
       lastTime = null;
-      frameId = requestFrame(tick);
+      return;
     }
+    schedule();
+  }
+
+  function setRenderEnabled(enabled) {
+    if (disposed) return;
+    const next = enabled === true;
+    if (renderEnabled === next) return;
+    renderEnabled = next;
+    if (!renderEnabled) {
+      if (frameId !== null) cancelFrame(frameId);
+      frameId = null;
+      lastTime = null;
+      return;
+    }
+    schedule();
   }
 
   function dispose() {
@@ -53,8 +78,9 @@ export function createTurntableMotion({
 
   return {
     setPlaying,
+    setRenderEnabled,
     dispose,
-    getState: () => ({ angle, speed, targetSpeed, running: frameId !== null, disposed })
+    getState: () => ({ angle, speed, targetSpeed, running: frameId !== null, renderEnabled, disposed })
   };
 }
 
