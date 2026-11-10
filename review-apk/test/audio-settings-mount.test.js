@@ -38,6 +38,7 @@ test("Audio UI controls are presentation and user-intent adapters only", () => {
 test("Only CRI owns playback; the web layer has no parallel audio engine", () => {
   assert.match(source, /import \{ createPocketAudioDirector \} from "\.\/pocket-audio-director\.js"/);
   assert.match(source, /audioDirector\.startAutomatically\(\)/);
+  assert.match(source, /state\.ambienceStatus === "error"/);
   assert.doesNotMatch(source, /createPocketAudioController|playPocketAudio|startPocketAmbience|setPocketAudioVolume/);
   assert.doesNotMatch(audioVisualSource, /AudioContext|webkitAudioContext|new Audio\s*\(|createElement\s*\(\s*["']audio/);
   assert.match(deckSource, /native\.criPlayTrack\(selectedTrack\)/);
@@ -237,4 +238,20 @@ test("CRI file playback configures format metadata before loading and starting",
   const file = nativeSource.indexOf("criAtomExPlayer_SetFile(player");
   const start = nativeSource.indexOf("criAtomExPlayer_Start(player)", file);
   assert.ok(format >= 0 && format < channels && channels < rate && rate < file && file < start);
+});
+
+test("The Audio Director tracks ambience failures separately from BGM playback", async () => {
+  const { createPocketAudioDirector } = await import("../web/src/pocket-audio-director.js?ambience-state-test");
+  const director = createPocketAudioDirector({
+    native: {
+      criPlayTrack() { return true; },
+      criPlayAmbience() { return true; },
+      criSetVolume() {},
+      criStopMusic() {}
+    }
+  });
+  director.updateNativeState("music", "playing");
+  director.updateNativeState("vinyl-crackle", "error", "Vinyl stream unavailable");
+  assert.equal(director.getState().status, "playing");
+  assert.equal(director.getState().ambienceStatus, "error");
 });
