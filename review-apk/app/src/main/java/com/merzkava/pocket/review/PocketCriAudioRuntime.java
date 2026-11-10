@@ -394,7 +394,10 @@ public final class PocketCriAudioRuntime {
             return false;
         }
         File file = new File(new File(activity.getFilesDir(), "cri-audio"), asset);
-        if (!file.isFile()) return false;
+        if (!file.isFile()) {
+            publish(CHANNEL_NAMES[channel], "error", "Built-in CRI effect is missing: " + asset);
+            return false;
+        }
         final AudioMetadata metadata;
         try {
             metadata = readAudioMetadata(file, FORMAT_ADX);
@@ -655,7 +658,7 @@ public final class PocketCriAudioRuntime {
     };
 
     private String stateForStatus(int channel, int status) {
-        if (channel == CHANNEL_MUSIC && musicPaused) return "paused";
+        if (channel == CHANNEL_MUSIC && (musicPaused || pauseRequested)) return "paused";
         switch (status) {
             case 1: return "preparing";
             case 2: return "playing";
