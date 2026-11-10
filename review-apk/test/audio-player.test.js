@@ -182,6 +182,67 @@ test("needle must be lowered before a newly selected track starts", async () => 
   assert.equal(audio.getState().isPlaying, true);
 });
 
+test("a manually selected track recovers when Android backgrounds Floating Mode", async () => {
+  const { audio } = harness();
+  audio.enterMainMenu();
+  await flushAudioMicrotasks();
+
+  assert.equal(audio.selectTrack("chill"), true);
+  await audio.toggleNeedle();
+  await flushAudioMicrotasks();
+  const music = FakeAudio.instances[0];
+  const noise = FakeAudio.instances.find(item => item.src === VINYL_SURFACE_NOISE_SRC);
+
+  assert.equal(audio.getState().track, "chill");
+  assert.equal(music.paused, false);
+  assert.equal(await audio.setFloatingMode(true), true);
+
+  // Simulate the media pause that can arrive while Android backgrounds the
+  // Activity for the bubble, after the replacement track has been prepared.
+  music.pause();
+  assert.equal(music.paused, true);
+  assert.equal(audio.recoverAfterBackgroundTransition(), true);
+  await flushAudioMicrotasks();
+
+  assert.equal(music.paused, false, "the selected track resumes without reopening the mini window");
+  assert.equal(noise.paused, false, "the independent vinyl ambience layer remains active");
+});
+
+test("switching tracks clears the previous fade and media-time position", async () => {
+  const clock = makeAudioFadeClock();
+  let cycles = 0;
+  const { audio } = harness({}, {
+    now: clock.now,
+    setIntervalFn: clock.setInterval,
+    clearIntervalFn: clock.clearInterval,
+    onPlaybackCycle: () => { cycles += 1; }
+  });
+  audio.enterMainMenu();
+  await flushAudioMicrotasks();
+
+  const music = FakeAudio.instances[0];
+  clock.advance(2200);
+  assert.ok(Math.abs(music.volume - 0.68) < 0.001);
+
+  music.currentTime = 99;
+  music.dispatch("timeupdate");
+  assert.equal(audio.selectTrack("chill"), true);
+  assert.equal(music.currentTime, 0);
+  assert.equal(music.volume, 0);
+
+  // A late timeupdate from the old source must not be interpreted as the
+  // new source reaching its loop boundary or starting its end fade.
+  music.currentTime = 0.1;
+  music.dispatch("timeupdate");
+  assert.equal(cycles, 0);
+  assert.ok(Math.abs(music.volume) < 0.001);
+
+  await audio.toggleNeedle();
+  await flushAudioMicrotasks();
+  clock.advance(2200);
+  assert.ok(Math.abs(music.volume - 0.68) < 0.001, "the replacement track gets its own complete fade-in");
+});
+
 test("music and effects volume values persist independently", () => {
   const { audio, data } = harness();
   audio.setMusicVolume(42);
