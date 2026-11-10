@@ -622,7 +622,7 @@ function mountAudioSettings() {
     const changed = criAudioDeck.selectTrack(button.dataset.audioRecord);
     if (!changed) return;
     if (vinylDesigns.getState().mode === "auto") vinylDesigns.rotateRandom("track-change");
-    criAudioDeck.playEffect("placement");
+    criAudioDeck.playEffect("record-placement");
     animateRecordToPlatter(button);
   });
   importOverlay?.querySelector("[data-audio-import-close]")?.addEventListener("click",hideImportOverlay);
