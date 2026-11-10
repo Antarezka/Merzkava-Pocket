@@ -152,7 +152,7 @@ test("vinyl surface noise follows the effects slider without altering other soun
   assert.equal(noise.paused, true, "placing a different record must not restart ambience");
 });
 
-test("music pauses during splash and resumes only after the main menu returns", () => {
+test("music pauses during splash and resumes only after the main menu returns", async () => {
   const { audio } = harness();
   audio.enterMainMenu();
   assert.equal(audio.getState().isPlaying, true);
