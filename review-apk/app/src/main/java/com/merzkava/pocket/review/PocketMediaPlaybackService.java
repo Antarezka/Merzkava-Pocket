@@ -29,6 +29,7 @@ public final class PocketMediaPlaybackService extends MediaSessionService {
     private static final String PREF_TRACK = "pocket_native_audio_track";
     private static final String PREF_CYCLES = "pocket_native_audio_cycles";
     private static final String PREF_VOLUME = "pocket_native_audio_volume";
+    private static final String PREF_USER_PAUSED = "pocket_native_audio_user_paused";
     private static final long FADE_MS = 2200L;
     private static final long FADE_MONITOR_MS = 90L;
     private static final long FADE_TICK_MS = 40L;
@@ -47,6 +48,7 @@ public final class PocketMediaPlaybackService extends MediaSessionService {
     private long fadeStartedAtMs = 0L;
     private boolean fadeActive = false;
     private boolean endFadeStarted = false;
+    private boolean explicitUserPause = false;
     private int cycleCount = 0;
 
     private final Runnable fadeStep = new Runnable() {
@@ -94,6 +96,7 @@ public final class PocketMediaPlaybackService extends MediaSessionService {
         SharedPreferences preferences = getPreferences();
         musicVolume = Math.max(0, Math.min(100, preferences.getInt(PREF_VOLUME, 68))) / 100f;
         cycleCount = Math.max(0, preferences.getInt(PREF_CYCLES, 0));
+        explicitUserPause = preferences.getBoolean(PREF_USER_PAUSED, false);
 
         player = new ExoPlayer.Builder(this)
             .setWakeMode(C.WAKE_MODE_LOCAL)
@@ -104,6 +107,15 @@ public final class PocketMediaPlaybackService extends MediaSessionService {
             .build();
         player.setRepeatMode(Player.REPEAT_MODE_ONE);
         player.addListener(new Player.Listener() {
+            @Override public void onPlayWhenReadyChanged(boolean playWhenReady, int reason) {
+                if (playWhenReady) {
+                    explicitUserPause = false;
+                } else if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST) {
+                    explicitUserPause = true;
+                }
+                publishState(false, null);
+            }
+
             @Override public void onIsPlayingChanged(boolean isPlaying) {
                 if (isPlaying) {
                     resumeFadeClock();
@@ -255,7 +267,8 @@ public final class PocketMediaPlaybackService extends MediaSessionService {
         boolean playing = player != null && player.isPlaying();
         SharedPreferences.Editor editor = getPreferences().edit()
             .putBoolean(PREF_PLAYING, playing)
-            .putString(PREF_TRACK, activeTrackId);
+            .putString(PREF_TRACK, activeTrackId)
+            .putBoolean(PREF_USER_PAUSED, explicitUserPause);
         if (completedCycle) editor.putInt(PREF_CYCLES, cycleCount);
         editor.apply();
 
@@ -263,7 +276,8 @@ public final class PocketMediaPlaybackService extends MediaSessionService {
             .setPackage(getPackageName())
             .putExtra("playing", playing)
             .putExtra("trackId", activeTrackId)
-            .putExtra("cycleCount", cycleCount);
+            .putExtra("cycleCount", cycleCount)
+            .putExtra("userPaused", explicitUserPause);
         if (completedCycle) state.putExtra("cycle", true);
         if (error != null && !error.isEmpty()) state.putExtra("error", error);
         sendBroadcast(state);
