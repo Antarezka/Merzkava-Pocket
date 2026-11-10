@@ -314,6 +314,11 @@ fn start_playback(
             if current.stream.resume().is_ok() {
                 current.paused.store(false, Ordering::Relaxed);
                 if let Ok(mut snapshot) = state_ref.lock() {
+                    if snapshot.generation != generation {
+                        current.paused.store(true, Ordering::Relaxed);
+                        let _ = current.stream.pause();
+                        return;
+                    }
                     snapshot.playing = true;
                     snapshot.preparing = false;
                     snapshot.error.clear();
@@ -400,9 +405,11 @@ fn start_playback(
         Err(error) => {
             stop.store(true, Ordering::Relaxed);
             if let Ok(mut snapshot) = state_ref.lock() {
-                snapshot.playing = false;
-                snapshot.preparing = false;
-                snapshot.error = format!("OxiSound could not open the Android audio output: {error}");
+                if snapshot.generation == generation {
+                    snapshot.playing = false;
+                    snapshot.preparing = false;
+                    snapshot.error = format!("OxiSound could not open the Android audio output: {error}");
+                }
             }
             return;
         }
@@ -412,11 +419,13 @@ fn start_playback(
         stop.store(true, Ordering::Relaxed);
         let _ = stream.pause();
         if let Ok(mut snapshot) = state_ref.lock() {
-            if snapshot.error.is_empty() {
-                snapshot.error = "The audio decoder stopped before playback became ready.".into();
+            if snapshot.generation == generation {
+                if snapshot.error.is_empty() {
+                    snapshot.error = "The audio decoder stopped before playback became ready.".into();
+                }
+                snapshot.playing = false;
+                snapshot.preparing = false;
             }
-            snapshot.playing = false;
-            snapshot.preparing = false;
         }
         return;
     }
@@ -486,14 +495,24 @@ fn manager_loop(receiver: mpsc::Receiver<Command>, state_ref: Arc<Mutex<PlayerSn
                 }
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {
-                let failed = state_ref.lock().map(|snapshot| !snapshot.error.is_empty()).unwrap_or(false);
-                let disconnected = active.as_ref().map(|current| current.stream.is_disconnected()).unwrap_or(false);
-                if failed || disconnected {
+                let active_generation = active.as_ref().map(|current| current.generation);
+                let (failed, generation_is_current) = state_ref.lock()
+                    .map(|snapshot| {
+                        let matches = active_generation == Some(snapshot.generation);
+                        (matches && !snapshot.error.is_empty(), matches)
+                    })
+                    .unwrap_or((false, false));
+                let disconnected = active.as_ref()
+                    .map(|current| current.stream.is_disconnected())
+                    .unwrap_or(false);
+                if failed || (disconnected && generation_is_current) {
                     if disconnected && !failed {
                         if let Ok(mut snapshot) = state_ref.lock() {
-                            snapshot.playing = false;
-                            snapshot.preparing = false;
-                            snapshot.error = "The Android audio output disconnected. Restart the selected record.".into();
+                            if active_generation == Some(snapshot.generation) {
+                                snapshot.playing = false;
+                                snapshot.preparing = false;
+                                snapshot.error = "The Android audio output disconnected. Restart the selected record.".into();
+                            }
                         }
                     }
                     stop_active(&mut active);
