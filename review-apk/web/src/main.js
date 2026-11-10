@@ -1,7 +1,7 @@
-import { animate } from "animejs";
+import { animate, engine } from "animejs";
 import "./styles.css";
 import { economyMarkup, mountEconomy, startPocketGiftRuntime, stopPocketGiftRuntime } from "./economy.js";
-import { mountHomeBase } from "./home-base.js";
+import { mountHomeBase, setHomeBaseRenderSuspended } from "./home-base.js";
 import { dailyLoginMarkup, mountDailyLogin } from "./daily-login.js";
 import { playerRecordsMarkup, mountPlayerRecords } from "./player-records.js";
 import { createPocketAudioController, createTurntableMotion, createVinylDesignController, getSupportedAudioPlaybackTypes, VINYL_STYLES } from "./audio-player.js";
@@ -46,6 +46,23 @@ let floatingReadiness = { displayOverApps:false, notifications:false, batteryExe
 let floatingBusy = false;
 let activeTurntableMotion = null;
 let activeRecordFlight = null;
+let bubbleVisualSuspended = false;
+
+function applyFloatingRenderMode(mode) {
+  if (mode !== "bubble" && mode !== "window" && mode !== "full") return;
+  bubbleVisualSuspended = mode === "bubble";
+  document.body.classList.toggle("bubble-render-paused", bubbleVisualSuspended);
+  // A mini window remains visible above other apps even while the Activity is backgrounded.
+  engine.pauseOnDocumentHidden = mode !== "window";
+  if (bubbleVisualSuspended) engine.pause();
+  else engine.resume();
+  setHomeBaseRenderSuspended(bubbleVisualSuspended);
+  activeTurntableMotion?.setSuspended?.(bubbleVisualSuspended);
+}
+
+window.addEventListener("pocket:render-mode", event => {
+  applyFloatingRenderMode(event.detail?.mode);
+});
 
 window.PocketNativeCallbacks = {
   access(id, ok, displayName, identityRef, error) {
@@ -293,6 +310,7 @@ function mountAudioSettings() {
     onFrame: angle => { disc.style.transform = "rotate(" + angle.toFixed(3) + "deg)"; }
   });
   activeTurntableMotion = turntableMotion;
+  turntableMotion.setSuspended(bubbleVisualSuspended);
   const toggle = section.querySelector("[data-audio-toggle]");
   const content = section.querySelector("[data-audio-content]");
   toggle.addEventListener("click", () => {
@@ -1627,12 +1645,14 @@ function mountMenu() {
       if(state.serviceRunning){
         native.stopFloatingMode();
         await waitForNativeFloatingState(next=>!next.serviceRunning&&!next.bubbleVisible,1800);
+        window.dispatchEvent(new CustomEvent("pocket:render-mode",{detail:{mode:"full"}}));
         setBubbleFeedback("FLOATING SERVICE STOPPED.");
       }else{
         const ready=state.supported&&state.displayOverApps&&state.notifications&&state.batteryExemption;
         if(!ready)throw new Error("Complete the Floating Control setup before starting the bubble.");
         if(native.startBubbleMode()!==true)throw new Error("Android rejected the floating-bubble request. Check the required permissions.");
         await waitForNativeFloatingState(next=>next.serviceRunning&&next.bubbleVisible,2600);
+        window.dispatchEvent(new CustomEvent("pocket:render-mode",{detail:{mode:"bubble"}}));
         setBubbleFeedback("BUBBLE ACTIVE · TAP THE TV ICON TO RETURN.");
         if(typeof native.movePocketToBackground==="function")native.movePocketToBackground();
       }
