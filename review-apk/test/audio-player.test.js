@@ -100,7 +100,9 @@ function harness(values = {}, callbacks = {}) {
     ...controllerOptions
   } = callbacks;
   const audio = createPocketAudioController({
-    AudioCtor: FakeAudio, storage, setTimeoutFn, clearTimeoutFn, ...controllerOptions
+    AudioCtor: FakeAudio, storage,
+    setIntervalFn, clearIntervalFn, setTimeoutFn, clearTimeoutFn,
+    ...controllerOptions
   });
   return { audio, data };
 }
