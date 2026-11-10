@@ -185,7 +185,7 @@ test("Continuous file loops are restarted by the native CRI server, not Java UI 
   const loopCheck = nativeSource.indexOf("CRIATOMEXPLAYER_STATUS_PLAYEND", server);
   const uiStatus = nativeSource.indexOf("Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeGetStatus");
   assert.ok(server >= 0 && loopCheck > server && uiStatus > loopCheck);
-  assert.match(nativeSource, /++gLoopCycleCounts\[channel\]/);
+  assert.ok(nativeSource.includes("++gLoopCycleCounts[channel]"));
   assert.match(runtimeSource, /nativeTakeLoopCycles\(channel\)/);
 });
 
