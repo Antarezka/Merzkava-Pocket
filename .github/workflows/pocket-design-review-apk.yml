@@ -261,6 +261,9 @@ jobs:
           grep -q 'chrono::milliseconds(16)' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'criAtomExVoicePool_AllocateAdxVoicePool' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'criAtomDbas_Create' review-apk/app/src/main/cpp/cri_audio_jni.cpp
+          grep -q 'criAtomDbas_SetDefaultConfig' review-apk/app/src/main/cpp/cri_audio_jni.cpp
+          grep -q 'dbasConfig.max_streams = kChannelCount' review-apk/app/src/main/cpp/cri_audio_jni.cpp
+          grep -q 'criAtom_CalculateAdxBitrate(2, 48000)' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'criAtomDbas_Destroy' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'criAtom_CalculateAdxBitrate(2, 48000)' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'criAtomExVoicePool_AllocateWaveVoicePool' review-apk/app/src/main/cpp/cri_audio_jni.cpp
