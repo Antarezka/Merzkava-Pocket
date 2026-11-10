@@ -2,6 +2,9 @@ package com.merzkava.pocket.review;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.IntentFilter;
 import android.content.res.AssetManager;
 import android.net.Uri;
 import android.os.Bundle;
@@ -36,6 +39,7 @@ public final class MainActivity extends Activity {
     private PocketFloatingWindow floatingWindow;
     private OnBackInvokedCallback systemBackCallback;
     private String supportedAudioTypesJson = "[]";
+    private BroadcastReceiver nativeAudioReceiver;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,6 +67,29 @@ public final class MainActivity extends Activity {
         floatingWindow = new PocketFloatingWindow(this, webView);
         nativeBridge = new PocketNativeBridge(this, webView);
         webView.addJavascriptInterface(nativeBridge, "PocketNative");
+        nativeAudioReceiver = new BroadcastReceiver() {
+            @Override public void onReceive(Context context, Intent intent) {
+                if (intent == null || !PocketMediaPlaybackService.ACTION_STATE.equals(intent.getAction())) return;
+                try {
+                    JSONObject state = new JSONObject()
+                        .put("playing", intent.getBooleanExtra("playing", false))
+                        .put("trackId", intent.getStringExtra("trackId") == null ? "" : intent.getStringExtra("trackId"))
+                        .put("cycleCount", intent.getIntExtra("cycleCount", 0));
+                    String error = intent.getStringExtra("error");
+                    if (error != null && !error.isEmpty()) state.put("error", error);
+                    if (intent.getBooleanExtra("cycle", false)) state.put("cycle", true);
+                    dispatchNativeAudioState(state.toString());
+                } catch (Exception error) {
+                    Log.w("PocketMedia3", "Could not forward native audio state", error);
+                }
+            }
+        };
+        IntentFilter nativeAudioFilter = new IntentFilter(PocketMediaPlaybackService.ACTION_STATE);
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(nativeAudioReceiver, nativeAudioFilter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(nativeAudioReceiver, nativeAudioFilter);
+        }
         setContentView(webView);
         webView.loadUrl("https://" + ASSET_HOST + "/index.html");
         handleFloatingLaunchIntent();
@@ -236,6 +263,16 @@ public final class MainActivity extends Activity {
         }
     }
 
+    private void dispatchNativeAudioState(String stateJson) {
+        WebView current = webView;
+        if (current == null) return;
+        String detail = stateJson == null || stateJson.trim().isEmpty() ? "{}" : stateJson;
+        current.post(() -> current.evaluateJavascript(
+            "window.dispatchEvent(new CustomEvent('pocket:native-audio-state',{detail:" + detail + "}));",
+            null
+        ));
+    }
+
     public void dispatchNativeEvent(String eventName) {
         WebView current = webView;
         if (current == null) return;
@@ -261,6 +298,7 @@ public final class MainActivity extends Activity {
         buildRecord.start();
         handleFloatingLaunchIntent();
         dispatchNativeEvent("pocket:native-resume");
+        if (nativeBridge != null) dispatchNativeAudioState(nativeBridge.getPocketNativeMusicState());
     }
 
     @Override protected void onNewIntent(Intent intent) {
@@ -321,6 +359,10 @@ public final class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT >= 33 && systemBackCallback != null) {
             getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(systemBackCallback);
             systemBackCallback = null;
+        }
+        if (nativeAudioReceiver != null) {
+            try { unregisterReceiver(nativeAudioReceiver); } catch (Exception ignored) {}
+            nativeAudioReceiver = null;
         }
         if (floatingWindow != null) {
             floatingWindow.dispose();
