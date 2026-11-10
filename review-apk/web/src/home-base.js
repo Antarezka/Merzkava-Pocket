@@ -702,7 +702,9 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
   drawer.classList.add("is-collapsed");
   tick=window.setInterval(()=>{
     if(disposed)return;
-    snapshot=session.snapshot();scene?.drawFacilities?.();
+    snapshot=session.snapshot();
+    if(homeBaseRenderSuspended)return;
+    scene?.drawFacilities?.();
     if(heading.textContent==="SMALL HUT"&&session.isResting())renderLocation("pocket.starter.hut");
   },2500);
   return ()=>{
