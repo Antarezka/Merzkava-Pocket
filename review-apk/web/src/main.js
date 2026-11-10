@@ -65,6 +65,9 @@ function applyFloatingRenderMode(mode) {
   engine.pauseOnDocumentHidden = mode !== "window";
   if (bubbleVisualSuspended) engine.pause();
   else engine.resume();
+  // The CRI player keeps running in every window mode; only this visual RAF is
+  // suspended while the TV bubble hides the WebView.
+  activeTurntableMotion?.setRenderEnabled(!bubbleVisualSuspended);
   setHomeBaseRenderSuspended(bubbleVisualSuspended);
 }
 
@@ -385,7 +388,8 @@ function syncAudioUI() {
   const state = audioDirector.getState();
   const labelState = vinylDesigns.getState();
   renderAudioRecordList();
-  activeTurntableMotion?.setPlaying(state.isPlaying && !reducedMotion());
+  activeTurntableMotion?.setPlaying(state.needleDown && !reducedMotion());
+  player.classList.toggle("is-needle-down", state.needleDown);
   player.classList.toggle("is-playing", state.isPlaying);
   player.classList.toggle("is-starting", state.isStarting);
   player.classList.toggle("is-paused", state.isPaused);
@@ -484,6 +488,7 @@ function mountAudioSettings() {
     onFrame: angle => { disc.style.transform = "rotate(" + angle.toFixed(3) + "deg)"; }
   });
   activeTurntableMotion = turntableMotion;
+  turntableMotion.setRenderEnabled(!bubbleVisualSuspended);
   const toggle = section.querySelector("[data-audio-toggle]");
   const content = section.querySelector("[data-audio-content]");
   toggle.addEventListener("click", () => {
@@ -1456,6 +1461,8 @@ function showSplash() {
   const animations=[];
   const complete=()=>{
     if(cancelled)return;
+    // Startup sound order: splash -> record placement cue -> CRI BGM fade-in.
+    audioDirector.startStartupSequence();
     renderHome();
   };
   const run=async()=>{
@@ -2072,6 +2079,6 @@ if (!pocketUpdateStartupCheckStarted) {
 window.addEventListener("pocket:native-resume", () => {
   if (!pocketUpdateCheckBusy) void checkPocketUpdates(true);
 });
-// CRI owns startup playback; the visual deck only reflects native player status.
-audioDirector.startAutomatically();
+// Playback starts after the authenticated Pocket splash, not while the app is
+// still showing its first boot mark or login gate.
 void playStartupSplash();
