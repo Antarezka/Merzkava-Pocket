@@ -56,14 +56,24 @@ jobs:
           echo "$EXPECTED  $ZIP" | sha256sum --check -
           mkdir -p "$SDK_DIR/unpacked"
           unzip -q "$ZIP" -d "$SDK_DIR/unpacked"
-          CRI_ROOT="$SDK_DIR/unpacked/cri/android"
-          test -s "$CRI_ROOT/libs/arm64-v8a/libcri_ware_android_le.so"
-          test -s "$CRI_ROOT/libs/armeabi-v7a/libcri_ware_android_LE.so"
+          echo "Inspecting CRI SDK Android package layout (paths only):"
+          find "$SDK_DIR/unpacked" -type f \\( -iname 'libcri_ware_android*le.so' -o -name 'cri_le_atom_android.h' -o -name 'cri_le_atom_ex.h' \\) -print | sort
+          ARM64_LIB="$(find "$SDK_DIR/unpacked" -type f -iname 'libcri_ware_android*le.so' | grep -E '/arm64-v8a/' | head -n1)"
+          ARM32_LIB="$(find "$SDK_DIR/unpacked" -type f -iname 'libcri_ware_android*le.so' | grep -E '/armeabi-v7a/' | head -n1)"
+          HEADER_DIR="$(find "$SDK_DIR/unpacked" -type f -name 'cri_le_atom_android.h' -printf '%h\\n' | head -n1)"
+          test -n "$ARM64_LIB" && test -s "$ARM64_LIB"
+          test -n "$ARM32_LIB" && test -s "$ARM32_LIB"
+          test -n "$HEADER_DIR" && test -s "$HEADER_DIR/cri_le_atom_ex.h"
+          CRI_ROOT="$SDK_DIR/normalized"
+          mkdir -p "$CRI_ROOT/include" "$CRI_ROOT/libs/arm64-v8a" "$CRI_ROOT/libs/armeabi-v7a"
+          cp -a "$HEADER_DIR/." "$CRI_ROOT/include/"
+          cp "$ARM64_LIB" "$CRI_ROOT/libs/arm64-v8a/libcri_ware_android_le.so"
+          cp "$ARM32_LIB" "$CRI_ROOT/libs/armeabi-v7a/libcri_ware_android_LE.so"
           mkdir -p review-apk/app/src/main/jniLibs/arm64-v8a review-apk/app/src/main/jniLibs/armeabi-v7a
           cp "$CRI_ROOT/libs/arm64-v8a/libcri_ware_android_le.so" review-apk/app/src/main/jniLibs/arm64-v8a/
           cp "$CRI_ROOT/libs/armeabi-v7a/libcri_ware_android_LE.so" review-apk/app/src/main/jniLibs/armeabi-v7a/
           echo "CRI_SDK_ROOT=$CRI_ROOT" >> "$GITHUB_ENV"
-          echo "Verified CRI ADX LE 2.31.01 Android libraries for ARM64 and ARMv7."
+          echo "Verified and normalized CRI ADX LE 2.31.01 Android libraries and headers for ARM64 and ARMv7."
 
       - name: Install FFmpeg
         run: |
