@@ -94,6 +94,7 @@ export function createPocketAudioController({
   let effectsVolume = clampVolume(read("mp-audio-effects-volume", 76));
   let menuEntered = false;
   let userPaused = false;
+  let lifecycleSuspended = false;
   let resumeAfterSplash = false;
   let needleStarting = false;
   let needleToken = 0;
@@ -130,7 +131,7 @@ export function createPocketAudioController({
 
   const notify = () => onChange(getState());
   const isPlaying = () => music.paused === false && music.ended !== true;
-  const shouldMaintainPlayback = () => menuEntered && !userPaused;
+  const shouldMaintainPlayback = () => menuEntered && !userPaused && !lifecycleSuspended;
   const applyMusicVolume = () => {
     music.volume = (musicVolume / 100) * musicFadeGain;
   };
@@ -503,19 +504,24 @@ export function createPocketAudioController({
   function enterMainMenu() {
     if (!menuEntered) {
       menuEntered = true;
+      lifecycleSuspended = false;
       resumeAfterSplash = false;
       if (!userPaused) void startMusic();
       return;
     }
+    lifecycleSuspended = false;
     if (resumeAfterSplash && !userPaused) {
       resumeAfterSplash = false;
       void startMusic();
+    } else {
+      resumeAfterSplash = false;
     }
   }
 
   function pauseForSplash() {
-    resumeAfterSplash = shouldMaintainPlayback();
-    menuEntered = false;
+    resumeAfterSplash = shouldMaintainPlayback() && !needleStarting;
+    if (needleStarting) userPaused = true;
+    lifecycleSuspended = true;
     clearTrackEndGuard();
     clearPlaybackRetry();
     playbackRetryPending = false;
@@ -531,6 +537,7 @@ export function createPocketAudioController({
   }
 
   function resetSession() {
+    lifecycleSuspended = false;
     menuEntered = false;
     clearTrackEndGuard();
     clearPlaybackRetry();

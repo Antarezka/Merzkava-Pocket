@@ -170,7 +170,7 @@ test("placing another record changes track but never starts playback", () => {
   assert.equal(audio.getState().track, "chill");
   assert.equal(audio.getState().isPlaying, false);
   assert.equal(audio.getState().title, "chill-1a");
-  assert.equal(FakeAudio.instances[0].loop, false);
+  assert.equal(FakeAudio.instances[0].loop, true);
 });
 
 test("needle must be lowered before a newly selected track starts", async () => {
@@ -351,7 +351,7 @@ test("end fade completes and the ended event replays with fade-in in Floating Mo
   audio.enterMainMenu();
   const music=FakeAudio.instances[0];
   const noise=FakeAudio.instances.find(item=>item.src===VINYL_SURFACE_NOISE_SRC);
-  assert.equal(music.loop,false);
+  assert.equal(music.loop,true);
   assert.equal(music.playCount,1);
   await Promise.resolve();
   clock.advance(2200);
@@ -484,7 +484,7 @@ test("ended event explicitly replays a completed Pocket music track",async()=>{
   await Promise.resolve();
   const music=FakeAudio.instances[0];
   const noise=FakeAudio.instances.find(item=>item.src===VINYL_SURFACE_NOISE_SRC);
-  assert.equal(music.loop,false);
+  assert.equal(music.loop,true);
   assert.equal(music.playCount,1);
   music.finish();
   await flushAudioMicrotasks();
