@@ -394,7 +394,7 @@ function syncAudioUI() {
   const needle = player.querySelector("[data-audio-needle]");
   const currentLabel = player.querySelector("[data-vinyl-label]");
   if (trackTitle) trackTitle.textContent = state.title;
-  if (status) status.textContent = state.error ? "CRI AUDIO · NEEDS ATTENTION" : state.isPlaying ? "PLAYING · CRI AUDIO" : state.isStarting ? "STYLUS CONTACT · PREPARING" : state.isPaused ? "PAUSED · STYLUS LIFTED" : "NEEDLE LIFTED · READY";
+  if (status) status.textContent = state.error || state.ambienceStatus === "error" ? "CRI AUDIO · NEEDS ATTENTION" : state.isPlaying ? "PLAYING · CRI AUDIO" : state.isStarting ? "STYLUS CONTACT · PREPARING" : state.isPaused ? "PAUSED · STYLUS LIFTED" : "NEEDLE LIFTED · READY";
   if (needle) {
     needle.setAttribute("aria-label", state.isPlaying || state.isStarting ? "Lift the stylus and pause music" : "Lower the stylus and play music");
     needle.setAttribute("aria-pressed", String(state.isPlaying || state.isStarting || state.isPaused));
