@@ -28,6 +28,7 @@ public final class PocketUpdateInstalledReceiver extends BroadcastReceiver {
     private static final String PREF_FILE_NAME="pocket_update_file_name_v1";
     private static final String PREF_BUILD_NUMBER="pocket_update_build_number_v1";
     private static final String PREF_SHA256="pocket_update_sha256_v1";
+    private static final String PREF_UPDATE_URL="pocket_update_download_url_v1";
     private static final int UPDATE_NOTIFICATION_ID=8202;
     private static final long VERSION_CODE_OFFSET=10000L;
     private static final Pattern POCKET_APK=Pattern.compile(
@@ -135,7 +136,7 @@ public final class PocketUpdateInstalledReceiver extends BroadcastReceiver {
         }
         if(savedBuild<=installedBuild||savedBuild<0){
             prefs.edit().remove(PREF_DOWNLOAD_ID).remove(PREF_FILE_NAME)
-                .remove(PREF_BUILD_NUMBER).remove(PREF_SHA256).apply();
+                .remove(PREF_BUILD_NUMBER).remove(PREF_SHA256).remove(PREF_UPDATE_URL).apply();
         }
         Log.i(TAG,"Removed Pocket APK builds at or below installed build #"+installedBuild);
     }
