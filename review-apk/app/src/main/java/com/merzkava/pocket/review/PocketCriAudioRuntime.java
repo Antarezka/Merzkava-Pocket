@@ -9,6 +9,7 @@ import android.media.AudioManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.util.Log;
 import android.webkit.WebView;
 
@@ -19,6 +20,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.json.JSONObject;
@@ -74,6 +76,13 @@ public final class PocketCriAudioRuntime {
     private final AtomicLong[] generations = {
         new AtomicLong(), new AtomicLong(), new AtomicLong(), new AtomicLong(), new AtomicLong(), new AtomicLong()
     };
+    private final AtomicLong[] fadeGenerations = {
+        new AtomicLong(), new AtomicLong(), new AtomicLong(), new AtomicLong(), new AtomicLong(), new AtomicLong()
+    };
+    private final Object fadeLock = new Object();
+    private final float[] channelVolumes = new float[6];
+    private final Runnable[] fadeJobs = new Runnable[6];
+    private final AtomicLong pauseTransition = new AtomicLong();
     private final int[] lastStatuses = {-1, -1, -1, -1, -1, -1};
     private final AudioManager audioManager;
     private final AudioManager.OnAudioFocusChangeListener focusListener = this::onAudioFocusChanged;
@@ -84,8 +93,11 @@ public final class PocketCriAudioRuntime {
     private boolean resumeAfterFocusLoss;
     private boolean focusHeld;
     private volatile boolean polling;
-    private int musicVolume = 68;
-    private int effectsVolume = 76;
+    private volatile boolean musicStreamActive;
+    private volatile boolean ambienceStreamActive;
+    private volatile int musicVolume = 68;
+    private volatile int effectsVolume = 76;
+    private static final long FADE_FRAME_MS = 20L;
 
     public PocketCriAudioRuntime(Activity activity, WebView webView) {
         this.activity = activity;
@@ -101,6 +113,12 @@ public final class PocketCriAudioRuntime {
             boolean ready = nativeInit();
             initialized = ready;
             if (ready) {
+                rememberChannelVolume(CHANNEL_MUSIC, volume(musicVolume));
+                rememberChannelVolume(CHANNEL_AMBIENCE, volume(effectsVolume));
+                rememberChannelVolume(CHANNEL_NEEDLE, volume(effectsVolume));
+                rememberChannelVolume(CHANNEL_EFFECTS, volume(effectsVolume));
+                rememberChannelVolume(CHANNEL_DOOR_CHIME, volume(effectsVolume));
+                rememberChannelVolume(CHANNEL_DOOR_RATTLE, volume(effectsVolume));
                 nativeSetVolume(CHANNEL_MUSIC, volume(musicVolume));
                 nativeSetVolume(CHANNEL_AMBIENCE, volume(effectsVolume));
                 nativeSetVolume(CHANNEL_NEEDLE, volume(effectsVolume));
@@ -175,7 +193,16 @@ public final class PocketCriAudioRuntime {
             return false;
         }
         requestMusicFocus();
-        enqueuePlay(CHANNEL_MUSIC, file, format, volume(musicVolume), true, "preparing");
+        final long generation = generations[CHANNEL_MUSIC].incrementAndGet();
+        publish("music", "preparing", "");
+        Runnable startSelectedTrack = () -> {
+            if (disposed || generation != generations[CHANNEL_MUSIC].get()) return;
+            startFileAtVolume(CHANNEL_MUSIC, file, format, 0f, true, generation,
+                () -> fadeChannelTo(CHANNEL_MUSIC, volume(musicVolume), 240L, null));
+        };
+        // Change only BGM; the separate vinyl ambience channel keeps playing.
+        if (musicStreamActive) fadeChannelTo(CHANNEL_MUSIC, 0f, 170L, startSelectedTrack);
+        else startSelectedTrack.run();
         return true;
     }
 
@@ -186,7 +213,11 @@ public final class PocketCriAudioRuntime {
             publish("ambience", "error", "Vinyl surface noise is missing.");
             return false;
         }
-        enqueuePlay(CHANNEL_AMBIENCE, file, FORMAT_ADX, volume(effectsVolume), true, "preparing");
+        if (ambienceStreamActive) return true;
+        final long generation = generations[CHANNEL_AMBIENCE].incrementAndGet();
+        publish("ambience", "preparing", "");
+        startFileAtVolume(CHANNEL_AMBIENCE, file, FORMAT_ADX, 0f, true, generation,
+            () -> fadeChannelTo(CHANNEL_AMBIENCE, volume(effectsVolume), 320L, null));
         return true;
     }
 
@@ -218,6 +249,8 @@ public final class PocketCriAudioRuntime {
 
     private void enqueuePlay(int channel, File file, int format, float volume, boolean loop, String initialState) {
         long token = generations[channel].incrementAndGet();
+        cancelChannelFade(channel);
+        rememberChannelVolume(channel, volume);
         publish(CHANNEL_NAMES[channel], initialState, "");
         commands.execute(() -> {
             if (disposed || token != generations[channel].get()) return;
@@ -226,26 +259,146 @@ public final class PocketCriAudioRuntime {
                 publish(CHANNEL_NAMES[channel], "error", "CRI could not start this audio stream.");
                 return;
             }
+            markChannelActive(channel, true);
             lastStatuses[channel] = -1;
             startPolling();
         });
     }
 
+    private void startFileAtVolume(int channel, File file, int format, float initialVolume,
+                                   boolean loop, long generation, Runnable onStarted) {
+        if (disposed || generation != generations[channel].get()) return;
+        cancelChannelFade(channel);
+        final float startVolume = Math.max(0f, Math.min(1f, initialVolume));
+        rememberChannelVolume(channel, startVolume);
+        commands.execute(() -> {
+            if (disposed || generation != generations[channel].get()) return;
+            boolean started = nativePlayFile(channel, file.getAbsolutePath(), format, startVolume, loop);
+            if (!started) {
+                markChannelActive(channel, false);
+                publish(CHANNEL_NAMES[channel], "error", "CRI could not start this audio stream.");
+                return;
+            }
+            markChannelActive(channel, true);
+            lastStatuses[channel] = -1;
+            startPolling();
+            if (onStarted != null && !disposed && generation == generations[channel].get()) onStarted.run();
+        });
+    }
+
+    private void markChannelActive(int channel, boolean active) {
+        if (channel == CHANNEL_MUSIC) musicStreamActive = active;
+        else if (channel == CHANNEL_AMBIENCE) ambienceStreamActive = active;
+    }
+
+    private void rememberChannelVolume(int channel, float value) {
+        float clamped = Math.max(0f, Math.min(1f, value));
+        synchronized (fadeLock) {
+            channelVolumes[channel] = clamped;
+        }
+    }
+
+    private void cancelChannelFade(int channel) {
+        fadeGenerations[channel].incrementAndGet();
+        synchronized (fadeLock) {
+            Runnable running = fadeJobs[channel];
+            if (running != null) mainHandler.removeCallbacks(running);
+            fadeJobs[channel] = null;
+        }
+    }
+
+    /** Smooth per-channel CRI fade; stale queued steps are invalidated by the next command. */
+    private void fadeChannelTo(int channel, float target, long durationMs, Runnable onComplete) {
+        if (disposed || channel < 0 || channel >= channelVolumes.length) return;
+        final float end = Math.max(0f, Math.min(1f, target));
+        final long token = fadeGenerations[channel].incrementAndGet();
+        final long startedAt = SystemClock.uptimeMillis();
+        final Runnable fade;
+        synchronized (fadeLock) {
+            Runnable previous = fadeJobs[channel];
+            if (previous != null) mainHandler.removeCallbacks(previous);
+            final float start = channelVolumes[channel];
+            final Runnable[] holder = new Runnable[1];
+            holder[0] = () -> {
+                if (disposed || token != fadeGenerations[channel].get()) return;
+                float linear = durationMs <= 0L ? 1f :
+                    Math.max(0f, Math.min(1f, (SystemClock.uptimeMillis() - startedAt) / (float) durationMs));
+                float eased = linear * linear * (3f - 2f * linear);
+                float value = start + (end - start) * eased;
+                boolean finished = linear >= 1f;
+                synchronized (fadeLock) {
+                    channelVolumes[channel] = value;
+                    if (finished) fadeJobs[channel] = null;
+                }
+                try {
+                    commands.execute(() -> {
+                        if (disposed || token != fadeGenerations[channel].get()) return;
+                        nativeSetVolume(channel, value);
+                        if (finished && onComplete != null) onComplete.run();
+                    });
+                } catch (RuntimeException error) {
+                    Log.w(TAG, "Could not queue CRI fade step for " + CHANNEL_NAMES[channel], error);
+                }
+                if (!finished) mainHandler.postDelayed(holder[0], FADE_FRAME_MS);
+            };
+            fade = holder[0];
+            fadeJobs[channel] = fade;
+        }
+        mainHandler.post(fade);
+    }
+
     public void pauseMusic(boolean paused) {
         if (!initialized || disposed) return;
+        final long transition = pauseTransition.incrementAndGet();
+        if (paused) {
+            AtomicInteger remaining = new AtomicInteger(2);
+            Runnable finishPause = () -> {
+                if (transition != pauseTransition.get() || remaining.decrementAndGet() != 0) return;
+                commands.execute(() -> {
+                    if (disposed || transition != pauseTransition.get()) return;
+                    nativePause(CHANNEL_MUSIC, true);
+                    nativePause(CHANNEL_AMBIENCE, true);
+                    publish("music", "paused", "");
+                });
+            };
+            fadeChannelTo(CHANNEL_MUSIC, 0f, 170L, finishPause);
+            fadeChannelTo(CHANNEL_AMBIENCE, 0f, 170L, finishPause);
+            return;
+        }
         commands.execute(() -> {
-            if (disposed) return;
-            nativePause(CHANNEL_MUSIC, paused);
-            nativePause(CHANNEL_AMBIENCE, paused);
-            publish("music", paused ? "paused" : "playing", "");
-            if (!paused) startPolling();
+            if (disposed || transition != pauseTransition.get()) return;
+            nativePause(CHANNEL_MUSIC, false);
+            nativePause(CHANNEL_AMBIENCE, false);
+            fadeChannelTo(CHANNEL_MUSIC, volume(musicVolume), 230L, null);
+            fadeChannelTo(CHANNEL_AMBIENCE, volume(effectsVolume), 280L, null);
+            publish("music", "playing", "");
+            startPolling();
         });
     }
 
     public void stopMusic() {
-        stopChannel(CHANNEL_MUSIC, "idle");
-        stopChannel(CHANNEL_AMBIENCE, "idle");
-        abandonMusicFocus();
+        if (!initialized || disposed) return;
+        pauseTransition.incrementAndGet();
+        final long musicGeneration = generations[CHANNEL_MUSIC].incrementAndGet();
+        final long ambienceGeneration = generations[CHANNEL_AMBIENCE].incrementAndGet();
+        AtomicInteger remaining = new AtomicInteger(2);
+        Runnable finishStop = () -> {
+            if (remaining.decrementAndGet() != 0) return;
+            commands.execute(() -> {
+                if (disposed || musicGeneration != generations[CHANNEL_MUSIC].get() ||
+                    ambienceGeneration != generations[CHANNEL_AMBIENCE].get()) return;
+                nativeStop(CHANNEL_MUSIC);
+                nativeStop(CHANNEL_AMBIENCE);
+                lastStatuses[CHANNEL_MUSIC] = 0;
+                lastStatuses[CHANNEL_AMBIENCE] = 0;
+                markChannelActive(CHANNEL_MUSIC, false);
+                markChannelActive(CHANNEL_AMBIENCE, false);
+                publish("music", "idle", "");
+                abandonMusicFocus();
+            });
+        };
+        fadeChannelTo(CHANNEL_MUSIC, 0f, 150L, finishStop);
+        fadeChannelTo(CHANNEL_AMBIENCE, 0f, 150L, finishStop);
     }
 
     public void setMusicVolume(int value) {
@@ -264,17 +417,23 @@ public final class PocketCriAudioRuntime {
 
     private void setChannelVolume(int channel, float value) {
         if (!initialized || disposed) return;
+        cancelChannelFade(channel);
+        final float clamped = Math.max(0f, Math.min(1f, value));
+        rememberChannelVolume(channel, clamped);
         commands.execute(() -> {
-            if (!disposed) nativeSetVolume(channel, value);
+            if (!disposed) nativeSetVolume(channel, clamped);
         });
     }
 
     private void stopChannel(int channel, String state) {
         generations[channel].incrementAndGet();
+        cancelChannelFade(channel);
+        rememberChannelVolume(channel, 0f);
         if (!initialized || disposed) return;
         commands.execute(() -> {
             if (disposed) return;
             nativeStop(channel);
+            markChannelActive(channel, false);
             lastStatuses[channel] = 0;
             publish(CHANNEL_NAMES[channel], state, "");
         });
@@ -374,24 +533,25 @@ public final class PocketCriAudioRuntime {
             resumeAfterFocusLoss = change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT;
             pauseMusic(true);
         } else if (change == AudioManager.AUDIOFOCUS_GAIN) {
-            // Always restore the user's saved mix after ducking or interruption.
-            setChannelVolume(CHANNEL_MUSIC, volume(musicVolume));
-            setChannelVolume(CHANNEL_AMBIENCE, volume(effectsVolume));
-            setChannelVolume(CHANNEL_NEEDLE, volume(effectsVolume));
-            setChannelVolume(CHANNEL_EFFECTS, volume(effectsVolume));
-            setChannelVolume(CHANNEL_DOOR_CHIME, volume(effectsVolume));
-            setChannelVolume(CHANNEL_DOOR_RATTLE, volume(effectsVolume));
+            // Restore the complete CRI mix smoothly after ducking or interruption.
+            fadeChannelTo(CHANNEL_NEEDLE, volume(effectsVolume), 180L, null);
+            fadeChannelTo(CHANNEL_EFFECTS, volume(effectsVolume), 180L, null);
+            fadeChannelTo(CHANNEL_DOOR_CHIME, volume(effectsVolume), 180L, null);
+            fadeChannelTo(CHANNEL_DOOR_RATTLE, volume(effectsVolume), 180L, null);
             if (resumeAfterFocusLoss) {
                 resumeAfterFocusLoss = false;
                 pauseMusic(false);
+            } else {
+                fadeChannelTo(CHANNEL_MUSIC, volume(musicVolume), 180L, null);
+                fadeChannelTo(CHANNEL_AMBIENCE, volume(effectsVolume), 180L, null);
             }
         } else if (change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
-            setChannelVolume(CHANNEL_MUSIC, volume(musicVolume) * 0.25f);
-            setChannelVolume(CHANNEL_AMBIENCE, volume(effectsVolume) * 0.25f);
-            setChannelVolume(CHANNEL_NEEDLE, volume(effectsVolume) * 0.25f);
-            setChannelVolume(CHANNEL_EFFECTS, volume(effectsVolume) * 0.25f);
-            setChannelVolume(CHANNEL_DOOR_CHIME, volume(effectsVolume) * 0.25f);
-            setChannelVolume(CHANNEL_DOOR_RATTLE, volume(effectsVolume) * 0.25f);
+            fadeChannelTo(CHANNEL_MUSIC, volume(musicVolume) * 0.25f, 150L, null);
+            fadeChannelTo(CHANNEL_AMBIENCE, volume(effectsVolume) * 0.25f, 150L, null);
+            fadeChannelTo(CHANNEL_NEEDLE, volume(effectsVolume) * 0.25f, 150L, null);
+            fadeChannelTo(CHANNEL_EFFECTS, volume(effectsVolume) * 0.25f, 150L, null);
+            fadeChannelTo(CHANNEL_DOOR_CHIME, volume(effectsVolume) * 0.25f, 150L, null);
+            fadeChannelTo(CHANNEL_DOOR_RATTLE, volume(effectsVolume) * 0.25f, 150L, null);
         }
     }
 
@@ -423,6 +583,7 @@ public final class PocketCriAudioRuntime {
             disposed = true;
         }
         for (AtomicLong generation : generations) generation.incrementAndGet();
+        for (int channel = 0; channel < fadeGenerations.length; channel++) cancelChannelFade(channel);
         mainHandler.removeCallbacks(pollStatus);
         polling = false;
         abandonMusicFocus();
