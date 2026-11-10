@@ -368,7 +368,7 @@ export function createPocketAudioController({
     const stamp = now();
     if (stamp - lastCycleNotification < 900) return;
     lastCycleNotification = stamp;
-    lastPlaybackDuration = Number.isFinite(music.duration) ? music.duration : 0;
+    if (activeSourceReady && Number.isFinite(music.duration)) lastPlaybackDuration = music.duration;
     try { onPlaybackCycle({ track: selectedTrack, title: trackCatalog[selectedTrack].title }); } catch {}
     notify();
   };
