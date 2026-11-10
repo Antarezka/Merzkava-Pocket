@@ -108,6 +108,7 @@ function createNativePocketAudioController({
 
   const initialState = parse(nativeBridge.getPocketNativeMusicState?.());
   nativePlaying = initialState.playing === true;
+  userPaused = initialState.userPaused === true;
   nativeTrackId = String(initialState.trackId || "");
   if (nativePlaying && Object.hasOwn(trackCatalog, nativeTrackId)) {
     selectedTrack = nativeTrackId;
@@ -204,10 +205,11 @@ function createNativePocketAudioController({
     if (!state || typeof state !== "object") return;
     if (typeof state.playing === "boolean") {
       nativePlaying = state.playing;
-      // Media-session pause/play actions (notification or lock screen) update
-      // the visible needle state; track identity is only adopted while playing.
-      userPaused = !state.playing;
+      if (state.playing) userPaused = false;
     }
+    // Generic service teardown (for splash/logout) is not a user pause.
+    // Only MediaSession's explicit pause action should persist paused intent.
+    if (state.userPaused === true) userPaused = true;
     const id = String(state.trackId || "");
     if (nativePlaying && id && Object.hasOwn(trackCatalog, id)) {
       nativeTrackId = id;
