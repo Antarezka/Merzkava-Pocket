@@ -125,9 +125,14 @@ test("Android BGM is delegated to native Media3 while vinyl crackle stays a sepa
       nativeState = { playing: true, trackId: id, cycleCount: nativeState.cycleCount };
       return JSON.stringify({ ok: true });
     },
+    pausePocketNativeMusic: userPause => {
+      calls.push(["pause", userPause]);
+      nativeState = { ...nativeState, playing: false, preparing: false, userPaused: userPause };
+      return true;
+    },
     stopPocketNativeMusic: () => {
       calls.push(["stop"]);
-      nativeState = { ...nativeState, playing: false };
+      nativeState = { ...nativeState, playing: false, preparing: false };
       return true;
     },
     setPocketNativeMusicVolume: volume => {
@@ -158,7 +163,10 @@ test("Android BGM is delegated to native Media3 while vinyl crackle stays a sepa
 
   assert.equal(audio.selectTrack("chill"), true);
   assert.equal(audio.getState().isPlaying, false);
-  assert.ok(calls.some(call => call[0] === "stop"));
+  assert.ok(calls.some(call => call[0] === "pause" && call[1] === true),
+    "choosing another record must pause the active player without destroying Media3 service");
+  assert.equal(calls.some(call => call[0] === "stop"), false,
+    "track changes must not race service teardown against the next ACTION_PLAY");
   await audio.toggleNeedle();
   await flushAudioMicrotasks();
   audio.recoverAfterInterruption();
@@ -276,7 +284,7 @@ test("native Media3 repeat counts are recovered after Floating Mode without WebV
 });
 
 
-test("native service teardown during splash does not turn resume intent into a user pause", async () => {
+test("native pause during splash preserves resume intent without destroying Media3 service", async () => {
   const calls = [];
   let nativeState = { playing: false, trackId: "", cycleCount: 0, userPaused: false };
   const nativeBridge = {
@@ -286,9 +294,14 @@ test("native service teardown during splash does not turn resume intent into a u
       nativeState = { playing: true, trackId: id, cycleCount: nativeState.cycleCount, userPaused: false };
       return JSON.stringify({ ok: true });
     },
+    pausePocketNativeMusic: userPause => {
+      calls.push(["pause", userPause]);
+      nativeState = { ...nativeState, playing: false, preparing: false, userPaused: userPause };
+      return true;
+    },
     stopPocketNativeMusic: () => {
       calls.push(["stop"]);
-      nativeState = { ...nativeState, playing: false, userPaused: false };
+      nativeState = { ...nativeState, playing: false, preparing: false, userPaused: false };
       return true;
     },
     setPocketNativeMusicVolume: () => true
@@ -303,6 +316,10 @@ test("native service teardown during splash does not turn resume intent into a u
   audio.pauseForSplash();
   audio.recoverAfterBackgroundTransition();
   assert.equal(audio.getState().isPlaying, false);
+  assert.ok(calls.some(call => call[0] === "pause" && call[1] === false),
+    "splash suspension must pause playback without persisting a user pause");
+  assert.equal(calls.some(call => call[0] === "stop"), false,
+    "splash must not destroy the service while the same Pocket session is resuming");
   audio.enterMainMenu();
   await flushAudioMicrotasks();
   audio.recoverAfterInterruption();
