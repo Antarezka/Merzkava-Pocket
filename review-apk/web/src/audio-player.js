@@ -95,6 +95,8 @@ export function createPocketAudioController({
   let menuEntered = false;
   let userPaused = false;
   let lifecycleSuspended = false;
+  let floatingModeActive = false;
+  let backgroundRecoveryToken = 0;
   let resumeAfterSplash = false;
   let needleStarting = false;
   let needleToken = 0;
@@ -452,6 +454,11 @@ export function createPocketAudioController({
   });
   music.addEventListener?.("emptied", stopVinylSurfaceNoise);
   music.addEventListener?.("loadedmetadata", () => {
+    const duration = Number(music.duration);
+    if (Number.isFinite(duration) && duration > 1) {
+      lastPlaybackDuration = duration;
+      previousMusicTime = Math.max(0, Number(music.currentTime) || 0);
+    }
     if (isPlaying()) scheduleTrackEndGuard();
   });
   music.addEventListener?.("durationchange", () => {
@@ -519,6 +526,8 @@ export function createPocketAudioController({
   }
 
   function pauseForSplash() {
+    floatingModeActive = false;
+    backgroundRecoveryToken += 1;
     resumeAfterSplash = shouldMaintainPlayback() && !needleStarting;
     if (needleStarting) userPaused = true;
     lifecycleSuspended = true;
@@ -538,6 +547,8 @@ export function createPocketAudioController({
 
   function resetSession() {
     lifecycleSuspended = false;
+    floatingModeActive = false;
+    backgroundRecoveryToken += 1;
     menuEntered = false;
     clearTrackEndGuard();
     clearPlaybackRetry();
@@ -570,6 +581,7 @@ export function createPocketAudioController({
     stopVinylSurfaceNoise();
     music.pause();
     music.currentTime = 0;
+    previousMusicTime = 0;
     lastPlaybackDuration = 0;
     selectedTrack = id;
     music.src = trackCatalog[selectedTrack].src;
@@ -638,7 +650,9 @@ export function createPocketAudioController({
   }
 
   function setFloatingMode(active) {
-    if (!active || !menuEntered || userPaused) return Promise.resolve(false);
+    floatingModeActive = active === true;
+    backgroundRecoveryToken += 1;
+    if (!floatingModeActive || !menuEntered || userPaused) return Promise.resolve(false);
     music.loop = true;
     if (music.paused || music.ended) return startMusic();
     // Do not cancel a fade-out at the end or the following fade-in just because
@@ -650,6 +664,30 @@ export function createPocketAudioController({
     if (musicFadeGain < 1) animateMusicFade(1, MUSIC_FADE_DURATION_MS);
     syncVinylSurfaceNoise();
     return Promise.resolve(true);
+  }
+
+  function recoverAfterBackgroundTransition() {
+    if (!floatingModeActive || !shouldMaintainPlayback()) return false;
+    const token = ++backgroundRecoveryToken;
+    const verifyPlayback = () => {
+      if (token !== backgroundRecoveryToken ||
+          !floatingModeActive ||
+          !shouldMaintainPlayback()) return;
+      // Android may pause a freshly loaded WebView media source while moving
+      // the Activity behind the bubble. Re-check after the native transition
+      // instead of waiting for a foreground/focus event to restart it.
+      if (music.paused || music.ended) {
+        playbackRetryCount = 0;
+        playbackRetryPending = false;
+        clearPlaybackRetry();
+        void startMusic();
+      } else {
+        syncVinylSurfaceNoise();
+      }
+    };
+    verifyPlayback();
+    [180, 520, 1100, 1900].forEach(delay => setTimeoutFn(verifyPlayback, delay));
+    return true;
   }
 
   function retryPendingPlayback() {
@@ -730,7 +768,8 @@ export function createPocketAudioController({
     setEffectsVolume,
     setFloatingMode,
     retryPendingPlayback,
-    recoverAfterInterruption
+    recoverAfterInterruption,
+    recoverAfterBackgroundTransition
   };
 }
 
