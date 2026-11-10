@@ -112,7 +112,7 @@ jobs:
         run: |
           set -euo pipefail
           test -s review-apk/web/src/audio-player.js
-          ! grep -R -E 'new Audio\\(|AudioContext|webkitAudioContext|createElement\\(["'"']audio|canPlayType|<audio' review-apk/web/src
+          ! grep -R -E "new Audio|AudioContext|webkitAudioContext|canPlayType|<audio" review-apk/web/src
           for asset in Happy-1a.adx chill-1a.adx Retroatrical-1.adx Retroatrical-2.adx needle-drop.adx record-placement.adx vinyl-surface-noise.adx; do
             test -s "review-apk/web/public/cri-audio/$asset"
           done
