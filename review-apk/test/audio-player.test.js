@@ -138,6 +138,9 @@ test("Android BGM is delegated to native Media3 while vinyl crackle stays a sepa
   const { audio } = harness({}, { nativeBridge });
   audio.enterMainMenu();
   await flushAudioMicrotasks();
+  assert.equal(audio.getState().isStarting, true);
+  assert.equal(audio.getState().isPlaying, false);
+  audio.recoverAfterInterruption();
 
   assert.equal(audio.getState().isPlaying, true);
   assert.equal(calls[0][0], "start");
@@ -158,7 +161,55 @@ test("Android BGM is delegated to native Media3 while vinyl crackle stays a sepa
   assert.ok(calls.some(call => call[0] === "stop"));
   await audio.toggleNeedle();
   await flushAudioMicrotasks();
+  audio.recoverAfterInterruption();
   assert.equal(calls.filter(call => call[0] === "start").at(-1)[1], "chill");
+});
+
+
+test("native start stays single-flight while Media3 reports its initial stopped state", () => {
+  const calls = [];
+  let nativeState = { playing: false, trackId: "", cycleCount: 0, userPaused: false };
+  const nativeBridge = {
+    getPocketNativeMusicState: () => JSON.stringify(nativeState),
+    startPocketNativeMusic: (id, title, source, volume) => {
+      calls.push(["start", id]);
+      return JSON.stringify({ ok: true });
+    },
+    stopPocketNativeMusic: () => true,
+    setPocketNativeMusicVolume: () => true
+  };
+  const { audio } = harness({}, { nativeBridge });
+  audio.enterMainMenu();
+
+  assert.equal(audio.getState().isStarting, true);
+  assert.equal(audio.getState().isPlaying, false);
+  for (let index = 0; index < 8; index += 1) audio.retryPendingPlayback();
+  assert.equal(calls.filter(call => call[0] === "start").length, 1,
+    "initial false/stopped snapshots must not dispatch duplicate ACTION_PLAY requests");
+
+  nativeState = { playing: true, trackId: "happy", cycleCount: 0, userPaused: false };
+  audio.recoverAfterInterruption();
+  assert.equal(audio.getState().isPlaying, true);
+  assert.equal(audio.getState().isStarting, false);
+});
+
+test("global gesture recovery does not race the needle-drop preparation", async () => {
+  const calls = [];
+  let nativeState = { playing: false, trackId: "", cycleCount: 0, userPaused: false };
+  const nativeBridge = {
+    getPocketNativeMusicState: () => JSON.stringify(nativeState),
+    startPocketNativeMusic: (id) => {
+      calls.push(["start", id]);
+      return JSON.stringify({ ok: true });
+    },
+    stopPocketNativeMusic: () => true,
+    setPocketNativeMusicVolume: () => true
+  };
+  const { audio } = harness({}, { nativeBridge });
+  audio.enterMainMenu();
+  // A fresh menu start is already pending; gesture recovery must remain inert.
+  assert.equal(audio.retryPendingPlayback(), false);
+  assert.equal(calls.filter(call => call[0] === "start").length, 1);
 });
 
 test("native Media3 repeat counts are recovered after Floating Mode without WebView ended events", () => {
