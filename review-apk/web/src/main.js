@@ -91,6 +91,20 @@ window.PocketNativeCallbacks = {
     } catch {
       callback.reject(new Error("The verified player registry response was malformed."));
     }
+  },
+  updateCheck(id, ok, updateJson, error) {
+    const callback = callbacks.get(id);
+    if (!callback) return;
+    callbacks.delete(id);
+    if (!ok) {
+      callback.reject(new Error(error || "Pocket could not check for updates."));
+      return;
+    }
+    try {
+      callback.resolve(JSON.parse(updateJson || "{}"));
+    } catch {
+      callback.reject(new Error("The Pocket update information was malformed."));
+    }
   }
 };
 
@@ -190,14 +204,14 @@ function refreshPocketUpdatePanel(downloadState=null) {
   let state=downloadState;
   if(!state){try{state=JSON.parse(native?.getPocketUpdateDownloadState?.()||"{}");}catch{state={};}}
   const running=["queued","downloading","paused"].includes(state.status),completed=state.status==="completed";
-  const area=q("[data-update-download-area]");if(area)area.hidden=!running&&!completed&&!state.message;
+  const area=q("[data-update-download-area]");if(area)area.hidden=!hasUpdate||(!running&&!completed&&!state.message);
   const fill=q("[data-update-progress-fill]");if(fill)fill.style.width=(Number(state.progress)||0)+"%";
   set("[data-update-progress-value]",(Number(state.progress)||0)+"%");
   set("[data-update-progress-meta]",completed?"DOWNLOAD COMPLETE · APK IN POCKET STORAGE":running?
     formatPocketBytes(state.bytesDownloaded)+(state.totalBytes>0?" / "+formatPocketBytes(state.totalBytes):"")+" · "+state.status.toUpperCase():(state.message||""));
   const download=q("[data-update-download]");
   if(download){download.hidden=!hasUpdate||completed;download.disabled=!hasUpdate||running||!latest?.apkUrl;download.textContent=running?"DOWNLOADING…":"DOWNLOAD UPDATE";}
-  const install=q("[data-update-install]");if(install){install.hidden=!completed;install.disabled=!completed;}
+  const install=q("[data-update-install]");if(install){install.hidden=!completed||!hasUpdate;install.disabled=!completed||!hasUpdate;}
   const check=q("[data-update-check]");if(check){check.disabled=pocketUpdateCheckBusy;check.textContent=pocketUpdateCheckBusy?"CHECKING…":"CHECK AGAIN";}
 }
 function mountPocketUpdateSettings() {
@@ -2020,4 +2034,7 @@ if (!pocketUpdateStartupCheckStarted) {
   pocketUpdateStartupCheckStarted = true;
   void checkPocketUpdates(true);
 }
+window.addEventListener("pocket:native-resume", () => {
+  if (!pocketUpdateCheckBusy) void checkPocketUpdates(true);
+});
 void playStartupSplash();
