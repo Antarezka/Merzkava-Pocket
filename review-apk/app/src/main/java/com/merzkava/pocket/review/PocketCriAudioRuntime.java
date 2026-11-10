@@ -78,6 +78,7 @@ public final class PocketCriAudioRuntime {
     private boolean initialized;
     private boolean disposed;
     private boolean resumeAfterFocusLoss;
+    private boolean focusHeld;
     private boolean polling;
     private int musicVolume = 68;
     private int effectsVolume = 76;
@@ -95,6 +96,12 @@ public final class PocketCriAudioRuntime {
             copyBundledAudio();
             boolean ready = nativeInit();
             initialized = ready;
+            if (ready) {
+                nativeSetVolume(CHANNEL_MUSIC, volume(musicVolume));
+                nativeSetVolume(CHANNEL_AMBIENCE, volume(effectsVolume));
+                nativeSetVolume(CHANNEL_NEEDLE, volume(effectsVolume));
+                nativeSetVolume(CHANNEL_EFFECTS, volume(effectsVolume));
+            }
             if (!ready) {
                 publish("music", "error", "CRI ADX LE could not initialize.");
                 return false;
@@ -266,12 +273,20 @@ public final class PocketCriAudioRuntime {
             }
             commands.execute(() -> {
                 if (disposed) return;
+                boolean active = false;
                 for (int channel : new int[]{CHANNEL_MUSIC, CHANNEL_AMBIENCE, CHANNEL_NEEDLE, CHANNEL_EFFECTS}) {
                     int status = nativeGetStatus(channel);
+                    if (status == 1 || status == 2) active = true;
                     if (status != lastStatuses[channel]) {
                         lastStatuses[channel] = status;
                         publish(CHANNEL_NAMES[channel], stateForStatus(status), "");
                     }
+                }
+                if (!active) {
+                    mainHandler.post(() -> {
+                        polling = false;
+                        mainHandler.removeCallbacks(pollStatus);
+                    });
                 }
             });
             mainHandler.postDelayed(this, 120);
@@ -289,7 +304,7 @@ public final class PocketCriAudioRuntime {
     }
 
     private void requestMusicFocus() {
-        if (audioManager == null) return;
+        if (audioManager == null || focusHeld) return;
         if (Build.VERSION.SDK_INT >= 26) {
             AudioAttributes attributes = new AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_MEDIA)
@@ -301,11 +316,10 @@ public final class PocketCriAudioRuntime {
                 .setOnAudioFocusChangeListener(focusListener)
                 .build();
             int result = audioManager.requestAudioFocus(focusRequest);
-            if (result != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
-                Log.w(TAG, "Audio focus was not granted; CRI playback request is held.");
-            }
+            focusHeld = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
+            if (!focusHeld) Log.w(TAG, "Audio focus was not granted; playback will remain under the system mix policy.");
         } else {
-            audioManager.requestAudioFocus(focusListener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
+            focusHeld = audioManager.requestAudioFocus(focusListener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
         }
     }
 
@@ -314,9 +328,10 @@ public final class PocketCriAudioRuntime {
         if (Build.VERSION.SDK_INT >= 26 && focusRequest != null) {
             audioManager.abandonAudioFocusRequest(focusRequest);
             focusRequest = null;
-        } else {
+        } else if (focusHeld) {
             audioManager.abandonAudioFocus(focusListener);
         }
+        focusHeld = false;
     }
 
     private void onAudioFocusChanged(int change) {
