@@ -44,6 +44,388 @@ export function getSupportedAudioPlaybackTypes(audioElement = globalThis.documen
 
 const clampVolume = value => Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
 
+
+function createNativePocketAudioController({
+  AudioCtor,
+  storage,
+  onChange = () => {},
+  onPlaybackCycle = () => {},
+  customTracks = [],
+  nativeBridge,
+  setTimeoutFn = globalThis.setTimeout,
+  clearTimeoutFn = globalThis.clearTimeout
+} = {}) {
+  if (typeof AudioCtor !== "function") throw new Error("Audio effects are unavailable.");
+  const read = (key, fallback) => {
+    try {
+      const value = storage?.getItem(key);
+      return value === null || value === undefined ? fallback : value;
+    } catch { return fallback; }
+  };
+  const write = (key, value) => {
+    try { storage?.setItem(key, String(value)); } catch {}
+  };
+  const parse = value => {
+    if (value && typeof value === "object") return value;
+    try { return JSON.parse(String(value || "{}")); } catch { return {}; }
+  };
+
+  let trackCatalog = { ...TRACKS };
+  const normalizeCustomTracks = entries => {
+    if (!Array.isArray(entries)) return;
+    for (const entry of entries) {
+      const id = String(entry?.id ?? "");
+      const title = String(entry?.title ?? "").trim();
+      const extension = String(entry?.extension ?? entry?.ext ?? "ogg")
+        .trim().toLowerCase().replace(/^\./, "");
+      const mimeType = String(entry?.mimeType ?? "audio/ogg").trim().toLowerCase();
+      if (!/^[a-f0-9-]{36}$/i.test(id) || !title ||
+          !supportedAudioExtensionSet.has(extension) || !mimeType.startsWith("audio/")) continue;
+      trackCatalog[id] = {
+        title, extension, mimeType,
+        src: "https://pocket.local/user-audio/" + id + "." + extension,
+        custom: true
+      };
+    }
+  };
+  normalizeCustomTracks(customTracks);
+
+  let selectedTrack = String(read("mp-audio-track", "happy"));
+  if (!Object.hasOwn(trackCatalog, selectedTrack)) selectedTrack = "happy";
+  let musicVolume = clampVolume(read("mp-audio-music-volume", 68));
+  let effectsVolume = clampVolume(read("mp-audio-effects-volume", 76));
+  let menuEntered = false;
+  let userPaused = false;
+  let lifecycleSuspended = false;
+  let floatingModeActive = false;
+  let resumeAfterSplash = false;
+  let needleStarting = false;
+  let needleToken = 0;
+  let activeNeedleEffect = null;
+  let nativePlaying = false;
+  let nativeTrackId = "";
+  let disposed = false;
+
+  const initialState = parse(nativeBridge.getPocketNativeMusicState?.());
+  nativePlaying = initialState.playing === true;
+  nativeTrackId = String(initialState.trackId || "");
+  if (nativePlaying && Object.hasOwn(trackCatalog, nativeTrackId)) {
+    selectedTrack = nativeTrackId;
+    write("mp-audio-track", selectedTrack);
+  }
+  let lastCycleCount;
+  const savedCycleCount = read("mp-audio-native-cycle-count", null);
+  const storedCycleCount = Math.max(0, Number(initialState.cycleCount) || 0);
+  lastCycleCount = savedCycleCount === null
+    ? storedCycleCount
+    : Math.max(0, Number(savedCycleCount) || 0);
+  write("mp-audio-native-cycle-count", lastCycleCount);
+
+  // The BGM is native; only the independent ambience and short effects stay in WebView.
+  const vinylSurfaceNoise = new AudioCtor(VINYL_SURFACE_NOISE_SRC);
+  vinylSurfaceNoise.preload = "auto";
+  vinylSurfaceNoise.loop = true;
+  vinylSurfaceNoise.volume = (effectsVolume / 100) * VINYL_SURFACE_NOISE_GAIN;
+
+  const notify = () => {
+    if (!disposed) { try { onChange(getState()); } catch {} }
+  };
+  const shouldMaintainPlayback = () => menuEntered && !userPaused && !lifecycleSuspended;
+  const stopVinylSurfaceNoise = () => {
+    try { vinylSurfaceNoise.pause(); } catch {}
+    try { vinylSurfaceNoise.currentTime = 0; } catch {}
+  };
+  const syncVinylSurfaceNoise = () => {
+    if (!shouldMaintainPlayback() || effectsVolume <= 0 || !nativePlaying) {
+      stopVinylSurfaceNoise();
+      return;
+    }
+    vinylSurfaceNoise.volume = (effectsVolume / 100) * VINYL_SURFACE_NOISE_GAIN;
+    if (!vinylSurfaceNoise.paused) return;
+    try {
+      const result = vinylSurfaceNoise.play();
+      result?.catch?.(() => stopVinylSurfaceNoise());
+    } catch { stopVinylSurfaceNoise(); }
+  };
+  const createEffect = name => {
+    const src = EFFECTS[name];
+    if (!src || effectsVolume <= 0) return null;
+    const effect = new AudioCtor(src);
+    effect.preload = "auto";
+    effect.volume = effectsVolume / 100;
+    return effect;
+  };
+  const playEffect = name => {
+    const effect = createEffect(name);
+    if (!effect) return null;
+    try { effect.play()?.catch?.(() => {}); } catch {}
+    return effect;
+  };
+  const waitForEffect = effect => new Promise(resolve => {
+    let finished = false;
+    let fallback = null;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      if (fallback !== null) clearTimeoutFn(fallback);
+      effect.removeEventListener?.("ended", finish);
+      effect.removeEventListener?.("error", finish);
+      effect.removeEventListener?.("pause", finish);
+      resolve();
+    };
+    fallback = setTimeoutFn(finish, 5000);
+    effect.addEventListener?.("ended", finish, { once: true });
+    effect.addEventListener?.("error", finish, { once: true });
+    effect.addEventListener?.("pause", finish, { once: true });
+    if (effect.ended) finish();
+  });
+  const cancelNeedleStart = () => {
+    needleToken += 1;
+    needleStarting = false;
+    const effect = activeNeedleEffect;
+    activeNeedleEffect = null;
+    if (effect) { try { effect.pause(); effect.currentTime = 0; } catch {} }
+  };
+
+  const reportCycles = count => {
+    const next = Math.max(0, Number(count) || 0);
+    if (next > lastCycleCount) {
+      const missed = Math.min(30, next - lastCycleCount);
+      for (let i = 0; i < missed; i += 1) {
+        const id = nativeTrackId || selectedTrack;
+        try { onPlaybackCycle({ track: id, title: trackCatalog[id]?.title || "" }); } catch {}
+      }
+    }
+    lastCycleCount = next;
+    write("mp-audio-native-cycle-count", lastCycleCount);
+  };
+
+  const applyNativeState = state => {
+    if (!state || typeof state !== "object") return;
+    if (typeof state.playing === "boolean") {
+      nativePlaying = state.playing;
+      // Media-session pause/play actions (notification or lock screen) update
+      // the visible needle state; track identity is only adopted while playing.
+      userPaused = !state.playing;
+    }
+    const id = String(state.trackId || "");
+    if (nativePlaying && id && Object.hasOwn(trackCatalog, id)) {
+      nativeTrackId = id;
+      selectedTrack = id;
+      write("mp-audio-track", id);
+    }
+    if (state.cycleCount !== undefined) reportCycles(state.cycleCount);
+    syncVinylSurfaceNoise();
+    notify();
+  };
+  const syncNativeState = () => {
+    try { applyNativeState(parse(nativeBridge.getPocketNativeMusicState?.())); }
+    catch {}
+    return nativePlaying;
+  };
+
+  function getState() {
+    return {
+      track: selectedTrack,
+      title: trackCatalog[selectedTrack].title,
+      musicVolume,
+      effectsVolume,
+      isPlaying: nativePlaying,
+      isStarting: needleStarting,
+      menuEntered
+    };
+  }
+  const getTracks = () => Object.entries(trackCatalog).map(([id, track]) => ({
+    id,
+    title: track.title,
+    extension: track.extension || "ogg",
+    mimeType: track.mimeType || "audio/ogg",
+    custom: track.custom === true
+  }));
+
+  function stopMusic() {
+    try { nativeBridge.stopPocketNativeMusic?.(); } catch {}
+    nativePlaying = false;
+    stopVinylSurfaceNoise();
+    notify();
+  }
+  function startMusic() {
+    if (!shouldMaintainPlayback()) return Promise.resolve(false);
+    if (nativePlaying && nativeTrackId === selectedTrack) {
+      syncVinylSurfaceNoise();
+      return Promise.resolve(true);
+    }
+    const track = trackCatalog[selectedTrack];
+    try {
+      const result = parse(nativeBridge.startPocketNativeMusic(
+        selectedTrack, track.title, track.src, musicVolume
+      ));
+      if (result.ok !== true) {
+        nativePlaying = false;
+        stopVinylSurfaceNoise();
+        notify();
+        return Promise.resolve(false);
+      }
+      nativeTrackId = selectedTrack;
+      nativePlaying = true;
+      syncVinylSurfaceNoise();
+      notify();
+      return Promise.resolve(true);
+    } catch {
+      nativePlaying = false;
+      stopVinylSurfaceNoise();
+      notify();
+      return Promise.resolve(false);
+    }
+  }
+
+  function enterMainMenu() {
+    if (!menuEntered) {
+      menuEntered = true;
+      lifecycleSuspended = false;
+      resumeAfterSplash = false;
+      if (!userPaused) void startMusic();
+      return;
+    }
+    lifecycleSuspended = false;
+    if (resumeAfterSplash && !userPaused) {
+      resumeAfterSplash = false;
+      void startMusic();
+    } else {
+      resumeAfterSplash = false;
+    }
+  }
+  function pauseForSplash() {
+    resumeAfterSplash = shouldMaintainPlayback() && !needleStarting;
+    if (needleStarting) userPaused = true;
+    lifecycleSuspended = true;
+    cancelNeedleStart();
+    stopMusic();
+  }
+  function resetSession() {
+    lifecycleSuspended = false;
+    floatingModeActive = false;
+    menuEntered = false;
+    cancelNeedleStart();
+    stopMusic();
+    userPaused = false;
+    resumeAfterSplash = false;
+  }
+  function selectTrack(id) {
+    if (!Object.hasOwn(trackCatalog, id) || id === selectedTrack) return false;
+    cancelNeedleStart();
+    stopMusic();
+    selectedTrack = id;
+    userPaused = true;
+    write("mp-audio-track", selectedTrack);
+    notify();
+    return true;
+  }
+  async function lowerNeedleAndPlay() {
+    if (!menuEntered) return false;
+    cancelNeedleStart();
+    const token = needleToken;
+    userPaused = false;
+    needleStarting = true;
+    notify();
+    const effect = createEffect("needle");
+    activeNeedleEffect = effect;
+    if (effect) {
+      try {
+        await effect.play();
+        await waitForEffect(effect);
+      } catch {}
+      finally {
+        if (activeNeedleEffect === effect) activeNeedleEffect = null;
+      }
+    }
+    if (token !== needleToken || userPaused) return false;
+    needleStarting = false;
+    return startMusic();
+  }
+  function toggleNeedle() {
+    if (nativePlaying || needleStarting) {
+      cancelNeedleStart();
+      userPaused = true;
+      stopMusic();
+      return Promise.resolve(false);
+    }
+    return lowerNeedleAndPlay();
+  }
+  function setMusicVolume(value) {
+    musicVolume = clampVolume(value);
+    write("mp-audio-music-volume", musicVolume);
+    try { nativeBridge.setPocketNativeMusicVolume?.(musicVolume); } catch {}
+    notify();
+  }
+  function setEffectsVolume(value) {
+    effectsVolume = clampVolume(value);
+    write("mp-audio-effects-volume", effectsVolume);
+    syncVinylSurfaceNoise();
+    notify();
+  }
+  function setFloatingMode(active) {
+    floatingModeActive = active === true;
+    return Promise.resolve(nativePlaying);
+  }
+  function retryPendingPlayback() {
+    if (!shouldMaintainPlayback()) return false;
+    syncNativeState();
+    if (!nativePlaying) void startMusic();
+    return true;
+  }
+  function recoverAfterInterruption() {
+    syncNativeState();
+    return true;
+  }
+  function recoverAfterBackgroundTransition() {
+    // Media3 owns playback independently of WebView visibility and Activity lifecycle.
+    syncNativeState();
+    return true;
+  }
+  function updateCustomTracks(entries) {
+    const wasPlaying = nativePlaying && menuEntered && !userPaused;
+    trackCatalog = { ...TRACKS };
+    normalizeCustomTracks(entries);
+    if (!Object.hasOwn(trackCatalog, selectedTrack)) {
+      stopMusic();
+      selectedTrack = "happy";
+      write("mp-audio-track", selectedTrack);
+      if (wasPlaying) {
+        userPaused = false;
+        void startMusic();
+      }
+    }
+    notify();
+    return getTracks();
+  }
+
+  const handleNativeState = event => applyNativeState(event?.detail || {});
+  globalThis.addEventListener?.("pocket:native-audio-state", handleNativeState);
+  return {
+    getState,
+    getTracks,
+    updateCustomTracks,
+    enterMainMenu,
+    pauseForSplash,
+    resetSession,
+    selectTrack,
+    toggleNeedle,
+    playEffect,
+    setMusicVolume,
+    setEffectsVolume,
+    setFloatingMode,
+    retryPendingPlayback,
+    recoverAfterInterruption,
+    recoverAfterBackgroundTransition,
+    dispose() {
+      disposed = true;
+      globalThis.removeEventListener?.("pocket:native-audio-state", handleNativeState);
+      stopVinylSurfaceNoise();
+    }
+  };
+}
+
 export function createPocketAudioController({
   AudioCtor = globalThis.Audio,
   storage = globalThis.localStorage,
@@ -54,8 +436,13 @@ export function createPocketAudioController({
   setIntervalFn = globalThis.setInterval,
   clearIntervalFn = globalThis.clearInterval,
   setTimeoutFn = globalThis.setTimeout,
-  clearTimeoutFn = globalThis.clearTimeout
+  clearTimeoutFn = globalThis.clearTimeout,
+  nativeBridge = globalThis.PocketNative
 } = {}) {
+  if (nativeBridge && typeof nativeBridge.startPocketNativeMusic === "function" &&
+      typeof nativeBridge.stopPocketNativeMusic === "function") {
+    return createNativePocketAudioController({ AudioCtor, storage, onChange, onPlaybackCycle, customTracks, nativeBridge, setTimeoutFn, clearTimeoutFn });
+  }
   if (typeof AudioCtor !== "function") throw new Error("Audio playback is unavailable.");
 
   const read = (key, fallback) => {
