@@ -103,11 +103,17 @@ function createNativePocketAudioController({
   let needleToken = 0;
   let activeNeedleEffect = null;
   let nativePlaying = false;
+  let nativeStarting = false;
   let nativeTrackId = "";
+  let nativeStartWatchdog = null;
+  let nativeStartToken = 0;
+  let nativeStartError = "";
   let disposed = false;
 
   const initialState = parse(nativeBridge.getPocketNativeMusicState?.());
   nativePlaying = initialState.playing === true;
+  nativeStarting = initialState.preparing === true;
+  nativeStartError = String(initialState.error || "");
   userPaused = initialState.userPaused === true;
   nativeTrackId = String(initialState.trackId || "");
   if (nativePlaying && Object.hasOwn(trackCatalog, nativeTrackId)) {
@@ -201,12 +207,51 @@ function createNativePocketAudioController({
     write("mp-audio-native-cycle-count", lastCycleCount);
   };
 
+  const clearNativeStartWatchdog = () => {
+    nativeStartToken += 1;
+    if (nativeStartWatchdog !== null) clearTimeoutFn(nativeStartWatchdog);
+    nativeStartWatchdog = null;
+  };
+  const armNativeStartWatchdog = () => {
+    clearNativeStartWatchdog();
+    const token = nativeStartToken;
+    nativeStartWatchdog = setTimeoutFn(() => {
+      if (token !== nativeStartToken || !nativeStarting || disposed) return;
+      nativeStartWatchdog = null;
+      syncNativeState();
+      if (!nativePlaying && nativeStarting) {
+        nativeStarting = false;
+        nativeStartError = "The native player did not confirm playback. Try the record again.";
+        stopVinylSurfaceNoise();
+        notify();
+      }
+    }, 15000);
+  };
+
   const applyNativeState = state => {
     if (!state || typeof state !== "object") return;
-    if (typeof state.playing === "boolean") {
-      nativePlaying = state.playing;
-      if (state.playing) userPaused = false;
+    if (state.playing === true) {
+      nativePlaying = true;
+      nativeStarting = false;
+      nativeStartError = "";
+      clearNativeStartWatchdog();
+      userPaused = false;
+    } else if (state.playing === false) {
+      // MediaSessionService emits an initial stopped/buffering snapshot before
+      // ExoPlayer confirms playback. Do not mistake that handshake for failure
+      // and issue another ACTION_PLAY while the first one is still preparing.
+      if (!nativeStarting || state.preparing === false || state.error || state.stopped === true) {
+        nativePlaying = false;
+      }
+      if (state.preparing === true) {
+        nativeStarting = true;
+        nativeStartError = "";
+      } else if (state.preparing === false || state.error || state.stopped === true) {
+        nativeStarting = false;
+        clearNativeStartWatchdog();
+      }
     }
+    if (state.error) nativeStartError = String(state.error);
     // Generic service teardown (for splash/logout) is not a user pause.
     // Only MediaSession's explicit pause action should persist paused intent.
     if (state.userPaused === true) userPaused = true;
@@ -233,7 +278,8 @@ function createNativePocketAudioController({
       musicVolume,
       effectsVolume,
       isPlaying: nativePlaying,
-      isStarting: needleStarting,
+      isStarting: needleStarting || nativeStarting,
+      error: nativeStartError,
       menuEntered
     };
   }
@@ -246,6 +292,9 @@ function createNativePocketAudioController({
   }));
 
   function stopMusic() {
+    clearNativeStartWatchdog();
+    nativeStarting = false;
+    nativeStartError = "";
     try { nativeBridge.stopPocketNativeMusic?.(); } catch {}
     nativePlaying = false;
     stopVinylSurfaceNoise();
@@ -257,24 +306,36 @@ function createNativePocketAudioController({
       syncVinylSurfaceNoise();
       return Promise.resolve(true);
     }
+    // One pending native start is enough. Re-dispatching ACTION_PLAY during
+    // ExoPlayer preparation repeatedly replaces the MediaItem and can trap
+    // the interface in READY/PREPARING while the service restarts itself.
+    if (nativeStarting) return Promise.resolve(false);
     const track = trackCatalog[selectedTrack];
     try {
       const result = parse(nativeBridge.startPocketNativeMusic(
         selectedTrack, track.title, track.src, musicVolume
       ));
       if (result.ok !== true) {
+        clearNativeStartWatchdog();
         nativePlaying = false;
+        nativeStarting = false;
+        nativeStartError = String(result.message || "Pocket could not start the native player.");
         stopVinylSurfaceNoise();
         notify();
         return Promise.resolve(false);
       }
       nativeTrackId = selectedTrack;
-      nativePlaying = true;
-      syncVinylSurfaceNoise();
+      nativePlaying = false;
+      nativeStarting = true;
+      nativeStartError = "";
+      armNativeStartWatchdog();
       notify();
       return Promise.resolve(true);
-    } catch {
+    } catch (error) {
+      clearNativeStartWatchdog();
       nativePlaying = false;
+      nativeStarting = false;
+      nativeStartError = error instanceof Error ? error.message : "Pocket could not start the native player.";
       stopVinylSurfaceNoise();
       notify();
       return Promise.resolve(false);
@@ -346,7 +407,7 @@ function createNativePocketAudioController({
     return startMusic();
   }
   function toggleNeedle() {
-    if (nativePlaying || needleStarting) {
+    if (nativePlaying || nativeStarting || needleStarting) {
       cancelNeedleStart();
       userPaused = true;
       stopMusic();
@@ -371,9 +432,11 @@ function createNativePocketAudioController({
     return Promise.resolve(nativePlaying);
   }
   function retryPendingPlayback() {
-    if (!shouldMaintainPlayback()) return false;
+    // Document-level gesture recovery must not race the needle-drop sequence
+    // or restart a service that has already accepted an in-flight play request.
+    if (!shouldMaintainPlayback() || userPaused || needleStarting || nativeStarting || nativePlaying) return false;
     syncNativeState();
-    if (!nativePlaying) void startMusic();
+    if (!nativePlaying && !nativeStarting && !userPaused && !needleStarting) void startMusic();
     return true;
   }
   function recoverAfterInterruption() {
@@ -422,6 +485,8 @@ function createNativePocketAudioController({
     recoverAfterBackgroundTransition,
     dispose() {
       disposed = true;
+      clearNativeStartWatchdog();
+      nativeStarting = false;
       globalThis.removeEventListener?.("pocket:native-audio-state", handleNativeState);
       stopVinylSurfaceNoise();
     }
