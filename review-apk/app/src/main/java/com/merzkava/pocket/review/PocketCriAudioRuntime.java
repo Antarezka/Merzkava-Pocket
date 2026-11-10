@@ -308,10 +308,13 @@ public final class PocketCriAudioRuntime {
             if (disposed || generation != generations[CHANNEL_MUSIC].get()) return;
             startFileAtVolume(CHANNEL_MUSIC, file, format, metadata, volume(musicVolume), 0f, true, generation,
                 () -> {
-                    if (keepPaused) {
+                    // Re-read pause intent when CRI confirms Start(). A user may
+                    // tap the stylus during PREP, after this file request was queued.
+                    if (keepPaused || pauseRequested || musicPaused) {
                         commands.execute(() -> {
                             if (disposed || generation != generations[CHANNEL_MUSIC].get()) return;
                             nativePause(CHANNEL_MUSIC, true);
+                            nativePause(CHANNEL_AMBIENCE, true);
                             musicPaused = true;
                             pauseRequested = true;
                             publish("music", "paused", "");
@@ -669,7 +672,8 @@ public final class PocketCriAudioRuntime {
 
     private void onAudioFocusChanged(int change) {
         if (change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT || change == AudioManager.AUDIOFOCUS_LOSS) {
-            resumeAfterFocusLoss = change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT;
+            resumeAfterFocusLoss = change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT &&
+                !musicPaused && musicStreamActive;
             pausedByFocusLoss = true;
             pauseMusic(true);
         } else if (change == AudioManager.AUDIOFOCUS_GAIN) {
