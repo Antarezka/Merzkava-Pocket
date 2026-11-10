@@ -396,7 +396,14 @@ function syncAudioUI() {
   const needle = player.querySelector("[data-audio-needle]");
   const currentLabel = player.querySelector("[data-vinyl-label]");
   if (trackTitle) trackTitle.textContent = state.title;
-  if (status) status.textContent = state.isPlaying ? "PLAYING · MAIN MENU MUSIC" : state.isStarting ? "STYLUS CONTACT · PREPARING" : "NEEDLE LIFTED · READY";
+  if (status) {
+    const playerError = String(state.error || "").trim();
+    status.textContent = playerError
+      ? "PLAYER ERROR · " + playerError.slice(0, 72)
+      : state.isPlaying ? "PLAYING · MAIN MENU MUSIC"
+      : state.isStarting ? "STYLUS CONTACT · PREPARING"
+      : "NEEDLE LIFTED · READY";
+  }
   if (needle) {
     needle.setAttribute("aria-label", state.isPlaying || state.isStarting ? "Lift the stylus and pause music" : "Lower the stylus and play music");
     needle.setAttribute("aria-pressed", String(state.isPlaying || state.isStarting));
