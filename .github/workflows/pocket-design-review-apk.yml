@@ -125,7 +125,7 @@ jobs:
         run: |
           set -euo pipefail
           test -s review-apk/web/src/audio-player.js
-          if grep -R -n -E 'new[[:space:]]+Audio[[:space:]]*\(|AudioContext|webkitAudioContext|canPlayType|<audio' review-apk/web/src review-apk/web/public; then
+          if grep -R -n -E "new[[:space:]]+Audio[[:space:]]*\(|AudioContext|webkitAudioContext|canPlayType|createElement[^;]*audio|<audio" review-apk/web/src review-apk/web/public; then
             echo "::error::A WebView/browser audio playback path remains. All BGM and FX must go through PocketCriAudioRuntime."
             exit 1
           fi
