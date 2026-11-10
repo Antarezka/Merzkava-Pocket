@@ -107,7 +107,7 @@ export function createPocketAudioController({
 
   const music = new AudioCtor(trackCatalog[selectedTrack].src);
   music.preload = "auto";
-  music.loop = true;
+  music.loop = false;
   music.volume = musicVolume / 100;
   // Dedicated ambience bed: independent of needle-drop and record-placement SFX.
   const vinylSurfaceNoise = new AudioCtor(VINYL_SURFACE_NOISE_SRC);
@@ -248,23 +248,16 @@ export function createPocketAudioController({
     notify();
   };
 
-  const handleMusicLooped = () => {
-    if (!menuEntered || userPaused || !isPlaying()) return;
-    // The end fade has reached silence. Fade the new native loop back up
-    // without calling play() a second time.
+  // Do not use HTMLMediaElement.loop here: it suppresses the ended event in
+  // WebViews, which made end-of-track replay unreliable in Floating Mode.
+  // The ended event is the single authoritative boundary: replay explicitly,
+  // starting from silence so every track has a complete fade-out/fade-in.
+  const handleMusicEnded = () => {
+    if (!menuEntered || userPaused) return;
     stopMusicFade();
     musicFadeGain = 0;
     endFadeStarted = false;
     applyMusicVolume();
-    reportPlaybackCycle();
-    animateMusicFade(1, MUSIC_FADE_DURATION_MS);
-    syncVinylSurfaceNoise();
-  };
-
-  // HTMLMediaElement.loop is the normal path. Keep an ended-event fallback
-  // for WebViews that fail to wrap the media element in the background.
-  const handleMusicEnded = () => {
-    if (!menuEntered || userPaused) return;
     try { music.currentTime = 0; } catch {}
     previousMusicTime = 0;
     reportPlaybackCycle();
@@ -296,14 +289,6 @@ export function createPocketAudioController({
     const duration = Number.isFinite(actualDuration) && actualDuration > 0
       ? actualDuration
       : lastPlaybackDuration;
-    const wrappedToStart = Number.isFinite(duration) && duration > 1 &&
-      previousMusicTime > current + 1 &&
-      (endFadeStarted || previousMusicTime >= duration - 3);
-    if (wrappedToStart) {
-      previousMusicTime = current;
-      handleMusicLooped();
-      return;
-    }
     if (Number.isFinite(duration) && duration > 1) {
       const remainingMs = Math.max(0, (duration - current) * 1000);
       const fadeWindowMs = Math.min(MUSIC_FADE_DURATION_MS + 250, Math.max(500, duration * 250));
@@ -383,7 +368,7 @@ export function createPocketAudioController({
     selectedTrack = id;
     userPaused = true;
     music.src = trackCatalog[selectedTrack].src;
-    music.loop = true;
+    music.loop = false;
     music.load?.();
     write("mp-audio-track", selectedTrack);
     notify();
@@ -445,7 +430,7 @@ export function createPocketAudioController({
 
   function setFloatingMode(active) {
     if (!active || !menuEntered || userPaused) return Promise.resolve(false);
-    music.loop = true;
+    music.loop = false;
     if (music.paused || music.ended) return startMusic();
     // Do not cancel a fade-out at the end or the following fade-in just because
     // the Activity's visual engine is suspended behind the floating bubble.
@@ -472,7 +457,7 @@ export function createPocketAudioController({
       selectedTrack = "happy";
       music.currentTime = 0;
       music.src = trackCatalog.happy.src;
-      music.loop = true;
+      music.loop = false;
       music.load?.();
       write("mp-audio-track", selectedTrack);
       if (resumeBuiltIn) void startMusic();
