@@ -195,7 +195,7 @@ test("native start stays single-flight while Media3 reports its initial stopped 
 
 test("global gesture recovery does not race the needle-drop preparation", async () => {
   const calls = [];
-  let nativeState = { playing: false, trackId: "", cycleCount: 0, userPaused: false };
+  let nativeState = { playing: false, trackId: "", cycleCount: 0, userPaused: true };
   const nativeBridge = {
     getPocketNativeMusicState: () => JSON.stringify(nativeState),
     startPocketNativeMusic: (id) => {
@@ -207,8 +207,12 @@ test("global gesture recovery does not race the needle-drop preparation", async 
   };
   const { audio } = harness({}, { nativeBridge });
   audio.enterMainMenu();
-  // A fresh menu start is already pending; gesture recovery must remain inert.
-  assert.equal(audio.retryPendingPlayback(), false);
+  const needleStart = audio.toggleNeedle();
+  assert.equal(audio.getState().isStarting, true);
+  assert.equal(audio.retryPendingPlayback(), false,
+    "the document click fallback must not start BGM before the needle-drop sequence finishes");
+  assert.equal(calls.filter(call => call[0] === "start").length, 0);
+  await needleStart;
   assert.equal(calls.filter(call => call[0] === "start").length, 1);
 });
 
@@ -257,6 +261,8 @@ test("native service teardown during splash does not turn resume intent into a u
   const { audio } = harness({}, { nativeBridge });
   audio.enterMainMenu();
   await flushAudioMicrotasks();
+  assert.equal(audio.getState().isStarting, true);
+  audio.recoverAfterInterruption();
   assert.equal(audio.getState().isPlaying, true);
 
   audio.pauseForSplash();
@@ -264,6 +270,7 @@ test("native service teardown during splash does not turn resume intent into a u
   assert.equal(audio.getState().isPlaying, false);
   audio.enterMainMenu();
   await flushAudioMicrotasks();
+  audio.recoverAfterInterruption();
 
   assert.equal(calls.filter(call => call[0] === "start").length, 2,
     "BGM should resume because splash stopped the service, not the user's music intent");
