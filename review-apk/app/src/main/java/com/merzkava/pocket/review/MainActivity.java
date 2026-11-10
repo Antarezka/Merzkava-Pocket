@@ -17,8 +17,6 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.graphics.Color;
 import android.util.Log;
-
-import androidx.work.WorkManager;
 import org.json.JSONObject;
 
 import java.io.InputStream;
