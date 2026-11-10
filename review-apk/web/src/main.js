@@ -1477,7 +1477,6 @@ function showSplash() {
 function renderHome() {
   routeHistory.length = 0;
   renderPage("home");
-  criAudioDeck.enterMainMenu();
 }
 function readLocalPlayerNames() {
   if (!nativeReady()) return [];
