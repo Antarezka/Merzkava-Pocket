@@ -230,6 +230,7 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
                         const CriAtomExPlaybackId restarted = criAtomExPlayer_Start(gPlayers[channel]);
                         if (restarted != CRIATOMEX_INVALID_PLAYBACK_ID) {
                             gPlaybackIds[channel] = restarted;
+                            criAtomExPlayer_Update(gPlayers[channel], restarted);
                             ++gLoopCycleCounts[channel];
                         } else {
                             gLoopEnabled[channel] = false;
