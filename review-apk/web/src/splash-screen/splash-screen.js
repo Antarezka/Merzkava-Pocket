@@ -24,16 +24,25 @@ export function mountFoxSplashMotion(stage, { animate, reducedMotion = () => fal
 
   const animations = [];
   const missingHandlers = [];
+  const character = stage.querySelector(".splash-character");
   const getLayer = id => stage.querySelector(`[data-splash-fox-layer="${id}"]`);
+  const refreshArtVisibility = () => {
+    const visibleLayer = stage.querySelector(".splash-fox-layer:not(.is-missing)");
+    character?.classList.toggle("no-art", !visibleLayer);
+  };
 
   for (const { id } of FOX_LAYERS) {
     const image = getLayer(id);
     if (!image) continue;
-    const markMissing = () => image.classList.add("is-missing");
+    const markMissing = () => {
+      image.classList.add("is-missing");
+      refreshArtVisibility();
+    };
     image.addEventListener("error", markMissing, { once: true });
     missingHandlers.push([image, markMissing]);
     if (image.complete && image.naturalWidth === 0) markMissing();
   }
+  refreshArtVisibility();
 
   if (!reducedMotion()) {
     const tail = getLayer("tail");
