@@ -232,6 +232,36 @@ test("turntable eases down instead of stopping abruptly", () => {
   h.motion.dispose();
 });
 
+test("bubble mode suspends turntable drawing while BGM and vinyl noise keep playing", () => {
+  const { audio } = harness();
+  audio.enterMainMenu();
+  const music = FakeAudio.instances[0];
+  const noise = FakeAudio.instances.find(item => item.src === VINYL_SURFACE_NOISE_SRC);
+  assert.equal(music.paused, false);
+  assert.equal(noise.paused, false);
+
+  const h = makeMotionHarness();
+  h.motion.setPlaying(true);
+  h.tick(0);
+  h.tick(16);
+  assert.ok(h.pending() > 0);
+
+  h.motion.setSuspended(true);
+  assert.equal(h.pending(), 0);
+  assert.equal(h.motion.getState().suspended, true);
+  assert.equal(music.paused, false);
+  assert.equal(noise.paused, false);
+
+  h.motion.setPlaying(audio.getState().isPlaying);
+  assert.equal(h.pending(), 0, "turntable drawing remains suspended while bubble mode is active");
+  h.motion.setSuspended(false);
+  assert.equal(h.motion.getState().suspended, false);
+  assert.equal(h.pending(), 1, "turntable drawing resumes when Pocket is visible again");
+  assert.equal(music.paused, false);
+  assert.equal(noise.paused, false);
+  h.motion.dispose();
+});
+
 test("turntable motion can be disposed when Settings is left", () => {
   const h = makeMotionHarness();
   h.motion.setPlaying(true);
