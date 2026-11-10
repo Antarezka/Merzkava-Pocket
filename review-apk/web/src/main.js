@@ -21,6 +21,7 @@ function readNativeMusicLibrary() {
 const vinylDesigns = createVinylDesignController({ onChange: syncAudioUI });
 const pocketAudio = createPocketAudioController({
   customTracks: readNativeMusicLibrary(),
+  nativeBridge: native,
   onChange: syncAudioUI,
   onPlaybackCycle: () => vinylDesigns.rotateRandom("track-end")
 });
