@@ -25,6 +25,7 @@ std::thread gServerThread;
 void* gAtomWork = nullptr;
 CriAtomExPlayerHn gPlayers[kChannelCount] = {nullptr, nullptr, nullptr, nullptr};
 void* gPlayerWork[kChannelCount] = {nullptr, nullptr, nullptr, nullptr};
+bool gLoopEnabled[kChannelCount] = {false, false, false, false, false, false};
 CriAtomExPlaybackId gPlaybackIds[kChannelCount] = {
     CRIATOMEX_INVALID_PLAYBACK_ID,
     CRIATOMEX_INVALID_PLAYBACK_ID,
@@ -33,12 +34,6 @@ CriAtomExPlaybackId gPlaybackIds[kChannelCount] = {
     CRIATOMEX_INVALID_PLAYBACK_ID,
     CRIATOMEX_INVALID_PLAYBACK_ID
 };
-
-void CRIAPI repeatPreviousData(void*, CriAtomExPlaybackId, CriAtomPlayerHn player) {
-    if (player != nullptr) {
-        criAtomPlayer_SetPreviousDataAgain(player);
-    }
-}
 
 bool validChannel(jint channel) {
     return channel >= 0 && channel < kChannelCount;
@@ -96,23 +91,24 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
         }
     }
 
-    // CRI's default Android thread model is timer-driven MULTI. Even in that
-    // mode ExecuteMain must be called periodically to advance server-side
-    // bookkeeping (including player status and file-system completion).
+    // Android uses CRI's timer-driven MULTI model. CRI owns its worker threads,
+    // while the application services ExecuteMain at a frame-rate cadence.
     gServerRunning.store(true, std::memory_order_release);
     gServerThread = std::thread([]() {
+        auto nextTick = std::chrono::steady_clock::now();
         while (gServerRunning.load(std::memory_order_acquire)) {
+            nextTick += std::chrono::milliseconds(16);
             {
                 std::lock_guard<std::mutex> serverLock(gMutex);
-                if (gInitialized) {
-                    criAtomEx_ExecuteMain();
-                }
+                if (gInitialized) criAtomEx_ExecuteMain();
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            const auto now = std::chrono::steady_clock::now();
+            if (now > nextTick + std::chrono::milliseconds(32)) nextTick = now;
+            std::this_thread::sleep_until(nextTick);
         }
     });
 
-    __android_log_print(ANDROID_LOG_INFO, kTag, "CRI ADX LE initialized with four isolated players and a 10 Hz server pump");
+    __android_log_print(ANDROID_LOG_INFO, kTag, "CRI ADX LE initialized with six isolated players and a 60 Hz server pump");
     return JNI_TRUE;
 
 fail:
@@ -133,25 +129,44 @@ fail:
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeShutdown(JNIEnv*, jclass) {
-    std::unique_lock<std::mutex> lock(gMutex);
-    if (!gInitialized) return;
-
-    // Stop and join the server pump outside the CRI mutex so it can finish
-    // an in-flight ExecuteMain call before players and AtomEx are destroyed.
+    {
+        std::lock_guard<std::mutex> lock(gMutex);
+        if (!gInitialized) return;
+        for (int index = 0; index < kChannelCount; ++index) {
+            gLoopEnabled[index] = false;
+            if (gPlayers[index] != nullptr) criAtomExPlayer_Stop(gPlayers[index]);
+        }
+    }
+    const auto stopDeadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(1000);
+    while (std::chrono::steady_clock::now() < stopDeadline) {
+        bool allStopped = true;
+        {
+            std::lock_guard<std::mutex> lock(gMutex);
+            if (!gInitialized) return;
+            for (int index = 0; index < kChannelCount; ++index) {
+                if (gPlayers[index] != nullptr &&
+                    criAtomExPlayer_GetStatus(gPlayers[index]) != CRIATOMEXPLAYER_STATUS_STOP) {
+                    allStopped = false;
+                    break;
+                }
+            }
+        }
+        if (allStopped) break;
+        std::this_thread::sleep_for(std::chrono::milliseconds(4));
+    }
     gServerRunning.store(false, std::memory_order_release);
-    lock.unlock();
     if (gServerThread.joinable()) gServerThread.join();
-    lock.lock();
-
+    std::lock_guard<std::mutex> lock(gMutex);
+    if (!gInitialized) return;
     for (int index = 0; index < kChannelCount; ++index) {
         if (gPlayers[index] != nullptr) {
-            criAtomExPlayer_Stop(gPlayers[index]);
             criAtomExPlayer_Destroy(gPlayers[index]);
             gPlayers[index] = nullptr;
         }
         std::free(gPlayerWork[index]);
         gPlayerWork[index] = nullptr;
         gPlaybackIds[index] = CRIATOMEX_INVALID_PLAYBACK_ID;
+        gLoopEnabled[index] = false;
     }
     criAtomEx_Finalize_ANDROID();
     std::free(gAtomWork);
@@ -162,25 +177,68 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeShutdown(JNIEnv*, jc
 
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativePlayFile(
-        JNIEnv* env, jclass, jint channel, jstring pathValue, jint format, jfloat volume, jboolean loop) {
-    if (!validChannel(channel) || pathValue == nullptr) return JNI_FALSE;
+        JNIEnv* env, jclass, jint channel, jstring pathValue, jint format,
+        jint numChannels, jint samplingRate, jfloat volume, jboolean loop) {
+    if (!validChannel(channel) || pathValue == nullptr ||
+        (format != kFormatAdx && format != kFormatWave) ||
+        numChannels < 1 || numChannels > 2 || samplingRate < 8000 || samplingRate > 192000) {
+        __android_log_print(ANDROID_LOG_ERROR, kTag,
+            "Rejected audio request: channel=%d format=%d channels=%d rate=%d",
+            channel, format, numChannels, samplingRate);
+        return JNI_FALSE;
+    }
     const char* pathChars = env->GetStringUTFChars(pathValue, nullptr);
     if (pathChars == nullptr) return JNI_FALSE;
     const std::string path(pathChars);
     env->ReleaseStringUTFChars(pathValue, pathChars);
-
+    {
+        std::lock_guard<std::mutex> lock(gMutex);
+        if (!gInitialized || gPlayers[channel] == nullptr) return JNI_FALSE;
+        criAtomExPlayer_Stop(gPlayers[channel]);
+    }
+    bool stopped = false;
+    const auto stopDeadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(1500);
+    while (std::chrono::steady_clock::now() < stopDeadline) {
+        {
+            std::lock_guard<std::mutex> lock(gMutex);
+            if (!gInitialized || gPlayers[channel] == nullptr) return JNI_FALSE;
+            stopped = criAtomExPlayer_GetStatus(gPlayers[channel]) == CRIATOMEXPLAYER_STATUS_STOP;
+        }
+        if (stopped) break;
+        std::this_thread::sleep_for(std::chrono::milliseconds(4));
+    }
+    if (!stopped) {
+        std::lock_guard<std::mutex> lock(gMutex);
+        const int status = gInitialized && gPlayers[channel] != nullptr
+            ? static_cast<int>(criAtomExPlayer_GetStatus(gPlayers[channel])) : -1;
+        __android_log_print(ANDROID_LOG_ERROR, kTag,
+            "Timed out waiting for CRI player STOP before replacing stream: channel=%d status=%d path=%s",
+            channel, status, path.c_str());
+        return JNI_FALSE;
+    }
     std::lock_guard<std::mutex> lock(gMutex);
     if (!gInitialized || gPlayers[channel] == nullptr) return JNI_FALSE;
-    if (format != kFormatAdx && format != kFormatWave) return JNI_FALSE;
-
     CriAtomExPlayerHn player = gPlayers[channel];
-    criAtomExPlayer_Stop(player);
-    criAtomExPlayer_SetDataRequestCallback(player, loop == JNI_TRUE ? repeatPreviousData : nullptr, nullptr);
     criAtomExPlayer_SetFormat(player, format == kFormatAdx ? CRIATOMEX_FORMAT_ADX : CRIATOMEX_FORMAT_WAVE);
+    criAtomExPlayer_SetNumChannels(player, numChannels);
+    criAtomExPlayer_SetSamplingRate(player, samplingRate);
     criAtomExPlayer_SetVolume(player, volume < 0.0f ? 0.0f : (volume > 1.0f ? 1.0f : volume));
+    // Data-request callbacks repeat caller-supplied SetData buffers, not SetFile streams.
+    criAtomExPlayer_SetDataRequestCallback(player, nullptr, nullptr);
     criAtomExPlayer_SetFile(player, nullptr, path.c_str());
+    gLoopEnabled[channel] = loop == JNI_TRUE;
     gPlaybackIds[channel] = criAtomExPlayer_Start(player);
-    return gPlaybackIds[channel] != CRIATOMEX_INVALID_PLAYBACK_ID ? JNI_TRUE : JNI_FALSE;
+    if (gPlaybackIds[channel] == CRIATOMEX_INVALID_PLAYBACK_ID) {
+        gLoopEnabled[channel] = false;
+        __android_log_print(ANDROID_LOG_ERROR, kTag,
+            "CRI Start returned INVALID_PLAYBACK_ID: channel=%d format=%d channels=%d rate=%d path=%s",
+            channel, format, numChannels, samplingRate, path.c_str());
+        return JNI_FALSE;
+    }
+    __android_log_print(ANDROID_LOG_INFO, kTag,
+        "CRI stream started: channel=%d format=%d channels=%d rate=%d loop=%d path=%s",
+        channel, format, numChannels, samplingRate, loop == JNI_TRUE ? 1 : 0, path.c_str());
+    return JNI_TRUE;
 }
 
 extern "C" JNIEXPORT void JNICALL
@@ -188,6 +246,7 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeStop(JNIEnv*, jclass
     if (!validChannel(channel)) return;
     std::lock_guard<std::mutex> lock(gMutex);
     if (gInitialized && gPlayers[channel] != nullptr) {
+        gLoopEnabled[channel] = false;
         criAtomExPlayer_Stop(gPlayers[channel]);
         gPlaybackIds[channel] = CRIATOMEX_INVALID_PLAYBACK_ID;
     }
@@ -220,5 +279,17 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeGetStatus(JNIEnv*, j
     if (!validChannel(channel)) return 4;
     std::lock_guard<std::mutex> lock(gMutex);
     if (!gInitialized || gPlayers[channel] == nullptr) return 0;
-    return static_cast<jint>(criAtomExPlayer_GetStatus(gPlayers[channel]));
+    const CriAtomExPlayerStatus status = criAtomExPlayer_GetStatus(gPlayers[channel]);
+    if (status == CRIATOMEXPLAYER_STATUS_PLAYEND && gLoopEnabled[channel]) {
+        const CriAtomExPlaybackId restarted = criAtomExPlayer_Start(gPlayers[channel]);
+        if (restarted != CRIATOMEX_INVALID_PLAYBACK_ID) {
+            gPlaybackIds[channel] = restarted;
+            return static_cast<jint>(CRIATOMEXPLAYER_STATUS_PREP);
+        }
+        gLoopEnabled[channel] = false;
+        __android_log_print(ANDROID_LOG_ERROR, kTag, "CRI loop restart failed on channel %d", channel);
+    } else if (status == CRIATOMEXPLAYER_STATUS_ERROR) {
+        gLoopEnabled[channel] = false;
+    }
+    return static_cast<jint>(status);
 }

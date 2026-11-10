@@ -253,6 +253,12 @@ jobs:
           grep -q 'door-rattle' review-apk/web/src/daily-login.js
           grep -q 'kChannelCount = 6' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'CRIATOMEX_INVALID_PLAYBACK_ID' review-apk/app/src/main/cpp/cri_audio_jni.cpp
+          grep -q 'criAtomExPlayer_SetNumChannels' review-apk/app/src/main/cpp/cri_audio_jni.cpp
+          grep -q 'criAtomExPlayer_SetSamplingRate' review-apk/app/src/main/cpp/cri_audio_jni.cpp
+          grep -q 'CRIATOMEXPLAYER_STATUS_STOP' review-apk/app/src/main/cpp/cri_audio_jni.cpp
+          grep -q 'CRIATOMEXPLAYER_STATUS_PLAYEND' review-apk/app/src/main/cpp/cri_audio_jni.cpp
+          grep -q 'chrono::milliseconds(16)' review-apk/app/src/main/cpp/cri_audio_jni.cpp
+          grep -q 'readAudioMetadata' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
           test -s review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q "criAtomEx_ExecuteMain" review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q "gServerRunning" review-apk/app/src/main/cpp/cri_audio_jni.cpp

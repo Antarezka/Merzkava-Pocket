@@ -113,3 +113,29 @@ test("CRI fade ramp uses timed smoothstep updates and isolates BGM from ambience
   assert.match(runtimeSource, /fadeChannelTo\(CHANNEL_MUSIC,\s*volume\(musicVolume\),\s*240L/);
   assert.match(runtimeSource, /fadeChannelTo\(CHANNEL_AMBIENCE,\s*volume\(effectsVolume\),\s*320L/);
 });
+test("CRI file playback reads ADX/WAV metadata and configures voice selection before SetFile", () => {
+  assert.match(runtimeSource, /readAudioMetadata\(File file, int format\)/);
+  assert.match(runtimeSource, /readUInt32BE\(input\)/);
+  assert.match(runtimeSource, /readUInt32LE\(input\)/);
+  assert.match(nativeSource, /criAtomExPlayer_SetNumChannels\(player, numChannels\)/);
+  assert.match(nativeSource, /criAtomExPlayer_SetSamplingRate\(player, samplingRate\)/);
+  const format = nativeSource.indexOf("criAtomExPlayer_SetFormat(player");
+  const channels = nativeSource.indexOf("criAtomExPlayer_SetNumChannels(player");
+  const rate = nativeSource.indexOf("criAtomExPlayer_SetSamplingRate(player");
+  const file = nativeSource.indexOf("criAtomExPlayer_SetFile(player");
+  const start = nativeSource.indexOf("criAtomExPlayer_Start(player)", file);
+  assert.ok(format >= 0 && format < channels && channels < rate && rate < file && file < start);
+});
+
+test("CRI waits for asynchronous STOP before replacing a file and loops retained file sources", () => {
+  assert.match(nativeSource, /CRIATOMEXPLAYER_STATUS_STOP/);
+  assert.match(nativeSource, /Timed out waiting for CRI player STOP/);
+  assert.match(nativeSource, /status == CRIATOMEXPLAYER_STATUS_PLAYEND && gLoopEnabled\[channel\]/);
+  assert.match(nativeSource, /SetDataRequestCallback\(player, nullptr, nullptr\)/);
+});
+
+test("CRI server pump advances at a frame-rate cadence for the six player channels", () => {
+  assert.match(nativeSource, /chrono::milliseconds\(16\)/);
+  assert.match(nativeSource, /six isolated players and a 60 Hz server pump/);
+  assert.match(nativeSource, /CriAtomExPlayerHn gPlayers\[kChannelCount\]/);
+});

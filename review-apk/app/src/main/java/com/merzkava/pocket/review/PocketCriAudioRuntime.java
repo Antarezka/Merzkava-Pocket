@@ -16,6 +16,9 @@ import android.webkit.WebView;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.io.RandomAccessFile;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -62,7 +65,7 @@ public final class PocketCriAudioRuntime {
 
     private static native boolean nativeInit();
     private static native void nativeShutdown();
-    private static native boolean nativePlayFile(int channel, String absolutePath, int format, float volume, boolean loop);
+    private static native boolean nativePlayFile(int channel, String absolutePath, int format, int numChannels, int samplingRate, float volume, boolean loop);
     private static native void nativeStop(int channel);
     private static native void nativePause(int channel, boolean paused);
     private static native void nativeSetVolume(int channel, float volume);
@@ -139,6 +142,107 @@ public final class PocketCriAudioRuntime {
         }
     }
 
+
+    private static final class AudioMetadata {
+        final int channels;
+        final int sampleRate;
+
+        AudioMetadata(int channels, int sampleRate) {
+            this.channels = channels;
+            this.sampleRate = sampleRate;
+        }
+    }
+
+    /**
+     * CRI file playback needs format, channel count and sample rate before Start().
+     * Read those values from the actual ADX/WAV headers instead of assuming stereo/44.1 kHz.
+     */
+    private AudioMetadata readAudioMetadata(File file, int format) throws IOException {
+        try (RandomAccessFile input = new RandomAccessFile(file, "r")) {
+            if (format == FORMAT_ADX) {
+                if (input.length() < 16 || input.readUnsignedShort() != 0x8000) {
+                    throw new IOException("The ADX file header is invalid.");
+                }
+                input.seek(4);
+                int encoding = input.readUnsignedByte();
+                input.seek(7);
+                int channels = input.readUnsignedByte();
+                long sampleRate = readUInt32BE(input);
+                if (encoding != 3) throw new IOException("The ADX encoding type is not supported.");
+                return validateAudioMetadata(channels, sampleRate);
+            }
+
+            if (format == FORMAT_WAVE) {
+                if (input.length() < 44) throw new IOException("The imported WAV header is incomplete.");
+                byte[] riff = new byte[4];
+                input.readFully(riff);
+                if (!"RIFF".equals(new String(riff, StandardCharsets.US_ASCII))) {
+                    throw new IOException("The imported WAV does not have a RIFF header.");
+                }
+                long riffSize = readUInt32LE(input);
+                byte[] wave = new byte[4];
+                input.readFully(wave);
+                if (!"WAVE".equals(new String(wave, StandardCharsets.US_ASCII))) {
+                    throw new IOException("The imported audio is not a WAV file.");
+                }
+                long riffEnd = riffSize + 8L;
+                if (riffEnd < 12L || riffEnd > input.length()) {
+                    throw new IOException("The imported WAV file is truncated.");
+                }
+                while (input.getFilePointer() + 8L <= riffEnd) {
+                    byte[] chunkName = new byte[4];
+                    input.readFully(chunkName);
+                    long chunkSize = readUInt32LE(input);
+                    long chunkStart = input.getFilePointer();
+                    if (chunkSize > riffEnd - chunkStart) {
+                        throw new IOException("The imported WAV contains a truncated chunk.");
+                    }
+                    String chunk = new String(chunkName, StandardCharsets.US_ASCII);
+                    if ("fmt ".equals(chunk)) {
+                        if (chunkSize < 16L) throw new IOException("The WAV format chunk is incomplete.");
+                        int audioFormat = readUInt16LE(input);
+                        int channels = readUInt16LE(input);
+                        long sampleRate = readUInt32LE(input);
+                        input.seek(chunkStart + 14L);
+                        int bitsPerSample = readUInt16LE(input);
+                        if (audioFormat != 1 || bitsPerSample != 16) {
+                            throw new IOException("Pocket requires imported audio decoded as PCM16 WAV.");
+                        }
+                        return validateAudioMetadata(channels, sampleRate);
+                    }
+                    input.seek(chunkStart + chunkSize + (chunkSize & 1L));
+                }
+                throw new IOException("The WAV format chunk could not be found.");
+            }
+            throw new IOException("The CRI audio format is not supported.");
+        }
+    }
+
+    private static AudioMetadata validateAudioMetadata(int channels, long sampleRate) throws IOException {
+        if (channels < 1 || channels > 2 || sampleRate < 8000L || sampleRate > 192000L) {
+            throw new IOException("CRI audio metadata is outside Pocket's supported mono/stereo 8–192 kHz range.");
+        }
+        return new AudioMetadata(channels, (int) sampleRate);
+    }
+
+    private static long readUInt32BE(RandomAccessFile input) throws IOException {
+        return ((long) input.readUnsignedByte() << 24)
+            | ((long) input.readUnsignedByte() << 16)
+            | ((long) input.readUnsignedByte() << 8)
+            | (long) input.readUnsignedByte();
+    }
+
+    private static long readUInt32LE(RandomAccessFile input) throws IOException {
+        return (long) input.readUnsignedByte()
+            | ((long) input.readUnsignedByte() << 8)
+            | ((long) input.readUnsignedByte() << 16)
+            | ((long) input.readUnsignedByte() << 24);
+    }
+
+    private static int readUInt16LE(RandomAccessFile input) throws IOException {
+        return input.readUnsignedByte() | (input.readUnsignedByte() << 8);
+    }
+
     private void copyBundledAudio() throws Exception {
         AssetManager assets = activity.getAssets();
         String[] names = assets.list("cri-audio");
@@ -192,13 +296,21 @@ public final class PocketCriAudioRuntime {
             publish("music", "error", "The selected record is not available on this device.");
             return false;
         }
+        final AudioMetadata metadata;
+        try {
+            metadata = readAudioMetadata(file, format);
+        } catch (Exception error) {
+            Log.e(TAG, "Could not read selected CRI track metadata", error);
+            publish("music", "error", safeMessage(error));
+            return false;
+        }
         requestMusicFocus();
         pausedByFocusLoss = false;
         final long generation = generations[CHANNEL_MUSIC].incrementAndGet();
         publish("music", "preparing", "");
         Runnable startSelectedTrack = () -> {
             if (disposed || generation != generations[CHANNEL_MUSIC].get()) return;
-            startFileAtVolume(CHANNEL_MUSIC, file, format, 0f, true, generation,
+            startFileAtVolume(CHANNEL_MUSIC, file, format, metadata, 0f, true, generation,
                 () -> fadeChannelTo(CHANNEL_MUSIC, volume(musicVolume), 240L, null));
         };
         // Fade out only BGM, then replace it even if a volume slider is moved mid-fade.
@@ -224,9 +336,17 @@ public final class PocketCriAudioRuntime {
             fadeChannelTo(CHANNEL_AMBIENCE, volume(effectsVolume), 240L, null);
             return true;
         }
+        final AudioMetadata metadata;
+        try {
+            metadata = readAudioMetadata(file, FORMAT_ADX);
+        } catch (Exception error) {
+            Log.e(TAG, "Could not read vinyl ambience metadata", error);
+            publish("ambience", "error", safeMessage(error));
+            return false;
+        }
         final long generation = generations[CHANNEL_AMBIENCE].incrementAndGet();
         publish("ambience", "preparing", "");
-        startFileAtVolume(CHANNEL_AMBIENCE, file, FORMAT_ADX, 0f, true, generation,
+        startFileAtVolume(CHANNEL_AMBIENCE, file, FORMAT_ADX, metadata, 0f, true, generation,
             () -> fadeChannelTo(CHANNEL_AMBIENCE, volume(effectsVolume), 320L, null));
         return true;
     }
@@ -253,18 +373,26 @@ public final class PocketCriAudioRuntime {
         }
         File file = new File(new File(activity.getFilesDir(), "cri-audio"), asset);
         if (!file.isFile()) return false;
-        enqueuePlay(channel, file, FORMAT_ADX, volume(effectsVolume), false, "preparing");
+        final AudioMetadata metadata;
+        try {
+            metadata = readAudioMetadata(file, FORMAT_ADX);
+        } catch (Exception error) {
+            Log.e(TAG, "Could not read CRI effect metadata", error);
+            publish(CHANNEL_NAMES[channel], "error", safeMessage(error));
+            return false;
+        }
+        enqueuePlay(channel, file, FORMAT_ADX, metadata, volume(effectsVolume), false, "preparing");
         return true;
     }
 
-    private void enqueuePlay(int channel, File file, int format, float volume, boolean loop, String initialState) {
+    private void enqueuePlay(int channel, File file, int format, AudioMetadata metadata, float volume, boolean loop, String initialState) {
         long token = generations[channel].incrementAndGet();
         cancelChannelFade(channel);
         rememberChannelVolume(channel, volume);
         publish(CHANNEL_NAMES[channel], initialState, "");
         commands.execute(() -> {
             if (disposed || token != generations[channel].get()) return;
-            boolean started = nativePlayFile(channel, file.getAbsolutePath(), format, volume, loop);
+            boolean started = nativePlayFile(channel, file.getAbsolutePath(), format, metadata.channels, metadata.sampleRate, volume, loop);
             if (!started) {
                 publish(CHANNEL_NAMES[channel], "error", "CRI could not start this audio stream.");
                 return;
@@ -275,7 +403,7 @@ public final class PocketCriAudioRuntime {
         });
     }
 
-    private void startFileAtVolume(int channel, File file, int format, float initialVolume,
+    private void startFileAtVolume(int channel, File file, int format, AudioMetadata metadata, float initialVolume,
                                    boolean loop, long generation, Runnable onStarted) {
         if (disposed || generation != generations[channel].get()) return;
         cancelChannelFade(channel);
@@ -283,7 +411,7 @@ public final class PocketCriAudioRuntime {
         rememberChannelVolume(channel, startVolume);
         commands.execute(() -> {
             if (disposed || generation != generations[channel].get()) return;
-            boolean started = nativePlayFile(channel, file.getAbsolutePath(), format, startVolume, loop);
+            boolean started = nativePlayFile(channel, file.getAbsolutePath(), format, metadata.channels, metadata.sampleRate, startVolume, loop);
             if (!started) {
                 markChannelActive(channel, false);
                 publish(CHANNEL_NAMES[channel], "error", "CRI could not start this audio stream.");
