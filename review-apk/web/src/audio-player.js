@@ -100,6 +100,7 @@ export function createPocketAudioController({
     writeStored("mp-audio-track", selectedTrack);
     error = "";
     if (isPlaying || isStarting || isPaused) {
+      const wasPaused = isPaused;
       isStarting = true;
       isPlaying = false;
       isPaused = false;
@@ -110,6 +111,10 @@ export function createPocketAudioController({
         isStarting = false;
         status = "error";
         error = "CRI could not load this record.";
+      } else if (wasPaused) {
+        // Keep the existing CRI ambience channel alive when replacing a record
+        // while paused, then resume both CRI-owned channels in queue order.
+        native?.pausePocketAudio?.(false);
       }
     }
     notify();
@@ -130,7 +135,7 @@ export function createPocketAudioController({
     status = "preparing";
     error = "";
     notify();
-    native.playPocketSound?.("needle");
+    playEffect("needle");
     const started = native.playPocketAudio(track.id) === true;
     if (!started) {
       isStarting = false;
@@ -165,8 +170,9 @@ export function createPocketAudioController({
   }
 
   function playEffect(name) {
-    if (name === "placement") return native?.playPocketSound?.("placement") === true;
-    return false;
+    const effect = String(name || "").trim().toLowerCase();
+    if (effect !== "needle" && effect !== "placement") return false;
+    return native?.playPocketSound?.(effect) === true;
   }
 
   function setMusicVolume(value) {
