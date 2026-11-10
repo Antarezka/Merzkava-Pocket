@@ -70,6 +70,7 @@ public final class PocketCriAudioRuntime {
     private static native void nativePause(int channel, boolean paused);
     private static native void nativeSetVolume(int channel, float volume);
     private static native int nativeGetStatus(int channel);
+    private static native int nativeTakeLoopCycles(int channel);
 
     private final Activity activity;
     private final WebView webView;
@@ -590,6 +591,10 @@ public final class PocketCriAudioRuntime {
                 for (int channel : CHANNELS) {
                     int status = nativeGetStatus(channel);
                     if (status == 1 || status == 2) active = true;
+                    int completedLoops = nativeTakeLoopCycles(channel);
+                    if (channel == CHANNEL_MUSIC && completedLoops > 0) {
+                        publish("music", "cycle", "");
+                    }
                     if (status != lastStatuses[channel]) {
                         lastStatuses[channel] = status;
                         publish(CHANNEL_NAMES[channel], stateForStatus(channel, status), "");
