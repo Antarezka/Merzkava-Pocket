@@ -291,12 +291,28 @@ function createNativePocketAudioController({
     custom: track.custom === true
   }));
 
+  function pauseMusic(userPause = true) {
+    clearNativeStartWatchdog();
+    nativeStarting = false;
+    nativeStartError = "";
+    try {
+      if (typeof nativeBridge.pausePocketNativeMusic === "function") {
+        nativeBridge.pausePocketNativeMusic(userPause === true);
+      } else {
+        nativeBridge.stopPocketNativeMusic?.();
+      }
+    } catch {}
+    nativePlaying = false;
+    stopVinylSurfaceNoise();
+    notify();
+  }
   function stopMusic() {
     clearNativeStartWatchdog();
     nativeStarting = false;
     nativeStartError = "";
     try { nativeBridge.stopPocketNativeMusic?.(); } catch {}
     nativePlaying = false;
+    nativeTrackId = "";
     stopVinylSurfaceNoise();
     notify();
   }
@@ -363,7 +379,7 @@ function createNativePocketAudioController({
     if (needleStarting) userPaused = true;
     lifecycleSuspended = true;
     cancelNeedleStart();
-    stopMusic();
+    pauseMusic(false);
   }
   function resetSession() {
     lifecycleSuspended = false;
@@ -377,7 +393,7 @@ function createNativePocketAudioController({
   function selectTrack(id) {
     if (!Object.hasOwn(trackCatalog, id) || id === selectedTrack) return false;
     cancelNeedleStart();
-    stopMusic();
+    pauseMusic(true);
     selectedTrack = id;
     userPaused = true;
     write("mp-audio-track", selectedTrack);
@@ -410,7 +426,7 @@ function createNativePocketAudioController({
     if (nativePlaying || nativeStarting || needleStarting) {
       cancelNeedleStart();
       userPaused = true;
-      stopMusic();
+      pauseMusic(true);
       return Promise.resolve(false);
     }
     return lowerNeedleAndPlay();
