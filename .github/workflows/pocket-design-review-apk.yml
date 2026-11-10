@@ -31,46 +31,117 @@ jobs:
           node-version: "22"
       - uses: android-actions/setup-android@v3
         with:
-          packages: "platform-tools"
+          packages: "platform-tools ndk;27.2.12479018 cmake;3.22.1"
           accept-android-sdk-licenses: true
       - name: Install Android SDK platform
-        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
+      - name: Download and verify the private CRI ADX LE SDK
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.CRI_SDK_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "::error::CRI_SDK_READ_TOKEN is required to download the private CRI SDK."
+            exit 1
+          fi
+          SDK_DIR="$RUNNER_TEMP/cri-sdk"
+          mkdir -p "$SDK_DIR"
+          gh release download cri-sdk-temp \
+            --repo Antarezka/open-innovation-lab \
+            --pattern "cri_adx2le_sdk_v2.31.01.zip" \
+            --dir "$SDK_DIR" --clobber
+          ZIP="$SDK_DIR/cri_adx2le_sdk_v2.31.01.zip"
+          EXPECTED="a8996d1096ecab760c1fedd5a32a7bcb5013c1894bd555d19c6b33f765ccc5b4"
+          echo "$EXPECTED  $ZIP" | sha256sum --check -
+          mkdir -p "$SDK_DIR/unpacked"
+          unzip -q "$ZIP" -d "$SDK_DIR/unpacked"
+          CRI_ROOT="$SDK_DIR/unpacked/cri/android"
+          test -s "$CRI_ROOT/libs/arm64-v8a/libcri_ware_android_le.so"
+          test -s "$CRI_ROOT/libs/armeabi-v7a/libcri_ware_android_LE.so"
+          mkdir -p review-apk/app/src/main/jniLibs/arm64-v8a review-apk/app/src/main/jniLibs/armeabi-v7a
+          cp "$CRI_ROOT/libs/arm64-v8a/libcri_ware_android_le.so" review-apk/app/src/main/jniLibs/arm64-v8a/
+          cp "$CRI_ROOT/libs/armeabi-v7a/libcri_ware_android_LE.so" review-apk/app/src/main/jniLibs/armeabi-v7a/
+          echo "CRI_SDK_ROOT=$CRI_ROOT" >> "$GITHUB_ENV"
+          echo "Verified CRI ADX LE 2.31.01 Android libraries for ARM64 and ARMv7."
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          ffmpeg -hide_banner -encoders | grep -q "adpcm_adx"
       - name: Install web dependencies
         working-directory: review-apk
         run: npm install
+      - name: Restore Pocket music sources and encode every sound for CRI
+        shell: bash
+        run: |
+          set -euo pipefail
+          AUDIO_DIR="review-apk/web/public/audio"
+          CRI_AUDIO_DIR="review-apk/web/public/cri-audio"
+          mkdir -p "$AUDIO_DIR" "$CRI_AUDIO_DIR"
+          git show "origin/chore/pocket-audio-folder-2026-11-09:review-apk/web/public/audio/Happy-1a.ogg" > "$AUDIO_DIR/Happy-1a.ogg"
+          git show "origin/chore/pocket-audio-folder-2026-11-09:review-apk/web/public/audio/chill-1a.ogg" > "$AUDIO_DIR/chill-1a.ogg"
+          git show "origin/chore/pocket-audio-folder-2026-11-09:review-apk/web/public/audio/Retroatrical-a1.ogg" > "$AUDIO_DIR/Retroatrical-1.ogg"
+          git show "origin/chore/pocket-audio-folder-2026-11-09:review-apk/web/public/audio/Retroatrical-2.ogg" > "$AUDIO_DIR/Retroatrical-2.ogg"
+          declare -A INPUTS=(
+            ["Happy-1a.adx"]="$AUDIO_DIR/Happy-1a.ogg"
+            ["chill-1a.adx"]="$AUDIO_DIR/chill-1a.ogg"
+            ["Retroatrical-1.adx"]="$AUDIO_DIR/Retroatrical-1.ogg"
+            ["Retroatrical-2.adx"]="$AUDIO_DIR/Retroatrical-2.ogg"
+            ["needle-drop.adx"]="$AUDIO_DIR/needle drop+vinyls crackle.mp3"
+            ["record-placement.adx"]="$AUDIO_DIR/record placement.mp3"
+            ["vinyl-surface-noise.adx"]="$AUDIO_DIR/vinyl-surface-noise.ogg"
+          )
+          for output in "${!INPUTS[@]}"; do
+            input="${INPUTS[$output]}"
+            test -s "$input"
+            ffmpeg -y -hide_banner -loglevel error -i "$input" -map 0:a:0 -vn -c:a adpcm_adx -f adx "$CRI_AUDIO_DIR/$output"
+            test -s "$CRI_AUDIO_DIR/$output"
+            format="$(ffprobe -v error -show_entries format=format_name -of default=noprint_wrappers=1:nokey=1 "$CRI_AUDIO_DIR/$output")"
+            grep -qi "adx" <<< "$format"
+            echo "$output <- $(basename "$input") | $(stat -c%s "$CRI_AUDIO_DIR/$output") bytes"
+          done
+          test "$(find "$CRI_AUDIO_DIR" -maxdepth 1 -type f -name '*.adx' | wc -l)" -eq 7
+
       - name: Run Pocket test suite
         working-directory: review-apk
         run: npm test
       - name: Build Pocket web shell
         working-directory: review-apk
         run: npm run build
-      - name: Verify clean BGM reset and preserved turntable effects
+      - name: Verify native-only CRI audio sources and converted assets
         shell: bash
         run: |
           set -euo pipefail
-          test ! -e review-apk/web/src/audio-player.js
-          test ! -e review-apk/native-audio
-          test ! -e review-apk/app/src/main/java/com/merzkava/pocket/review/PocketMediaPlaybackService.java
-          ! grep -R -E "PocketMediaPlaybackService|startPocketNativeMusic|createPocketAudioController|createNativePocketAudioController|pocket_native_audio_|pocket_custom_music_library" review-apk/web/src review-apk/app/src/main/java review-apk/app/src/main/AndroidManifest.xml
-          ! grep -E "FOREGROUND_SERVICE_MEDIA_PLAYBACK|WAKE_LOCK|mediaPlayback" review-apk/app/src/main/AndroidManifest.xml
-          for track in Happy-1a.ogg chill-1a.ogg Retroatrical-1.ogg Retroatrical-2.ogg; do
-            test ! -e "review-apk/web/public/audio/$track"
-            test ! -e "review-apk/dist/audio/$track"
+          test -s review-apk/web/src/audio-player.js
+          ! grep -R -E 'new Audio\\(|AudioContext|webkitAudioContext|createElement\\(["'"']audio|canPlayType|<audio' review-apk/web/src
+          for asset in Happy-1a.adx chill-1a.adx Retroatrical-1.adx Retroatrical-2.adx needle-drop.adx record-placement.adx vinyl-surface-noise.adx; do
+            test -s "review-apk/web/public/cri-audio/$asset"
           done
-          for effect in "needle drop+vinyls crackle.mp3" "record placement.mp3" "vinyl-surface-noise.ogg"; do
-            test -s "review-apk/web/public/audio/$effect"
-            test -s "review-apk/dist/audio/$effect"
-          done
-          echo "BGM runtime and music tracks are absent; turntable effects remain packaged."
+          grep -q 'PocketCriAudioRuntime' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketNativeBridge.java
+          grep -q 'PocketAudioImporter' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketNativeBridge.java
+          test -s review-apk/app/src/main/cpp/cri_audio_jni.cpp
+          test -s review-apk/app/src/main/cpp/CMakeLists.txt
+          echo "Pocket UI and imports route to CRI; all seven audio sources are encoded as ADX."
+      - name: Build Pocket web shell
+        working-directory: review-apk
+        run: npm run build
+      - name: Remove source audio from web distribution
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf review-apk/dist/audio
+          test "$(find review-apk/dist/cri-audio -maxdepth 1 -type f -name '*.adx' | wc -l)" -eq 7
       - name: Render CSS launcher icon with Takumi
         working-directory: review-apk
         run: npm run render:launcher-icon
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
-      - name: Compile Pocket Android source
+      - name: Compile Pocket Java and native CRI source
         working-directory: review-apk
-        run: gradle --no-daemon :app:compileDebugJavaWithJavac
+        run: gradle --no-daemon :app:externalNativeBuildDebug :app:compileDebugJavaWithJavac
       - name: Set version and artifact identity
         shell: bash
         run: |
@@ -124,6 +195,95 @@ jobs:
         run: |
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "review-apk/app/build/outputs/apk/debug/app-debug.apk"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "review-apk/app/build/outputs/apk/debug/app-debug.apk" | grep -F "package: name='com.merzkava.pocket'"
+          APK="review-apk/app/build/outputs/apk/debug/app-debug.apk"
+          unzip -l "$APK" | grep -F "lib/arm64-v8a/libcri_ware_android_le.so"
+          unzip -l "$APK" | grep -F "lib/armeabi-v7a/libcri_ware_android_LE.so"
+          unzip -l "$APK" | grep -F "lib/arm64-v8a/libpocket_cri_audio.so"
+          for asset in Happy-1a.adx chill-1a.adx Retroatrical-1.adx Retroatrical-2.adx needle-drop.adx record-placement.adx vinyl-surface-noise.adx; do
+            unzip -l "$APK" | grep -F "assets/cri-audio/$asset"
+          done
+          if unzip -l "$APK" | grep -E 'assets/audio/.*\\.(ogg|mp3|m4a|aac|flac)
+      - name: Rename APK
+        run: |
+          mkdir -p dist
+          cp review-apk/app/build/outputs/apk/debug/app-debug.apk "dist/$POCKET_ARTIFACT_NAME.apk"
+          test -s dist/merzkava-pocket-shimaenaga.ico
+          test -s dist/merzkava-pocket-shimaenaga.png
+          ls -lh dist
+      - name: Clean up signing material
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$RUNNER_TEMP/merzkava-pocket-upload.jks" "$RUNNER_TEMP/pocket-keystore-passphrase" "$RUNNER_TEMP/pocket-signing-check.csr"
+          rm -rf "$RUNNER_TEMP/cri-sdk"
+
+      - name: Publish public Pocket update release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK_PATH="dist/$POCKET_ARTIFACT_NAME.apk"
+          TAG="pocket-build-$POCKET_BUILD_NUMBER"
+          MANIFEST_PATH="dist/pocket-update.json"
+          NOTES_PATH="dist/pocket-release-notes.md"
+          PREVIOUS_TAG="$(git tag --list 'pocket-build-*' --sort=-version:refname | head -n1)"
+          if [[ -n "$PREVIOUS_TAG" ]]; then
+            NOTES_JSON="$(git log "$PREVIOUS_TAG..$GITHUB_SHA" --pretty=format:%s | jq -Rsc 'split("\n") | map(select(length > 0))')"
+          else
+            NOTES_JSON="$(git log -n 12 "$GITHUB_SHA" --pretty=format:%s | jq -Rsc 'split("\n") | map(select(length > 0))')"
+          fi
+          if [[ "$NOTES_JSON" == "[]" ]]; then
+            NOTES_JSON='["Maintenance and compatibility updates for Merzkava Pocket."]'
+          fi
+          APK_SIZE="$(stat -c%s "$APK_PATH")"
+          APK_SHA256="$(sha256sum "$APK_PATH" | awk '{print $1}')"
+          DOWNLOAD_URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$POCKET_ARTIFACT_NAME.apk"
+          jq -n \
+            --arg packageName "com.merzkava.pocket" \
+            --arg tag "$TAG" \
+            --arg versionName "$POCKET_VERSION" \
+            --arg commit "$POCKET_COMMIT" \
+            --arg apkName "$POCKET_ARTIFACT_NAME.apk" \
+            --arg downloadUrl "$DOWNLOAD_URL" \
+            --arg sha256 "$APK_SHA256" \
+            --argjson buildNumber "$POCKET_BUILD_NUMBER" \
+            --argjson apkSizeBytes "$APK_SIZE" \
+            --argjson notes "$NOTES_JSON" \
+            '{packageName:$packageName,tag:$tag,buildNumber:$buildNumber,versionName:$versionName,commit:$commit,apkName:$apkName,downloadUrl:$downloadUrl,apkSizeBytes:$apkSizeBytes,sha256:$sha256,notes:$notes}' \
+            > "$MANIFEST_PATH"
+          {
+            echo "## Merzkava Pocket Build #$POCKET_BUILD_NUMBER"
+            echo
+            echo "- Version: $POCKET_VERSION"
+            echo "- Commit: $POCKET_COMMIT"
+            echo "- APK size: $(numfmt --to=iec-i --suffix=B "$APK_SIZE")"
+            echo "- SHA-256: `$APK_SHA256`"
+            echo
+            echo "### What's new"
+            printf '%s' "$NOTES_JSON" | jq -r '.[] | "- " + .'
+            echo
+            echo "The APK is signed with the persistent Merzkava Pocket release key."
+          } > "$NOTES_PATH"
+          gh release create "$TAG" "$APK_PATH" "$MANIFEST_PATH" \
+            --title "Merzkava Pocket Build #$POCKET_BUILD_NUMBER" \
+            --notes-file "$NOTES_PATH" \
+            --latest
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.POCKET_ARTIFACT_NAME }}
+          path: |
+            dist/${{ env.POCKET_ARTIFACT_NAME }}.apk
+            dist/merzkava-pocket-shimaenaga.ico
+            dist/merzkava-pocket-shimaenaga.png
+          if-no-files-found: error
+          retention-days: 30
+
+# Former BGM runtime is absent; preserved turntable sound-effect assets are verified separately.
+; then
+            echo "::error::Compressed source audio must not be routed through the WebView asset folder."
+            exit 1
+          fi
       - name: Rename APK
         run: |
           mkdir -p dist
