@@ -140,7 +140,7 @@ fn push_stereo_buffer<P: Producer<Item = f32>>(
             right = (buffer.samples[offset + 1] + center + surround_right) * 0.707;
         }
 
-        *fade_frames = fade_frames.saturating_add(1);
+        *fade_frames = (*fade_frames).saturating_add(1);
         let fade = (*fade_frames as f32 / fade_length as f32).min(1.0);
         let stereo = [left * fade, right * fade];
 
@@ -287,7 +287,7 @@ fn start_playback(
     state_ref: &Arc<Mutex<PlayerSnapshot>>,
 ) {
     if let Some(current) = active.as_mut() {
-        if current.track_id == track_id && !current.stream.is_disconnected() {
+        if current.track_id == track_id && !current.stop.load(Ordering::Relaxed) && !current.stream.is_disconnected() {
             current.volume_bits.store((volume as f32 / 100.0).to_bits(), Ordering::Relaxed);
             if current.stream.resume().is_ok() {
                 current.paused.store(false, Ordering::Relaxed);
@@ -349,17 +349,17 @@ fn start_playback(
         .buffer_capacity_secs(1.5)
         .build();
 
+    let mut smoothed_gain = 0.0_f32;
     let stream = match CpalDevice::default_output()
         .and_then(|device| device.open_output_callback(output_config, move |output| {
-            let mut gain = 0.0_f32;
             for sample in output.iter_mut() {
                 if callback_paused.load(Ordering::Relaxed) {
                     *sample = 0.0;
                     continue;
                 }
                 let target = f32::from_bits(callback_volume.load(Ordering::Relaxed));
-                gain += (target - gain) * 0.0008;
-                *sample = consumer.try_pop().unwrap_or(0.0) * gain;
+                smoothed_gain += (target - smoothed_gain) * 0.0008;
+                *sample = consumer.try_pop().unwrap_or(0.0) * smoothed_gain;
             }
         })) {
         Ok(stream) => stream,
@@ -373,6 +373,18 @@ fn start_playback(
             return;
         }
     };
+
+    if stop.load(Ordering::Relaxed) {
+        let _ = stream.pause();
+        if let Ok(mut snapshot) = state_ref.lock() {
+            if snapshot.error.is_empty() {
+                snapshot.error = "The audio decoder stopped before playback became ready.".into();
+            }
+            snapshot.playing = false;
+            snapshot.preparing = false;
+        }
+        return;
+    }
 
     if let Ok(mut snapshot) = state_ref.lock() {
         snapshot.playing = true;
@@ -447,7 +459,7 @@ fn manager_loop(receiver: mpsc::Receiver<Command>, state_ref: Arc<Mutex<PlayerSn
     }
 }
 
-fn initialize_runtime(env: &mut JNIEnv, context: JObject) -> bool {
+fn initialize_runtime(env: &mut JNIEnv<'_>, context: JObject<'_>) -> bool {
     if ANDROID_CONTEXT.get().is_none() {
         let global = match env.new_global_ref(context) {
             Ok(global) => global,
@@ -472,19 +484,19 @@ fn initialize_runtime(env: &mut JNIEnv, context: JObject) -> bool {
 
 #[no_mangle]
 pub extern "system" fn Java_com_merzkava_pocket_review_PocketMediaPlaybackService_nativeInitialize(
-    mut env: JNIEnv,
-    _class: JClass,
-    context: JObject,
+    mut env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    context: JObject<'_>,
 ) -> jboolean {
     if initialize_runtime(&mut env, context) { JNI_TRUE } else { JNI_FALSE }
 }
 
 #[no_mangle]
 pub extern "system" fn Java_com_merzkava_pocket_review_PocketMediaPlaybackService_nativeStart(
-    mut env: JNIEnv,
-    _class: JClass,
-    track_id: JString,
-    path: JString,
+    mut env: JNIEnv<'_>,
+    _class: JClass<'_>,
+    track_id: JString<'_>,
+    path: JString<'_>,
     volume: jint,
 ) -> jboolean {
     let track_id: String = match env.get_string(&track_id) {
@@ -512,8 +524,8 @@ pub extern "system" fn Java_com_merzkava_pocket_review_PocketMediaPlaybackServic
 
 #[no_mangle]
 pub extern "system" fn Java_com_merzkava_pocket_review_PocketMediaPlaybackService_nativePause(
-    _env: JNIEnv,
-    _class: JClass,
+    _env: JNIEnv<'_>,
+    _class: JClass<'_>,
     user_pause: jboolean,
 ) {
     let user_pause = user_pause == JNI_TRUE;
@@ -527,16 +539,16 @@ pub extern "system" fn Java_com_merzkava_pocket_review_PocketMediaPlaybackServic
 
 #[no_mangle]
 pub extern "system" fn Java_com_merzkava_pocket_review_PocketMediaPlaybackService_nativeStop(
-    _env: JNIEnv,
-    _class: JClass,
+    _env: JNIEnv<'_>,
+    _class: JClass<'_>,
 ) {
     let _ = send_command(Command::Stop);
 }
 
 #[no_mangle]
 pub extern "system" fn Java_com_merzkava_pocket_review_PocketMediaPlaybackService_nativeSetVolume(
-    _env: JNIEnv,
-    _class: JClass,
+    _env: JNIEnv<'_>,
+    _class: JClass<'_>,
     volume: jint,
 ) {
     let volume = volume.clamp(0, 100) as u8;
@@ -545,8 +557,8 @@ pub extern "system" fn Java_com_merzkava_pocket_review_PocketMediaPlaybackServic
 
 #[no_mangle]
 pub extern "system" fn Java_com_merzkava_pocket_review_PocketMediaPlaybackService_nativeGetState(
-    mut env: JNIEnv,
-    _class: JClass,
+    mut env: JNIEnv<'_>,
+    _class: JClass<'_>,
 ) -> jstring {
     let snapshot = state();
     let json_text = if let Ok(snapshot) = snapshot.lock() {

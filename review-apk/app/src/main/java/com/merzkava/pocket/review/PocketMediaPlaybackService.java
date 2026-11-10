@@ -172,6 +172,8 @@ public final class PocketMediaPlaybackService extends Service {
             boolean userPaused = state.optBoolean("userPaused", false);
             int cycleCount = Math.max(0, state.optInt("cycleCount", 0));
             updateStoredState(playing, preparing, error, trackId, userPaused, cycleCount);
+            if (playing) acquireWakeLock();
+            else if (!preparing) releaseWakeLock();
         } catch (Exception error) {
             Log.w(TAG, "Could not read OxiAudio/OxiSound playback state.", error);
         }
