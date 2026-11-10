@@ -55,7 +55,8 @@ public final class PocketUpdateProgressService extends Service {
         }
         handler.removeCallbacks(poll);
         handler.post(poll);
-        return START_NOT_STICKY;
+        // Keep the progress monitor alive if Android reclaims the process mid-download.
+        return START_STICKY;
     }
 
     private void pollDownload() {
