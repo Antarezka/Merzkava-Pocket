@@ -26,9 +26,9 @@ test("Audio mount binds disclosure, record selection, stylus and volume controls
   const mount = source.slice(start, end);
   assert.match(mount, /toggle\.addEventListener\("click"/);
   assert.match(mount, /recordList\?\.addEventListener\("click"/);
-  assert.match(mount, /\[data-audio-needle\]\)\.addEventListener\("click"/);
-  assert.match(mount, /\[data-music-volume\]\)\.addEventListener\("input"/);
-  assert.match(mount, /\[data-effects-volume\]\)\.addEventListener\("input"/);
+  assert.ok(mount.includes('section.querySelector("[data-audio-needle]").addEventListener("click"'));
+  assert.ok(mount.includes('section.querySelector("[data-music-volume]").addEventListener("input"'));
+  assert.ok(mount.includes('section.querySelector("[data-effects-volume]").addEventListener("input"'));
 });
 
 test("BGM and vinyl surface noise use separate CRI channels", () => {
