@@ -404,6 +404,13 @@ export function createTurntableMotion({
   let lastTime = null;
   let frameId = null;
   let disposed = false;
+  let suspended = false;
+
+  const schedule = () => {
+    if (disposed || suspended || frameId !== null || (targetSpeed === 0 && speed === 0)) return;
+    lastTime = null;
+    frameId = requestFrame(tick);
+  };
 
   const tick = now => {
     frameId = null;
@@ -428,10 +435,21 @@ export function createTurntableMotion({
   function setPlaying(playing) {
     if (disposed) return;
     targetSpeed = playing ? 200 : 0;
-    if (frameId === null && (targetSpeed > 0 || speed > 0)) {
+    schedule();
+  }
+
+  function setSuspended(value) {
+    if (disposed) return;
+    const next = value === true;
+    if (suspended === next) return;
+    suspended = next;
+    if (suspended) {
+      if (frameId !== null) cancelFrame(frameId);
+      frameId = null;
       lastTime = null;
-      frameId = requestFrame(tick);
+      return;
     }
+    schedule();
   }
 
   function dispose() {
@@ -445,8 +463,9 @@ export function createTurntableMotion({
 
   return {
     setPlaying,
+    setSuspended,
     dispose,
-    getState: () => ({ angle, speed, targetSpeed, running: frameId !== null, disposed })
+    getState: () => ({ angle, speed, targetSpeed, running: frameId !== null, suspended, disposed })
   };
 }
 
