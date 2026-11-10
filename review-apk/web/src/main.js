@@ -149,7 +149,8 @@ function showPocketUpdateNotification(update) {
   const details=releaseLines.join("\n")||"A new Merzkava Pocket build is ready. Open Pocket Settings → Pocket Update to review the release notes and install it.";
   let shown=false;
   try{shown=native?.showPocketUpdateNotification?.(
-   build,String(update.versionName||"Pocket update"),details,theme,Number(update.apkSizeBytes)||0
+   build,String(update.versionName||"Pocket update"),details,theme,Number(update.apkSizeBytes)||0,
+   String(update.apkUrl||""),String(update.apkName||""),String(update.apkSha256||"")
   )===true;}catch{}
   if(shown){try{localStorage.setItem(key,String(build));}catch{}}
   return shown;
