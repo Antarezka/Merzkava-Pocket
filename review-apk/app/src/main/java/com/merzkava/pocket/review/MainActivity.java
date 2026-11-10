@@ -2,9 +2,6 @@ package com.merzkava.pocket.review;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.IntentFilter;
 import android.content.res.AssetManager;
 import android.net.Uri;
 import android.os.Bundle;
@@ -20,12 +17,9 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.graphics.Color;
 import android.util.Log;
-import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.InputStream;
-import java.io.File;
-import java.io.FileInputStream;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Locale;
@@ -33,13 +27,10 @@ import java.util.Map;
 
 public final class MainActivity extends Activity {
     private static final String ASSET_HOST = "pocket.local";
-    private static final int REQUEST_AUDIO_PICKER = 7402;
     private WebView webView;
     private PocketNativeBridge nativeBridge;
     private PocketFloatingWindow floatingWindow;
     private OnBackInvokedCallback systemBackCallback;
-    private String supportedAudioTypesJson = "[]";
-    private BroadcastReceiver nativeAudioReceiver;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,38 +51,12 @@ public final class MainActivity extends Activity {
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
         settings.setJavaScriptCanOpenWindowsAutomatically(false);
-        settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        webView.setWebViewClient(new PocketAssetClient(getAssets(), getFilesDir()));
+        webView.setWebViewClient(new PocketAssetClient(getAssets()));
         webView.setWebChromeClient(new WebChromeClient());
         floatingWindow = new PocketFloatingWindow(this, webView);
         nativeBridge = new PocketNativeBridge(this, webView);
         webView.addJavascriptInterface(nativeBridge, "PocketNative");
-        nativeAudioReceiver = new BroadcastReceiver() {
-            @Override public void onReceive(Context context, Intent intent) {
-                if (intent == null || !PocketMediaPlaybackService.ACTION_STATE.equals(intent.getAction())) return;
-                try {
-                    JSONObject state = new JSONObject()
-                        .put("playing", intent.getBooleanExtra("playing", false))
-                        .put("preparing", intent.getBooleanExtra("preparing", false))
-                        .put("trackId", intent.getStringExtra("trackId") == null ? "" : intent.getStringExtra("trackId"))
-                        .put("cycleCount", intent.getIntExtra("cycleCount", 0));
-                    state.put("userPaused", intent.getBooleanExtra("userPaused", false));
-                    String error = intent.getStringExtra("error");
-                    if (error != null && !error.isEmpty()) state.put("error", error);
-                    if (intent.getBooleanExtra("cycle", false)) state.put("cycle", true);
-                    dispatchNativeAudioState(state.toString());
-                } catch (Exception error) {
-                    Log.w("PocketOxiAudio", "Could not forward native audio state", error);
-                }
-            }
-        };
-        IntentFilter nativeAudioFilter = new IntentFilter(PocketMediaPlaybackService.ACTION_STATE);
-        if (Build.VERSION.SDK_INT >= 33) {
-            registerReceiver(nativeAudioReceiver, nativeAudioFilter, Context.RECEIVER_NOT_EXPORTED);
-        } else {
-            registerReceiver(nativeAudioReceiver, nativeAudioFilter);
-        }
         setContentView(webView);
         webView.loadUrl("https://" + ASSET_HOST + "/index.html");
         handleFloatingLaunchIntent();
@@ -102,66 +67,10 @@ public final class MainActivity extends Activity {
         }
     }
 
-    public boolean openAudioPicker(String supportedTypesJson) {
-        try {
-            JSONArray supplied = new JSONArray(supportedTypesJson == null ? "[]" : supportedTypesJson);
-            this.supportedAudioTypesJson = supplied.toString();
-            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-            intent.addCategory(Intent.CATEGORY_OPENABLE);
-            intent.setType("audio/*");
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            startActivityForResult(intent, REQUEST_AUDIO_PICKER);
-            return true;
-        } catch (Exception error) {
-            Log.e("PocketAudio", "Could not open the device audio picker", error);
-            return false;
-        }
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode != REQUEST_AUDIO_PICKER) return;
-        String detail;
-        if (resultCode != RESULT_OK || data == null || data.getData() == null) {
-            detail = buildMusicPickerNotice("Music selection cancelled.", true);
-        } else if (nativeBridge != null) {
-            detail = nativeBridge.importAudioFile(data.getData(), supportedAudioTypesJson);
-        } else {
-            detail = buildMusicPickerNotice("The Pocket audio service is unavailable.", false);
-        }
-        dispatchMusicLibraryChange(detail);
-    }
-
-    private String buildMusicPickerNotice(String message, boolean cancelled) {
-        try {
-            return new JSONObject()
-                .put("ok", false)
-                .put("cancelled", cancelled)
-                .put("message", message)
-                .put("tracks", new JSONArray(nativeBridge == null ? "[]" : nativeBridge.getCustomMusicLibrary()))
-                .toString();
-        } catch (Exception ignored) {
-            return "{}";
-        }
-    }
-
-    private void dispatchMusicLibraryChange(String detailJson) {
-        WebView current = webView;
-        if (current == null) return;
-        String detail = detailJson == null ? "{}" : detailJson;
-        current.post(() -> current.evaluateJavascript(
-            "window.dispatchEvent(new CustomEvent('pocket:music-library-changed',{detail:" + detail + "}));",
-            null
-        ));
-    }
-
     private static final class PocketAssetClient extends WebViewClient {
         private final AssetManager assets;
-        private final File musicDirectory;
-        PocketAssetClient(AssetManager assets, File filesDirectory) {
+        PocketAssetClient(AssetManager assets) {
             this.assets = assets;
-            this.musicDirectory = new File(filesDirectory, "music");
         }
 
         @Override
@@ -189,22 +98,6 @@ public final class MainActivity extends Activity {
                 return new WebResourceResponse("text/plain", "UTF-8", 400, "Invalid asset path", headers(), null);
             }
             try {
-                if (path.startsWith("user-audio/")) {
-                    String fileName = path.substring("user-audio/".length());
-                    if (!fileName.matches("[a-f0-9-]{36}\\.(ogg|oga|opus|mp3|wav|wave|m4a|aac|flac|3gp|amr)")) {
-                        return new WebResourceResponse("text/plain", "UTF-8", 400, "Invalid audio id", headers(), null);
-                    }
-                    String extension = fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT);
-                    String audioMime = audioMimeTypeForExtension(extension);
-                    if (audioMime == null) {
-                        return new WebResourceResponse("text/plain", "UTF-8", 415, "Unsupported audio type", headers(), null);
-                    }
-                    File audioFile = new File(musicDirectory, fileName);
-                    if (!audioFile.isFile()) {
-                        return new WebResourceResponse("text/plain", "UTF-8", 404, "Audio not found", headers(), null);
-                    }
-                    return new WebResourceResponse(audioMime, null, 200, "OK", headers(), new FileInputStream(audioFile));
-                }
                 InputStream stream = assets.open(path, AssetManager.ACCESS_STREAMING);
                 String mime = mimeType(path);
                 return new WebResourceResponse(mime, mime.startsWith("text/") || mime.contains("javascript") ? "UTF-8" : null,
@@ -219,20 +112,6 @@ public final class MainActivity extends Activity {
             values.put("Cache-Control", "no-store");
             values.put("Access-Control-Allow-Origin", "https://" + ASSET_HOST);
             return values;
-        }
-
-        private String audioMimeTypeForExtension(String extension) {
-            switch (extension) {
-                case "ogg": case "oga": case "opus": return "audio/ogg";
-                case "mp3": return "audio/mpeg";
-                case "wav": case "wave": return "audio/wav";
-                case "m4a": return "audio/mp4";
-                case "aac": return "audio/aac";
-                case "flac": return "audio/flac";
-                case "3gp": return "audio/3gpp";
-                case "amr": return "audio/amr";
-                default: return null;
-            }
         }
 
         private String mimeType(String path) {
@@ -265,16 +144,6 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private void dispatchNativeAudioState(String stateJson) {
-        WebView current = webView;
-        if (current == null) return;
-        String detail = stateJson == null || stateJson.trim().isEmpty() ? "{}" : stateJson;
-        current.post(() -> current.evaluateJavascript(
-            "window.dispatchEvent(new CustomEvent('pocket:native-audio-state',{detail:" + detail + "}));",
-            null
-        ));
-    }
-
     public void dispatchNativeEvent(String eventName) {
         WebView current = webView;
         if (current == null) return;
@@ -282,13 +151,6 @@ public final class MainActivity extends Activity {
             "window.dispatchEvent(new Event(" + org.json.JSONObject.quote(eventName) + "));",
             null
         ));
-    }
-
-    @Override protected void onPause() {
-        // Give the WebView audio controller an early signal before Android
-        // backgrounds the Activity behind Pocket's floating bubble.
-        dispatchNativeEvent("pocket:native-pause");
-        super.onPause();
     }
 
     @Override protected void onResume() {
@@ -300,7 +162,6 @@ public final class MainActivity extends Activity {
         buildRecord.start();
         handleFloatingLaunchIntent();
         dispatchNativeEvent("pocket:native-resume");
-        if (nativeBridge != null) dispatchNativeAudioState(nativeBridge.getPocketNativeMusicState());
     }
 
     @Override protected void onNewIntent(Intent intent) {
@@ -361,10 +222,6 @@ public final class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT >= 33 && systemBackCallback != null) {
             getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(systemBackCallback);
             systemBackCallback = null;
-        }
-        if (nativeAudioReceiver != null) {
-            try { unregisterReceiver(nativeAudioReceiver); } catch (Exception ignored) {}
-            nativeAudioReceiver = null;
         }
         if (floatingWindow != null) {
             floatingWindow.dispose();
