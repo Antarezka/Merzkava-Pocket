@@ -31,10 +31,30 @@ jobs:
           node-version: "22"
       - uses: android-actions/setup-android@v3
         with:
-          packages: "platform-tools ndk;27.2.12479018 cmake;3.22.1"
+          packages: "platform-tools"
           accept-android-sdk-licenses: true
-      - name: Install Android SDK platform
-        run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
+      - name: Install Android SDK platform, NDK and CMake
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          NDK_DIR="$SDK_ROOT/ndk/27.2.12479018"
+          for attempt in 1 2 3; do
+            echo "Android SDK install attempt $attempt/3"
+            if sdkmanager --install "platforms;android-35" "build-tools;35.0.0" "cmake;3.22.1" "ndk;27.2.12479018" &&
+               test -s "$NDK_DIR/source.properties"; then
+              break
+            fi
+            echo "SDK package install was incomplete; removing partial NDK download before retry."
+            rm -rf "$NDK_DIR" "$SDK_ROOT/.temp" "$SDK_ROOT/temp"
+            if [[ "$attempt" -eq 3 ]]; then
+              echo "::error::Android NDK 27.2.12479018 could not be installed after three clean attempts."
+              exit 1
+            fi
+            sleep 5
+          done
+          test -s "$NDK_DIR/source.properties"
+          grep -q "Pkg.Revision = 27.2.12479018" "$NDK_DIR/source.properties"
       - name: Download and verify the private CRI ADX LE SDK
         shell: bash
         env:
