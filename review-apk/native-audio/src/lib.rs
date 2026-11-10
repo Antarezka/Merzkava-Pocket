@@ -10,7 +10,7 @@ use std::io::BufReader;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex, OnceLock};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 const DECODE_BLOCK_FRAMES: usize = 2048;
 const RING_CAPACITY_SAMPLES: usize = 262_144;
@@ -54,9 +54,19 @@ enum Command {
     Volume(u8),
 }
 
+#[derive(Clone)]
+struct PlaybackRequest {
+    generation: u64,
+    track_id: String,
+    path: String,
+    volume: u8,
+}
+
 struct ActivePlayback {
     generation: u64,
     track_id: String,
+    path: String,
+    volume: u8,
     stop: Arc<AtomicBool>,
     paused: Arc<AtomicBool>,
     volume_bits: Arc<AtomicU32>,
@@ -90,6 +100,37 @@ fn set_decoder_error(
             snapshot.error = message;
         }
     }
+}
+
+fn is_output_retryable_error(state_ref: &Arc<Mutex<PlayerSnapshot>>, generation: u64) -> bool {
+    state_ref.lock().map(|snapshot| {
+        snapshot.generation == generation
+            && snapshot.error.starts_with("OxiSound could not open the Android audio output:")
+    }).unwrap_or(false)
+}
+
+fn set_reconnecting_state(
+    state_ref: &Arc<Mutex<PlayerSnapshot>>,
+    request: &PlaybackRequest,
+    was_playing: bool,
+) {
+    if let Ok(mut snapshot) = state_ref.lock() {
+        if snapshot.generation == request.generation {
+            // Keep an already-playing record visibly playing while AAudio is reopened.
+            // Initial starts remain in PREPARING until the first output stream is ready.
+            snapshot.playing = was_playing;
+            snapshot.preparing = !was_playing;
+            snapshot.error.clear();
+            snapshot.track_id = request.track_id.clone();
+            snapshot.user_paused = false;
+            snapshot.volume = request.volume;
+        }
+    }
+}
+
+fn output_retry_delay(attempt: u8) -> Duration {
+    let exponent = u32::from(attempt.min(4));
+    Duration::from_millis(250_u64.saturating_mul(1_u64 << exponent))
 }
 
 fn command_sender() -> Option<mpsc::Sender<Command>> {
@@ -310,6 +351,8 @@ fn start_playback(
     if let Some(current) = active.as_mut() {
         if current.track_id == track_id && !current.stop.load(Ordering::Relaxed) && !current.stream.is_disconnected() {
             current.generation = generation;
+            current.path = path.clone();
+            current.volume = volume;
             current.volume_bits.store((volume as f32 / 100.0).to_bits(), Ordering::Relaxed);
             if current.stream.resume().is_ok() {
                 current.paused.store(false, Ordering::Relaxed);
@@ -447,6 +490,8 @@ fn start_playback(
     *active = Some(ActivePlayback {
         generation,
         track_id,
+        path,
+        volume,
         stop,
         paused,
         volume_bits,
@@ -456,15 +501,39 @@ fn start_playback(
 
 fn manager_loop(receiver: mpsc::Receiver<Command>, state_ref: Arc<Mutex<PlayerSnapshot>>) {
     let mut active: Option<ActivePlayback> = None;
+    let mut desired: Option<PlaybackRequest> = None;
+    let mut retry_at: Option<Instant> = None;
+    let mut retry_attempt = 0_u8;
+    let mut retry_keeps_playing = false;
+
     loop {
         match receiver.recv_timeout(Duration::from_millis(250)) {
             Ok(Command::Play { generation, track_id, path, volume }) => {
-                start_playback(&mut active, generation, track_id, path, volume, &state_ref);
+                if !is_current_generation(&state_ref, generation) {
+                    continue;
+                }
+                let request = PlaybackRequest { generation, track_id, path, volume };
+                desired = Some(request.clone());
+                retry_at = None;
+                retry_attempt = 0;
+                retry_keeps_playing = false;
+                start_playback(
+                    &mut active, generation, request.track_id.clone(), request.path.clone(),
+                    volume, &state_ref,
+                );
+                if active.is_none() && is_output_retryable_error(&state_ref, generation) {
+                    set_reconnecting_state(&state_ref, &request, false);
+                    retry_at = Some(Instant::now() + output_retry_delay(retry_attempt));
+                }
             }
             Ok(Command::Pause { generation, user_pause }) => {
                 if !is_current_generation(&state_ref, generation) {
                     continue;
                 }
+                desired = None;
+                retry_at = None;
+                retry_attempt = 0;
+                retry_keeps_playing = false;
                 if let Some(current) = active.as_mut() {
                     current.generation = generation;
                     current.paused.store(true, Ordering::Relaxed);
@@ -477,8 +546,12 @@ fn manager_loop(receiver: mpsc::Receiver<Command>, state_ref: Arc<Mutex<PlayerSn
                 }
             }
             Ok(Command::Volume(volume)) => {
-                if let Some(current) = active.as_ref() {
+                if let Some(current) = active.as_mut() {
+                    current.volume = volume;
                     current.volume_bits.store((volume as f32 / 100.0).to_bits(), Ordering::Relaxed);
+                }
+                if let Some(request) = desired.as_mut() {
+                    request.volume = volume;
                 }
                 if let Ok(mut snapshot) = state_ref.lock() {
                     snapshot.volume = volume;
@@ -488,6 +561,10 @@ fn manager_loop(receiver: mpsc::Receiver<Command>, state_ref: Arc<Mutex<PlayerSn
                 if !is_current_generation(&state_ref, generation) {
                     continue;
                 }
+                desired = None;
+                retry_at = None;
+                retry_attempt = 0;
+                retry_keeps_playing = false;
                 stop_active(&mut active);
                 CYCLE_COUNT.store(0, Ordering::Relaxed);
                 if let Ok(mut snapshot) = state_ref.lock() {
@@ -495,27 +572,80 @@ fn manager_loop(receiver: mpsc::Receiver<Command>, state_ref: Arc<Mutex<PlayerSn
                 }
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {
-                let active_generation = active.as_ref().map(|current| current.generation);
-                let (failed, generation_is_current) = state_ref.lock()
-                    .map(|snapshot| {
-                        let matches = active_generation == Some(snapshot.generation);
-                        (matches && !snapshot.error.is_empty(), matches)
+                let failed = active.as_ref().and_then(|current| {
+                    state_ref.lock().ok().map(|snapshot| {
+                        current.generation == snapshot.generation && !snapshot.error.is_empty()
                     })
-                    .unwrap_or((false, false));
+                }).unwrap_or(false);
+
                 let disconnected = active.as_ref()
                     .map(|current| current.stream.is_disconnected())
                     .unwrap_or(false);
-                if failed || (disconnected && generation_is_current) {
-                    if disconnected && !failed {
-                        if let Ok(mut snapshot) = state_ref.lock() {
-                            if active_generation == Some(snapshot.generation) {
-                                snapshot.playing = false;
-                                snapshot.preparing = false;
-                                snapshot.error = "The Android audio output disconnected. Restart the selected record.".into();
-                            }
-                        }
-                    }
+
+                if failed {
                     stop_active(&mut active);
+                    desired = None;
+                    retry_at = None;
+                    retry_attempt = 0;
+                    retry_keeps_playing = false;
+                } else if disconnected {
+                    if let Some(request) = desired.clone() {
+                        if is_current_generation(&state_ref, request.generation) {
+                            stop_active(&mut active);
+                            retry_keeps_playing = true;
+                            retry_attempt = 0;
+                            set_reconnecting_state(&state_ref, &request, true);
+                            retry_at = Some(Instant::now());
+                        } else {
+                            stop_active(&mut active);
+                            desired = None;
+                            retry_at = None;
+                        }
+                    } else {
+                        // A paused record no longer has a playback intent. Drop its
+                        // disconnected stream quietly; a later Play command will reopen it.
+                        stop_active(&mut active);
+                    }
+                }
+
+                if retry_at.map(|at| Instant::now() >= at).unwrap_or(false) {
+                    if let Some(request) = desired.clone() {
+                        if !is_current_generation(&state_ref, request.generation) {
+                            desired = None;
+                            retry_at = None;
+                            retry_keeps_playing = false;
+                            continue;
+                        }
+
+                        set_reconnecting_state(&state_ref, &request, retry_keeps_playing);
+                        start_playback(
+                            &mut active,
+                            request.generation,
+                            request.track_id.clone(),
+                            request.path.clone(),
+                            request.volume,
+                            &state_ref,
+                        );
+
+                        if active.as_ref().map(|current| current.generation == request.generation).unwrap_or(false) {
+                            retry_at = None;
+                            retry_attempt = 0;
+                            retry_keeps_playing = false;
+                        } else if is_output_retryable_error(&state_ref, request.generation) {
+                            retry_attempt = retry_attempt.saturating_add(1);
+                            set_reconnecting_state(&state_ref, &request, retry_keeps_playing);
+                            retry_at = Some(Instant::now() + output_retry_delay(retry_attempt));
+                        } else {
+                            // Decoder/file errors are not output-route failures. Do not
+                            // spin forever trying to reopen an invalid audio source.
+                            desired = None;
+                            retry_at = None;
+                            retry_attempt = 0;
+                            retry_keeps_playing = false;
+                        }
+                    } else {
+                        retry_at = None;
+                    }
                 }
             }
             Err(mpsc::RecvTimeoutError::Disconnected) => {
