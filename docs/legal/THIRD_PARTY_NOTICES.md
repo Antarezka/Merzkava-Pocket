@@ -33,7 +33,16 @@ Upstream licence references:
 - takumi-js: https://www.npmjs.com/package/takumi-js\n- Takumi native packages: full MIT and Apache-2.0 texts are stored from the upstream repository in [docs/legal/licenses](./licenses/) and included in the generated APK notices.
 - Vite: https://github.com/vitejs/vite/blob/main/packages/vite/LICENSE.md
 
-## 3. Android build toolchain (build-time; not bundled as Pocket app code)
+
+## 3. Native Android audio engine
+
+- **OxiAudio 0.2.1** — COOLJAPAN OU (Team Kitasan), Apache License 2.0. Used for local-file streaming decode (including OGG Vorbis and the optional pure-Rust OGG Opus decoder).
+- **OxiSound 0.2.1** — COOLJAPAN OU (Team Kitasan), Apache License 2.0. Used for Android output-device I/O through its CPAL backend.
+- Upstream repositories: https://github.com/cool-japan/oxiaudio and https://github.com/cool-japan/oxisound
+- The complete Apache-2.0 licence texts for both upstream projects are appended to the generated in-app notice during the APK build. The Rust dependency graph is resolved from Cargo during the native build.
+- These projects are published by COOLJAPAN OU in Estonia; the organisation name is not an indication that the projects are Japanese.
+
+## 4. Android build toolchain (build-time; not bundled as Pocket app code)
 
 - Gradle 8.9 — Apache License 2.0.
 - Android Gradle Plugin 8.7.3 — Apache License 2.0.
@@ -42,7 +51,7 @@ Upstream licence references:
 
 These are build tools and are listed for transparency; the generated in-app npm notice file covers packages installed by npm.
 
-## 4. Existing assets whose provenance is not yet documented
+## 5. Existing assets whose provenance is not yet documented
 
 The following files were already present in the repository, but the repository did not contain their original source or licence records during this audit:
 
@@ -53,11 +62,11 @@ The following files were already present in the repository, but the repository d
 
 Their licence status is **not verified by this notice**. They are deliberately marked as pending provenance rather than being incorrectly attributed to Pixabay or an open-source package. Add creator/source URLs and the applicable licence before redistributing these assets outside the existing project context.
 
-## 5. Merzkava Pocket project code and original assets
+## 6. Merzkava Pocket project code and original assets
 
 The repository has no root `LICENSE` file. This notice does not assign an open-source licence to Merzkava Pocket's own code, UI, game rules, or original project assets, and does not change their ownership. Third-party notices apply only to components identified here and in the generated in-app notice.
 
-## 6. Keeping the inventory current
+## 7. Keeping the inventory current
 
 When a dependency, bundled media asset, font, icon, or external artwork changes:
 1. Keep its package/version or exact asset filename in the inventory.

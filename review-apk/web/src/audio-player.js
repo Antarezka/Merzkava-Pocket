@@ -237,8 +237,8 @@ function createNativePocketAudioController({
       clearNativeStartWatchdog();
       userPaused = false;
     } else if (state.playing === false) {
-      // MediaSessionService emits an initial stopped/buffering snapshot before
-      // ExoPlayer confirms playback. Do not mistake that handshake for failure
+      // native audio service emits an initial stopped/buffering snapshot before
+      // OxiAudio/OxiSound confirms playback. Do not mistake that handshake for failure
       // and issue another ACTION_PLAY while the first one is still preparing.
       if (!nativeStarting || state.preparing === false || state.error || state.stopped === true) {
         nativePlaying = false;
@@ -323,7 +323,7 @@ function createNativePocketAudioController({
       return Promise.resolve(true);
     }
     // One pending native start is enough. Re-dispatching ACTION_PLAY during
-    // ExoPlayer preparation repeatedly replaces the MediaItem and can trap
+    // OxiAudio/OxiSound preparation repeatedly replaces the MediaItem and can trap
     // the interface in READY/PREPARING while the service restarts itself.
     if (nativeStarting) return Promise.resolve(false);
     const track = trackCatalog[selectedTrack];

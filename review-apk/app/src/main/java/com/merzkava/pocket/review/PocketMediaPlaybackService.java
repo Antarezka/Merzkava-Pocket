@@ -10,6 +10,9 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
+import android.media.AudioAttributes;
+import android.media.AudioFocusRequest;
+import android.media.AudioManager;
 import android.util.Log;
 
 import org.json.JSONObject;
@@ -45,6 +48,15 @@ public final class PocketMediaPlaybackService extends Service {
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private PowerManager.WakeLock wakeLock;
+    private AudioManager audioManager;
+    private AudioFocusRequest audioFocusRequest;
+    private boolean audioFocusHeld = false;
+    private boolean resumeAfterFocusGain = false;
+    private String activeTrackId = "";
+    private String activeTrackPath = "";
+    private int activeVolume = 68;
+
+    private final AudioManager.OnAudioFocusChangeListener audioFocusListener = this::onAudioFocusChanged;
     private boolean nativeReady = false;
     private int lastCycleCount = 0;
     private String notificationTitle = "Merzkava Pocket";
@@ -64,6 +76,16 @@ public final class PocketMediaPlaybackService extends Service {
         super.onCreate();
         running = true;
         createNotificationChannel();
+        audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
+        audioFocusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+            .setAudioAttributes(new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                .build())
+            .setAcceptsDelayedFocusGain(false)
+            .setWillPauseWhenDucked(false)
+            .setOnAudioFocusChangeListener(audioFocusListener, handler)
+            .build();
         PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
         if (powerManager != null) {
             wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MerzkavaPocket:OxiAudio");
@@ -84,10 +106,16 @@ public final class PocketMediaPlaybackService extends Service {
             String path = intent.getStringExtra("path");
             int volume = Math.max(0, Math.min(100, intent.getIntExtra("volume", 68)));
             notificationTitle = (title == null || title.trim().isEmpty()) ? "Merzkava Pocket" : title.trim();
+            activeTrackId = trackId == null ? "" : trackId;
+            activeTrackPath = path == null ? "" : path;
+            activeVolume = volume;
+            resumeAfterFocusGain = false;
             enterForeground(notificationTitle);
-            acquireWakeLock();
 
-            if (!nativeReady || !nativeLibraryLoaded) {
+            if (!requestAudioFocus()) {
+                updateStoredState(false, false, "Android audio focus is currently unavailable. Try playback again.", activeTrackId, false, lastCycleCount);
+                releaseWakeLock();
+            } else if (!nativeReady || !nativeLibraryLoaded) {
                 updateStoredState(false, false, "OxiAudio/OxiSound native playback is unavailable.", trackId, false, lastCycleCount);
             } else if (trackId == null || path == null || path.isEmpty() || !nativeStart(trackId, path, volume)) {
                 updateStoredState(false, false, "OxiAudio could not start the selected audio file.", trackId, false, lastCycleCount);
@@ -98,11 +126,14 @@ public final class PocketMediaPlaybackService extends Service {
             beginPolling();
         } else if (ACTION_PAUSE.equals(action)) {
             boolean userPause = intent != null && intent.getBooleanExtra("userPause", false);
+            if (userPause) resumeAfterFocusGain = false;
             if (nativeReady) nativePause(userPause);
             releaseWakeLock();
+            abandonAudioFocus();
             publishNativeState();
         } else if (ACTION_VOLUME.equals(action)) {
             int volume = Math.max(0, Math.min(100, intent == null ? 68 : intent.getIntExtra("volume", 68)));
+            activeVolume = volume;
             if (nativeReady) nativeSetVolume(volume);
             publishNativeState();
         } else if (ACTION_STOP.equals(action)) {
@@ -112,6 +143,64 @@ public final class PocketMediaPlaybackService extends Service {
             beginPolling();
         }
         return START_NOT_STICKY;
+    }
+
+    private boolean requestAudioFocus() {
+        if (audioManager == null || audioFocusRequest == null) return false;
+        int result = audioManager.requestAudioFocus(audioFocusRequest);
+        audioFocusHeld = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
+        return audioFocusHeld;
+    }
+
+    private void abandonAudioFocus() {
+        if (!audioFocusHeld || audioManager == null || audioFocusRequest == null) return;
+        try {
+            audioManager.abandonAudioFocusRequest(audioFocusRequest);
+        } catch (Exception error) {
+            Log.w(TAG, "Could not abandon Android audio focus.", error);
+        }
+        audioFocusHeld = false;
+    }
+
+    private void onAudioFocusChanged(int focusChange) {
+        if (focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
+            if (nativeReady) nativeSetVolume(Math.max(0, activeVolume / 4));
+            return;
+        }
+
+        if (focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) {
+            boolean playing = getSharedPreferences("merzkava-pocket-access", MODE_PRIVATE)
+                .getBoolean("pocket_native_audio_playing", false);
+            boolean preparing = getSharedPreferences("merzkava-pocket-access", MODE_PRIVATE)
+                .getBoolean("pocket_native_audio_preparing", false);
+            boolean userPaused = getSharedPreferences("merzkava-pocket-access", MODE_PRIVATE)
+                .getBoolean("pocket_native_audio_user_paused", false);
+            resumeAfterFocusGain = (playing || preparing) && !userPaused;
+            if (nativeReady) nativePause(false);
+            updateStoredState(false, false, "", activeTrackId, false, lastCycleCount);
+            releaseWakeLock();
+            return;
+        }
+
+        if (focusChange == AudioManager.AUDIOFOCUS_LOSS) {
+            resumeAfterFocusGain = false;
+            if (nativeReady) nativePause(false);
+            updateStoredState(false, false, "", activeTrackId, false, lastCycleCount);
+            releaseWakeLock();
+            abandonAudioFocus();
+            return;
+        }
+
+        if (focusChange == AudioManager.AUDIOFOCUS_GAIN) {
+            audioFocusHeld = true;
+            if (nativeReady) nativeSetVolume(activeVolume);
+            if (resumeAfterFocusGain && nativeReady && !activeTrackId.isEmpty() && !activeTrackPath.isEmpty()) {
+                resumeAfterFocusGain = false;
+                acquireWakeLock();
+                boolean accepted = nativeStart(activeTrackId, activeTrackPath, activeVolume);
+                updateStoredState(false, accepted, accepted ? "" : "OxiAudio could not resume after Android audio focus returned.", activeTrackId, false, lastCycleCount);
+            }
+        }
     }
 
     private void enterForeground(String title) {
@@ -206,8 +295,13 @@ public final class PocketMediaPlaybackService extends Service {
     }
 
     private void stopNativePlayback() {
+        resumeAfterFocusGain = false;
         if (nativeReady) nativeStop();
         releaseWakeLock();
+        abandonAudioFocus();
+        activeTrackId = "";
+        activeTrackPath = "";
+        activeVolume = 68;
         updateStoredState(false, false, "", "", false, 0);
         handler.removeCallbacks(statePoll);
     }

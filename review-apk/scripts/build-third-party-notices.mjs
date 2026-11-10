@@ -104,6 +104,10 @@ inheritLicenseFiles("@esbuild/linux-x64", "esbuild");
 inheritLicenseFiles("@rollup/rollup-linux-x64-gnu", "rollup");
 
 const takumiLicenseRoot = resolve(projectRoot, "..", "docs", "legal", "licenses");
+const nativeAudioLicenseTexts = [
+  { name: "OxiAudio 0.2.1 — Apache License 2.0", text: await readFile(join(takumiLicenseRoot, "oxiaudio-LICENSE-APACHE.txt"), "utf8") },
+  { name: "OxiSound 0.2.1 — Apache License 2.0", text: await readFile(join(takumiLicenseRoot, "oxisound-LICENSE-APACHE.txt"), "utf8") }
+];
 const takumiLicenseTexts = [
   { name: "LICENSE-MIT (Takumi upstream)", text: await readFile(join(takumiLicenseRoot, "takumi-LICENSE-MIT.txt"), "utf8") },
   { name: "LICENSE-APACHE (Takumi upstream)", text: await readFile(join(takumiLicenseRoot, "takumi-LICENSE-APACHE.txt"), "utf8") }

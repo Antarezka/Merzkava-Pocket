@@ -10,6 +10,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 oxiaudio = { version = "0.2.1", default-features = true }
+# Enable the optional pure-Rust OGG Opus decoder as Pocket also accepts .opus imports.
+oxiaudio-decode = { version = "0.2.1", features = ["opus"] }
 oxisound = { version = "0.2.1", default-features = true }
 ringbuf = "0.5.1"
 jni = "0.21.1"
