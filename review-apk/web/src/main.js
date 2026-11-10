@@ -6,6 +6,8 @@ import { dailyLoginMarkup, mountDailyLogin } from "./daily-login.js";
 import { playerRecordsMarkup, mountPlayerRecords } from "./player-records.js";
 import { createPocketAudioController, createTurntableMotion, createVinylDesignController, getSupportedAudioPlaybackTypes, VINYL_STYLES } from "./audio-player.js";
 import { getAccessDiagnostics, getDiagnosticWordFrames, formatDiagnosticFrame } from "./access-diagnostics.js";
+import { renderFoxSplashMarkup, mountFoxSplashMotion } from "./splash-screen/splash-screen.js";
+import "./splash-screen/splash-screen.css";
 
 const root = document.querySelector("#app");
 if (!root) throw new Error("Pocket root not found.");
@@ -24,11 +26,14 @@ const pocketAudio = createPocketAudioController({
 });
 const retryPocketAudioAfterGesture = () => pocketAudio.retryPendingPlayback?.();
 const recoverPocketAudioAfterInterruption = () => pocketAudio.recoverAfterInterruption?.();
+const recoverPocketAudioAfterBackgroundTransition = () => pocketAudio.recoverAfterBackgroundTransition?.();
 document.addEventListener("click", retryPocketAudioAfterGesture, { passive: true });
 document.addEventListener("keydown", retryPocketAudioAfterGesture);
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) recoverPocketAudioAfterInterruption();
+  if (document.hidden) recoverPocketAudioAfterBackgroundTransition();
+  else recoverPocketAudioAfterInterruption();
 });
+window.addEventListener("pocket:native-pause", recoverPocketAudioAfterBackgroundTransition);
 window.addEventListener("focus", recoverPocketAudioAfterInterruption);
 window.addEventListener("pocket:native-resume", recoverPocketAudioAfterInterruption);
 window.addEventListener("pocket:season-start", event => {
@@ -1424,13 +1429,24 @@ function showSplash() {
   root.innerHTML = `
     <main class="splash-stage" data-splash>
       <div class="splash-vignette"></div><div class="splash-light"></div>
-      <div class="splash-copy"><span class="splash-kicker">A LITTLE WORLD, ALWAYS WITHIN REACH</span><div class="splash-logo">MERZKAVA</div><span class="splash-rule"></span><span class="splash-subtitle">POCKET</span><small class="splash-foot">THE ARCHIVE OPENS</small></div>
+      <div class="splash-layout">
+        ${renderFoxSplashMarkup()}
+        <div class="splash-copy">
+          <span class="splash-kicker">A LITTLE WORLD, ALWAYS WITHIN REACH</span>
+          <div class="splash-logo">MERZKAVA</div>
+          <span class="splash-rule"></span>
+          <span class="splash-subtitle">POCKET</span>
+          <small class="splash-foot">THE ARCHIVE OPENS</small>
+        </div>
+      </div>
       <span class="splash-corner corner-a"></span><span class="splash-corner corner-b"></span>
     </main>`;
   const stage=root.querySelector("[data-splash]");
   const content=stage.querySelector(".splash-copy");
+  const character=stage.querySelector(".splash-character");
   const logo=stage.querySelector(".splash-logo");
   const rule=stage.querySelector(".splash-rule");
+  const stopFoxMotion=mountFoxSplashMotion(stage,{animate,reducedMotion});
   let cancelled=false;
   const animations=[];
   const complete=()=>{
@@ -1439,13 +1455,14 @@ function showSplash() {
   };
   const run=async()=>{
     if(reducedMotion()){
-      stage.style.opacity="1";content.style.opacity="1";logo.style.opacity="1";await wait(850);
+      stage.style.opacity="1";character.style.opacity="1";content.style.opacity="1";logo.style.opacity="1";await wait(850);
     }else{
       await new Promise(resolve=>animations.push(animate(stage,{opacity:[0,1],duration:430,ease:"outCubic",onComplete:resolve})));
       if(cancelled)return;
-      animations.push(animate(content,{opacity:[0,1],translateY:[12,0],duration:620,ease:"outCubic"}));
-      animations.push(animate(logo,{opacity:[0,1],scale:[.975,1],duration:780,delay:150,ease:"outCubic"}));
-      animations.push(animate(rule,{scaleX:[0,1],duration:520,delay:440,ease:"outCubic"}));
+      animations.push(animate(character,{opacity:[0,1],translateY:[13,0],scale:[.94,1],duration:760,delay:60,ease:"outCubic"}));
+      animations.push(animate(content,{opacity:[0,1],translateY:[12,0],duration:620,delay:160,ease:"outCubic"}));
+      animations.push(animate(logo,{opacity:[0,1],scale:[.975,1],duration:780,delay:260,ease:"outCubic"}));
+      animations.push(animate(rule,{scaleX:[0,1],duration:520,delay:520,ease:"outCubic"}));
       await wait(1700);
     }
     if(cancelled)return;
@@ -1456,7 +1473,7 @@ function showSplash() {
     complete();
   };
   void run();
-  currentDisposer=()=>{cancelled=true;animations.forEach(item=>item.pause());};
+  currentDisposer=()=>{cancelled=true;animations.forEach(item=>item.pause());stopFoxMotion();};
 }
 
 function renderHome() {
