@@ -90,6 +90,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cri-sdk-v2.31.01-inventory
-          path: cri-sdk-report.txt
+          path: |
+            cri-sdk-report.txt
+            cri-sdk-api-license.txt
           if-no-files-found: error
           retention-days: 7
