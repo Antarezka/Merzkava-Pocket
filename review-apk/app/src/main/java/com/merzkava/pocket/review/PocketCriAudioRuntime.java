@@ -9,7 +9,6 @@ import android.media.AudioManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.SystemClock;
 import android.util.Log;
 import android.webkit.WebView;
 
@@ -65,7 +64,8 @@ public final class PocketCriAudioRuntime {
 
     private static native boolean nativeInit();
     private static native void nativeShutdown();
-    private static native boolean nativePlayFile(int channel, String absolutePath, int format, int numChannels, int samplingRate, float volume, boolean loop);
+    private static native boolean nativePlayFile(int channel, String absolutePath, int format, int numChannels, int samplingRate, float volume, float fadeMultiplier, boolean loop);
+    private static native void nativeFadeVolume(int channel, int durationMs, float volume);
     private static native void nativeStop(int channel);
     private static native void nativePause(int channel, boolean paused);
     private static native void nativeSetVolume(int channel, float volume);
@@ -82,7 +82,6 @@ public final class PocketCriAudioRuntime {
         new AtomicLong(), new AtomicLong(), new AtomicLong(), new AtomicLong(), new AtomicLong(), new AtomicLong()
     };
     private final Object fadeLock = new Object();
-    private final float[] channelVolumes = new float[6];
     private final Runnable[] fadeJobs = new Runnable[6];
     private final AtomicLong pauseTransition = new AtomicLong();
     private final int[] lastStatuses = {-1, -1, -1, -1, -1, -1};
@@ -100,7 +99,6 @@ public final class PocketCriAudioRuntime {
     private volatile boolean pausedByFocusLoss;
     private volatile int musicVolume = 68;
     private volatile int effectsVolume = 76;
-    private static final long FADE_FRAME_MS = 20L;
 
     public PocketCriAudioRuntime(Activity activity, WebView webView) {
         this.activity = activity;
@@ -116,12 +114,6 @@ public final class PocketCriAudioRuntime {
             boolean ready = nativeInit();
             initialized = ready;
             if (ready) {
-                rememberChannelVolume(CHANNEL_MUSIC, volume(musicVolume));
-                rememberChannelVolume(CHANNEL_AMBIENCE, volume(effectsVolume));
-                rememberChannelVolume(CHANNEL_NEEDLE, volume(effectsVolume));
-                rememberChannelVolume(CHANNEL_EFFECTS, volume(effectsVolume));
-                rememberChannelVolume(CHANNEL_DOOR_CHIME, volume(effectsVolume));
-                rememberChannelVolume(CHANNEL_DOOR_RATTLE, volume(effectsVolume));
                 nativeSetVolume(CHANNEL_MUSIC, volume(musicVolume));
                 nativeSetVolume(CHANNEL_AMBIENCE, volume(effectsVolume));
                 nativeSetVolume(CHANNEL_NEEDLE, volume(effectsVolume));
@@ -310,8 +302,8 @@ public final class PocketCriAudioRuntime {
         publish("music", "preparing", "");
         Runnable startSelectedTrack = () -> {
             if (disposed || generation != generations[CHANNEL_MUSIC].get()) return;
-            startFileAtVolume(CHANNEL_MUSIC, file, format, metadata, 0f, true, generation,
-                () -> fadeChannelTo(CHANNEL_MUSIC, volume(musicVolume), 240L, null));
+            startFileAtVolume(CHANNEL_MUSIC, file, format, metadata, volume(musicVolume), 0f, true, generation,
+                () -> fadeChannelTo(CHANNEL_MUSIC, 1f, 240L, null));
         };
         // Fade out only BGM, then replace it even if a volume slider is moved mid-fade.
         // The vinyl ambience channel is independent and never stops during track changes.
@@ -346,8 +338,8 @@ public final class PocketCriAudioRuntime {
         }
         final long generation = generations[CHANNEL_AMBIENCE].incrementAndGet();
         publish("ambience", "preparing", "");
-        startFileAtVolume(CHANNEL_AMBIENCE, file, FORMAT_ADX, metadata, 0f, true, generation,
-            () -> fadeChannelTo(CHANNEL_AMBIENCE, volume(effectsVolume), 320L, null));
+        startFileAtVolume(CHANNEL_AMBIENCE, file, FORMAT_ADX, metadata, volume(effectsVolume), 0f, true, generation,
+            () -> fadeChannelTo(CHANNEL_AMBIENCE, 1f, 320L, null));
         return true;
     }
 
@@ -388,11 +380,10 @@ public final class PocketCriAudioRuntime {
     private void enqueuePlay(int channel, File file, int format, AudioMetadata metadata, float volume, boolean loop, String initialState) {
         long token = generations[channel].incrementAndGet();
         cancelChannelFade(channel);
-        rememberChannelVolume(channel, volume);
         publish(CHANNEL_NAMES[channel], initialState, "");
         commands.execute(() -> {
             if (disposed || token != generations[channel].get()) return;
-            boolean started = nativePlayFile(channel, file.getAbsolutePath(), format, metadata.channels, metadata.sampleRate, volume, loop);
+            boolean started = nativePlayFile(channel, file.getAbsolutePath(), format, metadata.channels, metadata.sampleRate, volume, 1f, loop);
             if (!started) {
                 publish(CHANNEL_NAMES[channel], "error", "CRI could not start this audio stream.");
                 return;
@@ -403,15 +394,15 @@ public final class PocketCriAudioRuntime {
         });
     }
 
-    private void startFileAtVolume(int channel, File file, int format, AudioMetadata metadata, float initialVolume,
-                                   boolean loop, long generation, Runnable onStarted) {
+    private void startFileAtVolume(int channel, File file, int format, AudioMetadata metadata, float masterVolume,
+                                   float initialFadeMultiplier, boolean loop, long generation, Runnable onStarted) {
         if (disposed || generation != generations[channel].get()) return;
         cancelChannelFade(channel);
-        final float startVolume = Math.max(0f, Math.min(1f, initialVolume));
-        rememberChannelVolume(channel, startVolume);
+        final float safeMasterVolume = Math.max(0f, Math.min(1f, masterVolume));
+        final float safeFadeMultiplier = Math.max(0f, Math.min(1f, initialFadeMultiplier));
         commands.execute(() -> {
             if (disposed || generation != generations[channel].get()) return;
-            boolean started = nativePlayFile(channel, file.getAbsolutePath(), format, metadata.channels, metadata.sampleRate, startVolume, loop);
+            boolean started = nativePlayFile(channel, file.getAbsolutePath(), format, metadata.channels, metadata.sampleRate, safeMasterVolume, safeFadeMultiplier, loop);
             if (!started) {
                 markChannelActive(channel, false);
                 publish(CHANNEL_NAMES[channel], "error", "CRI could not start this audio stream.");
@@ -429,13 +420,6 @@ public final class PocketCriAudioRuntime {
         else if (channel == CHANNEL_AMBIENCE) ambienceStreamActive = active;
     }
 
-    private void rememberChannelVolume(int channel, float value) {
-        float clamped = Math.max(0f, Math.min(1f, value));
-        synchronized (fadeLock) {
-            channelVolumes[channel] = clamped;
-        }
-    }
-
     private void cancelChannelFade(int channel) {
         fadeGenerations[channel].incrementAndGet();
         synchronized (fadeLock) {
@@ -445,44 +429,36 @@ public final class PocketCriAudioRuntime {
         }
     }
 
-    /** Smooth per-channel CRI fade; stale queued steps are invalidated by the next command. */
+    /** Delegate the complete fade ramp to CRI Tween; Java only tracks completion/cancellation. */
     private void fadeChannelTo(int channel, float target, long durationMs, Runnable onComplete) {
-        if (disposed || channel < 0 || channel >= channelVolumes.length) return;
+        if (disposed || channel < 0 || channel >= CHANNELS.length) return;
         final float end = Math.max(0f, Math.min(1f, target));
+        final int duration = (int) Math.max(0L, Math.min(65535L, durationMs));
         final long token = fadeGenerations[channel].incrementAndGet();
-        final long startedAt = SystemClock.uptimeMillis();
-        final Runnable fade;
+        final Runnable completion = () -> {
+            synchronized (fadeLock) {
+                if (token != fadeGenerations[channel].get()) return;
+                fadeJobs[channel] = null;
+            }
+            if (!disposed && onComplete != null) onComplete.run();
+        };
         synchronized (fadeLock) {
             Runnable previous = fadeJobs[channel];
             if (previous != null) mainHandler.removeCallbacks(previous);
-            final float start = channelVolumes[channel];
-            final Runnable[] holder = new Runnable[1];
-            holder[0] = () -> {
-                if (disposed || token != fadeGenerations[channel].get()) return;
-                float linear = durationMs <= 0L ? 1f :
-                    Math.max(0f, Math.min(1f, (SystemClock.uptimeMillis() - startedAt) / (float) durationMs));
-                float eased = linear * linear * (3f - 2f * linear);
-                float value = start + (end - start) * eased;
-                boolean finished = linear >= 1f;
-                synchronized (fadeLock) {
-                    channelVolumes[channel] = value;
-                    if (finished) fadeJobs[channel] = null;
-                }
-                try {
-                    commands.execute(() -> {
-                        if (disposed || token != fadeGenerations[channel].get()) return;
-                        nativeSetVolume(channel, value);
-                        if (finished && onComplete != null) onComplete.run();
-                    });
-                } catch (RuntimeException error) {
-                    Log.w(TAG, "Could not queue CRI fade step for " + CHANNEL_NAMES[channel], error);
-                }
-                if (!finished) mainHandler.postDelayed(holder[0], FADE_FRAME_MS);
-            };
-            fade = holder[0];
-            fadeJobs[channel] = fade;
+            fadeJobs[channel] = completion;
         }
-        mainHandler.post(fade);
+        try {
+            commands.execute(() -> {
+                if (disposed || token != fadeGenerations[channel].get()) return;
+                nativeFadeVolume(channel, duration, end);
+            });
+            mainHandler.postDelayed(completion, duration);
+        } catch (RuntimeException error) {
+            synchronized (fadeLock) {
+                if (token == fadeGenerations[channel].get()) fadeJobs[channel] = null;
+            }
+            Log.w(TAG, "Could not queue CRI Tween fade for " + CHANNEL_NAMES[channel], error);
+        }
     }
 
     public void pauseMusic(boolean paused) {
@@ -508,8 +484,8 @@ public final class PocketCriAudioRuntime {
             if (disposed || transition != pauseTransition.get()) return;
             nativePause(CHANNEL_MUSIC, false);
             nativePause(CHANNEL_AMBIENCE, false);
-            fadeChannelTo(CHANNEL_MUSIC, volume(musicVolume), 230L, null);
-            fadeChannelTo(CHANNEL_AMBIENCE, volume(effectsVolume), 280L, null);
+            fadeChannelTo(CHANNEL_MUSIC, 1f, 230L, null);
+            fadeChannelTo(CHANNEL_AMBIENCE, 1f, 280L, null);
             publish("music", "playing", "");
             startPolling();
         });
@@ -554,9 +530,7 @@ public final class PocketCriAudioRuntime {
 
     private void setChannelVolume(int channel, float value) {
         if (!initialized || disposed) return;
-        cancelChannelFade(channel);
         final float clamped = Math.max(0f, Math.min(1f, value));
-        rememberChannelVolume(channel, clamped);
         commands.execute(() -> {
             if (!disposed) nativeSetVolume(channel, clamped);
         });
@@ -565,7 +539,6 @@ public final class PocketCriAudioRuntime {
     private void stopChannel(int channel, String state) {
         generations[channel].incrementAndGet();
         cancelChannelFade(channel);
-        rememberChannelVolume(channel, 0f);
         if (!initialized || disposed) return;
         commands.execute(() -> {
             if (disposed) return;
@@ -681,8 +654,8 @@ public final class PocketCriAudioRuntime {
                 pausedByFocusLoss = false;
                 pauseMusic(false);
             } else if (!pausedByFocusLoss) {
-                fadeChannelTo(CHANNEL_MUSIC, volume(musicVolume), 180L, null);
-                fadeChannelTo(CHANNEL_AMBIENCE, volume(effectsVolume), 180L, null);
+                fadeChannelTo(CHANNEL_MUSIC, 1f, 180L, null);
+                fadeChannelTo(CHANNEL_AMBIENCE, 1f, 180L, null);
             }
         } else if (change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
             fadeChannelTo(CHANNEL_MUSIC, volume(musicVolume) * 0.25f, 150L, null);
