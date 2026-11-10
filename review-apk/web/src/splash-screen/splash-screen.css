@@ -57,14 +57,38 @@
   -webkit-user-drag:none;
   will-change:transform;
 }
-.splash-fox-tail{z-index:1;transform-origin:27% 71%}
+.splash-fox-tail-group{
+  position:absolute;
+  z-index:1;
+  inset:0;
+  transform-origin:27% 71%;
+  will-change:transform;
+}
+.splash-fox-tail-layer{
+  position:absolute;
+  inset:0;
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  object-position:center;
+  pointer-events:none;
+  user-select:none;
+  -webkit-user-drag:none;
+}
+.splash-fox-tail-layer.is-missing{display:none}
 .splash-fox-body{z-index:2}
-.splash-fox-ear-one{z-index:3;transform-origin:51% 34%}
-.splash-fox-ear-two{z-index:4;transform-origin:51% 34%}
+.splash-fox-ear-one{z-index:3;transform-origin:47% 31%}
+.splash-fox-ear-two{z-index:4;transform-origin:53% 31%}
 .splash-fox-apple{
   z-index:5;
   transform-origin:50% 72%;
-  filter:drop-shadow(0 0 8px rgba(255,226,174,.24));
+  filter:
+    drop-shadow(0 0 2px rgba(231,249,255,.98))
+    drop-shadow(0 0 7px rgba(123,194,226,.92))
+    drop-shadow(0 0 17px rgba(123,194,226,.72))
+    drop-shadow(0 0 31px rgba(87,172,218,.42));
+  animation:splash-apple-blue-glow 3.1s ease-in-out infinite;
 }
 .splash-fox-layer.is-missing{display:none}
 .splash-copy{
@@ -102,6 +126,20 @@
   text-shadow:0 0 12px rgba(220,198,150,.32);
 }
 .splash-foot{margin-top:5px;color:#999b9b}
+@keyframes splash-apple-blue-glow{
+  0%,100%{
+    filter:drop-shadow(0 0 2px rgba(231,249,255,.9))
+      drop-shadow(0 0 6px rgba(123,194,226,.74))
+      drop-shadow(0 0 15px rgba(123,194,226,.58))
+      drop-shadow(0 0 27px rgba(87,172,218,.30));
+  }
+  50%{
+    filter:drop-shadow(0 0 3px rgba(244,252,255,1))
+      drop-shadow(0 0 9px rgba(123,194,226,1))
+      drop-shadow(0 0 22px rgba(123,194,226,.86))
+      drop-shadow(0 0 38px rgba(87,172,218,.54));
+  }
+}
 @keyframes splash-merzkava-glow{
   0%,100%{text-shadow:0 0 2px #fff,0 0 7px rgba(238,246,255,.72),0 0 19px rgba(206,225,246,.46),0 0 35px rgba(180,203,234,.24)}
   50%{text-shadow:0 0 3px #fff,0 0 11px rgba(245,249,255,.98),0 0 25px rgba(206,225,246,.72),0 0 45px rgba(180,203,234,.4)}
@@ -114,5 +152,6 @@
 }
 @media(prefers-reduced-motion:reduce){
   .splash-logo{animation:none}
-  .splash-fox-layer{will-change:auto}
+  .splash-fox-layer,.splash-fox-tail-group{will-change:auto}
+  .splash-fox-apple{animation:none;filter:drop-shadow(0 0 6px rgba(123,194,226,.7))}
 }
