@@ -2,14 +2,18 @@ package com.merzkava.pocket.review;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.DownloadManager;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Environment;
 import android.os.PowerManager;
+import android.os.StatFs;
 import android.provider.Settings;
 import android.provider.OpenableColumns;
 import android.util.Base64;
@@ -82,6 +86,8 @@ public final class PocketNativeBridge {
     private static final String PREF_PLAYER_SESSION_NAME = "active_verified_player_name";
     private static final String PREF_USED_MASTER_RESET_GRANTS = "pocket_used_master_reset_grants_v1";
     private static final String PREF_CUSTOM_MUSIC_LIBRARY = "pocket_custom_music_library_v1";
+    private static final String PREF_UPDATE_DOWNLOAD_ID = "pocket_update_download_id_v1";
+    private static final String PREF_UPDATE_SHA256 = "pocket_update_sha256_v1";
     private static final long MAX_CUSTOM_MUSIC_BYTES = 64L * 1024L * 1024L;
     private static final String UNIVERSE = "Antarezka/merzkava-universe";
 
@@ -96,6 +102,296 @@ public final class PocketNativeBridge {
     }
 
     @JavascriptInterface public boolean isNative() { return true; }
+
+
+    private static final String POCKET_REPOSITORY = "Antarezka/Merzkava-Pocket";
+    private static final long POCKET_VERSION_CODE_OFFSET = 10000L;
+
+    @JavascriptInterface public String getPocketAppInfo() {
+        JSONObject result = new JSONObject();
+        try {
+            PackageInfo info = activity.getPackageManager().getPackageInfo(activity.getPackageName(), 0);
+            long versionCode = Build.VERSION.SDK_INT >= 28 ? info.getLongVersionCode() : info.versionCode;
+            result.put("packageName", activity.getPackageName());
+            result.put("versionName", info.versionName == null ? "" : info.versionName);
+            result.put("versionCode", versionCode);
+            result.put("buildNumber", Math.max(0L, versionCode - POCKET_VERSION_CODE_OFFSET));
+            result.put("deviceModel", Build.MANUFACTURER + " " + Build.MODEL);
+            result.put("androidVersion", Build.VERSION.RELEASE == null ? "" : Build.VERSION.RELEASE);
+            return result.toString();
+        } catch (Exception error) {
+            try {
+                result.put("packageName", activity.getPackageName());
+                result.put("versionName", "Unknown");
+                result.put("versionCode", 0);
+                result.put("buildNumber", 0);
+                result.put("error", "Pocket could not read its installed build information.");
+            } catch (Exception ignored) {}
+            return result.toString();
+        }
+    }
+
+    @JavascriptInterface public String getPocketStorageInfo() {
+        JSONObject result = new JSONObject();
+        try {
+            StatFs storage = new StatFs(Environment.getDataDirectory().getAbsolutePath());
+            long total = storage.getTotalBytes();
+            long available = storage.getAvailableBytes();
+            int freePercent = total > 0 ? (int) Math.max(0L, Math.min(100L, Math.round(available * 100.0 / total))) : 0;
+            result.put("totalBytes", total);
+            result.put("availableBytes", available);
+            result.put("usedBytes", Math.max(0L, total - available));
+            result.put("freePercent", freePercent);
+            result.put("available", total > 0);
+            result.put("storageType", "internal");
+        } catch (Exception error) {
+            try {
+                result.put("totalBytes", 0);
+                result.put("availableBytes", 0);
+                result.put("usedBytes", 0);
+                result.put("freePercent", 0);
+                result.put("available", false);
+                result.put("storageType", "internal");
+            } catch (Exception ignored) {}
+        }
+        return result.toString();
+    }
+
+    @JavascriptInterface public void checkPocketUpdate(String requestId) {
+        if (requestId == null || requestId.trim().isEmpty()) return;
+        Thread thread = new Thread(() -> {
+            boolean ok = false;
+            String payload = "{}";
+            String errorMessage = "";
+            try {
+                JSONObject release = new JSONObject(fetch(
+                    "https://api.github.com/repos/" + POCKET_REPOSITORY + "/releases/latest"
+                ));
+                String tag = release.optString("tag_name", "");
+                Matcher tagMatch = Pattern.compile("^pocket-build-([0-9]+)$").matcher(tag);
+                if (!tagMatch.matches()) throw new IOException("The latest public release is not a Pocket build.");
+
+                JSONArray assets = release.optJSONArray("assets");
+                if (assets == null) throw new IOException("The Pocket release does not contain its update files.");
+                String manifestUrl = "";
+                JSONObject apkAsset = null;
+                for (int i = 0; i < assets.length(); i++) {
+                    JSONObject asset = assets.optJSONObject(i);
+                    if (asset == null) continue;
+                    String name = asset.optString("name", "");
+                    if ("pocket-update.json".equals(name)) manifestUrl = asset.optString("browser_download_url", "");
+                    else if (name.toLowerCase(Locale.ROOT).endsWith(".apk")) apkAsset = asset;
+                }
+                if (manifestUrl.isEmpty() || apkAsset == null) throw new IOException("The Pocket release manifest or APK is missing.");
+
+                Uri manifestUri = Uri.parse(manifestUrl);
+                if (!"https".equals(manifestUri.getScheme()) ||
+                    !"github.com".equalsIgnoreCase(manifestUri.getHost()) ||
+                    manifestUri.getPath() == null ||
+                    !manifestUri.getPath().contains("/" + POCKET_REPOSITORY + "/releases/download/")) {
+                    throw new IOException("The Pocket update manifest URL is not trusted.");
+                }
+                JSONObject updateManifest = new JSONObject(fetch(manifestUrl));
+                if (!"com.merzkava.pocket".equals(updateManifest.optString("packageName", ""))) {
+                    throw new IOException("The update package does not belong to Merzkava Pocket.");
+                }
+                int buildNumber = updateManifest.optInt("buildNumber", -1);
+                int tagBuild = Integer.parseInt(tagMatch.group(1));
+                if (buildNumber != tagBuild) throw new IOException("The Pocket build number does not match its release tag.");
+
+                String apkName = updateManifest.optString("apkName", "");
+                String apkUrl = apkAsset.optString("browser_download_url", "");
+                if (!apkName.equals(apkAsset.optString("name", "")) ||
+                    !apkName.matches("[A-Za-z0-9._-]+\\.apk")) {
+                    throw new IOException("The Pocket APK filename is invalid.");
+                }
+                Uri apkUri = Uri.parse(apkUrl);
+                String expectedPrefix = "/" + POCKET_REPOSITORY + "/releases/download/" + tag + "/";
+                if (!"https".equals(apkUri.getScheme()) ||
+                    !"github.com".equalsIgnoreCase(apkUri.getHost()) ||
+                    apkUri.getPath() == null || !apkUri.getPath().startsWith(expectedPrefix)) {
+                    throw new IOException("The Pocket APK download address is not trusted.");
+                }
+                String hash = updateManifest.optString("sha256", "").toLowerCase(Locale.ROOT);
+                if (!hash.matches("[a-f0-9]{64}")) throw new IOException("The Pocket release is missing its APK integrity hash.");
+                long apkSize = apkAsset.optLong("size", 0L);
+                long manifestSize = updateManifest.optLong("apkSizeBytes", 0L);
+                if (apkSize <= 0L || (manifestSize > 0L && manifestSize != apkSize)) {
+                    throw new IOException("The Pocket APK size does not match its release manifest.");
+                }
+
+                PackageInfo installed = activity.getPackageManager().getPackageInfo(activity.getPackageName(), 0);
+                long installedCode = Build.VERSION.SDK_INT >= 28 ? installed.getLongVersionCode() : installed.versionCode;
+                long installedBuild = Math.max(0L, installedCode - POCKET_VERSION_CODE_OFFSET);
+                JSONObject result = new JSONObject();
+                result.put("packageName", "com.merzkava.pocket");
+                result.put("tag", tag);
+                result.put("buildNumber", buildNumber);
+                result.put("versionName", updateManifest.optString("versionName", tag));
+                result.put("commit", updateManifest.optString("commit", ""));
+                result.put("publishedAt", release.optString("published_at", ""));
+                result.put("releaseUrl", release.optString("html_url", ""));
+                result.put("apkName", apkName);
+                result.put("apkUrl", apkUrl);
+                result.put("apkSizeBytes", apkSize);
+                result.put("apkSha256", hash);
+                result.put("currentBuild", installedBuild);
+                result.put("currentVersionName", installed.versionName == null ? "" : installed.versionName);
+                result.put("hasUpdate", buildNumber > installedBuild);
+                JSONArray notes = updateManifest.optJSONArray("notes");
+                result.put("notes", notes == null ? new JSONArray() : notes);
+                result.put("releaseNotes", release.optString("body", ""));
+                payload = result.toString();
+                ok = true;
+            } catch (Exception error) {
+                errorMessage = error instanceof IOException ? error.getMessage()
+                    : "Could not check the public Pocket update release. Check your connection and try again.";
+            }
+            completeUpdateCheck(requestId, ok, payload, errorMessage);
+        }, "Pocket-Update-Check");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void completeUpdateCheck(String requestId, boolean ok, String payload, String error) {
+        if (requestId == null || requestId.trim().isEmpty()) return;
+        String script = "window.PocketNativeCallbacks && window.PocketNativeCallbacks.updateCheck("
+            + JSONObject.quote(requestId) + "," + ok + ","
+            + JSONObject.quote(payload == null ? "{}" : payload) + ","
+            + JSONObject.quote(error == null ? "" : error) + ");";
+        activity.runOnUiThread(() -> {
+            if (webView != null) webView.evaluateJavascript(script, null);
+        });
+    }
+
+    @JavascriptInterface public String startPocketUpdateDownload(String address, String fileName, String sha256) {
+        try {
+            if (address == null || fileName == null || sha256 == null ||
+                !fileName.matches("[A-Za-z0-9._-]+\\.apk") ||
+                !sha256.toLowerCase(Locale.ROOT).matches("[a-f0-9]{64}")) {
+                return new JSONObject().put("ok", false).put("message", "The Pocket update download details are invalid.").toString();
+            }
+            Uri uri = Uri.parse(address);
+            String prefix = "/" + POCKET_REPOSITORY + "/releases/download/pocket-build-";
+            if (!"https".equals(uri.getScheme()) ||
+                !"github.com".equalsIgnoreCase(uri.getHost()) ||
+                uri.getPath() == null || !uri.getPath().startsWith(prefix) ||
+                !uri.getPath().endsWith("/" + fileName)) {
+                return new JSONObject().put("ok", false).put("message", "The Pocket update download address is not trusted.").toString();
+            }
+            DownloadManager manager = (DownloadManager) activity.getSystemService(Context.DOWNLOAD_SERVICE);
+            DownloadManager.Request request = new DownloadManager.Request(uri);
+            request.setMimeType("application/vnd.android.package-archive");
+            request.setTitle("Merzkava Pocket · Update");
+            request.setDescription("Downloading " + fileName);
+            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            request.setDestinationInExternalFilesDir(activity, Environment.DIRECTORY_DOWNLOADS, fileName);
+            request.setAllowedOverMetered(true);
+            request.setAllowedOverRoaming(false);
+            long id = manager.enqueue(request);
+            if (!prefs().edit().putLong(PREF_UPDATE_DOWNLOAD_ID, id)
+                .putString(PREF_UPDATE_SHA256, sha256.toLowerCase(Locale.ROOT)).commit()) {
+                manager.remove(id);
+                return new JSONObject().put("ok", false).put("message", "Pocket could not save the update download state.").toString();
+            }
+            return new JSONObject().put("ok", true).put("downloadId", id)
+                .put("status", "queued").put("message", "Pocket update download has started.").toString();
+        } catch (Exception error) {
+            try {
+                return new JSONObject().put("ok", false)
+                    .put("message", "Pocket could not start the update download. Check available storage and try again.").toString();
+            } catch (Exception ignored) { return "{\\"ok\\":false}"; }
+        }
+    }
+
+    @JavascriptInterface public String getPocketUpdateDownloadState() {
+        JSONObject result = new JSONObject();
+        long id = prefs().getLong(PREF_UPDATE_DOWNLOAD_ID, -1L);
+        try {
+            result.put("downloadId", id);
+            if (id < 0L) return result.put("status", "idle").put("progress", 0).toString();
+            DownloadManager manager = (DownloadManager) activity.getSystemService(Context.DOWNLOAD_SERVICE);
+            Cursor cursor = manager.query(new DownloadManager.Query().setFilterById(id));
+            if (cursor == null) return result.put("status", "unknown").put("message", "Download status is unavailable.").toString();
+            try {
+                if (!cursor.moveToFirst()) return result.put("status", "unknown").put("message", "The saved update download was not found.").toString();
+                int status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
+                long downloaded = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
+                long total = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES));
+                int progress = total > 0L ? (int)Math.max(0L, Math.min(100L, Math.round(downloaded * 100.0 / total))) : 0;
+                String state = "unknown";
+                if (status == DownloadManager.STATUS_PENDING) state = "queued";
+                else if (status == DownloadManager.STATUS_RUNNING) state = "downloading";
+                else if (status == DownloadManager.STATUS_PAUSED) state = "paused";
+                else if (status == DownloadManager.STATUS_SUCCESSFUL) state = "completed";
+                else if (status == DownloadManager.STATUS_FAILED) state = "failed";
+                result.put("status", state);
+                result.put("bytesDownloaded", downloaded);
+                result.put("totalBytes", total);
+                result.put("progress", progress);
+                if (status == DownloadManager.STATUS_FAILED) {
+                    int reason = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON));
+                    result.put("reason", reason);
+                    result.put("message", "The update download failed (code " + reason + "). Check storage and connection.");
+                }
+                if (status == DownloadManager.STATUS_SUCCESSFUL) {
+                    result.put("downloadedUriAvailable", manager.getUriForDownloadedFile(id) != null);
+                }
+            } finally { cursor.close(); }
+        } catch (Exception error) {
+            try { result.put("status", "unknown").put("message", "Could not read the Pocket download state."); }
+            catch (Exception ignored) {}
+        }
+        return result.toString();
+    }
+
+    @JavascriptInterface public String installDownloadedPocketUpdate() {
+        try {
+            JSONObject state = new JSONObject(getPocketUpdateDownloadState());
+            if (!"completed".equals(state.optString("status", ""))) {
+                return new JSONObject().put("ok", false).put("message", "Download the complete Pocket update before installing it.").toString();
+            }
+            long id = state.optLong("downloadId", -1L);
+            DownloadManager manager = (DownloadManager) activity.getSystemService(Context.DOWNLOAD_SERVICE);
+            Uri apkUri = manager.getUriForDownloadedFile(id);
+            if (apkUri == null) throw new IOException("The downloaded Pocket APK could not be opened.");
+            String expected = prefs().getString(PREF_UPDATE_SHA256, "");
+            if (!expected.matches("[a-f0-9]{64}")) throw new IOException("The Pocket APK integrity record is missing.");
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            try (InputStream input = activity.getContentResolver().openInputStream(apkUri)) {
+                if (input == null) throw new IOException("The downloaded Pocket APK could not be read.");
+                byte[] buffer = new byte[16 * 1024];
+                int count;
+                while ((count = input.read(buffer)) != -1) digest.update(buffer, 0, count);
+            }
+            StringBuilder actual = new StringBuilder();
+            for (byte value : digest.digest()) actual.append(String.format(Locale.ROOT, "%02x", value & 0xff));
+            if (!expected.equalsIgnoreCase(actual.toString())) {
+                manager.remove(id);
+                prefs().edit().remove(PREF_UPDATE_DOWNLOAD_ID).remove(PREF_UPDATE_SHA256).apply();
+                throw new IOException("The downloaded APK failed its SHA-256 integrity check. The file was removed.");
+            }
+            if (Build.VERSION.SDK_INT >= 26 && !activity.getPackageManager().canRequestPackageInstalls()) {
+                Intent permission = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:" + activity.getPackageName()));
+                permission.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                activity.startActivity(permission);
+                return new JSONObject().put("ok", false).put("permissionRequired", true)
+                    .put("message", "Allow Pocket to install this verified update, then return and tap Install again.").toString();
+            }
+            Intent install = new Intent(Intent.ACTION_VIEW);
+            install.setDataAndType(apkUri, "application/vnd.android.package-archive");
+            install.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+            activity.startActivity(install);
+            return new JSONObject().put("ok", true)
+                .put("message", "Android package installer opened. Confirm the Pocket update there.").toString();
+        } catch (Exception error) {
+            String message = error instanceof IOException ? error.getMessage()
+                : "Android could not open the Pocket package installer.";
+            try { return new JSONObject().put("ok", false).put("message", message).toString(); }
+            catch (Exception ignored) { return "{\\"ok\\":false}"; }
+        }
+    }
 
     @JavascriptInterface public boolean openAudioPicker(String supportedAudioTypesJson) {
         if (!(activity instanceof MainActivity)) return false;

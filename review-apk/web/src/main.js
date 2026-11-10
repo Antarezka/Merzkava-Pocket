@@ -94,6 +94,148 @@ window.PocketNativeCallbacks = {
   }
 };
 
+
+let latestPocketUpdate = null;
+let pocketUpdateCheckBusy = false;
+let pocketUpdateStartupCheckStarted = false;
+let updateToastElement = null;
+
+function nativePocketAppInfo() {
+  try { const value=JSON.parse(native?.getPocketAppInfo?.()||"{}");return value&&typeof value==="object"?value:{}; }
+  catch { return {}; }
+}
+function nativePocketStorageInfo() {
+  try { const value=JSON.parse(native?.getPocketStorageInfo?.()||"{}");return value&&typeof value==="object"?value:{}; }
+  catch { return {}; }
+}
+function formatPocketBytes(value) {
+  const bytes=Math.max(0,Number(value)||0);
+  if(bytes<1024)return Math.round(bytes)+" B";
+  const units=["KB","MB","GB","TB"];let amount=bytes/1024,index=0;
+  while(amount>=1024&&index<units.length-1){amount/=1024;index+=1;}
+  return amount.toFixed(amount>=100?0:amount>=10?1:2)+" "+units[index];
+}
+function showPocketUpdateNotification(update) {
+  if(!update?.hasUpdate)return;
+  const build=Number(update.buildNumber)||0;if(!build)return;
+  let already=false;try{already=localStorage.getItem("mp-update-notified-build")===String(build);}catch{}
+  if(already)return;
+  try{localStorage.setItem("mp-update-notified-build",String(build));}catch{}
+  updateToastElement?.remove();
+  const toast=document.createElement("aside");
+  toast.className="pocket-update-toast";toast.setAttribute("role","status");toast.setAttribute("aria-live","polite");
+  toast.innerHTML=`
+    <span class="pocket-update-toast-emblem" aria-hidden="true"><i></i></span>
+    <div class="pocket-update-toast-copy"><small>MERZKAVA POCKET · UPDATE SIGNAL</small>
+      <strong>A new build is ready</strong>
+      <span>Build #${escapeHtml(build)} · ${escapeHtml(update.versionName||"Pocket update")} is available.</span>
+      <button type="button" data-update-toast-action>VIEW UPDATE DETAILS <b aria-hidden="true">↗</b></button>
+    </div>
+    <button type="button" class="pocket-update-toast-close" data-update-toast-close aria-label="Dismiss update notification">×</button>
+    <i class="pocket-update-toast-edge" aria-hidden="true"></i>`;
+  const dismiss=()=>{toast.classList.add("is-leaving");window.setTimeout(()=>toast.remove(),240);if(updateToastElement===toast)updateToastElement=null;};
+  toast.querySelector("[data-update-toast-close]")?.addEventListener("click",dismiss);
+  toast.querySelector("[data-update-toast-action]")?.addEventListener("click",()=>{
+    dismiss();
+    if(accessIdentity)navigate("settings");
+    else {const message=root.querySelector("[data-login-message]");if(message)message.textContent="A Pocket update is ready. Sign in, then open Settings → Pocket Update.";}
+  });
+  updateToastElement=toast;document.body.append(toast);
+}
+async function checkPocketUpdates(notifyOnAvailable=false) {
+  if(!nativeReady()||pocketUpdateCheckBusy)return latestPocketUpdate;
+  pocketUpdateCheckBusy=true;
+  try {
+    const update=await invokeNative("checkPocketUpdate",[]);
+    latestPocketUpdate=update;
+    if(notifyOnAvailable)showPocketUpdateNotification(update);
+    refreshPocketUpdatePanel();return update;
+  } catch(error) {
+    if(!latestPocketUpdate)latestPocketUpdate={error:error instanceof Error?error.message:"Update check failed."};
+    refreshPocketUpdatePanel();return null;
+  } finally {pocketUpdateCheckBusy=false;refreshPocketUpdatePanel();}
+}
+function refreshPocketUpdatePanel(downloadState=null) {
+  const panel=root.querySelector("[data-update-section]");if(!panel)return;
+  const appInfo=nativePocketAppInfo(),storage=nativePocketStorageInfo();
+  const currentBuild=Number(appInfo.buildNumber)||0,latest=latestPocketUpdate;
+  const availableBuild=Number(latest?.buildNumber)||0,hasUpdate=latest?.hasUpdate===true&&availableBuild>currentBuild;
+  const q=s=>panel.querySelector(s);
+  const set=(selector,value)=>{const node=q(selector);if(node)node.textContent=value;};
+  set("[data-update-current-build]",currentBuild?"#"+currentBuild:"UNKNOWN");
+  set("[data-update-latest-build]",availableBuild?"#"+availableBuild:"—");
+  set("[data-update-version]",latest?.versionName||appInfo.versionName||"Version information unavailable");
+  set("[data-update-size]",latest?.apkSizeBytes>0?formatPocketBytes(latest.apkSizeBytes):"—");
+  let status="CHECKING FOR UPDATES",tone="checking";
+  if(latest?.error){status="UPDATE CHECK UNAVAILABLE";tone="warning";}
+  else if(latest&&hasUpdate){status="NEW POCKET BUILD AVAILABLE";tone="available";}
+  else if(latest&&availableBuild){status="YOUR POCKET IS UP TO DATE";tone="current";}
+  else if(!nativeReady()){status="ANDROID APP REQUIRED";tone="warning";}
+  const statusNode=q("[data-update-status]");if(statusNode){statusNode.textContent=status;statusNode.dataset.tone=tone;}
+  const notesNode=q("[data-update-notes]");
+  if(notesNode){
+    const notes=Array.isArray(latest?.notes)?latest.notes:[];
+    const fallback=String(latest?.releaseNotes||"").split("\n").map(line=>line.replace(/^\s*[-*•]\s*/,"").trim()).filter(Boolean);
+    const shown=(notes.length?notes:fallback).slice(0,8);
+    notesNode.innerHTML=shown.length?shown.map(note=>"<li>"+escapeHtml(String(note))+"</li>").join("")
+      :"<li>Release notes will appear here when a new Pocket build is published.</li>";
+  }
+  const total=Number(storage.totalBytes)||0,available=Number(storage.availableBytes)||0;
+  const freePercent=Math.max(0,Math.min(100,Number(storage.freePercent)||(total>0?Math.round(available*100/total):0)));
+  const storageFill=q("[data-update-storage-fill]");if(storageFill)storageFill.style.width=freePercent+"%";
+  const storageBar=q("[data-update-storage-bar]");if(storageBar)storageBar.setAttribute("aria-valuenow",String(freePercent));
+  set("[data-update-storage-value]",total>0?freePercent+"% FREE":"UNAVAILABLE");
+  set("[data-update-storage-meta]",total>0?formatPocketBytes(available)+" free of "+formatPocketBytes(total)+" internal storage":"Internal storage information is unavailable on this device.");
+
+  let state=downloadState;
+  if(!state){try{state=JSON.parse(native?.getPocketUpdateDownloadState?.()||"{}");}catch{state={};}}
+  const running=["queued","downloading","paused"].includes(state.status),completed=state.status==="completed";
+  const area=q("[data-update-download-area]");if(area)area.hidden=!running&&!completed&&!state.message;
+  const fill=q("[data-update-progress-fill]");if(fill)fill.style.width=(Number(state.progress)||0)+"%";
+  set("[data-update-progress-value]",(Number(state.progress)||0)+"%");
+  set("[data-update-progress-meta]",completed?"DOWNLOAD COMPLETE · APK IN POCKET STORAGE":running?
+    formatPocketBytes(state.bytesDownloaded)+(state.totalBytes>0?" / "+formatPocketBytes(state.totalBytes):"")+" · "+state.status.toUpperCase():(state.message||""));
+  const download=q("[data-update-download]");
+  if(download){download.hidden=!hasUpdate||completed;download.disabled=!hasUpdate||running||!latest?.apkUrl;download.textContent=running?"DOWNLOADING…":"DOWNLOAD UPDATE";}
+  const install=q("[data-update-install]");if(install){install.hidden=!completed;install.disabled=!completed;}
+  const check=q("[data-update-check]");if(check){check.disabled=pocketUpdateCheckBusy;check.textContent=pocketUpdateCheckBusy?"CHECKING…":"CHECK AGAIN";}
+}
+function mountPocketUpdateSettings() {
+  const panel=root.querySelector("[data-update-section]");if(!panel)return()=>{};
+  const checkButton=panel.querySelector("[data-update-check]"),downloadButton=panel.querySelector("[data-update-download]"),installButton=panel.querySelector("[data-update-install]");
+  let disposed=false,pollTimer=null;
+  const refresh=()=>{
+    if(disposed)return;
+    let state={};try{state=JSON.parse(native?.getPocketUpdateDownloadState?.()||"{}");}catch{}
+    refreshPocketUpdatePanel(state);
+    if(["queued","downloading","paused"].includes(state.status)){
+      if(pollTimer===null)pollTimer=window.setInterval(()=>{
+        if(disposed)return;
+        let next={};try{next=JSON.parse(native?.getPocketUpdateDownloadState?.()||"{}");}catch{}
+        refreshPocketUpdatePanel(next);
+        if(!["queued","downloading","paused"].includes(next.status)&&pollTimer!==null){window.clearInterval(pollTimer);pollTimer=null;}
+      },850);
+    }else if(pollTimer!==null){window.clearInterval(pollTimer);pollTimer=null;}
+  };
+  const check=async()=>{if(checkButton){checkButton.disabled=true;checkButton.textContent="CHECKING…";}await checkPocketUpdates(false);refresh();};
+  const download=()=>{
+    if(!latestPocketUpdate?.apkUrl||!latestPocketUpdate?.apkSha256||!latestPocketUpdate?.apkName)return;
+    let result={};try{result=JSON.parse(native.startPocketUpdateDownload(latestPocketUpdate.apkUrl,latestPocketUpdate.apkName,latestPocketUpdate.apkSha256)||"{}");}
+    catch{result={ok:false,message:"Pocket could not start the download. Check available storage."};}
+    if(!result.ok){const status=panel.querySelector("[data-update-status]");if(status){status.textContent=result.message||"DOWNLOAD COULD NOT START";status.dataset.tone="warning";}}
+    refresh();
+  };
+  const install=()=>{
+    let result={};try{result=JSON.parse(native.installDownloadedPocketUpdate()||"{}");}
+    catch{result={ok:false,message:"Android could not open the Pocket installer."};}
+    const status=panel.querySelector("[data-update-status]");
+    if(status){status.textContent=result.message||(result.ok?"OPENING ANDROID INSTALLER":"INSTALLATION NEEDS ATTENTION");status.dataset.tone=result.ok?"available":"warning";}
+  };
+  checkButton?.addEventListener("click",check);downloadButton?.addEventListener("click",download);installButton?.addEventListener("click",install);
+  refresh();if(!latestPocketUpdate&&nativeReady())void checkPocketUpdates(false);
+  return()=>{disposed=true;checkButton?.removeEventListener("click",check);downloadButton?.removeEventListener("click",download);installButton?.removeEventListener("click",install);if(pollTimer!==null)window.clearInterval(pollTimer);};
+}
+
 function readTheme() {
   try { return localStorage.getItem("mp-theme") === "light" ? "light" : "dark"; } catch { return "dark"; }
 }
@@ -1409,6 +1551,35 @@ function renderPage(destination, transitionDuration=420) {
         <section class="visual-setting"><strong>Display Theme</strong><div class="theme-options"><button data-theme-choice="dark" aria-pressed="false">DARK THEME</button><button data-theme-choice="light" aria-pressed="false">WHITE THEME</button></div></section>
         ${paperLightControlMarkup()}
       </article>
+
+      <article class="destination-card update-section" data-update-section>
+        <div class="settings-section-heading"><i class="settings-symbol update-symbol" aria-hidden="true"></i><span>POCKET UPDATE</span><small>BUILD & DEVICE STATUS</small></div>
+        <div class="update-status-line"><i data-update-status data-tone="checking" role="status">CHECKING FOR UPDATES</i><small>PUBLIC RELEASE CHANNEL</small></div>
+        <div class="update-build-grid">
+          <div class="update-build-cell"><small>INSTALLED BUILD</small><strong data-update-current-build>—</strong><span>THIS DEVICE</span></div>
+          <div class="update-build-divider" aria-hidden="true">↗</div>
+          <div class="update-build-cell is-latest"><small>LATEST BUILD</small><strong data-update-latest-build>—</strong><span data-update-version>VERSION CHECK</span></div>
+        </div>
+        <div class="update-package-row"><span><i class="update-package-dot"></i> ANDROID APK PACKAGE</span><b data-update-size>—</b></div>
+        <section class="update-notes-block"><div class="update-subheading"><span>WHAT'S NEW</span><small>RELEASE NOTES</small></div><ul data-update-notes><li>Release notes will appear here when a new Pocket build is published.</li></ul></section>
+        <section class="update-storage-block">
+          <div class="update-subheading"><span>DEVICE STORAGE</span><small>INTERNAL · AVAILABLE SPACE</small></div>
+          <div class="update-storage-head"><strong data-update-storage-value>—</strong><span>FREE SPACE</span></div>
+          <div class="update-storage-bar" data-update-storage-bar role="progressbar" aria-label="Remaining internal device storage" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i data-update-storage-fill></i><b aria-hidden="true"></b></div>
+          <p data-update-storage-meta>Reading internal device storage…</p>
+        </section>
+        <section class="update-download-area" data-update-download-area hidden>
+          <div class="update-subheading"><span>DOWNLOAD PROGRESS</span><strong data-update-progress-value>0%</strong></div>
+          <div class="update-download-bar"><i data-update-progress-fill></i></div>
+          <small data-update-progress-meta>Preparing Pocket update…</small>
+        </section>
+        <div class="update-actions">
+          <button type="button" class="update-download-button" data-update-download hidden>DOWNLOAD UPDATE <b aria-hidden="true">↓</b></button>
+          <button type="button" class="update-install-button" data-update-install hidden>INSTALL UPDATE <b aria-hidden="true">↗</b></button>
+          <button type="button" class="update-check-button" data-update-check>CHECK AGAIN <b aria-hidden="true">⟳</b></button>
+        </div>
+        <p class="update-footnote">Updates are verified before Android opens the installer. Your installed Pocket data remains on this device.</p>
+      </article>
       <article class="destination-card audio-section" data-audio-section>
         <button type="button" class="audio-section-toggle" data-audio-toggle aria-expanded="false">
           <i class="settings-symbol audio-symbol" aria-hidden="true"></i>
@@ -1538,9 +1709,10 @@ function renderPage(destination, transitionDuration=420) {
   if(destination!=="daily-login")mountMenu();
   if(destination==="settings"){
     const menuCleanup=currentDisposer;
+    const updateCleanup=mountPocketUpdateSettings();
     const audioCleanup=mountAudioSettings();
     const legalCleanup=mountLegalNotices();
-    currentDisposer=()=>{menuCleanup?.();audioCleanup?.();legalCleanup?.();};
+    currentDisposer=()=>{menuCleanup?.();updateCleanup?.();audioCleanup?.();legalCleanup?.();};
   }
   if(destination==="economy"){
     const menuCleanup=currentDisposer;
@@ -1844,4 +2016,8 @@ window.addEventListener("pocket:android-back",()=>{
 });
 window.addEventListener("keydown",event=>{if(event.key==="Escape")window.dispatchEvent(new Event("pocket:android-back"));});
 applyTheme();
+if (!pocketUpdateStartupCheckStarted) {
+  pocketUpdateStartupCheckStarted = true;
+  void checkPocketUpdates(true);
+}
 void playStartupSplash();

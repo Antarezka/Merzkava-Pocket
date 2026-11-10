@@ -11,12 +11,14 @@ on:
   workflow_dispatch:
   # Rebuild after removing the Yuma/Fox character integration.
 permissions:
-  contents: read
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -110,6 +112,59 @@ jobs:
         shell: bash
         run: |
           rm -f "$RUNNER_TEMP/merzkava-pocket-upload.jks" "$RUNNER_TEMP/pocket-keystore-passphrase" "$RUNNER_TEMP/pocket-signing-check.csr"
+
+      - name: Publish public Pocket update release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK_PATH="dist/$POCKET_ARTIFACT_NAME.apk"
+          TAG="pocket-build-$POCKET_BUILD_NUMBER"
+          MANIFEST_PATH="dist/pocket-update.json"
+          NOTES_PATH="dist/pocket-release-notes.md"
+          PREVIOUS_TAG="$(git tag --list 'pocket-build-*' --sort=-version:refname | head -n1)"
+          if [[ -n "$PREVIOUS_TAG" ]]; then
+            NOTES_JSON="$(git log "$PREVIOUS_TAG..$GITHUB_SHA" --pretty=format:%s | jq -Rsc 'split("\n") | map(select(length > 0))')"
+          else
+            NOTES_JSON="$(git log -n 12 "$GITHUB_SHA" --pretty=format:%s | jq -Rsc 'split("\n") | map(select(length > 0))')"
+          fi
+          if [[ "$NOTES_JSON" == "[]" ]]; then
+            NOTES_JSON='["Maintenance and compatibility updates for Merzkava Pocket."]'
+          fi
+          APK_SIZE="$(stat -c%s "$APK_PATH")"
+          APK_SHA256="$(sha256sum "$APK_PATH" | awk '{print $1}')"
+          DOWNLOAD_URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$POCKET_ARTIFACT_NAME.apk"
+          jq -n \
+            --arg packageName "com.merzkava.pocket" \
+            --arg tag "$TAG" \
+            --arg versionName "$POCKET_VERSION" \
+            --arg commit "$POCKET_COMMIT" \
+            --arg apkName "$POCKET_ARTIFACT_NAME.apk" \
+            --arg downloadUrl "$DOWNLOAD_URL" \
+            --arg sha256 "$APK_SHA256" \
+            --argjson buildNumber "$POCKET_BUILD_NUMBER" \
+            --argjson apkSizeBytes "$APK_SIZE" \
+            --argjson notes "$NOTES_JSON" \
+            '{packageName:$packageName,tag:$tag,buildNumber:$buildNumber,versionName:$versionName,commit:$commit,apkName:$apkName,downloadUrl:$downloadUrl,apkSizeBytes:$apkSizeBytes,sha256:$sha256,notes:$notes}' \
+            > "$MANIFEST_PATH"
+          {
+            echo "## Merzkava Pocket Build #$POCKET_BUILD_NUMBER"
+            echo
+            echo "- Version: $POCKET_VERSION"
+            echo "- Commit: $POCKET_COMMIT"
+            echo "- APK size: $(numfmt --to=iec-i --suffix=B "$APK_SIZE")"
+            echo "- SHA-256: `$APK_SHA256`"
+            echo
+            echo "### What's new"
+            printf '%s' "$NOTES_JSON" | jq -r '.[] | "- " + .'
+            echo
+            echo "The APK is signed with the persistent Merzkava Pocket release key."
+          } > "$NOTES_PATH"
+          gh release create "$TAG" "$APK_PATH" "$MANIFEST_PATH" \
+            --title "Merzkava Pocket Build #$POCKET_BUILD_NUMBER" \
+            --notes-file "$NOTES_PATH" \
+            --latest
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ env.POCKET_ARTIFACT_NAME }}
