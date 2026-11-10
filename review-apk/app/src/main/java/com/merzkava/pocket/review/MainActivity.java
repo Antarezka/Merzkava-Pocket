@@ -245,6 +245,13 @@ public final class MainActivity extends Activity {
         ));
     }
 
+    @Override protected void onPause() {
+        // Give the WebView audio controller an early signal before Android
+        // backgrounds the Activity behind Pocket's floating bubble.
+        dispatchNativeEvent("pocket:native-pause");
+        super.onPause();
+    }
+
     @Override protected void onResume() {
         super.onResume();
         Thread buildRecord = new Thread(
