@@ -43,7 +43,7 @@ jstring makeError(JNIEnv* env, const char* message) {
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_merz_kawa_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jclass) {
+Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jclass) {
     std::lock_guard<std::mutex> lock(gMutex);
     if (gInitialized) return JNI_TRUE;
 
@@ -109,7 +109,7 @@ fail:
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_merz_kawa_pocket_review_PocketCriAudioRuntime_nativeShutdown(JNIEnv*, jclass) {
+Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeShutdown(JNIEnv*, jclass) {
     std::lock_guard<std::mutex> lock(gMutex);
     if (!gInitialized) return;
     for (int index = 0; index < kChannelCount; ++index) {
@@ -130,7 +130,7 @@ Java_com_merz_kawa_pocket_review_PocketCriAudioRuntime_nativeShutdown(JNIEnv*, j
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_merz_kawa_pocket_review_PocketCriAudioRuntime_nativePlayFile(
+Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativePlayFile(
         JNIEnv* env, jclass, jint channel, jstring pathValue, jint format, jfloat volume, jboolean loop) {
     if (!validChannel(channel) || pathValue == nullptr) return JNI_FALSE;
     const char* pathChars = env->GetStringUTFChars(pathValue, nullptr);
@@ -153,7 +153,7 @@ Java_com_merz_kawa_pocket_review_PocketCriAudioRuntime_nativePlayFile(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_merz_kawa_pocket_review_PocketCriAudioRuntime_nativeStop(JNIEnv*, jclass, jint channel) {
+Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeStop(JNIEnv*, jclass, jint channel) {
     if (!validChannel(channel)) return;
     std::lock_guard<std::mutex> lock(gMutex);
     if (gInitialized && gPlayers[channel] != nullptr) {
@@ -163,7 +163,7 @@ Java_com_merz_kawa_pocket_review_PocketCriAudioRuntime_nativeStop(JNIEnv*, jclas
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_merz_kawa_pocket_review_PocketCriAudioRuntime_nativePause(JNIEnv*, jclass, jint channel, jboolean paused) {
+Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativePause(JNIEnv*, jclass, jint channel, jboolean paused) {
     if (!validChannel(channel)) return;
     std::lock_guard<std::mutex> lock(gMutex);
     if (gInitialized && gPlayers[channel] != nullptr) {
@@ -172,7 +172,7 @@ Java_com_merz_kawa_pocket_review_PocketCriAudioRuntime_nativePause(JNIEnv*, jcla
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_merz_kawa_pocket_review_PocketCriAudioRuntime_nativeSetVolume(JNIEnv*, jclass, jint channel, jfloat volume) {
+Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeSetVolume(JNIEnv*, jclass, jint channel, jfloat volume) {
     if (!validChannel(channel)) return;
     std::lock_guard<std::mutex> lock(gMutex);
     if (gInitialized && gPlayers[channel] != nullptr) {
@@ -185,7 +185,7 @@ Java_com_merz_kawa_pocket_review_PocketCriAudioRuntime_nativeSetVolume(JNIEnv*, 
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_merz_kawa_pocket_review_PocketCriAudioRuntime_nativeGetStatus(JNIEnv*, jclass, jint channel) {
+Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeGetStatus(JNIEnv*, jclass, jint channel) {
     if (!validChannel(channel)) return 4;
     std::lock_guard<std::mutex> lock(gMutex);
     if (!gInitialized || gPlayers[channel] == nullptr) return 0;
