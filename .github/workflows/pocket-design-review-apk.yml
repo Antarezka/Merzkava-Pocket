@@ -41,6 +41,30 @@ jobs:
       - name: Build Pocket web shell
         working-directory: review-apk
         run: npm run build
+      - name: Verify native BGM migration and packaged source tracks
+        shell: bash
+        run: |
+          set -euo pipefail
+          AUDIO_PLAYER="review-apk/web/src/audio-player.js"
+          MAIN_ENTRY="review-apk/web/src/main.js"
+          MANIFEST="review-apk/app/src/main/AndroidManifest.xml"
+          GRADLE="review-apk/app/build.gradle.kts"
+          SERVICE="review-apk/app/src/main/java/com/merzkava/pocket/review/PocketMediaPlaybackService.java"
+          test -s "$AUDIO_PLAYER"
+          test -s "$MAIN_ENTRY"
+          test -s "$SERVICE"
+          grep -Fq "createNativePocketAudioController" "$AUDIO_PLAYER"
+          grep -Fq "createPocketAudioController" "$MAIN_ENTRY"
+          grep -Fq "PocketMediaPlaybackService" "$MANIFEST"
+          grep -Fq 'android:foregroundServiceType="mediaPlayback"' "$MANIFEST"
+          grep -Fq "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" "$MANIFEST"
+          grep -Fq "androidx.media3:media3-exoplayer" "$GRADLE"
+          grep -Fq "androidx.media3:media3-session" "$GRADLE"
+          for track in Happy-1a.ogg chill-1a.ogg Retroatrical-1.ogg Retroatrical-2.ogg; do
+            test -s "review-apk/dist/audio/$track"
+          done
+          test -s "review-apk/dist/audio/vinyl-surface-noise.ogg"
+          echo "Native Media3 BGM controller, service, permissions, and all built-in audio assets are present."
       - name: Render CSS launcher icon with Takumi
         working-directory: review-apk
         run: npm run render:launcher-icon
@@ -99,6 +123,16 @@ jobs:
           POCKET_KEY_ALIAS: ${{ env.POCKET_KEY_ALIAS }}
           POCKET_KEY_PASSWORD: ${{ secrets.POCKET_SIGNING_PASSWORD }}
         run: gradle --no-daemon :app:assembleDebug -PpocketVersion="$POCKET_VERSION" -PpocketVersionCode="$((10000 + GITHUB_RUN_NUMBER))"
+      - name: Verify native BGM files inside the final APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="review-apk/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          for track in Happy-1a.ogg chill-1a.ogg Retroatrical-1.ogg Retroatrical-2.ogg vinyl-surface-noise.ogg; do
+            unzip -Z1 "$APK" | grep -Fx "assets/audio/$track" >/dev/null
+          done
+          echo "All built-in music and vinyl ambience assets are packaged in the APK."
       - name: Verify APK package and signature
         run: |
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "review-apk/app/build/outputs/apk/debug/app-debug.apk"
