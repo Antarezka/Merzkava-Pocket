@@ -12,6 +12,8 @@ const EFFECTS = Object.freeze({
 
 export const VINYL_SURFACE_NOISE_SRC = "/audio/vinyl-surface-noise.ogg";
 const VINYL_SURFACE_NOISE_GAIN = 0.16;
+const MUSIC_FADE_DURATION_MS = 2200;
+const MUSIC_FADE_TICK_MS = 24;
 
 export const SUPPORTED_AUDIO_EXTENSIONS = Object.freeze([
   "ogg", "oga", "opus", "mp3", "wav", "wave", "m4a", "aac", "flac", "3gp", "amr"
@@ -46,7 +48,10 @@ export function createPocketAudioController({
   storage = globalThis.localStorage,
   onChange = () => {},
   onPlaybackCycle = () => {},
-  customTracks = []
+  customTracks = [],
+  now = () => Date.now(),
+  setIntervalFn = globalThis.setInterval,
+  clearIntervalFn = globalThis.clearInterval
 } = {}) {
   if (typeof AudioCtor !== "function") throw new Error("Audio playback is unavailable.");
 
@@ -91,14 +96,17 @@ export function createPocketAudioController({
   let needleStarting = false;
   let needleToken = 0;
   let activeNeedleEffect = null;
-  let lastPlaybackTime = 0;
   let lastPlaybackDuration = 0;
   let lastCycleNotification = 0;
   let vinylNoiseStartToken = 0;
+  let musicFadeGain = 1;
+  let musicFadeTimer = null;
+  let musicFadeToken = 0;
+  let endFadeStarted = false;
 
   const music = new AudioCtor(trackCatalog[selectedTrack].src);
   music.preload = "auto";
-  music.loop = true;
+  music.loop = false;
   music.volume = musicVolume / 100;
   // Dedicated ambience bed: independent of needle-drop and record-placement SFX.
   const vinylSurfaceNoise = new AudioCtor(VINYL_SURFACE_NOISE_SRC);
@@ -108,6 +116,35 @@ export function createPocketAudioController({
 
   const notify = () => onChange(getState());
   const isPlaying = () => music.paused === false && music.ended !== true;
+  const applyMusicVolume = () => {
+    music.volume = (musicVolume / 100) * musicFadeGain;
+  };
+  const stopMusicFade = () => {
+    musicFadeToken += 1;
+    if (musicFadeTimer !== null) clearIntervalFn(musicFadeTimer);
+    musicFadeTimer = null;
+  };
+  const animateMusicFade = (targetGain, durationMs = MUSIC_FADE_DURATION_MS) => {
+    stopMusicFade();
+    const token = musicFadeToken;
+    const fromGain = musicFadeGain;
+    const startedAt = now();
+    const tick = () => {
+      if (token !== musicFadeToken) return;
+      const progress = durationMs <= 0
+        ? 1
+        : Math.max(0, Math.min(1, (now() - startedAt) / durationMs));
+      const eased = progress * progress * (3 - 2 * progress);
+      musicFadeGain = fromGain + (targetGain - fromGain) * eased;
+      applyMusicVolume();
+      if (progress >= 1) {
+        if (musicFadeTimer !== null) clearIntervalFn(musicFadeTimer);
+        musicFadeTimer = null;
+      }
+    };
+    musicFadeTimer = setIntervalFn(tick, MUSIC_FADE_TICK_MS);
+    tick();
+  };
   const stopVinylSurfaceNoise = () => {
     // Invalidate any pending play() resolution before stopping and rewinding the ambience bed.
     vinylNoiseStartToken += 1;
@@ -166,12 +203,18 @@ export function createPocketAudioController({
       stopVinylSurfaceNoise();
       return false;
     }
+    stopMusicFade();
+    musicFadeGain = 0;
+    endFadeStarted = false;
+    applyMusicVolume();
     try {
       await music.play();
+      animateMusicFade(1, MUSIC_FADE_DURATION_MS);
       syncVinylSurfaceNoise();
       notify();
       return true;
     } catch {
+      stopMusicFade();
       stopVinylSurfaceNoise();
       notify();
       return false;
@@ -196,44 +239,55 @@ export function createPocketAudioController({
   });
 
   const reportPlaybackCycle = () => {
-    const stamp = Date.now();
+    const stamp = now();
     if (stamp - lastCycleNotification < 900) return;
     lastCycleNotification = stamp;
-    lastPlaybackTime = 0;
     lastPlaybackDuration = Number.isFinite(music.duration) ? music.duration : 0;
     try { onPlaybackCycle({ track: selectedTrack, title: trackCatalog[selectedTrack].title }); } catch {}
     notify();
   };
 
+  const handleMusicEnded = () => {
+    stopMusicFade();
+    musicFadeGain = 0;
+    applyMusicVolume();
+    endFadeStarted = false;
+    try { music.currentTime = 0; } catch {}
+    reportPlaybackCycle();
+    if (menuEntered && !userPaused) void startMusic();
+  };
+
   music.addEventListener?.("play", () => {
-    lastPlaybackTime = Number(music.currentTime) || 0;
     lastPlaybackDuration = Number.isFinite(music.duration) ? music.duration : 0;
     syncVinylSurfaceNoise();
     notify();
   });
   music.addEventListener?.("pause", () => {
-    // Ignore a stale pause event if the track has already resumed.
     if (isPlaying()) syncVinylSurfaceNoise();
-    else stopVinylSurfaceNoise();
+    else if (!(endFadeStarted && menuEntered && !userPaused)) stopVinylSurfaceNoise();
     notify();
   });
-  music.addEventListener?.("ended", reportPlaybackCycle);
+  music.addEventListener?.("ended", handleMusicEnded);
   music.addEventListener?.("error", () => {
+    stopMusicFade();
     stopVinylSurfaceNoise();
     notify();
   });
   music.addEventListener?.("emptied", stopVinylSurfaceNoise);
-  // Looping HTMLAudioElements do not fire "ended". Detect the natural wrap at the end
-  // of a complete song so the record label still changes at every playback cycle.
   music.addEventListener?.("timeupdate", () => {
     const current = Number(music.currentTime) || 0;
-    const duration = Number(music.duration) || lastPlaybackDuration;
-    if (Number.isFinite(duration) && duration > 1 && lastPlaybackTime > current + 0.25 &&
-        lastPlaybackTime >= duration - 1.4 && current <= 1.4) {
-      reportPlaybackCycle();
+    const actualDuration = Number(music.duration);
+    const duration = Number.isFinite(actualDuration) && actualDuration > 0
+      ? actualDuration
+      : lastPlaybackDuration;
+    if (Number.isFinite(duration) && duration > 1) {
+      const fadeDurationMs = Math.min(MUSIC_FADE_DURATION_MS, Math.max(500, duration * 200));
+      if (duration - current <= fadeDurationMs / 1000 && !endFadeStarted) {
+        endFadeStarted = true;
+        animateMusicFade(0, fadeDurationMs);
+      }
+      lastPlaybackDuration = duration;
     }
-    lastPlaybackTime = current;
-    if (Number.isFinite(music.duration) && music.duration > 0) lastPlaybackDuration = music.duration;
   });
 
   function getState() {
@@ -264,6 +318,10 @@ export function createPocketAudioController({
   function pauseForSplash() {
     resumeAfterSplash = isPlaying();
     cancelNeedleStart();
+    stopMusicFade();
+    musicFadeGain = 0;
+    endFadeStarted = false;
+    applyMusicVolume();
     stopVinylSurfaceNoise();
     music.pause();
     notify();
@@ -271,6 +329,10 @@ export function createPocketAudioController({
 
   function resetSession() {
     cancelNeedleStart();
+    stopMusicFade();
+    musicFadeGain = 0;
+    endFadeStarted = false;
+    applyMusicVolume();
     stopVinylSurfaceNoise();
     music.pause();
     menuEntered = false;
@@ -282,15 +344,18 @@ export function createPocketAudioController({
   function selectTrack(id) {
     if (!Object.hasOwn(trackCatalog, id) || id === selectedTrack) return false;
     cancelNeedleStart();
+    stopMusicFade();
+    musicFadeGain = 0;
+    endFadeStarted = false;
+    applyMusicVolume();
     stopVinylSurfaceNoise();
     music.pause();
     music.currentTime = 0;
-    lastPlaybackTime = 0;
     lastPlaybackDuration = 0;
     selectedTrack = id;
     userPaused = true;
     music.src = trackCatalog[selectedTrack].src;
-    music.loop = true;
+    music.loop = false;
     music.load?.();
     write("mp-audio-track", selectedTrack);
     notify();
@@ -324,6 +389,10 @@ export function createPocketAudioController({
     if (isPlaying() || needleStarting) {
       cancelNeedleStart();
       userPaused = true;
+      stopMusicFade();
+      musicFadeGain = 0;
+      endFadeStarted = false;
+      applyMusicVolume();
       stopVinylSurfaceNoise();
       music.pause();
       notify();
@@ -334,7 +403,7 @@ export function createPocketAudioController({
 
   function setMusicVolume(value) {
     musicVolume = clampVolume(value);
-    music.volume = musicVolume / 100;
+    applyMusicVolume();
     write("mp-audio-music-volume", musicVolume);
     notify();
   }
@@ -351,12 +420,16 @@ export function createPocketAudioController({
     normalizeCustomTracks(entries);
     if (!Object.hasOwn(trackCatalog, selectedTrack)) {
       const resumeBuiltIn = menuEntered && isPlaying() && !userPaused;
+      stopMusicFade();
+      musicFadeGain = 0;
+      endFadeStarted = false;
+      applyMusicVolume();
       stopVinylSurfaceNoise();
       music.pause();
       selectedTrack = "happy";
       music.currentTime = 0;
       music.src = trackCatalog.happy.src;
-      music.loop = true;
+      music.loop = false;
       music.load?.();
       write("mp-audio-track", selectedTrack);
       if (resumeBuiltIn) void startMusic();

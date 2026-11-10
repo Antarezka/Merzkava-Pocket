@@ -23,6 +23,7 @@ class FakeAudio {
   dispatch(name) { for (const callback of [...(this.listeners.get(name) || [])]) callback(); }
   play() {
     this.paused = false;
+    this.ended = false;
     this.dispatch("play");
     if (this.src.includes("needle%20drop")) {
       queueMicrotask(() => {
@@ -294,16 +295,21 @@ test("lifting the needle during the crackle cancels the pending music start", as
 });
 
 
-test("vinyl art rotates when a looping music track completes a full cycle", () => {
+test("vinyl art rotates when a track ends and Pocket starts its next faded cycle", async () => {
   let cycles = 0;
   const { audio } = harness({}, { onPlaybackCycle: () => { cycles += 1; } });
   audio.enterMainMenu();
   const music = FakeAudio.instances[0];
-  music.currentTime = 99.2;
-  music.dispatch("timeupdate");
-  music.currentTime = 0.15;
-  music.dispatch("timeupdate");
+  assert.equal(music.loop, false);
+  music.currentTime = music.duration;
+  music.ended = true;
+  music.paused = true;
+  music.dispatch("ended");
+  await Promise.resolve();
   assert.equal(cycles, 1);
+  assert.equal(music.currentTime, 0);
+  assert.equal(music.paused, false);
+  assert.equal(music.volume, 0);
 });
 
 test("all twenty vinyl label designs are available and manually selectable", () => {
@@ -350,6 +356,93 @@ test("a manual style returns to automatic random rotation after a track cycle", 
   assert.equal(design.getState().mode, "auto");
   assert.notEqual(design.getState().id, "r20");
   assert.equal(design.getState().reason, "track-end");
+});
+
+
+function makeAudioFadeClock() {
+  let time = 0;
+  let nextId = 0;
+  const intervals = new Map();
+  return {
+    now: () => time,
+    setInterval: callback => {
+      const id = ++nextId;
+      intervals.set(id, callback);
+      return id;
+    },
+    clearInterval: id => intervals.delete(id),
+    advance(milliseconds) {
+      time += milliseconds;
+      for (const callback of [...intervals.values()]) callback();
+    },
+    pending: () => intervals.size
+  };
+}
+
+test("BGM fades in, fades out near the end, and restarts with a smooth fade-in", async () => {
+  const clock = makeAudioFadeClock();
+  let cycles = 0;
+  const { audio } = harness({}, {
+    now: clock.now,
+    setIntervalFn: clock.setInterval,
+    clearIntervalFn: clock.clearInterval,
+    onPlaybackCycle: () => { cycles += 1; }
+  });
+  audio.enterMainMenu();
+  const music = FakeAudio.instances[0];
+  assert.equal(music.loop, false);
+  assert.equal(music.volume, 0);
+  await Promise.resolve();
+
+  clock.advance(1100);
+  assert.ok(music.volume > 0 && music.volume < 0.68);
+  clock.advance(1100);
+  assert.ok(Math.abs(music.volume - 0.68) < 0.001);
+
+  music.currentTime = 98;
+  music.dispatch("timeupdate");
+  clock.advance(1100);
+  assert.ok(music.volume > 0 && music.volume < 0.68);
+  clock.advance(1100);
+  assert.equal(music.volume, 0);
+
+  music.currentTime = music.duration;
+  music.ended = true;
+  music.paused = true;
+  music.dispatch("ended");
+  await Promise.resolve();
+  assert.equal(cycles, 1);
+  assert.equal(music.currentTime, 0);
+  assert.equal(music.paused, false);
+  assert.equal(music.volume, 0);
+
+  clock.advance(1100);
+  assert.ok(music.volume > 0 && music.volume < 0.68);
+  clock.advance(1100);
+  assert.ok(Math.abs(music.volume - 0.68) < 0.001);
+});
+
+test("manually pausing during the end fade cancels its timer and stops only the vinyl ambience bed", async () => {
+  const clock = makeAudioFadeClock();
+  const { audio } = harness({}, {
+    now: clock.now,
+    setIntervalFn: clock.setInterval,
+    clearIntervalFn: clock.clearInterval
+  });
+  audio.enterMainMenu();
+  const music = FakeAudio.instances[0];
+  const noise = FakeAudio.instances.find(item => item.src === VINYL_SURFACE_NOISE_SRC);
+  await Promise.resolve();
+  clock.advance(2200);
+  music.currentTime = 99;
+  music.dispatch("timeupdate");
+  assert.equal(clock.pending(), 1);
+
+  await audio.toggleNeedle();
+  assert.equal(music.paused, true);
+  assert.equal(music.volume, 0);
+  assert.equal(noise.paused, true);
+  assert.equal(clock.pending(), 0);
 });
 
 test("vinyl ambience stops explicitly even when the music element is already paused", () => {
