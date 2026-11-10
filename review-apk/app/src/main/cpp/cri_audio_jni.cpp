@@ -14,7 +14,7 @@
 
 namespace {
 constexpr const char* kTag = "PocketCriAudio";
-constexpr int kChannelCount = 4;
+constexpr int kChannelCount = 6;
 constexpr int kFormatAdx = 1;
 constexpr int kFormatWave = 2;
 
