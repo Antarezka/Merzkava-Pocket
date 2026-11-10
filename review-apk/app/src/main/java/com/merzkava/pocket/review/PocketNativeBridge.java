@@ -90,6 +90,8 @@ public final class PocketNativeBridge {
     static final String PREF_UPDATE_FILE_NAME = "pocket_update_file_name_v1";
     static final String PREF_UPDATE_BUILD_NUMBER = "pocket_update_build_number_v1";
     private static final String PREF_UPDATE_NOTIFIED_BUILD = "pocket_update_notified_build_v1";
+    private static final String PREF_UPDATE_URL = "pocket_update_download_url_v1";
+    private static final String PREF_UPDATE_NOTIFICATION_THEME = "pocket_update_notification_theme_v1";
     private static final String PREF_CUSTOM_MUSIC_LIBRARY = "pocket_custom_music_library_v1";
     private static final long MAX_CUSTOM_MUSIC_BYTES = 64L * 1024L * 1024L;
     private static final String UPDATE_NOTIFICATION_CHANNEL_ID = "merzkava-pocket-updates";
@@ -299,9 +301,15 @@ public final class PocketNativeBridge {
     }
 
     @JavascriptInterface public boolean showPocketUpdateNotification(
-        int buildNumber, String versionName, String releaseDetails, String theme, long apkSizeBytes) {
-        if (buildNumber <= 0 || !notificationsGranted()) return false;
+        int buildNumber, String versionName, String releaseDetails, String theme, long apkSizeBytes,
+        String apkUrl, String apkName, String apkSha256) {
+        if (buildNumber <= 0 || !notificationsGranted() || apkUrl == null || apkName == null || apkSha256 == null) return false;
         try {
+            Uri updateUri = Uri.parse(apkUrl);
+            String expectedUpdatePath = "/" + POCKET_REPOSITORY + "/releases/download/pocket-build-" + buildNumber + "/" + apkName;
+            if (!"https".equals(updateUri.getScheme()) || !"github.com".equalsIgnoreCase(updateUri.getHost()) ||
+                !expectedUpdatePath.equals(updateUri.getPath()) || !apkName.matches("Merzkava-Pocket-Build-[0-9]+-[A-Za-z0-9._-]+\\.apk") ||
+                !apkSha256.toLowerCase(Locale.ROOT).matches("[a-f0-9]{64}")) return false;
             if (prefs().getInt(PREF_UPDATE_NOTIFIED_BUILD, 0) == buildNumber) return false;
             NotificationManager manager = (NotificationManager) activity.getSystemService(Context.NOTIFICATION_SERVICE);
             if (manager == null || !manager.areNotificationsEnabled()) return false;
@@ -326,6 +334,7 @@ public final class PocketNativeBridge {
             String details = notificationText(releaseDetails, 420);
             if (details.isEmpty()) details = "A new Merzkava Pocket build is ready. Open Pocket Settings to review and install it.";
             String size = humanReadableUpdateSize(apkSizeBytes);
+            prefs().edit().putString(PREF_UPDATE_NOTIFICATION_THEME, light ? "light" : "dark").apply();
 
             RemoteViews compact = new RemoteViews(activity.getPackageName(), R.layout.pocket_update_notification_compact);
             RemoteViews expanded = new RemoteViews(activity.getPackageName(), R.layout.pocket_update_notification_expanded);
@@ -340,6 +349,20 @@ public final class PocketNativeBridge {
                     PendingIntent.FLAG_UPDATE_CURRENT |
                     (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0));
             }
+
+            Intent downloadIntent = new Intent(activity, MainActivity.class);
+            downloadIntent.setAction(MainActivity.ACTION_DOWNLOAD_UPDATE);
+            downloadIntent.setData(Uri.parse("merzkava-pocket://update-download/" + buildNumber));
+            downloadIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            downloadIntent.putExtra(MainActivity.EXTRA_UPDATE_URL, apkUrl);
+            downloadIntent.putExtra(MainActivity.EXTRA_UPDATE_FILE_NAME, apkName);
+            downloadIntent.putExtra(MainActivity.EXTRA_UPDATE_SHA256, apkSha256);
+            downloadIntent.putExtra(MainActivity.EXTRA_UPDATE_BUILD, buildNumber);
+            PendingIntent downloadUpdate = PendingIntent.getActivity(activity, UPDATE_NOTIFICATION_ID + 1,
+                downloadIntent, PendingIntent.FLAG_UPDATE_CURRENT |
+                    (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0));
+            compact.setOnClickPendingIntent(R.id.pocket_update_notification_action, downloadUpdate);
+            expanded.setOnClickPendingIntent(R.id.pocket_update_notification_action, downloadUpdate);
 
             Notification.Builder builder = Build.VERSION.SDK_INT >= 26
                 ? new Notification.Builder(activity, UPDATE_NOTIFICATION_CHANNEL_ID)
@@ -383,7 +406,10 @@ public final class PocketNativeBridge {
         views.setTextViewText(R.id.pocket_update_notification_eyebrow, "UPDATE NOTICE");
         views.setTextViewText(R.id.pocket_update_notification_title, "A new build is ready");
         views.setTextViewText(R.id.pocket_update_notification_build, "BUILD #" + buildNumber + "  ·  " + version);
-        views.setTextViewText(R.id.pocket_update_notification_summary, "APK " + size + "  ·  Open Pocket Settings to install");
+        views.setTextViewText(R.id.pocket_update_notification_summary, "APK " + size + "  ·  Download directly from this notice");
+        views.setTextViewText(R.id.pocket_update_notification_action, "DOWNLOAD UPDATE");
+        views.setViewVisibility(R.id.pocket_update_notification_progress, android.view.View.GONE);
+        views.setViewVisibility(R.id.pocket_update_notification_action, android.view.View.VISIBLE);
         views.setTextColor(R.id.pocket_update_notification_brand, accent);
         views.setTextColor(R.id.pocket_update_notification_eyebrow, muted);
         views.setTextColor(R.id.pocket_update_notification_title, foreground);
@@ -571,7 +597,7 @@ public final class PocketNativeBridge {
             }
         }
         preferences.edit().remove(PREF_UPDATE_DOWNLOAD_ID).remove(PREF_UPDATE_SHA256)
-            .remove(PREF_UPDATE_FILE_NAME).remove(PREF_UPDATE_BUILD_NUMBER).commit();
+            .remove(PREF_UPDATE_FILE_NAME).remove(PREF_UPDATE_BUILD_NUMBER).remove(PREF_UPDATE_URL).commit();
     }
 
     private void removePocketApkFilesExcept(int keepBuildNumber) {
@@ -622,6 +648,7 @@ public final class PocketNativeBridge {
                  "paused".equals(existingStatus) || "completed".equals(existingStatus))) {
                 existing.put("ok", true);
                 existing.put("message", "This build already has a download. Pocket has restored its current progress.");
+                startPocketUpdateProgressService();
                 return existing.toString();
             }
 
@@ -634,7 +661,8 @@ public final class PocketNativeBridge {
             request.setMimeType("application/vnd.android.package-archive");
             request.setTitle("Merzkava Pocket · Build #" + buildNumber);
             request.setDescription("Downloading " + fileName);
-            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            // Pocket owns the branded progress notification; keep the system DownloadManager notice hidden.
+            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_HIDDEN);
             request.setDestinationInExternalFilesDir(activity, Environment.DIRECTORY_DOWNLOADS, fileName);
             request.setAllowedOverMetered(true);
             request.setAllowedOverRoaming(false);
@@ -642,11 +670,13 @@ public final class PocketNativeBridge {
             if (!prefs().edit().putLong(PREF_UPDATE_DOWNLOAD_ID, id)
                 .putString(PREF_UPDATE_SHA256, sha256.toLowerCase(Locale.ROOT))
                 .putString(PREF_UPDATE_FILE_NAME, fileName)
+                .putString(PREF_UPDATE_URL, address)
                 .putInt(PREF_UPDATE_BUILD_NUMBER, buildNumber).commit()) {
                 manager.remove(id);
                 clearPocketUpdateDownloadState();
                 return new JSONObject().put("ok", false).put("message", "Pocket could not save the new build download state.").toString();
             }
+            startPocketUpdateProgressService();
             return new JSONObject().put("ok", true).put("downloadId", id).put("buildNumber", buildNumber)
                 .put("status", "queued").put("progress", 0).put("bytesDownloaded", 0).put("totalBytes", 0)
                 .put("message", "Pocket Build #" + buildNumber + " download has started.").toString();
@@ -883,6 +913,16 @@ public final class PocketNativeBridge {
     private void startPocketService(Intent intent) {
         if (Build.VERSION.SDK_INT >= 26) activity.startForegroundService(intent);
         else activity.startService(intent);
+    }
+
+    private void startPocketUpdateProgressService() {
+        try {
+            Intent intent = new Intent(activity, PocketUpdateProgressService.class);
+            if (Build.VERSION.SDK_INT >= 26) activity.startForegroundService(intent);
+            else activity.startService(intent);
+        } catch (Exception error) {
+            android.util.Log.w("PocketUpdate", "Could not start the branded update progress notification.", error);
+        }
     }
 
     private boolean overlayGranted() {
