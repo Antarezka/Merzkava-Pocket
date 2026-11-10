@@ -213,11 +213,13 @@ test("The turntable motor eases up to LP speed and brakes smoothly", async () =>
   motion.dispose();
 });
 
-test("Continuous file loops are restarted by the native CRI server, not Java UI polling", () => {
-  const server = nativeSource.indexOf("gServerThread = std::thread");
-  const loopCheck = nativeSource.indexOf("CRIATOMEXPLAYER_STATUS_PLAYEND", server);
+test("Continuous file loops use a native monitor while CRI owns its MULTI server thread", () => {
+  const monitor = nativeSource.indexOf("gLoopMonitorThread = std::thread");
+  const loopCheck = nativeSource.indexOf("CRIATOMEXPLAYER_STATUS_PLAYEND", monitor);
   const uiStatus = nativeSource.indexOf("Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeGetStatus");
-  assert.ok(server >= 0 && loopCheck > server && uiStatus > loopCheck);
+  assert.ok(monitor >= 0 && loopCheck > monitor && uiStatus > loopCheck);
+  assert.match(nativeSource, /CRI default configuration uses the MULTI thread model/);
+  assert.doesNotMatch(nativeSource, /criAtomEx_ExecuteMain\s*\(/);
   assert.ok(nativeSource.includes("++gLoopCycleCounts[channel]"));
   assert.match(runtimeSource, /nativeTakeLoopCycles\(channel\)/);
 });
