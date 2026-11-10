@@ -130,6 +130,14 @@ jobs:
             echo "::error::An app module bypasses the centralized Pocket audio controller."
             exit 1
           fi
+          if grep -R -n -E "\\b(MediaPlayer|SoundPool|AudioTrack|MediaRecorder)\\b" review-apk/app/src/main/java; then
+            echo "::error::A second Android playback engine was found. CRI AtomEx must own all audio output."
+            exit 1
+          fi
+          if grep -R -n -E "(this|scene|game)\\.sound\\.(play|add)|new[[:space:]]+Phaser\\.Sound" review-apk/web/src; then
+            echo "::error::A Phaser sound path bypasses the CRI audio handler."
+            exit 1
+          fi
           for asset in Happy-1a.adx chill-1a.adx Retroatrical-1.adx Retroatrical-2.adx needle-drop.adx record-placement.adx vinyl-surface-noise.adx; do
             test -s "review-apk/web/public/cri-audio/$asset"
           done
