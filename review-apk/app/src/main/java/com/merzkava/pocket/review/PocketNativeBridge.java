@@ -119,8 +119,7 @@ public final class PocketNativeBridge {
         return true;
     }
 
-    // Single CRI command surface. No WebView MediaPlayer/AudioContext or
-    // parallel legacy bridge methods are exposed to the application layer.
+    // Single CRI command surface for every application-layer audio request.
     @JavascriptInterface public boolean criPlayTrack(String trackId) {
         return criAudio.playTrack(trackId);
     }
