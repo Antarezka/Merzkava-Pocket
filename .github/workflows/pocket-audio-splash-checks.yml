@@ -1,0 +1,46 @@
+name: Pocket audio and fox splash checks
+
+on:
+  push:
+    branches:
+      - fix/build239-manual-audio-floating-fox-splash
+    paths:
+      - "review-apk/**"
+      - ".github/workflows/pocket-audio-splash-checks.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Pocket
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Pocket dependencies
+        working-directory: review-apk
+        run: npm install
+
+      - name: Run complete Pocket test suite
+        working-directory: review-apk
+        run: npm test
+
+      - name: Build Pocket web assets
+        working-directory: review-apk
+        run: npm run build
+
+      - name: Verify fox splash assets are packaged
+        shell: bash
+        run: |
+          set -euo pipefail
+          for asset in "Based 0.png" "Based 1.png" "Based 2.png" "based 3.png" "ear 1.png" "ear 2.png" "floating blue-apple.png"; do
+            test -s "review-apk/web/public/splash-screen/fox-girl/$asset"
+            test -s "review-apk/dist/splash-screen/fox-girl/$asset"
+          done
+          echo "All seven fox splash PNG layers were copied into the web build."
