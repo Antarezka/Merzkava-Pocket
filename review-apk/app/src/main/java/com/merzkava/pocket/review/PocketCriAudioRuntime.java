@@ -48,7 +48,7 @@ public final class PocketCriAudioRuntime {
         BUILT_IN.put("chill", "chill-1a.adx");
         BUILT_IN.put("retroatrical1", "Retroatrical-1.adx");
         BUILT_IN.put("retroatrical2", "Retroatrical-2.adx");
-        BUILT_IN.put("vinyl-surface-noise", "vinyl-surface-noise.adx");
+        BUILT_IN.put("vinyl-crackle", "vinyl-surface-noise.adx");
         BUILT_IN.put("stylus-drop", "needle-drop.adx");
         BUILT_IN.put("record-placement", "record-placement.adx");
         BUILT_IN.put("door-chime", "door-chime.adx");
@@ -283,7 +283,7 @@ public final class PocketCriAudioRuntime {
             format = FORMAT_WAVE;
         } else {
             String asset = BUILT_IN.get(id);
-            if (asset == null || id.equals("vinyl-surface-noise") || id.equals("stylus-drop") || id.equals("record-placement")) return false;
+            if (asset == null || id.equals("vinyl-crackle") || id.equals("stylus-drop") || id.equals("record-placement")) return false;
             file = new File(new File(activity.getFilesDir(), "cri-audio"), asset);
             format = FORMAT_ADX;
         }
@@ -339,7 +339,7 @@ public final class PocketCriAudioRuntime {
 
     public boolean playAmbience() {
         if (!initialize()) return false;
-        File file = new File(new File(activity.getFilesDir(), "cri-audio"), BUILT_IN.get("vinyl-surface-noise"));
+        File file = new File(new File(activity.getFilesDir(), "cri-audio"), BUILT_IN.get("vinyl-crackle"));
         if (!file.isFile()) {
             publish("vinyl-crackle", "error", "Vinyl surface noise is missing.");
             return false;
