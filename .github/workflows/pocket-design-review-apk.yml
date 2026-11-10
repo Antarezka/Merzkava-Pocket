@@ -122,15 +122,26 @@ jobs:
         run: |
           set -euo pipefail
           test -s review-apk/web/src/audio-player.js
-          ! grep -R -E "new Audio|AudioContext|webkitAudioContext|canPlayType|<audio" review-apk/web/src
+          if grep -R -n -E "new[[:space:]]+Audio[[:space:]]*\\(|AudioContext|webkitAudioContext|canPlayType|createElement\\([\\"']audio|<audio" review-apk/web/src review-apk/web/public; then
+            echo "::error::A WebView/browser audio playback path remains. All BGM and FX must go through PocketCriAudioRuntime."
+            exit 1
+          fi
+          if grep -R -n -E "playPocketAudio|playPocketSound|startPocketAmbience|pausePocketAudio|stopPocketAudio|setPocketAudioVolume" review-apk/web/src --exclude=audio-player.js; then
+            echo "::error::An app module bypasses the centralized Pocket audio controller."
+            exit 1
+          fi
           for asset in Happy-1a.adx chill-1a.adx Retroatrical-1.adx Retroatrical-2.adx needle-drop.adx record-placement.adx vinyl-surface-noise.adx; do
             test -s "review-apk/web/public/cri-audio/$asset"
           done
           grep -q 'PocketCriAudioRuntime' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketNativeBridge.java
           grep -q 'PocketAudioImporter' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketNativeBridge.java
+          grep -q 'CHANNEL_MUSIC' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
+          grep -q 'CHANNEL_AMBIENCE' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
+          grep -q 'CHANNEL_NEEDLE' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
+          grep -q 'CHANNEL_EFFECTS' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
           test -s review-apk/app/src/main/cpp/cri_audio_jni.cpp
           test -s review-apk/app/src/main/cpp/CMakeLists.txt
-          echo "Pocket UI and imports route to CRI; all seven audio sources are encoded as ADX."
+          echo "Verified: one CRI AtomEx runtime routes BGM, imported music, ambience and every registered FX channel."
       - name: Build Pocket web shell
         working-directory: review-apk
         run: npm run build
