@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 
 const source = readFileSync(new URL("../web/src/main.js", import.meta.url), "utf8");
 const audioVisualSource = readFileSync(new URL("../web/src/audio-player.js", import.meta.url), "utf8");
-const deckSource = readFileSync(new URL("../web/src/cri-audio-deck.js", import.meta.url), "utf8");
+const deckSource = readFileSync(new URL("../web/src/pocket-audio-director.js", import.meta.url), "utf8");
 const runtimeSource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java", import.meta.url), "utf8");
 const bridgeSource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketNativeBridge.java", import.meta.url), "utf8");
 const nativeSource = readFileSync(new URL("../app/src/main/cpp/cri_audio_jni.cpp", import.meta.url), "utf8");
@@ -35,7 +35,7 @@ test("Audio UI controls are presentation and user-intent adapters only", () => {
 });
 
 test("Only CRI owns playback; the web layer has no parallel audio engine", () => {
-  assert.match(source, /import \{ createCriAudioDeck \} from "\.\/cri-audio-deck\.js"/);
+  assert.match(source, /import \{ createPocketAudioDirector \} from "\.\/pocket-audio-director\.js"/);
   assert.match(source, /criAudioDeck\.startAutomatically\(\)/);
   assert.doesNotMatch(source, /createPocketAudioController|playPocketAudio|startPocketAmbience|setPocketAudioVolume/);
   assert.doesNotMatch(audioVisualSource, /AudioContext|webkitAudioContext|new Audio\s*\(|createElement\s*\(\s*["']audio/);
@@ -48,18 +48,20 @@ test("Only CRI owns playback; the web layer has no parallel audio engine", () =>
 });
 
 test("Selecting a record while idle only selects it; active playback changes use CRI", async () => {
-  const { createCriAudioDeck } = await import("../web/src/cri-audio-deck.js?deck-test");
+  const { createPocketAudioDirector } = await import("../web/src/pocket-audio-director.js?director-test");
   const calls = [];
   const native = {
     criPlayTrack(id) { calls.push(["play", id]); return true; },
+    criPlayAmbience() { calls.push(["ambience"]); return true; },
     criPauseMusic(paused) { calls.push(["pause", paused]); return true; },
     criPlayEffect(id) { calls.push(["effect", id]); return true; },
     criSetVolume(channel, value) { calls.push(["volume", channel, value]); },
     criStopMusic() { calls.push(["stop"]); return true; }
   };
-  const deck = createCriAudioDeck({ native });
-  assert.deepEqual(calls.slice(0, 2), [
+  const deck = createPocketAudioDirector({ native });
+  assert.deepEqual(calls.slice(0, 3), [
     ["volume", "music", 68],
+    ["volume", "ambience", 34],
     ["volume", "effects", 76]
   ]);
   calls.length = 0;
@@ -68,21 +70,24 @@ test("Selecting a record while idle only selects it; active playback changes use
   assert.equal(deck.startAutomatically(), true);
   assert.deepEqual(calls, [["play", "chill"]], "automatic BGM start must not fake a visible stylus action");
   deck.updateNativeState("music", "playing");
+  assert.deepEqual(calls[2], ["ambience"], "Director starts crackle only after CRI confirms BGM playback");
   assert.equal(deck.selectTrack("retroatrical1"), true);
-  assert.deepEqual(calls[2], ["play", "retroatrical1"]);
+  assert.deepEqual(calls[3], ["play", "retroatrical1"], "BGM replacement leaves ambience running");
   deck.updateNativeState("music", "paused");
   deck.toggleNeedle();
-  assert.deepEqual(calls.slice(3, 5), [["effect", "stylus-drop"], ["pause", false]]);
+  assert.deepEqual(calls.slice(4, 6), [["effect", "stylus-drop"], ["pause", false]]);
   deck.updateNativeState("music", "playing");
   deck.toggleNeedle();
-  assert.deepEqual(calls[5], ["pause", true]);
+  assert.deepEqual(calls[6], ["pause", true]);
   deck.setMusicVolume(52);
   deck.setEffectsVolume(41);
   deck.playEffect("record-placement");
   deck.stop();
-  assert.deepEqual(calls.slice(6), [
+  deck.setAmbienceVolume(28);
+  assert.deepEqual(calls.slice(7), [
     ["volume", "music", 52],
     ["volume", "effects", 41],
+    ["volume", "ambience", 28],
     ["effect", "record-placement"],
     ["stop"]
   ]);
@@ -96,10 +101,21 @@ test("CRI has separate, simultaneous channels for music, crackle, stylus and rec
   assert.match(runtimeSource, /BUILT_IN\.put\("vinyl-crackle", "vinyl-surface-noise\.adx"\)/);
   assert.match(runtimeSource, /BUILT_IN\.put\("stylus-drop", "needle-drop\.adx"\)/);
   assert.match(runtimeSource, /BUILT_IN\.put\("record-placement", "record-placement\.adx"\)/);
-  assert.match(runtimeSource, /startFileAtVolume\(CHANNEL_MUSIC[\s\S]*?if \(!ambienceStreamActive\) playAmbience\(\)/);
+  const musicStart = runtimeSource.indexOf("public boolean playTrack(");
+  const ambienceStart = runtimeSource.indexOf("public boolean playAmbience(", musicStart);
+  assert.ok(musicStart >= 0 && ambienceStart > musicStart);
+  assert.doesNotMatch(runtimeSource.slice(musicStart, ambienceStart), /playAmbience\(/,
+    "CRI runtime must not decide when the ambience bed starts");
+  assert.match(deckSource, /native\.criPlayAmbience\(\)/);
   assert.match(runtimeSource, /startFileAtVolume\(CHANNEL_VINYL_CRACKLE/);
   assert.match(runtimeSource, /CHANNEL_STYLUS/);
   assert.match(runtimeSource, /CHANNEL_RECORD/);
+  assert.match(runtimeSource, /BUS_MUSIC\s*=\s*0/);
+  assert.match(runtimeSource, /BUS_AMBIENCE\s*=\s*1/);
+  assert.match(runtimeSource, /BUS_MECHANICAL\s*=\s*2/);
+  assert.match(runtimeSource, /BUS_UI\s*=\s*3/);
+  assert.match(runtimeSource, /BUS_SFX\s*=\s*4/);
+  assert.match(runtimeSource, /setAmbienceVolume\(int value\)/);
   assert.match(nativeSource, /kChannelCount\s*=\s*6/);
 });
 
