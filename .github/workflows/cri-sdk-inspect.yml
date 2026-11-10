@@ -1,0 +1,58 @@
+name: CRI ADX LE SDK inspection
+
+on:
+  push:
+    branches:
+      - fix/build239-manual-audio-floating-fox-splash
+    paths:
+      - ".github/workflows/cri-sdk-inspect.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the pinned CRI ADX LE Native SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_URL="https://github.com/Antarezka/open-innovation-lab/releases/download/cri-sdk-temp/cri_adx2le_sdk_v2.31.01.zip"
+          SDK_ZIP="$RUNNER_TEMP/cri_adx2le_sdk_v2.31.01.zip"
+          EXPECTED_SHA256="a8996d1096ecab760c1fedd5a32a7bcb5013c1894bd555d19c6b33f765ccc5b4"
+          curl --fail --location --retry 3 --retry-delay 2 --output "$SDK_ZIP" "$SDK_URL"
+          echo "$EXPECTED_SHA256  $SDK_ZIP" | sha256sum --check -
+          unzip -q "$SDK_ZIP" -d "$RUNNER_TEMP/cri-adx2le"
+          echo "CRI SDK bytes: $(stat -c%s "$SDK_ZIP")"
+          echo "SHA-256 verified: $EXPECTED_SHA256"
+
+      - name: Inspect Android runtime, samples, and license files
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/cri-adx2le"
+          REPORT="$RUNNER_TEMP/cri-sdk-inspection.txt"
+          {
+            echo "=== ZIP CONTENTS ==="
+            find "$ROOT" -type f -printf '%P\n' | sort
+            echo
+            echo "=== ANDROID / ABI / BINDING FILES ==="
+            find "$ROOT" -type f | grep -Ei 'android|arm64|armeabi|jni|\.aar$|\.jar$|\.so$|\.mk$|cmake|\.java$' | sed "s#^$ROOT/##" | sort || true
+            echo
+            echo "=== NATIVE HEADERS AND EXAMPLES ==="
+            find "$ROOT" -type f | grep -Ei '\.(h|hpp|c|cc|cpp|java)$' | sed "s#^$ROOT/##" | sort | head -n 500 || true
+            echo
+            echo "=== LICENSE / README / ANDROID GUIDE CANDIDATES ==="
+            find "$ROOT" -type f | grep -Ei '(license|licence|readme|notice|terms|android|tutorial|sample|manual|guide)' | sed "s#^$ROOT/##" | sort | head -n 500 || true
+          } | tee "$REPORT"
+          echo
+          echo "Inspection report generated; the SDK archive itself remains outside the repository."
+
+      - name: Upload SDK inventory only
+        uses: actions/upload-artifact@v4
+        with:
+          name: cri-adx2le-sdk-inventory
+          path: ${{ runner.temp }}/cri-sdk-inspection.txt
+          if-no-files-found: error
+          retention-days: 7
