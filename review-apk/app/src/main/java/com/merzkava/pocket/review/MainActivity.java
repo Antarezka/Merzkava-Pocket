@@ -27,6 +27,7 @@ import java.util.Map;
 
 public final class MainActivity extends Activity {
     private static final String ASSET_HOST = "pocket.local";
+    private static final int REQUEST_POCKET_AUDIO_PICKER = 7402;
     private WebView webView;
     private PocketNativeBridge nativeBridge;
     private PocketFloatingWindow floatingWindow;
@@ -65,6 +66,60 @@ public final class MainActivity extends Activity {
             getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
                 OnBackInvokedDispatcher.PRIORITY_DEFAULT, systemBackCallback);
         }
+    }
+
+    public boolean openPocketAudioPicker() {
+        try {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("audio/*");
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivityForResult(intent, REQUEST_POCKET_AUDIO_PICKER);
+            return true;
+        } catch (Exception error) {
+            Log.e("PocketCriAudio", "Could not open the device music picker", error);
+            dispatchMusicLibraryChange(buildAudioPickerNotice(
+                "The device file manager could not be opened.", false));
+            return false;
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_POCKET_AUDIO_PICKER) return;
+        String result;
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) {
+            result = buildAudioPickerNotice("Music selection cancelled.", true);
+        } else if (nativeBridge != null) {
+            result = nativeBridge.importAudioFile(data.getData());
+        } else {
+            result = buildAudioPickerNotice("The CRI audio bridge is unavailable.", false);
+        }
+        dispatchMusicLibraryChange(result);
+    }
+
+    private String buildAudioPickerNotice(String message, boolean cancelled) {
+        try {
+            return new JSONObject()
+                .put("ok", false)
+                .put("cancelled", cancelled)
+                .put("message", message)
+                .put("tracks", new org.json.JSONArray(nativeBridge == null ? "[]" : nativeBridge.getCustomMusicLibrary()))
+                .toString();
+        } catch (Exception ignored) {
+            return "{}";
+        }
+    }
+
+    private void dispatchMusicLibraryChange(String resultJson) {
+        WebView current = webView;
+        if (current == null) return;
+        String detail = resultJson == null ? "{}" : resultJson;
+        current.post(() -> current.evaluateJavascript(
+            "window.dispatchEvent(new CustomEvent('pocket:music-library-changed',{detail:" + detail + "}));",
+            null
+        ));
     }
 
     private static final class PocketAssetClient extends WebViewClient {
@@ -226,6 +281,10 @@ public final class MainActivity extends Activity {
         if (floatingWindow != null) {
             floatingWindow.dispose();
             floatingWindow = null;
+        }
+        if (nativeBridge != null) {
+            nativeBridge.dispose();
+            nativeBridge = null;
         }
         if (webView != null) {
             webView.removeJavascriptInterface("PocketNative");
