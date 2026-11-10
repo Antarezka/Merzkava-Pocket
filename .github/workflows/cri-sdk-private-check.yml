@@ -93,6 +93,13 @@ jobs:
               grep -n -A3 -B2 "$api(" "$ROOT/cri/android/include/cri_le_atom_ex.h" | tail -n 7 || true
             done
             echo
+            echo "=== EXACT PLAYER PROTOTYPES ==="
+            grep -nE 'criAtomExPlayer_(SetFormat|SetNumChannels|SetSamplingRate|SetVolume|Update|Pause|GetStatus|SetDataRequestCallback)|criAtomExPlayback_(Pause|Resume|GetStatus|Stop)|criAtomPlayer_SetPreviousDataAgain' "$ROOT/cri/android/include/cri_le_atom_ex.h" "$ROOT/cri/android/include/cri/android/include/"*.h 2>/dev/null || true
+            echo
+            echo "=== FILE SYSTEM AND SAMPLE ASSET SUPPORT ==="
+            find "$ROOT/cri/android" -maxdepth 4 -type f | grep -E '/(lib|libs)/|samples|example' | head -n 300
+            grep -nE 'criFs_Initialize_ANDROID|criFs_Initialize\(|criFs_Finalize|criFs_SetDefaultConfig|criFs_Initialize_ANDROID' "$ROOT/cri/android/include/"*.h | head -n 100 || true
+            echo
             echo "=== RAW PCM / BUFFER INPUT DETAILS ==="
             grep -n -A6 -B5 -iE 'raw.?pcm|sample.?rate|sampling.?rate|channel.?count|number.?of.?channels|data.?request' "$ROOT/cri/android/include/cri_le_atom_ex.h" | tail -n 220 || true
             echo
