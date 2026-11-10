@@ -246,6 +246,9 @@ jobs:
           grep -q 'CHANNEL_AMBIENCE' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
           grep -q 'CHANNEL_NEEDLE' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
           grep -q 'CHANNEL_EFFECTS' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
+          grep -q 'CHANNEL_DOOR_CHIME' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
+          grep -q 'CHANNEL_DOOR_RATTLE' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
+          grep -q 'kChannelCount = 6' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           test -s review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q "criAtomEx_ExecuteMain" review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q "gServerRunning" review-apk/app/src/main/cpp/cri_audio_jni.cpp
