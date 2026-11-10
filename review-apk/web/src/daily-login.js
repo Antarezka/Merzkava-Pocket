@@ -124,26 +124,7 @@ export function dailyLoginMarkup(){
  </main>`;
 }
 function playDoorSlideChime(){
- const AudioContextClass=window.AudioContext||window.webkitAudioContext;
- if(!AudioContextClass)return;
- try{
-  const ctx=playDoorSlideChime.ctx||(playDoorSlideChime.ctx=new AudioContextClass());
-  if(ctx.state==="suspended")void ctx.resume();
-  const now=ctx.currentTime,length=Math.floor(ctx.sampleRate*.54);
-  const buffer=ctx.createBuffer(1,length,ctx.sampleRate),samples=buffer.getChannelData(0);
-  for(let i=0;i<length;i++)samples[i]=(Math.random()*2-1)*(1-i/length);
-  const src=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();
-  src.buffer=buffer;filter.type="lowpass";filter.frequency.setValueAtTime(1700,now);filter.frequency.exponentialRampToValueAtTime(390,now+.5);
-  gain.gain.setValueAtTime(.0001,now);gain.gain.linearRampToValueAtTime(.055,now+.07);gain.gain.exponentialRampToValueAtTime(.0001,now+.52);
-  src.connect(filter).connect(gain).connect(ctx.destination);src.start(now);src.stop(now+.54);
-  const bell=(frequency,delay,level,duration)=>{
-   const osc=ctx.createOscillator(),amp=ctx.createGain();osc.type="sine";
-   osc.frequency.setValueAtTime(frequency,now+delay);osc.frequency.exponentialRampToValueAtTime(frequency*.72,now+delay+duration);
-   amp.gain.setValueAtTime(.0001,now+delay);amp.gain.linearRampToValueAtTime(level,now+delay+.018);amp.gain.exponentialRampToValueAtTime(.0001,now+delay+duration);
-   osc.connect(amp).connect(ctx.destination);osc.start(now+delay);osc.stop(now+delay+duration+.02);
-  };
-  bell(1318.5,.35,.043,.48);bell(1760,.39,.025,.58);bell(2093,.43,.012,.55);
- }catch{/* Decorative sound must never block entry. */}
+ window.dispatchEvent(new CustomEvent("pocket:audio-effect",{detail:{effect:"door-chime"}}));
 }
 
 export function mountDailyLogin(scene,onBack,identity){
@@ -190,7 +171,7 @@ export function mountDailyLogin(scene,onBack,identity){
  ];
  let interiorMotionStarted=false;
  let opened=false,leaving=false,disposed=false,drag=null,dragOffset=0,dialogueIndex=-1,choiceOpen=false;
- let pointerLastX=0,doorRattleAudio=null,dragHapticSent=false;
+ let pointerLastX=0,dragHapticSent=false;
 
  const track=animation=>{
   if(animation){animations.add(animation);animation.then?.(()=>animations.delete(animation));}
@@ -441,25 +422,7 @@ export function mountDailyLogin(scene,onBack,identity){
  };
 
  const playDoorRattle=()=>{
-  const AudioContextClass=window.AudioContext||window.webkitAudioContext;
-  if(!AudioContextClass)return;
-  try{
-   const ctx=doorRattleAudio||(doorRattleAudio=new AudioContextClass());
-   if(ctx.state==="suspended")void ctx.resume();
-   const now=ctx.currentTime;
-   const tap=(frequency,delay,level,duration)=>{
-    const osc=ctx.createOscillator(),amp=ctx.createGain();
-    osc.type="triangle";
-    osc.frequency.setValueAtTime(frequency,now+delay);
-    osc.frequency.exponentialRampToValueAtTime(Math.max(45,frequency*.64),now+delay+duration);
-    amp.gain.setValueAtTime(.0001,now+delay);
-    amp.gain.linearRampToValueAtTime(level,now+delay+.008);
-    amp.gain.exponentialRampToValueAtTime(.0001,now+delay+duration);
-    osc.connect(amp).connect(ctx.destination);
-    osc.start(now+delay);osc.stop(now+delay+duration+.01);
-   };
-   tap(155,.0,.018,.085);tap(112,.035,.011,.105);tap(205,.09,.007,.07);
-  }catch{/* The visual door motion must work even when audio is unavailable. */}
+  window.dispatchEvent(new CustomEvent("pocket:audio-effect",{detail:{effect:"door-rattle"}}));
  };
  const settleDoor=(fromX,toX,duration=420,onComplete)=>{
   doorway.classList.add("is-rattling");
@@ -662,6 +625,5 @@ export function mountDailyLogin(scene,onBack,identity){
   window.clearInterval(weatherTimer);
   weatherAbort?.abort();
   document.removeEventListener("visibilitychange",onVisibilityChange);
-  doorRattleAudio?.close?.();
  };
 }
