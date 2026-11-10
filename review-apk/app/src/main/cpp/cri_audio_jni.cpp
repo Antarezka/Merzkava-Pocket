@@ -38,6 +38,7 @@ CriAtomExPlaybackId gPlaybackIds[kChannelCount] = {
     CRIATOMEX_INVALID_PLAYBACK_ID,
     CRIATOMEX_INVALID_PLAYBACK_ID
 };
+CriUint32 gLoopCycleCounts[kChannelCount] = {};
 
 bool validChannel(jint channel) {
     return channel >= 0 && channel < kChannelCount;
@@ -317,6 +318,7 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativePlayFile(
     criAtomExPlayer_SetDataRequestCallback(player, nullptr, nullptr);
     criAtomExPlayer_SetFile(player, nullptr, path.c_str());
     gLoopEnabled[channel] = loop == JNI_TRUE;
+    gLoopCycleCounts[channel] = 0;
     gPlaybackIds[channel] = criAtomExPlayer_Start(player);
     if (gPlaybackIds[channel] == CRIATOMEX_INVALID_PLAYBACK_ID) {
         gLoopEnabled[channel] = false;
@@ -376,6 +378,16 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeFadeVolume(
 }
 
 extern "C" JNIEXPORT jint JNICALL
+Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeTakeLoopCycles(JNIEnv*, jclass, jint channel) {
+    if (!validChannel(channel)) return 0;
+    std::lock_guard<std::mutex> lock(gMutex);
+    if (!gInitialized) return 0;
+    const CriUint32 count = gLoopCycleCounts[channel];
+    gLoopCycleCounts[channel] = 0;
+    return count > 2147483647u ? 2147483647 : static_cast<jint>(count);
+}
+
+extern "C" JNIEXPORT jint JNICALL
 Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeGetStatus(JNIEnv*, jclass, jint channel) {
     if (!validChannel(channel)) return 4;
     std::lock_guard<std::mutex> lock(gMutex);
@@ -385,6 +397,7 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeGetStatus(JNIEnv*, j
         const CriAtomExPlaybackId restarted = criAtomExPlayer_Start(gPlayers[channel]);
         if (restarted != CRIATOMEX_INVALID_PLAYBACK_ID) {
             gPlaybackIds[channel] = restarted;
+            ++gLoopCycleCounts[channel];
             return static_cast<jint>(CRIATOMEXPLAYER_STATUS_PREP);
         }
         gLoopEnabled[channel] = false;
