@@ -25,4 +25,16 @@
  <TextView android:id="@+id/pocket_update_notification_notes" android:layout_width="match_parent"
   android:layout_height="wrap_content" android:text="Review the update notes in Pocket Settings."
   android:textColor="#BFC7B9" android:textSize="10sp" android:lineSpacingExtra="2dp" android:maxLines="4"/>
+ <ProgressBar android:id="@+id/pocket_update_notification_progress"
+  style="@android:style/Widget.ProgressBar.Horizontal" android:layout_width="match_parent"
+  android:layout_height="2dp" android:layout_marginTop="9dp" android:max="100"
+  android:progress="0" android:progressTint="#EFFE59" android:progressBackgroundTint="#55FFFFFF"
+  android:visibility="gone" />
+ <TextView android:id="@+id/pocket_update_notification_action" android:layout_width="wrap_content"
+  android:layout_height="wrap_content" android:layout_marginTop="9dp" android:paddingStart="14dp"
+  android:paddingEnd="14dp" android:paddingTop="7dp" android:paddingBottom="7dp"
+  android:background="@drawable/pocket_update_notification_action" android:text="DOWNLOAD UPDATE"
+  android:textColor="#17191B" android:textSize="9sp" android:textStyle="bold"
+  android:letterSpacing="0.06" android:gravity="center" android:clickable="true"
+  android:focusable="true" />
 </LinearLayout>
