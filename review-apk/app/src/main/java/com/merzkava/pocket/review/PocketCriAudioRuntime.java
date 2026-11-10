@@ -79,7 +79,7 @@ public final class PocketCriAudioRuntime {
     private boolean disposed;
     private boolean resumeAfterFocusLoss;
     private boolean focusHeld;
-    private boolean polling;
+    private volatile boolean polling;
     private int musicVolume = 68;
     private int effectsVolume = 76;
 
@@ -125,7 +125,6 @@ public final class PocketCriAudioRuntime {
             if (!name.toLowerCase(java.util.Locale.ROOT).endsWith(".adx")) continue;
             if (!name.matches("[A-Za-z0-9._-]+")) throw new IllegalStateException("Unsafe CRI audio asset name.");
             File target = new File(directory, name);
-            if (target.isFile() && target.length() > 32) continue;
             File temporary = new File(directory, name + ".tmp");
             try (InputStream input = assets.open("cri-audio/" + name);
                  FileOutputStream output = new FileOutputStream(temporary)) {
@@ -134,7 +133,15 @@ public final class PocketCriAudioRuntime {
                 while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
                 output.getFD().sync();
             }
-            if (temporary.length() < 32 || !temporary.renameTo(target)) {
+            if (temporary.length() < 32) {
+                temporary.delete();
+                throw new IllegalStateException("CRI audio asset is unexpectedly small: " + name);
+            }
+            if (target.exists() && !target.delete()) {
+                temporary.delete();
+                throw new IllegalStateException("Could not replace the previous CRI audio asset: " + name);
+            }
+            if (!temporary.renameTo(target)) {
                 temporary.delete();
                 throw new IllegalStateException("Could not install CRI audio asset: " + name);
             }
@@ -259,7 +266,7 @@ public final class PocketCriAudioRuntime {
         });
     }
 
-    private void startPolling() {
+    private synchronized void startPolling() {
         if (polling || disposed) return;
         polling = true;
         mainHandler.post(pollStatus);
@@ -284,8 +291,22 @@ public final class PocketCriAudioRuntime {
                 }
                 if (!active) {
                     mainHandler.post(() -> {
-                        polling = false;
-                        mainHandler.removeCallbacks(pollStatus);
+                        synchronized (PocketCriAudioRuntime.this) {
+                            polling = false;
+                            mainHandler.removeCallbacks(pollStatus);
+                        }
+                        // A new play request may have entered the command queue while
+                        // this poll was observing the previous channel state. Recheck
+                        // after clearing the poll flag so PREP cannot be stranded.
+                        commands.execute(() -> {
+                            if (disposed) return;
+                            boolean activeAgain = false;
+                            for (int channel : new int[]{CHANNEL_MUSIC, CHANNEL_AMBIENCE, CHANNEL_NEEDLE, CHANNEL_EFFECTS}) {
+                                int status = nativeGetStatus(channel);
+                                if (status == 1 || status == 2) activeAgain = true;
+                            }
+                            if (activeAgain) startPolling();
+                        });
                     });
                 }
             });
@@ -338,12 +359,21 @@ public final class PocketCriAudioRuntime {
         if (change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT || change == AudioManager.AUDIOFOCUS_LOSS) {
             resumeAfterFocusLoss = change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT;
             pauseMusic(true);
-        } else if (change == AudioManager.AUDIOFOCUS_GAIN && resumeAfterFocusLoss) {
-            resumeAfterFocusLoss = false;
-            pauseMusic(false);
+        } else if (change == AudioManager.AUDIOFOCUS_GAIN) {
+            // Always restore the user's saved mix after ducking or interruption.
+            setChannelVolume(CHANNEL_MUSIC, volume(musicVolume));
+            setChannelVolume(CHANNEL_AMBIENCE, volume(effectsVolume));
+            setChannelVolume(CHANNEL_NEEDLE, volume(effectsVolume));
+            setChannelVolume(CHANNEL_EFFECTS, volume(effectsVolume));
+            if (resumeAfterFocusLoss) {
+                resumeAfterFocusLoss = false;
+                pauseMusic(false);
+            }
         } else if (change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
             setChannelVolume(CHANNEL_MUSIC, volume(musicVolume) * 0.25f);
             setChannelVolume(CHANNEL_AMBIENCE, volume(effectsVolume) * 0.25f);
+            setChannelVolume(CHANNEL_NEEDLE, volume(effectsVolume) * 0.25f);
+            setChannelVolume(CHANNEL_EFFECTS, volume(effectsVolume) * 0.25f);
         }
     }
 
