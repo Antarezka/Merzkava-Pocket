@@ -171,7 +171,7 @@ export function createPocketAudioController({
 
   function playEffect(name) {
     const effect = String(name || "").trim().toLowerCase();
-    if (effect !== "needle" && effect !== "placement") return false;
+    if (effect !== "needle" && effect !== "placement" && effect !== "door-chime" && effect !== "door-rattle") return false;
     return native?.playPocketSound?.(effect) === true;
   }
 
