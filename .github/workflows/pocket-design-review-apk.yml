@@ -221,6 +221,7 @@ jobs:
         run: |
           set -euo pipefail
           test -s review-apk/web/src/audio-player.js
+          test -s review-apk/web/src/cri-audio-deck.js
           if grep -R -n -E "new[[:space:]]+Audio[[:space:]]*\(|AudioContext|webkitAudioContext|canPlayType|createElement[^;]*audio|<audio" review-apk/web/src review-apk/web/public; then
             echo "::error::A WebView/browser audio playback path remains. All BGM and FX must go through PocketCriAudioRuntime."
             exit 1
@@ -243,9 +244,9 @@ jobs:
           grep -q 'PocketCriAudioRuntime' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketNativeBridge.java
           grep -q 'PocketAudioImporter' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketNativeBridge.java
           grep -q 'CHANNEL_MUSIC' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
-          grep -q 'CHANNEL_AMBIENCE' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
-          grep -q 'CHANNEL_NEEDLE' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
-          grep -q 'CHANNEL_EFFECTS' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
+          grep -q 'CHANNEL_VINYL_CRACKLE' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
+          grep -q 'CHANNEL_STYLUS' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
+          grep -q 'CHANNEL_RECORD' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
           grep -q 'CHANNEL_DOOR_CHIME' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
           grep -q 'CHANNEL_DOOR_RATTLE' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
           grep -q 'pocket:audio-effect' review-apk/web/src/main.js
@@ -258,12 +259,19 @@ jobs:
           grep -q 'CRIATOMEXPLAYER_STATUS_STOP' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'CRIATOMEXPLAYER_STATUS_PLAYEND' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'chrono::milliseconds(16)' review-apk/app/src/main/cpp/cri_audio_jni.cpp
+          grep -q 'criAtomExVoicePool_AllocateAdxVoicePool' review-apk/app/src/main/cpp/cri_audio_jni.cpp
+          grep -q 'criAtomExVoicePool_AllocateWaveVoicePool' review-apk/app/src/main/cpp/cri_audio_jni.cpp
+          grep -q 'criAtomExTween_MoveTo' review-apk/app/src/main/cpp/cri_audio_jni.cpp
+          grep -q 'criAtomExPlayer_Update' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'readAudioMetadata' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
           test -s review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q "criAtomEx_ExecuteMain" review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q "gServerRunning" review-apk/app/src/main/cpp/cri_audio_jni.cpp
           test -s review-apk/app/src/main/cpp/CMakeLists.txt
-          echo "Verified: one CRI AtomEx runtime routes BGM, imported music, ambience and every registered FX channel."
+          grep -q 'BUILT_IN.put("vinyl-crackle", "vinyl-surface-noise.adx")' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
+          grep -q 'BUILT_IN.put("stylus-drop", "needle-drop.adx")' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
+          grep -q 'BUILT_IN.put("record-placement", "record-placement.adx")' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
+          echo "Verified: CRI owns BGM, simultaneous vinyl crackle, stylus and record SFX, door FX, import playback and Tween fades."
       - name: Build Pocket web shell
         working-directory: review-apk
         run: npm run build
