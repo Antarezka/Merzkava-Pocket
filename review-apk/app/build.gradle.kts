@@ -62,4 +62,5 @@ android {
 
 
 dependencies {
+    implementation("androidx.work:work-runtime:2.10.1")
 }
