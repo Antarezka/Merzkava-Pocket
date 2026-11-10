@@ -146,6 +146,10 @@ public final class MainActivity extends Activity {
         }
 
         private WebResourceResponse intercept(Uri uri) {
+            // Daily Login only: one exact live-weather endpoint. Other external hosts stay blocked.
+            if ("https".equals(uri.getScheme()) &&
+                "api.open-meteo.com".equalsIgnoreCase(uri.getHost()) &&
+                "/v1/forecast".equals(uri.getPath())) return null;
             if (!"https".equals(uri.getScheme()) || !ASSET_HOST.equals(uri.getHost())) {
                 return new WebResourceResponse("text/plain", "UTF-8", 403, "Blocked", headers(), null);
             }
@@ -243,6 +247,11 @@ public final class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
+        Thread buildRecord = new Thread(
+            () -> PocketInstalledBuildRecord.update(this, "app-resume"),
+            "Pocket-Installed-Build-Record");
+        buildRecord.setDaemon(true);
+        buildRecord.start();
         handleFloatingLaunchIntent();
         dispatchNativeEvent("pocket:native-resume");
     }

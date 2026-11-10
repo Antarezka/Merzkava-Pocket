@@ -1,8 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createPocketAudioController, createTurntableMotion, createVinylDesignController, getSupportedAudioPlaybackTypes, VINYL_STYLES, VINYL_SURFACE_NOISE_SRC } from "../web/src/audio-player.js";
-import { createDailyLoginWeatherProfile, DAILY_LOGIN_WEATHER_TABLES } from "../web/src/daily-login-weather.js";
-import { createDailyLoginWeatherProfile, DAILY_LOGIN_WEATHER_TABLES } from "../web/src/daily-login-weather.js";
 
 class FakeAudio {
   static instances = [];
@@ -136,7 +134,7 @@ test("placing another record changes track but never starts playback", () => {
   assert.equal(audio.getState().track, "chill");
   assert.equal(audio.getState().isPlaying, false);
   assert.equal(audio.getState().title, "chill-1a");
-  assert.equal(FakeAudio.instances[0].loop, false);
+  assert.equal(FakeAudio.instances[0].loop, true);
 });
 
 test("needle must be lowered before a newly selected track starts", async () => {
@@ -307,23 +305,26 @@ test("lifting the needle during the crackle cancels the pending music start", as
 });
 
 
-test("BGM explicitly restarts after the media ended event", async () => {
-  let cycles = 0;
-  const { audio } = harness({}, { onPlaybackCycle: () => { cycles += 1; } });
+test("native loop wraps and fades back in without a second play call in Floating Mode",async()=>{
+  let cycles=0;
+  const {audio}=harness({}, {onPlaybackCycle:()=>{cycles+=1;}});
   audio.enterMainMenu();
   await Promise.resolve();
-  const music = FakeAudio.instances[0];
-  assert.equal(music.loop, false);
-  assert.equal(music.playCount, 1);
-  music.currentTime = 98;
-  music.dispatch("timeupdate");
-  music.finish();
+  const music=FakeAudio.instances[0];
+  const noise=FakeAudio.instances.find(item=>item.src===VINYL_SURFACE_NOISE_SRC);
+  assert.equal(music.loop,true);
+  assert.equal(music.playCount,1);
+  music.currentTime=98;music.dispatch("timeupdate");
+  music.currentTime=0;music.dispatch("timeupdate");
   await Promise.resolve();
-  assert.equal(cycles, 1);
-  assert.equal(music.currentTime, 0);
-  assert.equal(music.paused, false);
-  assert.equal(music.volume, 0, "the next cycle begins at silence before its fade-in");
-  assert.equal(music.playCount, 2, "the ended event starts the next playback cycle");
+  assert.equal(cycles,1);
+  assert.equal(music.currentTime,0);
+  assert.equal(music.paused,false);
+  assert.equal(music.playCount,1,"the HTML media loop remains the same play session");
+  assert.equal(music.volume,0,"the next loop fades in from zero");
+  assert.equal(noise.paused,false,"vinyl surface noise remains untouched");
+  await audio.setFloatingMode(true);
+  assert.equal(music.volume,0,"Floating Mode does not interrupt the fade-in");
 });
 test("all twenty vinyl label designs are available and manually selectable", () => {
   assert.equal(VINYL_STYLES.length, 20);
@@ -392,7 +393,24 @@ function makeAudioFadeClock() {
   };
 }
 
-test("BGM fades out near the end, restarts after ended, and fades back in", async () => {
+test("ended-event fallback restarts a WebView track that failed to native-loop",async()=>{
+  const {audio}=harness();
+  audio.enterMainMenu();
+  await Promise.resolve();
+  const music=FakeAudio.instances[0];
+  const noise=FakeAudio.instances.find(item=>item.src===VINYL_SURFACE_NOISE_SRC);
+  assert.equal(music.loop,true);
+  assert.equal(music.playCount,1);
+  music.finish();
+  await Promise.resolve();
+  assert.equal(music.paused,false);
+  assert.equal(music.ended,false);
+  assert.equal(music.currentTime,0);
+  assert.equal(music.playCount,2,"explicit replay is reserved for the failed-native-loop fallback");
+  assert.equal(noise.paused,false,"vinyl ambience continues across the fallback restart");
+});
+
+test("BGM fades out at track end and fades back in after the native loop", async () => {
   const clock = makeAudioFadeClock();
   let cycles = 0;
   const { audio } = harness({}, {
@@ -404,7 +422,7 @@ test("BGM fades out near the end, restarts after ended, and fades back in", asyn
   audio.enterMainMenu();
   const music = FakeAudio.instances[0];
   const noise = FakeAudio.instances.find(item => item.src === VINYL_SURFACE_NOISE_SRC);
-  assert.equal(music.loop, false);
+  assert.equal(music.loop, true);
   assert.equal(music.volume, 0);
   await Promise.resolve();
 
@@ -420,14 +438,16 @@ test("BGM fades out near the end, restarts after ended, and fades back in", asyn
   clock.advance(876);
   assert.equal(music.volume, 0, "fade-out must finish just before the native loop");
 
-  music.finish();
+  // The native loop moves currentTime to zero without an ended/play event.
+  music.currentTime=0;
+  music.dispatch("timeupdate");
   await Promise.resolve();
-  assert.equal(cycles, 1);
-  assert.equal(music.currentTime, 0);
-  assert.equal(music.paused, false);
-  assert.equal(music.volume, 0);
-  assert.equal(music.playCount, 2, "the ended event explicitly starts the next playback cycle");
-  assert.equal(noise.paused, false, "the vinyl noise bed remains uninterrupted between BGM cycles");
+  assert.equal(cycles,1);
+  assert.equal(music.currentTime,0);
+  assert.equal(music.paused,false);
+  assert.equal(music.volume,0);
+  assert.equal(music.playCount,1,"native looping does not need an explicit replay");
+  assert.equal(noise.paused,false,"vinyl noise remains uninterrupted between BGM cycles");
 
   clock.advance(1100);
   assert.ok(music.volume > 0 && music.volume < 0.68);
@@ -487,53 +507,3 @@ test("vinyl ambience stops explicitly even when the music element is already pau
   assert.equal(noise.currentTime, 0);
 });
 
-
-function weatherSequence(values){let index=0;return()=>values[Math.min(index++,values.length-1)]??0;}
-
-test("Daily Login has weighted day and night weather catalogues",()=>{
- assert.deepEqual(DAILY_LOGIN_WEATHER_TABLES.day.map(entry=>entry.id),["clear","cloudy","overcast","thunder","drizzle","storm","rainbow"]);
- assert.deepEqual(DAILY_LOGIN_WEATHER_TABLES.night.map(entry=>entry.id),["starfield","moon-cloud","night-rain","cloudy","overcast","thunder","drizzle","storm","rainbow","clear"]);
-});
-test("winter road is snowy when dry and slushy when rainy",()=>{
- const dry=createDailyLoginWeatherProfile({hour:12,season:"winter",random:weatherSequence([0])});
- const wet=createDailyLoginWeatherProfile({hour:13,season:"winter",random:weatherSequence([.65])});
- assert.equal(dry.precipitation,"snow");assert.equal(wet.precipitation,"sleet");
- assert.equal(dry.raining,false);assert.equal(wet.raining,true);
-});
-test("autumn leaf effects remain present across dry and rainy weather",()=>{
- const dry=createDailyLoginWeatherProfile({hour:14,season:"autumn",random:weatherSequence([0])});
- const wet=createDailyLoginWeatherProfile({hour:14,season:"autumn",random:weatherSequence([.65])});
- assert.equal(dry.season,"autumn");assert.equal(wet.season,"autumn");
- assert.equal(dry.precipitation,"none");assert.equal(wet.precipitation,"rain");
-});
-test("night weather distinguishes breathing stars from moonlit cloud",()=>{
- const stars=createDailyLoginWeatherProfile({hour:22,season:"none",random:weatherSequence([0])});
- const moon=createDailyLoginWeatherProfile({hour:22,season:"none",random:weatherSequence([.3])});
- assert.equal(stars.weather,"starfield");assert.equal(stars.night,true);
- assert.equal(moon.weather,"moon-cloud");assert.equal(moon.night,true);
-});
-
-
-function weatherSequence(values){let index=0;return()=>values[Math.min(index++,values.length-1)]??0;}
-test("Daily Login weather tables contain distinct day and night states",()=>{
- assert.deepEqual(DAILY_LOGIN_WEATHER_TABLES.day.map(x=>x.id),["clear","cloudy","overcast","thunder","drizzle","storm","rainbow"]);
- assert.deepEqual(DAILY_LOGIN_WEATHER_TABLES.night.map(x=>x.id),["starfield","moon-cloud","night-rain","cloudy","overcast","thunder","drizzle","storm","rainbow","clear"]);
-});
-test("winter road is snowy when dry and slushy when rainy",()=>{
- const dry=createDailyLoginWeatherProfile({hour:12,season:"winter",random:weatherSequence([0])});
- const wet=createDailyLoginWeatherProfile({hour:13,season:"winter",random:weatherSequence([.65])});
- assert.equal(dry.precipitation,"snow");assert.equal(wet.precipitation,"sleet");
- assert.equal(dry.raining,false);assert.equal(wet.raining,true);
-});
-test("autumn leaves persist under dry and wet weather",()=>{
- const dry=createDailyLoginWeatherProfile({hour:14,season:"autumn",random:weatherSequence([0])});
- const wet=createDailyLoginWeatherProfile({hour:14,season:"autumn",random:weatherSequence([.65])});
- assert.equal(dry.season,"autumn");assert.equal(wet.season,"autumn");
- assert.equal(dry.precipitation,"none");assert.equal(wet.precipitation,"rain");
-});
-test("night weather distinguishes starfield from moonlit clouds",()=>{
- const stars=createDailyLoginWeatherProfile({hour:22,season:"none",random:weatherSequence([0])});
- const moon=createDailyLoginWeatherProfile({hour:22,season:"none",random:weatherSequence([.3])});
- assert.equal(stars.weather,"starfield");assert.equal(stars.night,true);
- assert.equal(moon.weather,"moon-cloud");assert.equal(moon.night,true);
-});

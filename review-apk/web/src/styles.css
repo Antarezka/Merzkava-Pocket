@@ -2918,32 +2918,6 @@ body.bubble-render-paused *::after {
 :root[data-theme="light"] .update-actions .update-download-button{background:linear-gradient(120deg,#f4e8d0,#edf0e5)}
 :root[data-theme="light"] .update-actions .update-install-button{background:linear-gradient(120deg,#e9efd9,#f9f8ef)}
 :root[data-theme="light"] .update-actions .update-check-button{background:transparent;color:#68736a}
-.pocket-update-toast{position:fixed;z-index:38;top:calc(env(safe-area-inset-top) + 12px);left:13px;right:13px;display:grid;grid-template-columns:36px minmax(0,1fr) 24px;align-items:start;gap:10px;max-width:510px;margin:0 auto;padding:12px 11px 13px;border:1px solid #b99a67;background:linear-gradient(135deg,#202720 0%,#141b18 72%,#111715 100%);color:#f1eadb;box-shadow:0 14px 40px #0009,inset 0 0 0 3px #d0b2770c;animation:pocket-update-toast-in .48s cubic-bezier(.2,.8,.2,1) both;overflow:hidden}
-.pocket-update-toast:before{content:"";position:absolute;inset:4px;border:1px solid #c0a26a2b;pointer-events:none}
-.pocket-update-toast-emblem{position:relative;display:grid;place-items:center;width:34px;height:34px;border:1px solid #b99a67;border-radius:50%;background:radial-gradient(circle,#465340,#202b23);box-shadow:0 0 16px #b7c77a20}
-.pocket-update-toast-emblem:before,.pocket-update-toast-emblem:after{content:"";position:absolute;background:#d4bd91}
-.pocket-update-toast-emblem:before{width:14px;height:1px}.pocket-update-toast-emblem:after{width:1px;height:14px}
-.pocket-update-toast-emblem i{position:absolute;width:7px;height:7px;border:1px solid #d5dca1;transform:rotate(45deg)}
-.pocket-update-toast-copy{position:relative;display:grid;gap:4px;min-width:0}
-.pocket-update-toast-copy>small{color:#d1b77d;font-size:6px;font-weight:700;letter-spacing:.16em}
-.pocket-update-toast-copy>strong{color:#f4eddb;font:500 15px/1.3 var(--display)}
-.pocket-update-toast-copy>span{color:#c1c5b8;font:10px/1.5 Georgia,serif;overflow-wrap:anywhere}
-.pocket-update-toast-copy>button{justify-self:start;margin-top:4px;padding:5px 0;border:0;border-bottom:1px solid #a98c5480;background:transparent;color:#d5dca1;font-size:7px;font-weight:700;letter-spacing:.11em}
-.pocket-update-toast-copy>button b{margin-left:7px;color:#d1b77d;font-size:11px}
-.pocket-update-toast-close{position:relative;width:23px;height:23px;border:1px solid #a98c5455;background:#ffffff08;color:#cfc6b3;font:17px/1 Georgia,serif}
-.pocket-update-toast-edge{position:absolute;left:0;bottom:0;width:100%;height:2px;background:linear-gradient(90deg,#873943,#a98c54,#b7c77a);transform-origin:left;animation:pocket-update-edge 1.2s ease-out both}
-.pocket-update-toast.is-leaving{opacity:0;transform:translateY(-8px);transition:opacity .22s ease,transform .22s ease}
-:root[data-theme="light"] .pocket-update-toast{border-color:#aa936c;background:linear-gradient(135deg,#fffdf6 0%,#f0eee3 72%,#e9eee4 100%);color:#27342c;box-shadow:0 14px 36px #3b413333,inset 0 0 0 3px #fff8}
-:root[data-theme="light"] .pocket-update-toast:before{border-color:#9b804b35}
-:root[data-theme="light"] .pocket-update-toast-emblem{background:radial-gradient(circle,#f3f2e7,#e0e8dc)}
-:root[data-theme="light"] .pocket-update-toast-copy>strong{color:#29342b}
-:root[data-theme="light"] .pocket-update-toast-copy>span{color:#667064}
-:root[data-theme="light"] .pocket-update-toast-copy>button{color:#657849}
-:root[data-theme="light"] .pocket-update-toast-close{border-color:#bdb49f;background:#f7f3e8;color:#51574e}
-@keyframes pocket-update-toast-in{from{opacity:0;transform:translateY(-15px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
-@keyframes pocket-update-edge{from{transform:scaleX(0)}to{transform:scaleX(1)}}
-@media(max-width:360px){.update-section{padding:12px 11px}.update-build-cell>strong{font-size:20px}.update-actions{gap:5px}.update-actions button{padding-inline:5px;font-size:6px}.pocket-update-toast{left:8px;right:8px;padding:10px 8px;gap:8px}}
-@media(prefers-reduced-motion:reduce){.update-storage-bar>i,.update-download-bar>i{transition:none}.pocket-update-toast{animation:none}.pocket-update-toast-edge{animation:none}}
 
 
 
@@ -2974,3 +2948,7 @@ body.bubble-render-paused *::after {
 @media(prefers-reduced-motion:reduce){
   .update-section-toggle>b,.update-notes-toggle>b{transition:none}
 }
+
+/* Keep the Pocket Update panel compact on narrow displays without an in-app toast. */
+@media(max-width:360px){.update-section{padding:12px 11px}.update-build-cell>strong{font-size:20px}.update-actions{gap:5px}.update-actions button{padding-inline:5px;font-size:6px}}
+@media(prefers-reduced-motion:reduce){.update-storage-bar>i,.update-download-bar>i{transition:none}}

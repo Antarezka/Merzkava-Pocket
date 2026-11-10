@@ -12,6 +12,7 @@ import android.content.Intent;
 import android.database.Cursor;
 import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.widget.RemoteViews;
 import android.content.pm.PackageInfo;
 import android.net.Uri;
 import android.os.Build;
@@ -94,6 +95,7 @@ public final class PocketNativeBridge {
     private static final String PREF_UPDATE_SHA256 = "pocket_update_sha256_v1";
     static final String PREF_UPDATE_FILE_NAME = "pocket_update_file_name_v1";
     static final String PREF_UPDATE_BUILD_NUMBER = "pocket_update_build_number_v1";
+    private static final String PREF_UPDATE_NOTIFIED_BUILD = "pocket_update_notified_build_v1";
     private static final String UPDATE_NOTIFICATION_CHANNEL_ID = "merzkava-pocket-updates";
     private static final int UPDATE_NOTIFICATION_ID = 8202;
     private static final long MAX_CUSTOM_MUSIC_BYTES = 64L * 1024L * 1024L;
@@ -140,14 +142,19 @@ public final class PocketNativeBridge {
     }
 
     @JavascriptInterface public boolean showPocketUpdateNotification(
-        int buildNumber, String versionName, String releaseDetails, String theme) {
+        int buildNumber, String versionName, String releaseDetails, String theme, long apkSizeBytes) {
         if (buildNumber <= 0 || !notificationsGranted()) return false;
         try {
+            if (prefs().getInt(PREF_UPDATE_NOTIFIED_BUILD, 0) == buildNumber) return false;
             NotificationManager manager = (NotificationManager) activity.getSystemService(Context.NOTIFICATION_SERVICE);
             if (manager == null || !manager.areNotificationsEnabled()) return false;
-            int accent = "light".equalsIgnoreCase(theme)
-                ? Color.rgb(111, 137, 113)
-                : Color.rgb(198, 166, 111);
+
+            boolean light = "light".equalsIgnoreCase(theme) || "white".equalsIgnoreCase(theme);
+            int accent = light ? Color.rgb(105, 130, 99) : Color.rgb(203, 178, 119);
+            int foreground = light ? Color.rgb(45, 57, 45) : Color.rgb(242, 237, 220);
+            int muted = light ? Color.rgb(101, 108, 94) : Color.rgb(190, 198, 183);
+            int background = light ? R.drawable.pocket_update_notification_light : R.drawable.pocket_update_notification_dark;
+
             if (Build.VERSION.SDK_INT >= 26) {
                 NotificationChannel channel = new NotificationChannel(
                     UPDATE_NOTIFICATION_CHANNEL_ID, "Pocket Updates", NotificationManager.IMPORTANCE_DEFAULT);
@@ -157,42 +164,86 @@ public final class PocketNativeBridge {
                 channel.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
                 manager.createNotificationChannel(channel);
             }
+
             String version = notificationText(versionName, 72);
-            String details = notificationText(releaseDetails, 520);
+            String details = notificationText(releaseDetails, 420);
             if (details.isEmpty()) details = "A new Merzkava Pocket build is ready. Open Pocket Settings to review and install it.";
+            String size = humanReadableUpdateSize(apkSizeBytes);
+
+            RemoteViews compact = new RemoteViews(activity.getPackageName(), R.layout.pocket_update_notification_compact);
+            RemoteViews expanded = new RemoteViews(activity.getPackageName(), R.layout.pocket_update_notification_expanded);
+            setPocketUpdateNotificationView(compact, background, accent, foreground, muted, buildNumber, version, size, details, false);
+            setPocketUpdateNotificationView(expanded, background, accent, foreground, muted, buildNumber, version, size, details, true);
+
             Intent launch = activity.getPackageManager().getLaunchIntentForPackage(activity.getPackageName());
             PendingIntent openPocket = null;
             if (launch != null) {
                 launch.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
                 openPocket = PendingIntent.getActivity(activity, UPDATE_NOTIFICATION_ID, launch,
-                    PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0));
+                    PendingIntent.FLAG_UPDATE_CURRENT |
+                    (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0));
             }
+
             Notification.Builder builder = Build.VERSION.SDK_INT >= 26
                 ? new Notification.Builder(activity, UPDATE_NOTIFICATION_CHANNEL_ID)
                 : new Notification.Builder(activity);
             builder.setSmallIcon(R.drawable.ic_notification_tv)
-                .setContentTitle("Merzkava Pocket")
-                .setContentText("A new update is ready · Build #" + buildNumber)
-                .setStyle(new Notification.BigTextStyle().bigText(details)
-                    .setBigContentTitle("Pocket Build #" + buildNumber + " is ready")
-                    .setSummaryText("MERZKAVA POCKET  ·  UPDATE ARCHIVE"))
+                .setContentTitle("Merzkava Pocket · Build #" + buildNumber)
+                .setContentText("New Pocket update · " + size)
                 .setColor(accent)
                 .setCategory(Notification.CATEGORY_STATUS)
                 .setPriority(Notification.PRIORITY_DEFAULT)
                 .setVisibility(Notification.VISIBILITY_PRIVATE)
                 .setAutoCancel(true)
-                .setOnlyAlertOnce(false)
+                .setOnlyAlertOnce(true)
                 .setShowWhen(true);
-            if (Build.VERSION.SDK_INT >= 24 && !version.isEmpty()) builder.setSubText(version);
-            else if (!version.isEmpty()) builder.setContentInfo(version);
+
+            if (Build.VERSION.SDK_INT >= 24) {
+                builder.setSubText(version)
+                    .setCustomContentView(compact)
+                    .setCustomHeadsUpContentView(compact)
+                    .setCustomBigContentView(expanded);
+            } else {
+                builder.setContent(compact);
+                if (!version.isEmpty()) builder.setContentInfo(version);
+            }
             if (openPocket != null) builder.setContentIntent(openPocket);
-            manager.cancel(UPDATE_NOTIFICATION_ID);
+
             manager.notify(UPDATE_NOTIFICATION_ID, builder.build());
+            prefs().edit().putInt(PREF_UPDATE_NOTIFIED_BUILD, buildNumber).apply();
             return true;
         } catch (Exception error) {
-            android.util.Log.w("PocketUpdate", "Could not post the native update notification", error);
+            android.util.Log.w("PocketUpdate", "Could not post the native themed update notification", error);
             return false;
         }
+    }
+
+    private void setPocketUpdateNotificationView(RemoteViews views, int background, int accent,
+            int foreground, int muted, int buildNumber, String version, String size,
+            String details, boolean expanded) {
+        views.setInt(R.id.pocket_update_notification_root, "setBackgroundResource", background);
+        views.setTextViewText(R.id.pocket_update_notification_brand, "MERZKAVA  /  POCKET");
+        views.setTextViewText(R.id.pocket_update_notification_eyebrow, "UPDATE NOTICE");
+        views.setTextViewText(R.id.pocket_update_notification_title, "A new build is ready");
+        views.setTextViewText(R.id.pocket_update_notification_build, "BUILD #" + buildNumber + "  ·  " + version);
+        views.setTextViewText(R.id.pocket_update_notification_summary, "APK " + size + "  ·  Open Pocket Settings to install");
+        views.setTextColor(R.id.pocket_update_notification_brand, accent);
+        views.setTextColor(R.id.pocket_update_notification_eyebrow, muted);
+        views.setTextColor(R.id.pocket_update_notification_title, foreground);
+        views.setTextColor(R.id.pocket_update_notification_build, accent);
+        views.setTextColor(R.id.pocket_update_notification_summary, muted);
+        if (expanded) {
+            views.setTextViewText(R.id.pocket_update_notification_notes, details);
+            views.setTextColor(R.id.pocket_update_notification_notes, muted);
+        }
+    }
+
+    private String humanReadableUpdateSize(long bytes) {
+        if (bytes <= 0L) return "size in Pocket Settings";
+        if (bytes < 1024L) return bytes + " B";
+        double kb = bytes / 1024.0;
+        if (kb < 1024.0) return String.format(Locale.ROOT, "%.1f KB", kb);
+        return String.format(Locale.ROOT, "%.1f MB", kb / 1024.0);
     }
 
     private String notificationText(String value, int maximumLength) {

@@ -41,7 +41,7 @@ Anime.js 4.x owns access pacing, the Pocket Transition, screen transitions, Spla
 
 ## Build
 
-The GitHub Actions workflow builds an installable APK using one persistent signing certificate and a monotonically increasing Android `versionCode`. Updates to `review-apk/**` or `docs/game/**` trigger a new APK, so economy catalogue/specification edits are included in the next package. Android installs the downloaded APK over the existing app when the package ID and signing certificate match; app-private data (including WebView local storage, economy saves, player data and preferences) is retained during a normal package update. The in-app updater is available at the bottom of Settings under Pocket Update. Its compact disclosure shows the installed and latest build, release notes, APK size, and remaining internal storage; Pocket can download the release, verify its SHA-256 digest, and open Android's package installer. A small in-app notice appears once for each newly detected build. Normal signed updates preserve app-private data.
+The GitHub Actions workflow builds an installable APK using one persistent signing certificate and a monotonically increasing Android `versionCode`. Updates to `review-apk/**` or `docs/game/**` trigger a new APK, so economy catalogue/specification edits are included in the next package. Android installs the downloaded APK over the existing app when the package ID and signing certificate match; app-private data (including WebView local storage, economy saves, player data and preferences) is retained during a normal package update. The in-app updater is available at the bottom of Settings under Pocket Update. Its compact disclosure shows the installed and latest build, release notes, APK size, and remaining internal storage; Pocket can download the release, verify its SHA-256 digest, and open Android's package installer. A themed native Android notification appears in the device notification shade once per newly detected build. Normal signed updates preserve app-private data.
 
 ### One-time signing setup (required)
 
@@ -61,3 +61,20 @@ The APK filename remains:
 `Merzkava-Pocket-v.0.01.007-xxxx.apk`
 
 CI no longer relies on a runner-generated debug key. It requires the persistent signing secrets listed above and fails before packaging if they are absent. The APK currently bundles the economy JSON catalogue data; the other catalogue and progression documents remain design/source material until their respective gameplay runtimes are implemented.
+
+
+## Daily Login live weather (no GPS)
+
+Daily Login reads the Android device's IANA time-zone identifier and maps it locally to a representative timezone reference point from the bundled public-domain IANA `zone.tab`, `zone1970.tab` and `backward` data. It does not request GPS, fine/coarse location permission, IP geolocation or Android location services. Only the reference coordinates and timezone identifier are sent over HTTPS to Open-Meteo for current weather and recent hourly precipitation. This is a representative time-zone weather reference, not the phone's exact physical position.
+
+Open-Meteo WMO condition codes, cloud cover, rain, snowfall, thunderstorms, day/night and recent precipitation drive the animated sky. Local calendar date and reference latitude select the hemisphere's season. A faint rainbow appears only after observed rain stops. Winter keeps the road snow-covered during dry weather and changes it to wet slush when rain arrives; falling flakes are animated only when snowfall is actually observed. Autumn leaves remain visible and become wet during rain. The latest six-hour per-timezone cache supports temporary network loss.
+
+Weather attribution: Open-Meteo. Its weather data is licensed under CC BY 4.0; the free API is limited to non-commercial use. IANA timezone reference coordinates are public-domain data.
+
+## Native update notification, APK cleanup and installed-build TXT
+
+New-build alerts use compact and expanded native Android notification layouts. The selected Pocket Light/White or Dark theme controls the paper/forest palette; Android controls heads-up placement and ordering in the device notification shade. Build, version, APK size and release-note highlights are included. Native preferences suppress duplicate alerts for the same build.
+
+After Android confirms a package replacement, Pocket verifies the installed build number and removes all Pocket release APK files and DownloadManager entries whose build number is at or below the installed build. The sweep covers the app-specific updater directory and Pocket-named APKs left in shared Downloads. It does not touch unrelated APKs, imported music, player saves or other Pocket data.
+
+Pocket maintains `Downloads/Merzkava Pocket/Merzkava-Pocket-Installed-Build.txt` through Android's shared Downloads collection. On Android 10 and later this file is outside app-private storage and remains available after Pocket is uninstalled. It records the latest installed build, package, version, version code, install/update timestamps, last verification time and Android/device version. Android 6–9 use an app-specific fallback that does not survive uninstall.

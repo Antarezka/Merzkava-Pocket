@@ -51,6 +51,7 @@ let bubbleVisualSuspended = false;
 function applyFloatingRenderMode(mode) {
   if (mode !== "bubble" && mode !== "window" && mode !== "full") return;
   bubbleVisualSuspended = mode === "bubble";
+  pocketAudio.setFloatingMode?.(mode === "bubble" || mode === "window");
   document.body.classList.toggle("bubble-render-paused", bubbleVisualSuspended);
   // A mini window remains visible above other apps even while the Activity is backgrounded.
   engine.pauseOnDocumentHidden = mode !== "window";
@@ -138,7 +139,9 @@ function showPocketUpdateNotification(update) {
   const releaseLines=notes.slice(0,4).map(note=>"• "+String(note||"").trim()).filter(line=>line!=="•");
   const details=releaseLines.join("\n")||"A new Merzkava Pocket build is ready. Open Pocket Settings → Pocket Update to review the release notes and install it.";
   let shown=false;
-  try{shown=native?.showPocketUpdateNotification?.(build,String(update.versionName||"Pocket update"),details,theme)===true;}catch{}
+  try{shown=native?.showPocketUpdateNotification?.(
+   build,String(update.versionName||"Pocket update"),details,theme,Number(update.apkSizeBytes)||0
+  )===true;}catch{}
   if(shown){try{localStorage.setItem(key,String(build));}catch{}}
   return shown;
 }
@@ -1634,6 +1637,7 @@ function renderPage(destination, transitionDuration=420) {
         <summary><span>LEGAL & CREDITS</span><small>LICENCES · ATTRIBUTIONS · OPEN-SOURCE NOTICES</small></summary>
         <div class="legal-credits-body">
           <p><b>VINYL SURFACE NOISE</b> · “Warm organic vinyl record crackle #6” — Sdanezis / Pixabay. AI-generated. Converted to OGG for Pocket. Used as a loop inside the player under the Pixabay Content License; not offered as a standalone audio file. <span class="legal-source-credit">SOURCE · PIXABAY / SDANEZIS</span></p>
+          <p><b>DAILY LOGIN WEATHER</b> · Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>, using a representative reference point from the phone IANA time zone. No GPS, IP geolocation, Android location service or location permission is used. Weather data is CC BY 4.0; the free API is for non-commercial use. <span class="legal-source-credit">SOURCE · OPEN-METEO / IANA TZDB</span></p>
           <p>Full npm dependency notices include direct and transitive packages. Existing built-in audio whose original source is not recorded is flagged separately in the notices.</p>
           <button type="button" data-legal-notices-toggle aria-expanded="false">VIEW FULL LICENCES</button>
           <pre data-legal-notices-output hidden></pre>

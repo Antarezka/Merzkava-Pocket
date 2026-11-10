@@ -1,6 +1,6 @@
 import { animate } from "animejs";
 import { openPocketGiftSession } from "./economy.js";
-import { createDailyLoginWeatherProfile } from "./daily-login-weather.js";
+import { classifyDailyLoginWeather, fetchDailyLoginWeather, getDeviceTimeZone } from "./daily-login-weather.js";
 import "./daily-login.css";
 
 const reducedMotion=()=>window.matchMedia?.("(prefers-reduced-motion: reduce)").matches??false;
@@ -27,6 +27,7 @@ export function dailyLoginMarkup(){
     <div class="dl-rainbow"></div>
     <div class="dl-starfield" data-dl-starfield></div>
     <span class="dl-moon"></span>
+    <small class="dl-weather-status" data-dl-weather-status>WEATHER · DEVICE TIME ZONE</small>
    </div>
    <div class="dl-shop-scene">
     <div class="dl-art-stage">
@@ -162,6 +163,7 @@ export function mountDailyLogin(scene,onBack,identity){
  const tvNoise=scene.querySelector("[data-dl-tv-noise]");
  const tvScan=scene.querySelector("[data-dl-tv-scan]");
  const starfield=scene.querySelector("[data-dl-starfield]");
+ const weatherStatus=scene.querySelector("[data-dl-weather-status]");
  const snowfall=scene.querySelector("[data-dl-snowfall]");
  const sleet=scene.querySelector("[data-dl-sleet]");
  const fallingLeaves=scene.querySelector("[data-dl-weather-leaves]");
@@ -336,22 +338,76 @@ export function mountDailyLogin(scene,onBack,identity){
   "--leaf-size":randomBetween(3,6).toFixed(2)+"px","--leaf-turn":randomBetween(0,360).toFixed(0)+"deg",
   "--leaf-color":["#b65f32","#d58a3f","#9b4930","#c6a34c","#7e633c"][Math.floor(Math.random()*5)]
  }));
- let selectedSeason=null,selectedNight=null;
  const refreshSky=()=>{
   const now=new Date(),hour=now.getHours()+now.getMinutes()/60;
   const phase=hour>=5&&hour<7?"dawn":hour>=7&&hour<11?"morning":hour>=11&&hour<16?"day":hour>=16&&hour<18.5?"golden":hour>=18.5&&hour<20.5?"dusk":"night";
   outside.dataset.dlTimeOfDay=phase;
-  const night=hour<5||hour>=18.5;
-  if(selectedNight!==night){
-   const profile=createDailyLoginWeatherProfile({hour,season:selectedSeason,random:Math.random});
-   selectedNight=night;selectedSeason=profile.season;
-   outside.dataset.dlWeather=profile.weather;outside.dataset.dlSeason=profile.season;
-   outside.dataset.dlPrecipitation=profile.precipitation;
+ };
+ const WEATHER_CACHE_KEY="mp-daily-login-weather-v3";
+ const WEATHER_CACHE_MAX_AGE=6*60*60*1000;
+ const WEATHER_REFRESH_AGE=30*60*1000;
+ let weatherBusy=false,weatherAbort=null,lastWeatherAttempt=0;
+ const readWeatherCache=zone=>{
+  try{
+   const cached=JSON.parse(localStorage.getItem(WEATHER_CACHE_KEY)||"null");
+   return cached?.timeZone===zone&&Number.isFinite(cached?.fetchedAt)?cached:null;
+  }catch{return null;}
+ };
+ const applyWeather=(payload,cached=false)=>{
+  if(disposed||!payload?.current)return;
+  const profile=classifyDailyLoginWeather(payload.current,payload.hourly,payload.reference?.latitude,new Date());
+  outside.dataset.dlWeather=profile.weather;
+  outside.dataset.dlSeason=profile.season;
+  outside.dataset.dlPrecipitation=profile.precipitation;
+  outside.dataset.dlSnowing=profile.snowing?"true":"false";
+  const labels={
+   clear:"CLEAR SKY",cloudy:"PARTLY CLOUDY",overcast:"OVERCAST",
+   thunder:"LIGHTNING STORM",drizzle:"LIGHT RAIN",storm:"HEAVY RAIN",
+   rainbow:"AFTER RAIN",starfield:"STAR-FILLED NIGHT",
+   "moon-cloud":"MOONLIT CLOUDS","night-rain":"NIGHT RAIN"
+  };
+  const city=payload.reference?.label||String(payload.timeZone||getDeviceTimeZone()).split("/").at(-1).replace(/_/g," ");
+  const temperature=Number.isFinite(profile.temperatureC)?(" · "+Math.round(profile.temperatureC)+"°C"):"";
+  if(weatherStatus)weatherStatus.textContent=city+" · "+(labels[profile.weather]||"LOCAL WEATHER")+temperature+
+   (cached?" · CACHED":" · Weather data by Open-Meteo");
+ };
+ const clearWeather=()=>{
+  const zone=getDeviceTimeZone(),hour=new Date().getHours();
+  outside.dataset.dlWeather=hour<5||hour>=18.5?"starfield":"clear";
+  outside.dataset.dlSeason="tropical";
+  outside.dataset.dlPrecipitation="none";
+  outside.dataset.dlSnowing="false";
+  if(weatherStatus)weatherStatus.textContent=zone+" · WEATHER OFFLINE";
+ };
+ const refreshWeather=async(force=false)=>{
+  if(disposed||weatherBusy)return;
+  const zone=getDeviceTimeZone(),cached=readWeatherCache(zone);
+  const now=Date.now(),cacheAge=cached?now-cached.fetchedAt:Infinity;
+  if(cached&&cacheAge<=WEATHER_CACHE_MAX_AGE)applyWeather(cached,true);
+  else if(!cached||cacheAge>WEATHER_CACHE_MAX_AGE)clearWeather();
+  if(!force&&cacheAge<WEATHER_REFRESH_AGE)return;
+  if(!force&&now-lastWeatherAttempt<WEATHER_REFRESH_AGE)return;
+  weatherBusy=true;lastWeatherAttempt=now;
+  weatherAbort=typeof AbortController==="function"?new AbortController():null;
+  const timeout=window.setTimeout(()=>weatherAbort?.abort(),12000);
+  try{
+   const payload=await fetchDailyLoginWeather({timeZone:zone,signal:weatherAbort?.signal});
+   if(disposed)return;
+   localStorage.setItem(WEATHER_CACHE_KEY,JSON.stringify(payload));
+   applyWeather(payload,false);
+  }catch(error){
+   if(!disposed&&!(cached&&cacheAge<=WEATHER_CACHE_MAX_AGE))clearWeather();
+  }finally{
+   window.clearTimeout(timeout);weatherBusy=false;weatherAbort=null;
   }
  };
  refreshSky();
+ void refreshWeather(true);
  const skyTimer=window.setInterval(refreshSky,30000);
- const onVisibilityChange=()=>{if(document.visibilityState==="visible")refreshSky();};
+ const weatherTimer=window.setInterval(()=>void refreshWeather(false),WEATHER_REFRESH_AGE);
+ const onVisibilityChange=()=>{
+  if(document.visibilityState==="visible"){refreshSky();void refreshWeather(false);}
+ };
  document.addEventListener("visibilitychange",onVisibilityChange);
 
  scene.style.opacity="0";
@@ -603,6 +659,8 @@ export function mountDailyLogin(scene,onBack,identity){
   leave.removeEventListener("click",leaveShop);
   back.removeEventListener("click",returnToMenu);
   window.clearInterval(skyTimer);
+  window.clearInterval(weatherTimer);
+  weatherAbort?.abort();
   document.removeEventListener("visibilitychange",onVisibilityChange);
   doorRattleAudio?.close?.();
  };

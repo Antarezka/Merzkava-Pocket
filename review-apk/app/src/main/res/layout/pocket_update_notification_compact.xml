@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+ android:id="@+id/pocket_update_notification_root" android:layout_width="match_parent"
+ android:layout_height="wrap_content" android:orientation="vertical"
+ android:paddingStart="14dp" android:paddingEnd="14dp" android:paddingTop="11dp"
+ android:paddingBottom="11dp" android:background="@drawable/pocket_update_notification_dark">
+ <TextView android:id="@+id/pocket_update_notification_brand" android:layout_width="match_parent"
+  android:layout_height="wrap_content" android:text="MERZKAVA  /  POCKET" android:textColor="#D5BE84"
+  android:textSize="8sp" android:textStyle="bold" android:letterSpacing="0.12" android:maxLines="1"/>
+ <TextView android:id="@+id/pocket_update_notification_eyebrow" android:layout_width="match_parent"
+  android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="UPDATE NOTICE"
+  android:textColor="#BFC7B9" android:textSize="7sp" android:letterSpacing="0.13" android:maxLines="1"/>
+ <TextView android:id="@+id/pocket_update_notification_title" android:layout_width="match_parent"
+  android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="A new build is ready"
+  android:textColor="#F2EDDC" android:textSize="15sp" android:textStyle="bold" android:maxLines="1"/>
+ <TextView android:id="@+id/pocket_update_notification_build" android:layout_width="match_parent"
+  android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="BUILD #232"
+  android:textColor="#D5BE84" android:textSize="10sp" android:maxLines="1"/>
+ <TextView android:id="@+id/pocket_update_notification_summary" android:layout_width="match_parent"
+  android:layout_height="wrap_content" android:layout_marginTop="3dp"
+  android:text="APK 13.0 MB · Open Pocket Settings to install" android:textColor="#BFC7B9"
+  android:textSize="10sp" android:maxLines="2"/>
+</LinearLayout>
