@@ -6,7 +6,7 @@ Pocket has one playback engine: CRI ADX LE. Android and WebView are command/pres
 
 - CRI engine (PocketCriAudioRuntime + JNI): owns playback players, decoding/streaming, looping, pause/stop, player gain, and CRI Tween fades.
 - Audio Director (pocket-audio-director.js): owns intent and policy: selected BGM, when to start the ambience bed, how native status changes affect the deck, and which CRI channels receive effects.
-- Visual presentation (audio-player.js + CSS): reads confirmed CRI status and animates platter, disc, stylus, and status light. It never decides playback state.
+- Visual presentation (audio-player.js + CSS): reads the Director's stylus intent plus native CRI status and animates platter, disc, stylus, and status light. It never issues playback commands or decides what audio file to play.
 
 ## Logical routing buses
 
@@ -22,14 +22,42 @@ Pocket has one playback engine: CRI ADX LE. Android and WebView are command/pres
 
 Settings exposes independent Music, Vinyl Ambience, and Sound Effects levels. Sound Effects currently controls the MECHANICAL, UI, and SFX channels. Each effect channel has one CRI player, so a retrigger on that same channel replaces its prior instance; separate channels remain concurrent.
 
-## Turntable state rules
+## End-to-end startup and turntable state rules
 
-1. The Director requests the selected BGM.
-2. Only after CRI reports BGM as playing does the Director request vinyl crackle on its own channel.
-3. Selecting a new record replaces MUSIC only. AMBIENCE is not stopped, restarted, or placed in a queue.
-4. Pause/resume applies to BGM and ambience together. Stop fades and stops both.
-5. Stylus and record placement use separate mechanical channels.
-6. Disc rotation and stylus movement only reflect native CRI status.
+### Startup after the authenticated splash
+
+1. The initial boot mark/login flow does not start audio.
+2. After the authenticated Pocket splash animation completes, the Director requests the one-shot `record-placement` SFX.
+3. The Director waits for the native CRI `record` channel to report `ended`. A bounded six-second fallback prevents a missing completion callback from leaving startup silent forever.
+4. The Director then requests the selected BGM. CRI starts the music channel at a zero Tween multiplier and fades it up.
+5. Only after native CRI reports BGM as `playing` does the Director request the independent vinyl-crackle ambience loop.
+6. The turntable presents the stylus-down / motor-start transition while the startup music request is active. If playback fails, the Director clears the stylus-down state and reports the CRI error.
+
+### Opening Settings > Audio
+
+Opening the Audio section does not start, restart, or pause music. It mounts a visual turntable and immediately reads the current Director state. If music is already active, the platter begins its visual rotation; if paused, the stylus remains lifted and the platter remains stopped. Leaving Settings disposes only that screen's animation instance, not the CRI runtime or the selected track.
+
+### Stylus and record interactions
+
+- Lower stylus: the Director requests the short `stylus-drop` effect and starts or resumes the selected music.
+- Lift stylus: the Director raises the stylus state immediately; CRI fades MUSIC and AMBIENCE down over about 170 ms, then applies native pause at about 185 ms. The visual platter eases to a stop.
+- There is currently no separate stylus-lift one-shot asset/cue. The audible lift behavior is the shared music/ambience fade and pause, not a hidden second playback path.
+- Select a record while idle: selection and sleeve-to-platter visual travel only; playback does not begin.
+- Select a record while playing: only MUSIC is faded/replaced. AMBIENCE remains on its existing CRI player. The Director keeps the stylus down through the new track's PREP state so the platter does not brake between songs.
+- Select a record while paused: CRI loads the new track but preserves pause; the stylus stays lifted until the user lowers it again.
+
+### Full, mini-window, and bubble lifecycle
+
+| Mode | CRI playback | Turntable rendering |
+|---|---|---|
+| Full Activity | Continues | Runs when the Audio section is mounted |
+| Floating mini-window | Same Activity, WebView and CRI runtime continue | Runs in the same WebView |
+| TV bubble | CRI continues; no pause/stop command is sent by the mode transition | WebView/AnimeJS and the custom platter RAF are suspended while hidden |
+| Return to full / mini-window | Same selected track and playback state | RAF resumes from its retained angle; if a pause arrived while hidden, the platter remains stopped |
+
+PocketFloatingWindow moves the same WebView between the Activity and overlay. It does not construct a second Audio Director or issue `criPauseMusic` / `criStopMusic` commands during normal mode changes. The native CRI runtime belongs to MainActivity and is disposed only when the Activity is destroyed. This guarantee covers normal full/mini/bubble transitions, not Android process death or force-stop.
+
+Disc rotation and stylus position are presentation only. The Director owns `needleDown` intent, CRI owns actual playback/fade/pause, and native CRI callbacks reconcile the visible status; the visual layer never sends playback commands.
 
 ## CRI Category / Cue Sheet status
 
@@ -58,9 +86,14 @@ References: [Unity Audio Mixer (Japanese)](https://docs.unity3d.com/ja/current/M
 - All audible playback requests terminate in the same native CRI runtime.
 - MUSIC and AMBIENCE use independent CRI player channels.
 - BGM replacement touches MUSIC only.
+- Startup waits for the record-placement CRI cue (or a bounded fallback) before requesting BGM.
 - Ambience starts only after confirmed native BGM playback.
+- Track replacement does not restart the ambience player.
+- Stylus lift fades and pauses BGM plus ambience; no dedicated stylus-lift SFX is currently bundled.
+- Normal full/mini/bubble mode changes never issue CRI pause or stop commands.
+- Bubble mode suspends the hidden visual RAF only; return restores the turntable's retained angle and current needle state.
 - Music, ambience, and effects have independent persisted gain controls.
-- The disc/stylus visual layer cannot start or stop audio.
+- The visual layer cannot start, stop, or select audio.
 
 ## References
 
