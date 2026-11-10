@@ -6,11 +6,30 @@ import { dailyLoginMarkup, mountDailyLogin } from "./daily-login.js";
 import { playerRecordsMarkup, mountPlayerRecords } from "./player-records.js";
 import { getAccessDiagnostics, getDiagnosticWordFrames, formatDiagnosticFrame } from "./access-diagnostics.js";
 import { renderFoxSplashMarkup, mountFoxSplashMotion } from "./splash-screen/splash-screen.js";
+import { createPocketAudioController, createTurntableMotion, createVinylDesignController, VINYL_STYLES } from "./audio-player.js";
 import "./splash-screen/splash-screen.css";
 
 const root = document.querySelector("#app");
 if (!root) throw new Error("Pocket root not found.");
 const native = window.PocketNative || null;
+function readNativeMusicLibrary() {
+  try {
+    const tracks = JSON.parse(native?.getCustomMusicLibrary?.() || "[]");
+    return Array.isArray(tracks) ? tracks : [];
+  } catch { return []; }
+}
+let activeTurntableMotion = null;
+let activeRecordFlight = null;
+const vinylDesigns = createVinylDesignController({ onChange: syncAudioUI });
+const pocketAudio = createPocketAudioController({
+  customTracks: readNativeMusicLibrary(),
+  onChange: syncAudioUI,
+  onPlaybackCycle: () => vinylDesigns.rotateRandom("track-end")
+});
+window.addEventListener("pocket:season-start", event => {
+  const seasonKey = event.detail?.seasonId ?? event.detail?.seasonKey ?? "";
+  vinylDesigns.onSeasonStart(seasonKey);
+});
 const reducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 const wait = ms => new Promise(resolve => window.setTimeout(resolve, ms));
 const escapeHtml = value => String(value).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
@@ -72,6 +91,10 @@ window.PocketNativeCallbacks = {
     } catch {
       callback.reject(new Error("The verified player registry response was malformed."));
     }
+  },
+  audioState(channel, state, error) {
+    pocketAudio.updateNativeState(channel, state, error);
+    syncAudioUI();
   },
   updateCheck(id, ok, updateJson, error) {
     const callback = callbacks.get(id);
@@ -266,6 +289,378 @@ function applyPaperGlow() {
     knob.style.left=(9+82*t)+"%";
     knob.style.top=y+"px";
   }
+}
+
+function vinylLabelContents(style) {
+  const text = value => escapeHtml(value ?? "").replace(/\n/g, "<br>");
+  return `
+    <span class="label-micro">${text(style.micro)}</span>
+    ${style.mark ? `<b class="label-mark">${text(style.mark)}</b>` : ""}
+    <b class="label-word">${text(style.word)}</b>
+    <span class="label-side">${text(style.side)}</span>
+    <small class="label-info">${text(style.info)}</small>
+    <i class="label-hole" aria-hidden="true"></i>`;
+}
+
+function vinylStyleOptionMarkup(style) {
+  return `
+    <button type="button" class="vinyl-style-option" data-vinyl-style="${style.id}" aria-pressed="false">
+      <span class="style-record-preview"><span class="style-record-grooves">
+        <span class="mini-label style-${style.id}">${vinylLabelContents(style)}</span>
+      </span></span>
+      <span class="style-option-copy"><b>${style.number}</b><span>${escapeHtml(style.name)}</span></span>
+      <span class="style-option-check" aria-hidden="true">✓</span>
+    </button>`;
+}
+
+function audioRecordMarkup(track, index) {
+  const custom = track.custom === true;
+  return `
+    <div class="audio-record-row">
+      <button type="button" class="audio-record${custom ? " is-custom-record" : ""}" data-audio-record="${escapeHtml(track.id)}" aria-pressed="false">
+        <span class="record-sleeve"><i class="sleeve-vinyl"></i><b>${String(index + 1).padStart(2,"0")}</b></span>
+        <span class="record-copy"><strong>${escapeHtml(track.title)}</strong><small>${custom ? "YOUR MUSIC · " + escapeHtml((track.extension || "AUDIO").toUpperCase()) : "CRI ADX · POCKET BGM"}</small></span>
+        <span class="record-state" aria-hidden="true">✓</span>
+      </button>
+      ${custom
+        ? `<button type="button" class="audio-record-remove" data-audio-remove="${escapeHtml(track.nativeId || track.id)}" aria-label="Remove ${escapeHtml(track.title)}" title="Remove imported music">×</button>`
+        : `<span class="audio-record-locked" aria-label="Built-in music cannot be removed" title="Pocket original">◆</span>`}
+    </div>`;
+}
+
+function renderAudioRecordList() {
+  const list = root.querySelector("[data-audio-record-list]");
+  if (!list) return;
+  const tracks = pocketAudio.getTracks();
+  const signature = tracks.map(track => track.id + ":" + track.title).join("|");
+  if (list.dataset.renderSignature !== signature) {
+    list.innerHTML = tracks.map(audioRecordMarkup).join("");
+    list.dataset.renderSignature = signature;
+  }
+}
+
+function showAudioImportNotice(message, success = false) {
+  const overlay = root.querySelector("[data-audio-import-overlay]");
+  if (!overlay) return;
+  const title = overlay.querySelector("[data-audio-import-title]");
+  const kicker = overlay.querySelector("[data-audio-import-kicker]");
+  const copy = overlay.querySelector("[data-audio-import-message]");
+  if (title) title.textContent = success
+    ? (overlay.dataset.noticeAction === "removed" ? "Record removed" : "A new record is ready")
+    : (overlay.dataset.noticeAction === "remove-failed" ? "Could not remove record" : "This file is not supported");
+  if (kicker) kicker.textContent = success
+    ? (overlay.dataset.noticeAction === "removed" ? "REMOVED FROM YOUR RACK" : "ADDED TO YOUR RECORD RACK")
+    : (overlay.dataset.noticeAction === "remove-failed" ? "RECORD RACK · NOT CHANGED" : "A SMALL FORMAT CHECK");
+  if (copy) copy.textContent = String(message || (success ? "Your music has joined the library." : "Choose an audio format supported by Pocket."));
+  overlay.hidden = false;
+  overlay.setAttribute("aria-hidden","false");
+  const panel = overlay.querySelector(".audio-import-card");
+  if (panel && !reducedMotion()) animate(panel,{opacity:[0,1],translateY:[12,0],scale:[.98,1],duration:300,ease:"outCubic"});
+  overlay.querySelector("[data-audio-import-close]")?.focus();
+}
+
+window.addEventListener("pocket:music-library-changed", event => {
+  const result = event.detail || {};
+  if (Array.isArray(result.tracks)) pocketAudio.updateCustomTracks(result.tracks);
+  syncAudioUI();
+  if (!result.cancelled && result.message) {
+    const overlay = root.querySelector("[data-audio-import-overlay]");
+    if (overlay) overlay.dataset.noticeAction = result.action || "";
+    showAudioImportNotice(result.message, result.ok === true);
+  }
+});
+
+function syncAudioUI() {
+  const player = root.querySelector("[data-audio-player]");
+  if (!player) return;
+  const state = pocketAudio.getState();
+  const labelState = vinylDesigns.getState();
+  renderAudioRecordList();
+  activeTurntableMotion?.setPlaying(state.isPlaying && !reducedMotion());
+  player.classList.toggle("is-playing", state.isPlaying);
+  player.classList.toggle("is-starting", state.isStarting);
+  const trackTitle = player.querySelector("[data-track-title]");
+  const status = player.querySelector("[data-audio-status]");
+  const needle = player.querySelector("[data-audio-needle]");
+  const currentLabel = player.querySelector("[data-vinyl-label]");
+  if (trackTitle) trackTitle.textContent = state.title;
+  if (status) status.textContent = state.isPlaying ? "PLAYING · MAIN MENU MUSIC" : state.isStarting ? "STYLUS CONTACT · PREPARING" : "NEEDLE LIFTED · READY";
+  if (needle) {
+    needle.setAttribute("aria-label", state.isPlaying || state.isStarting ? "Lift the stylus and pause music" : "Lower the stylus and play music");
+    needle.setAttribute("aria-pressed", String(state.isPlaying || state.isStarting));
+  }
+  if (currentLabel) {
+    currentLabel.className = "vinyl-label style-" + labelState.id;
+    currentLabel.innerHTML = vinylLabelContents(labelState.style);
+    currentLabel.setAttribute("aria-label", labelState.style.name + " center label");
+  }
+  root.querySelectorAll("[data-audio-record]").forEach(button => {
+    const selected = button.dataset.audioRecord === state.track;
+    button.classList.toggle("is-selected", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  });
+  root.querySelectorAll("[data-vinyl-style]").forEach(button => {
+    const selected = button.dataset.vinylStyle === labelState.id;
+    button.classList.toggle("is-selected", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  });
+  const styleMode = root.querySelector("[data-vinyl-style-mode]");
+  if (styleMode) styleMode.textContent = labelState.mode === "manual" ? "MANUAL PICK · NEXT CYCLE RETURNS TO AUTO" : "AUTO · CHANGES EACH TRACK / SEASON";
+  const autoButton = root.querySelector("[data-vinyl-auto]");
+  if (autoButton) {
+    autoButton.classList.toggle("is-selected", labelState.mode === "auto");
+    autoButton.setAttribute("aria-pressed", String(labelState.mode === "auto"));
+  }
+  const musicSlider = root.querySelector("[data-music-volume]");
+  const musicOutput = root.querySelector("[data-music-volume-value]");
+  const effectsSlider = root.querySelector("[data-effects-volume]");
+  const effectsOutput = root.querySelector("[data-effects-volume-value]");
+  if (musicSlider) musicSlider.value = String(state.musicVolume);
+  if (musicOutput) musicOutput.textContent = state.musicVolume + "%";
+  if (effectsSlider) effectsSlider.value = String(state.effectsVolume);
+  if (effectsOutput) effectsOutput.textContent = state.effectsVolume + "%";
+}
+
+function animateRecordToPlatter(button) {
+  if (activeRecordFlight) {
+    activeRecordFlight.animation.pause();
+    activeRecordFlight.element.remove();
+    activeRecordFlight = null;
+  }
+  const sleeve = button.querySelector(".record-sleeve");
+  const platter = root.querySelector(".turntable-platter");
+  if (!sleeve || !platter || reducedMotion()) return;
+  const from = sleeve.getBoundingClientRect();
+  const to = platter.getBoundingClientRect();
+  if (!from.width || !from.height || !to.width || !to.height) return;
+
+  const diameter = Math.min(to.width * 0.82, to.height * 0.82);
+  const flight = document.createElement("span");
+  flight.className = "audio-record-flight";
+  flight.setAttribute("aria-hidden", "true");
+  Object.assign(flight.style, {
+    left: (from.left + (from.width - diameter) / 2) + "px",
+    top: (from.top + (from.height - diameter) / 2) + "px",
+    width: diameter + "px",
+    height: diameter + "px",
+    opacity: "0.98"
+  });
+  document.body.append(flight);
+  const animation = animate(flight, {
+    left: (to.left + (to.width - diameter) / 2) + "px",
+    top: (to.top + (to.height - diameter) / 2) + "px",
+    rotate: "270deg",
+    opacity: [0.98, 0.92],
+    duration: 680,
+    ease: "inOutCubic",
+    onComplete: () => {
+      flight.remove();
+      if (activeRecordFlight?.element === flight) activeRecordFlight = null;
+    }
+  });
+  activeRecordFlight = { element: flight, animation };
+}
+
+function mountAudioSettings() {
+  const section = root.querySelector("[data-audio-section]");
+  if (!section) return () => {};
+  const disc = section.querySelector(".vinyl-disc");
+  const turntableMotion = createTurntableMotion({
+    onFrame: angle => { disc.style.transform = "rotate(" + angle.toFixed(3) + "deg)"; }
+  });
+  activeTurntableMotion = turntableMotion;
+  const toggle = section.querySelector("[data-audio-toggle]");
+  const content = section.querySelector("[data-audio-content]");
+  toggle.addEventListener("click", () => {
+    const expanded = toggle.getAttribute("aria-expanded") !== "true";
+    toggle.setAttribute("aria-expanded", String(expanded));
+    section.classList.toggle("is-expanded", expanded);
+    content.hidden = !expanded;
+    if (expanded) {
+      syncAudioUI();
+      if (!reducedMotion()) animate(content, { opacity:[0,1], translateY:[8,0], duration:340, ease:"outCubic" });
+    }
+  });
+  toggle.setAttribute("aria-expanded", "false");
+  section.classList.remove("is-expanded");
+
+  const drawer = section.querySelector("[data-vinyl-drawer]");
+  const drawerToggle = drawer?.querySelector("[data-vinyl-drawer-toggle]");
+  const drawerPanel = drawer?.querySelector("[data-vinyl-drawer-panel]");
+  const drawerGrip = drawer?.querySelector("[data-vinyl-drawer-grip]");
+  let drawerOpen = false;
+  let drawerPointer = null;
+  let drawerStartY = 0;
+  let drawerDeltaY = 0;
+  let drawerDragged = false;
+  const setDrawerOpen = next => {
+    if (!drawerPanel || drawerOpen === next) return;
+    drawerOpen = next;
+    drawerToggle?.setAttribute("aria-expanded", String(next));
+    drawer?.classList.toggle("is-open", next);
+    if (next) {
+      drawerPanel.hidden = false;
+      drawerPanel.style.removeProperty("transform");
+      drawerPanel.style.removeProperty("opacity");
+      if (!reducedMotion()) animate(drawerPanel, { opacity:[0,1], translateY:[20,0], duration:290, ease:"outCubic" });
+    } else if (reducedMotion()) {
+      drawerPanel.hidden = true;
+      drawerPanel.style.removeProperty("transform");
+      drawerPanel.style.removeProperty("opacity");
+    } else {
+      animate(drawerPanel, {
+        opacity:[1,0], translateY:[0,26], duration:220, ease:"inCubic",
+        onComplete:() => {
+          if (!drawerOpen) drawerPanel.hidden = true;
+          drawerPanel.style.removeProperty("transform");
+          drawerPanel.style.removeProperty("opacity");
+        }
+      });
+    }
+  };
+  drawerToggle?.addEventListener("click", () => setDrawerOpen(!drawerOpen));
+  const gripDown = event => {
+    if (!drawerOpen || drawerPointer !== null || event.button !== 0) return;
+    drawerPointer = event.pointerId;
+    drawerStartY = event.clientY;
+    drawerDeltaY = 0;
+    drawerDragged = false;
+    drawerGrip.setPointerCapture?.(event.pointerId);
+    drawerPanel.classList.add("is-dragging");
+  };
+  const gripMove = event => {
+    if (drawerPointer !== event.pointerId) return;
+    drawerDeltaY = Math.max(0, event.clientY - drawerStartY);
+    if (drawerDeltaY > 4) drawerDragged = true;
+    drawerPanel.style.transform = "translateY(" + Math.min(150, drawerDeltaY) + "px)";
+    drawerPanel.style.opacity = String(Math.max(.42, 1 - drawerDeltaY / 190));
+  };
+  const gripUp = event => {
+    if (drawerPointer !== event.pointerId) return;
+    drawerGrip.releasePointerCapture?.(event.pointerId);
+    drawerPointer = null;
+    drawerPanel.classList.remove("is-dragging");
+    const close = drawerDeltaY > 48 || !drawerDragged;
+    drawerDeltaY = 0;
+    if (close) setDrawerOpen(false);
+    else {
+      drawerPanel.style.removeProperty("transform");
+      drawerPanel.style.removeProperty("opacity");
+    }
+  };
+  if (drawerGrip) {
+    drawerGrip.addEventListener("pointerdown", gripDown);
+    drawerGrip.addEventListener("pointermove", gripMove);
+    drawerGrip.addEventListener("pointerup", gripUp);
+    drawerGrip.addEventListener("pointercancel", gripUp);
+    drawerGrip.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        setDrawerOpen(false);
+      }
+    });
+  }
+  drawer?.querySelectorAll("[data-vinyl-style]").forEach(button => {
+    button.addEventListener("click", () => vinylDesigns.choose(button.dataset.vinylStyle));
+  });
+  drawer?.querySelector("[data-vinyl-auto]")?.addEventListener("click", () => vinylDesigns.returnToAuto());
+
+  const recordList = section.querySelector("[data-audio-record-list]");
+  const editListButton = section.querySelector("[data-audio-edit-list]");
+  let editListMode = false;
+  let pendingRemoveId = "";
+  const setEditListMode = enabled => {
+    editListMode = !!enabled;
+    recordList?.classList.toggle("is-editing",editListMode);
+    editListButton?.setAttribute("aria-pressed",String(editListMode));
+    if (editListButton) editListButton.textContent = editListMode ? "DONE" : "EDIT LIST";
+  };
+  editListButton?.addEventListener("click",() => setEditListMode(!editListMode));
+
+  const importOverlay = section.querySelector("[data-audio-import-overlay]");
+  const hideImportOverlay = () => {
+    importOverlay.hidden = true;
+    importOverlay.setAttribute("aria-hidden","true");
+    importOverlay.dataset.noticeAction = "";
+    pendingRemoveId = "";
+    importOverlay.querySelector("[data-audio-import-confirm]").hidden = true;
+    importOverlay.querySelector("[data-audio-import-close]").textContent = "RETURN TO AUDIO";
+  };
+  recordList?.addEventListener("click", event => {
+    const removeButton = event.target?.closest?.("[data-audio-remove]");
+    if (removeButton && recordList.contains(removeButton)) {
+      const id = removeButton.dataset.audioRemove || "";
+      const track = pocketAudio.getTracks().find(item => (item.nativeId || item.id) === id && item.custom);
+      if (!track || !editListMode) return;
+      pendingRemoveId = id;
+      importOverlay.dataset.noticeAction = "confirm-remove";
+      importOverlay.querySelector("[data-audio-import-kicker]").textContent = "EDIT RECORD RACK";
+      importOverlay.querySelector("[data-audio-import-title]").textContent = "Remove this record?";
+      importOverlay.querySelector("[data-audio-import-message]").textContent =
+        track.title + " will be removed from Pocket's private music shelf. Original Pocket music is never removed.";
+      importOverlay.querySelector("[data-audio-import-confirm]").hidden = false;
+      importOverlay.querySelector("[data-audio-import-close]").textContent = "KEEP RECORD";
+      importOverlay.hidden = false;
+      importOverlay.setAttribute("aria-hidden","false");
+      if (!reducedMotion()) animate(importOverlay.querySelector(".audio-import-card"),{opacity:[0,1],translateY:[12,0],duration:260,ease:"outCubic"});
+      importOverlay.querySelector("[data-audio-import-confirm]").focus();
+      return;
+    }
+    const button = event.target?.closest?.("[data-audio-record]");
+    if (!button || !recordList.contains(button) || editListMode) return;
+    const changed = pocketAudio.selectTrack(button.dataset.audioRecord);
+    if (!changed) return;
+    pocketAudio.playEffect("placement");
+    animateRecordToPlatter(button);
+  });
+  importOverlay?.querySelector("[data-audio-import-close]")?.addEventListener("click",hideImportOverlay);
+  importOverlay?.querySelector("[data-audio-import-confirm]")?.addEventListener("click",() => {
+    if (!pendingRemoveId || typeof native?.deleteCustomMusicTrack !== "function") {
+      hideImportOverlay();
+      const overlay = section.querySelector("[data-audio-import-overlay]");
+      overlay.dataset.noticeAction = "remove-failed";
+      showAudioImportNotice("Pocket could not remove this imported record.",false);
+      return;
+    }
+    let result;
+    try { result = JSON.parse(native.deleteCustomMusicTrack(pendingRemoveId) || "{}"); }
+    catch { result = {ok:false,message:"Pocket could not remove this record."}; }
+    if (Array.isArray(result.tracks)) pocketAudio.updateCustomTracks(result.tracks);
+    hideImportOverlay();
+    if (result.ok) setEditListMode(false);
+    const overlay = section.querySelector("[data-audio-import-overlay]");
+    overlay.dataset.noticeAction = result.ok ? "removed" : "remove-failed";
+    showAudioImportNotice(result.message || "Pocket could not remove this record.",result.ok === true);
+  });
+  importOverlay?.addEventListener("click",event => {
+    if (event.target === importOverlay) hideImportOverlay();
+  });
+  section.querySelector("[data-audio-add]")?.addEventListener("click", () => {
+    if (typeof native?.openPocketAudioPicker !== "function" ||
+        native.openPocketAudioPicker() !== true) {
+      showAudioImportNotice("Pocket could not open the device file manager. Please try again.", false);
+    }
+  });
+
+  section.querySelector("[data-audio-needle]").addEventListener("click", () => {
+    void pocketAudio.toggleNeedle();
+  });
+  section.querySelector("[data-music-volume]").addEventListener("input", event => {
+    pocketAudio.setMusicVolume(event.currentTarget.value);
+  });
+  section.querySelector("[data-effects-volume]").addEventListener("input", event => {
+    pocketAudio.setEffectsVolume(event.currentTarget.value);
+  });
+  syncAudioUI();
+  return () => {
+    turntableMotion.dispose();
+    if (activeTurntableMotion === turntableMotion) activeTurntableMotion = null;
+    if (activeRecordFlight) {
+      activeRecordFlight.animation.pause();
+      activeRecordFlight.element.remove();
+      activeRecordFlight = null;
+    }
+  };
 }
 
 function paperLightControlMarkup() {
@@ -1066,6 +1461,7 @@ function showSplash() {
 function renderHome() {
   routeHistory.length = 0;
   renderPage("home");
+  pocketAudio.enterMainMenu();
 }
 function readLocalPlayerNames() {
   if (!nativeReady()) return [];
@@ -1178,13 +1574,92 @@ function renderPage(destination, transitionDuration=420) {
         ${paperLightControlMarkup()}
       </article>
 
+      <article class="destination-card audio-section" data-audio-section>
+        <button type="button" class="audio-section-toggle" data-audio-toggle aria-expanded="false">
+          <i class="settings-symbol audio-symbol" aria-hidden="true"></i>
+          <span>AUDIO</span><small>VINYL LIBRARY & PLAYBACK</small><b aria-hidden="true">⌄</b>
+        </button>
+        <div class="audio-content" data-audio-content hidden>
+          <section class="audio-player" data-audio-player>
+            <div class="audio-player-heading"><span>NOW ON THE PLATTER</span><small>POCKET RECORD DECK</small></div>
+            <div class="turntable">
+              <div class="turntable-platter">
+                <div class="vinyl-disc"><div class="vinyl-grooves"></div><div class="vinyl-label style-${vinylDesigns.getState().id}" data-vinyl-label>${vinylLabelContents(vinylDesigns.getState().style)}</div></div>
+              </div>
+              <div class="turntable-spindle"></div>
+              <button type="button" class="turntable-needle" data-audio-needle aria-label="Lower the stylus and play music" aria-pressed="false">
+                <i class="needle-pivot"></i><span class="needle-linkage" aria-hidden="true"><i class="needle-arm"></i><i class="needle-head"><i class="needle-tip"></i></i></span>
+              </button>
+              <span class="turntable-speed">33⅓ RPM</span>
+              <span class="turntable-status-light"></span>
+            </div>
+            <div class="audio-current-track"><span>SELECTED RECORD</span><strong data-track-title>Happy-1a</strong><small data-audio-status>NEEDLE LIFTED · READY</small></div>
+            <div class="audio-volume-controls">
+              <label><span>MUSIC VOLUME</span><output data-music-volume-value>68%</output><input data-music-volume type="range" min="0" max="100" step="1" value="68" aria-label="Music volume"></label>
+              <label><span>SOUND EFFECTS</span><output data-effects-volume-value>76%</output><input data-effects-volume type="range" min="0" max="100" step="1" value="76" aria-label="Sound effects volume"></label>
+            </div>
+          </section>
+          <section class="audio-rack">
+            <div class="audio-rack-heading">
+              <span>RECORD RACK</span>
+              <div class="audio-rack-tools">
+                <small>SELECT A RECORD TO PLACE IT</small>
+                <button type="button" class="audio-edit-toggle" data-audio-edit-list aria-pressed="false">EDIT LIST</button>
+              </div>
+            </div>
+            <div class="audio-record-list" data-audio-record-list aria-label="Music library"></div>
+            <p class="audio-rack-note">Placing a record does not start playback. Lower the stylus to listen.</p>
+            <div class="audio-import-tools">
+              <button type="button" class="audio-add-button" data-audio-add>
+                <span class="audio-package-icon" aria-hidden="true"><i></i><b></b><em></em></span>
+                <span><strong>ADD MUSIC</strong><small>CHOOSE FROM YOUR DEVICE</small></span>
+                <b aria-hidden="true">↗</b>
+              </button>
+              <p class="audio-format-note">OGG, MP3, M4A, AAC, FLAC, WAV and other device-decodable audio are converted to private PCM WAV before entering CRI. Source limit: 64 MB. Saved inside Pocket.</p>
+            </div>
+          </section>
+          <section class="vinyl-style-drawer" data-vinyl-drawer>
+            <button type="button" class="vinyl-drawer-toggle" data-vinyl-drawer-toggle aria-expanded="false">
+              <span><b>LABEL DRAWER</b><small>20 CENTER-LABEL DESIGNS</small></span>
+              <i aria-hidden="true">⌃</i>
+            </button>
+            <div class="vinyl-drawer-panel" data-vinyl-drawer-panel hidden>
+              <div class="vinyl-drawer-grip" data-vinyl-drawer-grip role="button" tabindex="0" aria-label="Swipe down or tap to close the label drawer">
+                <i></i><span>DRAG DOWN TO CLOSE</span>
+              </div>
+              <div class="vinyl-drawer-tools">
+                <span data-vinyl-style-mode>AUTO · CHANGES EACH TRACK / SEASON</span>
+                <button type="button" data-vinyl-auto aria-pressed="true">AUTO ROTATION</button>
+              </div>
+              <div class="vinyl-style-grid">
+                ${VINYL_STYLES.map(vinylStyleOptionMarkup).join("")}
+              </div>
+            </div>
+          </section>
+        </div>
+        <div class="audio-import-overlay" data-audio-import-overlay hidden aria-hidden="true">
+          <section class="audio-import-card" role="dialog" aria-modal="true" aria-labelledby="audio-import-title">
+            <span class="audio-import-emblem" aria-hidden="true">♫</span>
+            <p class="audio-import-kicker" data-audio-import-kicker>RECORD ARCHIVE</p>
+            <h3 id="audio-import-title" data-audio-import-title>Record added</h3>
+            <p class="audio-import-message" data-audio-import-message></p>
+            <small class="audio-import-footnote">SUPPORTED AUDIO · ANDROID DECODER → PCM WAV → CRI · MAX 64 MB</small>
+            <div class="audio-import-actions">
+              <button type="button" class="audio-import-confirm" data-audio-import-confirm hidden>REMOVE RECORD</button>
+              <button type="button" class="audio-import-close" data-audio-import-close>RETURN TO AUDIO</button>
+            </div>
+          </section>
+        </div>
+      </article>
       <article class="destination-card personal-section"><div class="settings-section-heading"><i class="settings-symbol personal-symbol" aria-hidden="true"></i><span>PERSONAL STUFF</span><small>YOUR POCKET PROFILE</small></div><section class="personal-setting"><div class="personal-account-icon" aria-hidden="true"></div><div class="personal-account-copy"><span>ACCOUNT & ACCESS</span><strong>${escapeHtml(accessIdentity?.displayName||"Pocket User")}</strong><small>${(accessIdentity?.role||"player").toUpperCase()} SESSION</small></div><button class="logout-button" data-signout><i class="logout-symbol" aria-hidden="true"></i>LOCK / SIGN OUT</button></section></article>
       <details class="legal-credits">
         <summary><span>LEGAL & CREDITS</span><small>LICENCES · ATTRIBUTIONS · OPEN-SOURCE NOTICES</small></summary>
         <div class="legal-credits-body">
-          <p><b>VINYL SURFACE NOISE</b> · “Warm organic vinyl record crackle #6” — Sdanezis / Pixabay. AI-generated. Converted to OGG for Pocket. Preserved unchanged under the Pixabay Content License; playback is inactive while the BGM subsystem is rebuilt. <span class="legal-source-credit">SOURCE · PIXABAY / SDANEZIS</span></p>
+          <p><b>VINYL SURFACE NOISE</b> · “Warm organic vinyl record crackle #6” — Sdanezis / Pixabay. Converted for use as a CRI-managed loop under the Pixabay Content License; not offered as a standalone audio file. <span class="legal-source-credit">SOURCE · PIXABAY / SDANEZIS</span></p>
           <p><b>DAILY LOGIN WEATHER</b> · Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>, using a representative reference point from the phone IANA time zone. No GPS, IP geolocation, Android location service or location permission is used. Weather data is CC BY 4.0; the free API is for non-commercial use. <span class="legal-source-credit">SOURCE · OPEN-METEO / IANA TZDB</span></p>
-          <p>Full npm dependency notices include direct and transitive packages. Existing built-in audio whose original source is not recorded is flagged separately in the notices.</p>
+          <p><b>CRI ADX LE RUNTIME</b> · This application includes CRI ADX LE runtime libraries. You may not reverse engineer, decompile nor disassemble these runtime libraries. You may not reuse these runtime libraries and/or any part thereof for your software development. CRI Middleware retains all rights to its runtime libraries.</p>
+      <p>All Pocket music and sound effects are mixed by one CRI AtomEx runtime. Device-imported music is decoded to private PCM WAV before CRI playback; WebView audio playback is not used.</p>
+      <p>Full npm dependency notices include direct and transitive packages. Existing built-in audio whose original source is not recorded is flagged separately in the notices.</p>
           <button type="button" data-legal-notices-toggle aria-expanded="false">VIEW FULL LICENCES</button>
           <pre data-legal-notices-output hidden></pre>
         </div>
