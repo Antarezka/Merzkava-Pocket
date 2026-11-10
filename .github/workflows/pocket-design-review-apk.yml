@@ -258,8 +258,8 @@ jobs:
           grep -q 'criAtomExPlayer_SetSamplingRate' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'CRIATOMEXPLAYER_STATUS_STOP' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'CRIATOMEXPLAYER_STATUS_PLAYEND' review-apk/app/src/main/cpp/cri_audio_jni.cpp
-          grep -q 'gServerThread = std::thread' review-apk/app/src/main/cpp/cri_audio_jni.cpp
-          grep -q 'Keep continuous CRI file streams looping on the native' review-apk/app/src/main/cpp/cri_audio_jni.cpp
+          grep -q 'gLoopMonitorThread = std::thread' review-apk/app/src/main/cpp/cri_audio_jni.cpp
+          grep -q 'CRI default configuration uses the MULTI thread model' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'chrono::milliseconds(16)' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'criAtomExVoicePool_AllocateAdxVoicePool' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'criAtomDbas_Create' review-apk/app/src/main/cpp/cri_audio_jni.cpp
@@ -272,8 +272,11 @@ jobs:
           grep -q 'criAtomExPlayer_Update' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'readAudioMetadata' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
           test -s review-apk/app/src/main/cpp/cri_audio_jni.cpp
-          grep -q "criAtomEx_ExecuteMain" review-apk/app/src/main/cpp/cri_audio_jni.cpp
-          grep -q "gServerRunning" review-apk/app/src/main/cpp/cri_audio_jni.cpp
+          if grep -q 'criAtomEx_ExecuteMain[[:space:]]*(' review-apk/app/src/main/cpp/cri_audio_jni.cpp; then
+             echo "::error::Pocket must not pump the CRI server while the CRI MULTI server thread is active."
+             exit 1
+           fi
+          grep -q "gLoopMonitorRunning" review-apk/app/src/main/cpp/cri_audio_jni.cpp
           test -s review-apk/app/src/main/cpp/CMakeLists.txt
           grep -q 'BUILT_IN.put("vinyl-crackle", "vinyl-surface-noise.adx")' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
           grep -q 'BUILT_IN.put("stylus-drop", "needle-drop.adx")' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
