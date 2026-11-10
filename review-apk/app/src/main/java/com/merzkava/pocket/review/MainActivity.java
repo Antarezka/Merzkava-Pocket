@@ -82,7 +82,7 @@ public final class MainActivity extends Activity {
                     if (intent.getBooleanExtra("cycle", false)) state.put("cycle", true);
                     dispatchNativeAudioState(state.toString());
                 } catch (Exception error) {
-                    Log.w("PocketMedia3", "Could not forward native audio state", error);
+                    Log.w("PocketOxiAudio", "Could not forward native audio state", error);
                 }
             }
         };

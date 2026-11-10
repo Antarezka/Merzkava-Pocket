@@ -179,14 +179,14 @@ public final class PocketMediaPlaybackService extends Service {
 
     private void updateStoredState(boolean playing, boolean preparing, String error,
                                    String trackId, boolean userPaused, int cycleCount) {
-        getSharedPreferences("PocketNativeAudio", MODE_PRIVATE).edit()
+        getSharedPreferences("merzkava-pocket-access", MODE_PRIVATE).edit()
             .putBoolean("pocket_native_audio_playing", playing)
             .putBoolean("pocket_native_audio_preparing", preparing)
             .putString("pocket_native_audio_error", error == null ? "" : error)
             .putString("pocket_native_audio_track", trackId == null ? "" : trackId)
             .putInt("pocket_native_audio_cycles", Math.max(0, cycleCount))
             .putInt("pocket_native_audio_volume",
-                getSharedPreferences("PocketNativeAudio", MODE_PRIVATE).getInt("pocket_native_audio_volume", 68))
+                getSharedPreferences("merzkava-pocket-access", MODE_PRIVATE).getInt("pocket_native_audio_volume", 68))
             .putBoolean("pocket_native_audio_user_paused", userPaused)
             .apply();
 

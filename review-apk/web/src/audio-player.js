@@ -448,7 +448,7 @@ function createNativePocketAudioController({
     return Promise.resolve(nativePlaying);
   }
   function retryPendingPlayback() {
-    // This is called for every document click. For native Media3, arbitrary
+    // This is called for every document click. For native OxiAudio/OxiSound, arbitrary
     // gestures must never create another ACTION_PLAY or restart a failed service.
     // More importantly, do not apply a cached userPaused=true snapshot while a
     // fresh needle gesture is already preparing its explicit play request.
@@ -461,7 +461,7 @@ function createNativePocketAudioController({
     return true;
   }
   function recoverAfterBackgroundTransition() {
-    // Media3 owns playback independently of WebView visibility and Activity lifecycle.
+    // OxiAudio/OxiSound owns playback independently of WebView visibility and Activity lifecycle.
     syncNativeState();
     return true;
   }
