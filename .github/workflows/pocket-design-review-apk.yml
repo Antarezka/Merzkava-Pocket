@@ -205,7 +205,7 @@ jobs:
           for output in "${!INPUTS[@]}"; do
             input="${INPUTS[$output]}"
             test -s "$input"
-            ffmpeg -y -hide_banner -loglevel error -i "$input" -map 0:a:0 -vn -c:a adpcm_adx -f adx "$CRI_AUDIO_DIR/$output"
+            ffmpeg -y -hide_banner -loglevel error -i "$input" -map 0:a:0 -vn -ar 48000 -c:a adpcm_adx -f adx "$CRI_AUDIO_DIR/$output"
             test -s "$CRI_AUDIO_DIR/$output"
             format="$(ffprobe -v error -show_entries format=format_name -of default=noprint_wrappers=1:nokey=1 "$CRI_AUDIO_DIR/$output")"
             grep -qi "adx" <<< "$format"
@@ -260,6 +260,9 @@ jobs:
           grep -q 'CRIATOMEXPLAYER_STATUS_PLAYEND' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'chrono::milliseconds(16)' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'criAtomExVoicePool_AllocateAdxVoicePool' review-apk/app/src/main/cpp/cri_audio_jni.cpp
+          grep -q 'criAtomDbas_Create' review-apk/app/src/main/cpp/cri_audio_jni.cpp
+          grep -q 'criAtomDbas_Destroy' review-apk/app/src/main/cpp/cri_audio_jni.cpp
+          grep -q 'criAtom_CalculateAdxBitrate(2, 48000)' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'criAtomExVoicePool_AllocateWaveVoicePool' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'criAtomExTween_MoveTo' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'criAtomExPlayer_Update' review-apk/app/src/main/cpp/cri_audio_jni.cpp
