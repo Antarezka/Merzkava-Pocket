@@ -600,6 +600,10 @@ public final class PocketCriAudioRuntime {
                     int completedLoops = nativeTakeLoopCycles(channel);
                     if (channel == CHANNEL_MUSIC && completedLoops > 0) {
                         publish("music", "cycle", "");
+                        // The decoder briefly enters PREP while the next loop
+                        // is loaded. Keep the turntable animation in PLAYING so
+                        // the disc and stylus do not visibly stutter at a loop.
+                        if (status == 1 && lastStatuses[channel] == 2) status = 2;
                     }
                     if (status != lastStatuses[channel]) {
                         lastStatuses[channel] = status;
