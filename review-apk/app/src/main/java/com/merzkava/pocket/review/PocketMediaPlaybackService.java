@@ -20,6 +20,7 @@ import androidx.media3.session.MediaSessionService;
 
 public final class PocketMediaPlaybackService extends MediaSessionService {
     static final String ACTION_PLAY = "com.merzkava.pocket.MEDIA_PLAY";
+    static final String ACTION_PAUSE = "com.merzkava.pocket.MEDIA_PAUSE";
     static final String ACTION_VOLUME = "com.merzkava.pocket.MEDIA_VOLUME";
     static final String ACTION_STATE = "com.merzkava.pocket.MEDIA_STATE";
 
@@ -52,6 +53,7 @@ public final class PocketMediaPlaybackService extends MediaSessionService {
     private boolean endFadeStarted = false;
     private boolean explicitUserPause = false;
     private boolean playbackRequested = false;
+    private boolean applyingPocketPause = false;
     private int cycleCount = 0;
 
     private final Runnable fadeStep = new Runnable() {
@@ -115,7 +117,7 @@ public final class PocketMediaPlaybackService extends MediaSessionService {
                     explicitUserPause = false;
                     playbackRequested = true;
                 } else if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST) {
-                    explicitUserPause = true;
+                    if (!applyingPocketPause) explicitUserPause = true;
                     playbackRequested = false;
                 }
                 publishState(false, null);
@@ -174,6 +176,8 @@ public final class PocketMediaPlaybackService extends MediaSessionService {
         String action = intent.getAction();
         if (ACTION_PLAY.equals(action)) {
             startTrack(intent);
+        } else if (ACTION_PAUSE.equals(action)) {
+            pauseTrack(intent.getBooleanExtra("userPause", true));
         } else if (ACTION_VOLUME.equals(action)) {
             int value = Math.max(0, Math.min(100, intent.getIntExtra("volume", 68)));
             musicVolume = value / 100f;
@@ -181,6 +185,26 @@ public final class PocketMediaPlaybackService extends MediaSessionService {
             applyPlayerVolume();
         }
         return START_NOT_STICKY;
+    }
+
+    private void pauseTrack(boolean userPause) {
+        playbackRequested = false;
+        cancelFade();
+        endFadeStarted = false;
+        handler.removeCallbacks(fadeMonitor);
+        if (player != null) {
+            applyingPocketPause = true;
+            try { player.pause(); }
+            finally { applyingPocketPause = false; }
+        }
+        explicitUserPause = userPause;
+        getPreferences().edit()
+            .putBoolean(PREF_PLAYING, false)
+            .putBoolean(PREF_PREPARING, false)
+            .putString(PREF_ERROR, "")
+            .putBoolean(PREF_USER_PAUSED, userPause)
+            .apply();
+        publishState(false, null);
     }
 
     private void startTrack(Intent intent) {
@@ -285,7 +309,11 @@ public final class PocketMediaPlaybackService extends MediaSessionService {
 
     private void publishState(boolean completedCycle, String error) {
         boolean playing = player != null && player.isPlaying();
-        boolean preparing = playbackRequested && !playing && error == null;
+        int playbackState = player == null ? Player.STATE_IDLE : player.getPlaybackState();
+        boolean hasPendingMedia = player != null && player.getCurrentMediaItem() != null;
+        boolean preparing = playbackRequested && !playing && error == null &&
+            (playbackState == Player.STATE_BUFFERING ||
+             (playbackState == Player.STATE_IDLE && hasPendingMedia));
         SharedPreferences.Editor editor = getPreferences().edit()
             .putBoolean(PREF_PLAYING, playing)
             .putBoolean(PREF_PREPARING, preparing)
@@ -299,6 +327,7 @@ public final class PocketMediaPlaybackService extends MediaSessionService {
             .setPackage(getPackageName())
             .putExtra("playing", playing)
             .putExtra("preparing", preparing)
+            .putExtra("playbackState", playbackState)
             .putExtra("trackId", activeTrackId)
             .putExtra("cycleCount", cycleCount)
             .putExtra("userPaused", explicitUserPause);
