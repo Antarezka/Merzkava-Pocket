@@ -1,25 +1,25 @@
 # Fox-girl splash asset layers
 
-This folder is reserved for the separately exported illustration layers used by the Merzkava Pocket splash screen.
+These are the actual uploaded transparent PNG layers used by the **main Merzkava Pocket splash screen**. This replaces the previous text-only splash rather than adding a second splash route.
 
-Place these transparent PNG files here:
+| File | Layer | Motion |
+|---|---|---|
+| `Based 0.png` | Main body / character base | Static anchor |
+| `Based 1.png` | Tail component 1 | Part of the slow tail sway |
+| `Based 2.png` | Tail component 2 | Part of the slow tail sway |
+| `based 3.png` | Tail component 3 | Part of the slow tail sway |
+| `ear 1.png` | Ear layer one | Small independent rocking motion |
+| `ear 2.png` | Ear layer two | Small independent rocking motion |
+| `floating blue-apple.png` | Apple above the palm | Gentle up/down float, slight breathing scale, blue glow |
 
-| File | Layer |
-|---|---|
-| `base-0.png` | Main body / character base |
-| `base-1.png` | Fox tail; animated with a small, slow sway |
-| `ear-1.png` | Ear layer one |
-| `ear-2.png` | Ear layer two |
-| `apple.png` | Apple hovering above the character's palm |
+## Layer alignment
 
-## Alignment requirements
+All layers should use a shared canvas size and origin so the PNGs stay aligned when stacked. Transparent pixels must be preserved. Do not crop the parts independently or flatten the illustration.
 
-- Export each layer as a transparent PNG.
-- Use the **same canvas width, height, and origin** for all five layers. Keep each part in its original position on that shared canvas; do not crop each layer independently.
-- Leave empty pixels transparent. Do not flatten the layers together.
-- Keep the tail attachment point and ear roots aligned to the body base.
-- Keep the apple at its intended position above the palm.
-- The app scales the whole layered illustration down on the splash screen; the tail, ears, and apple animate independently.
-- Keep the art in this folder separate from the game-character sprite assets.
+The three tail PNGs are animated together as one assembly so their edges remain aligned. The body stays above the tail; both ear layers and the apple sit above the body.
 
-The splash code already references these exact filenames. The illustration files themselves have not been added yet, so the character layers remain hidden until the PNGs are placed here.
+## Apple color
+
+The apple keeps its supplied artwork. The surrounding light uses the reference hue `#7BC2E2` with a pale cyan-white highlight (`#E7F9FF`) and a softer sky-blue outer halo. This is a restrained analogous blue/cyan glow, not a warm recolor of the fruit.
+
+The app scales the whole illustration down for the splash screen. Anime.js provides the slow tail and ear motion and the gentle apple float; CSS handles the low-cost apple glow pulse and wordmark light spill. Reduced-motion preferences disable the movement and pulse.
