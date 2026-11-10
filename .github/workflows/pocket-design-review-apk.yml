@@ -258,6 +258,8 @@ jobs:
           grep -q 'criAtomExPlayer_SetSamplingRate' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'CRIATOMEXPLAYER_STATUS_STOP' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'CRIATOMEXPLAYER_STATUS_PLAYEND' review-apk/app/src/main/cpp/cri_audio_jni.cpp
+          grep -q 'gServerThread = std::thread' review-apk/app/src/main/cpp/cri_audio_jni.cpp
+          grep -q 'Keep continuous CRI file streams looping on the native' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'chrono::milliseconds(16)' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'criAtomExVoicePool_AllocateAdxVoicePool' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'criAtomDbas_Create' review-apk/app/src/main/cpp/cri_audio_jni.cpp
