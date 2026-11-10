@@ -1624,7 +1624,7 @@ function renderPage(destination, transitionDuration=420) {
               </div>
             </div>
             <div class="audio-record-list" data-audio-record-list aria-label="Music library"></div>
-            <p class="audio-rack-note">Placing a record does not start playback. Lower the stylus to listen.</p>
+            <p class="audio-rack-note">Choose a record to replace the music; the stylus controls play and pause.</p>
             <div class="audio-import-tools">
               <button type="button" class="audio-add-button" data-audio-add>
                 <span class="audio-package-icon" aria-hidden="true"><i></i><b></b><em></em></span>
