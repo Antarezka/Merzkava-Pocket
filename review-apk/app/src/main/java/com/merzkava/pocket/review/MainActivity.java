@@ -73,6 +73,7 @@ public final class MainActivity extends Activity {
                 try {
                     JSONObject state = new JSONObject()
                         .put("playing", intent.getBooleanExtra("playing", false))
+                        .put("preparing", intent.getBooleanExtra("preparing", false))
                         .put("trackId", intent.getStringExtra("trackId") == null ? "" : intent.getStringExtra("trackId"))
                         .put("cycleCount", intent.getIntExtra("cycleCount", 0));
                     state.put("userPaused", intent.getBooleanExtra("userPaused", false));
