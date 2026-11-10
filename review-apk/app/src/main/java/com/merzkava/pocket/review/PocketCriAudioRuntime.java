@@ -97,6 +97,8 @@ public final class PocketCriAudioRuntime {
     private volatile boolean musicStreamActive;
     private volatile boolean ambienceStreamActive;
     private volatile boolean pausedByFocusLoss;
+    private volatile boolean musicPaused;
+    private volatile boolean pauseRequested;
     private volatile int musicVolume = 68;
     private volatile int effectsVolume = 76;
 
@@ -298,12 +300,27 @@ public final class PocketCriAudioRuntime {
         }
         requestMusicFocus();
         pausedByFocusLoss = false;
+        final boolean keepPaused = pauseRequested || musicPaused;
         final long generation = generations[CHANNEL_MUSIC].incrementAndGet();
         publish("music", "preparing", "");
         Runnable startSelectedTrack = () -> {
             if (disposed || generation != generations[CHANNEL_MUSIC].get()) return;
             startFileAtVolume(CHANNEL_MUSIC, file, format, metadata, volume(musicVolume), 0f, true, generation,
-                () -> fadeChannelTo(CHANNEL_MUSIC, 1f, 240L, null));
+                () -> {
+                    if (keepPaused) {
+                        commands.execute(() -> {
+                            if (disposed || generation != generations[CHANNEL_MUSIC].get()) return;
+                            nativePause(CHANNEL_MUSIC, true);
+                            musicPaused = true;
+                            pauseRequested = true;
+                            publish("music", "paused", "");
+                        });
+                    } else {
+                        fadeChannelTo(CHANNEL_MUSIC, 1f, 240L, null);
+                        if (!ambienceStreamActive) playAmbience();
+                        else fadeChannelTo(CHANNEL_AMBIENCE, 1f, 240L, null);
+                    }
+                });
         };
         // Fade out only BGM, then replace it even if a volume slider is moved mid-fade.
         // The vinyl ambience channel is independent and never stops during track changes.
@@ -325,7 +342,7 @@ public final class PocketCriAudioRuntime {
         }
         if (ambienceStreamActive) {
             generations[CHANNEL_AMBIENCE].incrementAndGet(); // invalidate a pending stop transition
-            fadeChannelTo(CHANNEL_AMBIENCE, volume(effectsVolume), 240L, null);
+            fadeChannelTo(CHANNEL_AMBIENCE, 1f, 240L, null);
             return true;
         }
         final AudioMetadata metadata;
@@ -465,6 +482,7 @@ public final class PocketCriAudioRuntime {
         if (!initialized || disposed) return;
         final long transition = pauseTransition.incrementAndGet();
         if (paused) {
+            pauseRequested = true;
             fadeChannelTo(CHANNEL_MUSIC, 0f, 170L, null);
             fadeChannelTo(CHANNEL_AMBIENCE, 0f, 170L, null);
             // Pause after the fade window independently of volume-slider events.
@@ -474,11 +492,14 @@ public final class PocketCriAudioRuntime {
                     if (disposed || transition != pauseTransition.get()) return;
                     nativePause(CHANNEL_MUSIC, true);
                     nativePause(CHANNEL_AMBIENCE, true);
+                    musicPaused = true;
                     publish("music", "paused", "");
                 });
             }, 185L);
             return;
         }
+        pauseRequested = false;
+        musicPaused = false;
         pausedByFocusLoss = false;
         commands.execute(() -> {
             if (disposed || transition != pauseTransition.get()) return;
@@ -493,6 +514,8 @@ public final class PocketCriAudioRuntime {
 
     public void stopMusic() {
         if (!initialized || disposed) return;
+        pauseRequested = false;
+        musicPaused = false;
         final long transition = pauseTransition.incrementAndGet();
         final long musicGeneration = generations[CHANNEL_MUSIC].incrementAndGet();
         final long ambienceGeneration = generations[CHANNEL_AMBIENCE].incrementAndGet();
@@ -569,7 +592,7 @@ public final class PocketCriAudioRuntime {
                     if (status == 1 || status == 2) active = true;
                     if (status != lastStatuses[channel]) {
                         lastStatuses[channel] = status;
-                        publish(CHANNEL_NAMES[channel], stateForStatus(status), "");
+                        publish(CHANNEL_NAMES[channel], stateForStatus(channel, status), "");
                     }
                 }
                 if (!active) {
@@ -597,7 +620,8 @@ public final class PocketCriAudioRuntime {
         }
     };
 
-    private String stateForStatus(int status) {
+    private String stateForStatus(int channel, int status) {
+        if (channel == CHANNEL_MUSIC && musicPaused) return "paused";
         switch (status) {
             case 1: return "preparing";
             case 2: return "playing";
@@ -645,10 +669,10 @@ public final class PocketCriAudioRuntime {
             pauseMusic(true);
         } else if (change == AudioManager.AUDIOFOCUS_GAIN) {
             // Restore the complete CRI mix smoothly after ducking or interruption.
-            fadeChannelTo(CHANNEL_NEEDLE, volume(effectsVolume), 180L, null);
-            fadeChannelTo(CHANNEL_EFFECTS, volume(effectsVolume), 180L, null);
-            fadeChannelTo(CHANNEL_DOOR_CHIME, volume(effectsVolume), 180L, null);
-            fadeChannelTo(CHANNEL_DOOR_RATTLE, volume(effectsVolume), 180L, null);
+            fadeChannelTo(CHANNEL_NEEDLE, 1f, 180L, null);
+            fadeChannelTo(CHANNEL_EFFECTS, 1f, 180L, null);
+            fadeChannelTo(CHANNEL_DOOR_CHIME, 1f, 180L, null);
+            fadeChannelTo(CHANNEL_DOOR_RATTLE, 1f, 180L, null);
             if (resumeAfterFocusLoss) {
                 resumeAfterFocusLoss = false;
                 pausedByFocusLoss = false;
@@ -658,12 +682,12 @@ public final class PocketCriAudioRuntime {
                 fadeChannelTo(CHANNEL_AMBIENCE, 1f, 180L, null);
             }
         } else if (change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
-            fadeChannelTo(CHANNEL_MUSIC, volume(musicVolume) * 0.25f, 150L, null);
-            fadeChannelTo(CHANNEL_AMBIENCE, volume(effectsVolume) * 0.25f, 150L, null);
-            fadeChannelTo(CHANNEL_NEEDLE, volume(effectsVolume) * 0.25f, 150L, null);
-            fadeChannelTo(CHANNEL_EFFECTS, volume(effectsVolume) * 0.25f, 150L, null);
-            fadeChannelTo(CHANNEL_DOOR_CHIME, volume(effectsVolume) * 0.25f, 150L, null);
-            fadeChannelTo(CHANNEL_DOOR_RATTLE, volume(effectsVolume) * 0.25f, 150L, null);
+            fadeChannelTo(CHANNEL_MUSIC, 0.25f, 150L, null);
+            fadeChannelTo(CHANNEL_AMBIENCE, 0.25f, 150L, null);
+            fadeChannelTo(CHANNEL_NEEDLE, 0.25f, 150L, null);
+            fadeChannelTo(CHANNEL_EFFECTS, 0.25f, 150L, null);
+            fadeChannelTo(CHANNEL_DOOR_CHIME, 0.25f, 150L, null);
+            fadeChannelTo(CHANNEL_DOOR_RATTLE, 0.25f, 150L, null);
         }
     }
 
