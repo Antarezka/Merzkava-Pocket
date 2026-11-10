@@ -26,6 +26,8 @@ public final class PocketMediaPlaybackService extends MediaSessionService {
     private static final String TAG = "PocketMedia3";
     private static final String PREFS = "merzkava-pocket-access";
     private static final String PREF_PLAYING = "pocket_native_audio_playing";
+    private static final String PREF_PREPARING = "pocket_native_audio_preparing";
+    private static final String PREF_ERROR = "pocket_native_audio_error";
     private static final String PREF_TRACK = "pocket_native_audio_track";
     private static final String PREF_CYCLES = "pocket_native_audio_cycles";
     private static final String PREF_VOLUME = "pocket_native_audio_volume";
@@ -49,6 +51,7 @@ public final class PocketMediaPlaybackService extends MediaSessionService {
     private boolean fadeActive = false;
     private boolean endFadeStarted = false;
     private boolean explicitUserPause = false;
+    private boolean playbackRequested = false;
     private int cycleCount = 0;
 
     private final Runnable fadeStep = new Runnable() {
@@ -110,20 +113,27 @@ public final class PocketMediaPlaybackService extends MediaSessionService {
             @Override public void onPlayWhenReadyChanged(boolean playWhenReady, int reason) {
                 if (playWhenReady) {
                     explicitUserPause = false;
+                    playbackRequested = true;
                 } else if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST) {
                     explicitUserPause = true;
+                    playbackRequested = false;
                 }
                 publishState(false, null);
             }
 
             @Override public void onIsPlayingChanged(boolean isPlaying) {
                 if (isPlaying) {
+                    playbackRequested = true;
                     resumeFadeClock();
                     scheduleFadeMonitor();
                 } else {
                     pauseFadeClock();
                     handler.removeCallbacks(fadeMonitor);
                 }
+                publishState(false, null);
+            }
+
+            @Override public void onPlaybackStateChanged(int playbackState) {
                 publishState(false, null);
             }
 
@@ -145,6 +155,7 @@ public final class PocketMediaPlaybackService extends MediaSessionService {
             }
 
             @Override public void onPlayerError(PlaybackException error) {
+                playbackRequested = false;
                 Log.e(TAG, "Native BGM playback failed", error);
                 publishState(false, error.getErrorCodeName());
             }
@@ -153,7 +164,8 @@ public final class PocketMediaPlaybackService extends MediaSessionService {
         mediaSession = new MediaSession.Builder(this, player)
             .setId("MerzkavaPocketBgm")
             .build();
-        publishState(false, null);
+        // Do not publish an initial STOPPED snapshot before ACTION_PLAY arrives.
+        // The bridge has already marked the accepted hand-off as PREPARING.
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
@@ -177,17 +189,24 @@ public final class PocketMediaPlaybackService extends MediaSessionService {
         String title = intent.getStringExtra("title");
         if (uriValue == null || uriValue.trim().isEmpty() ||
                 id == null || id.trim().isEmpty()) {
+            playbackRequested = false;
             publishState(false, "The selected Pocket record is incomplete.");
             stopSelf();
             return;
         }
         try {
             activeTrackId = id;
+            playbackRequested = true;
+            explicitUserPause = false;
             musicVolume = Math.max(0, Math.min(100,
                 intent.getIntExtra("volume", 68))) / 100f;
             getPreferences().edit()
                 .putInt(PREF_VOLUME, Math.round(musicVolume * 100f))
                 .putString(PREF_TRACK, activeTrackId)
+                .putBoolean(PREF_PLAYING, false)
+                .putBoolean(PREF_PREPARING, true)
+                .putString(PREF_ERROR, "")
+                .putBoolean(PREF_USER_PAUSED, false)
                 .apply();
 
             MediaMetadata metadata = new MediaMetadata.Builder()
@@ -213,6 +232,7 @@ public final class PocketMediaPlaybackService extends MediaSessionService {
             scheduleFadeMonitor();
             publishState(false, null);
         } catch (Exception error) {
+            playbackRequested = false;
             Log.e(TAG, "Could not start the selected Pocket record", error);
             publishState(false, error.getMessage());
         }
@@ -265,8 +285,11 @@ public final class PocketMediaPlaybackService extends MediaSessionService {
 
     private void publishState(boolean completedCycle, String error) {
         boolean playing = player != null && player.isPlaying();
+        boolean preparing = playbackRequested && !playing && error == null;
         SharedPreferences.Editor editor = getPreferences().edit()
             .putBoolean(PREF_PLAYING, playing)
+            .putBoolean(PREF_PREPARING, preparing)
+            .putString(PREF_ERROR, error == null ? "" : error)
             .putString(PREF_TRACK, activeTrackId)
             .putBoolean(PREF_USER_PAUSED, explicitUserPause);
         if (completedCycle) editor.putInt(PREF_CYCLES, cycleCount);
@@ -275,6 +298,7 @@ public final class PocketMediaPlaybackService extends MediaSessionService {
         Intent state = new Intent(ACTION_STATE)
             .setPackage(getPackageName())
             .putExtra("playing", playing)
+            .putExtra("preparing", preparing)
             .putExtra("trackId", activeTrackId)
             .putExtra("cycleCount", cycleCount)
             .putExtra("userPaused", explicitUserPause);
@@ -292,6 +316,7 @@ public final class PocketMediaPlaybackService extends MediaSessionService {
     }
 
     @Override public void onDestroy() {
+        playbackRequested = false;
         handler.removeCallbacksAndMessages(null);
         if (mediaSession != null) {
             mediaSession.release();
