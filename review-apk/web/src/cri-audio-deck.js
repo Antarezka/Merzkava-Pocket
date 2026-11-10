@@ -115,11 +115,11 @@ export function createCriAudioDeck({
     if (isPlaying() || isStarting()) return true;
     if (isPaused()) {
       if (typeof native?.criPauseMusic !== "function") return fail("CRI pause control is unavailable.");
-      playEffect("needle");
+      playEffect("stylus-drop");
       native.criPauseMusic(false);
       return true;
     }
-    playEffect("needle");
+    playEffect("stylus-drop");
     return requestTrackStart();
   }
 
