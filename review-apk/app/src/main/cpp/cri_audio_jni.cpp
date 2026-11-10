@@ -57,7 +57,13 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
     if (gInitialized) return JNI_TRUE;
 
     CriAtomExConfig_ANDROID config;
+    CriAtomExAdxVoicePoolConfig voicePoolConfig;
+    CriAtomExWaveVoicePoolConfig wavePoolConfig;
+    CriSint32 adxPoolWorkSize = 0;
+    CriSint32 wavePoolWorkSize = 0;
     std::memset(&config, 0, sizeof(config));
+    std::memset(&voicePoolConfig, 0, sizeof(voicePoolConfig));
+    std::memset(&wavePoolConfig, 0, sizeof(wavePoolConfig));
     criAtomEx_SetDefaultConfig_ANDROID(&config);
 
     const CriSint32 workSize = criAtomEx_CalculateWorkSize_ANDROID(&config);
@@ -77,12 +83,10 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
     // SetFile() streams ADX data. A streaming ADX voice pool is mandatory:
     // without it, players can be created and Start() can return an ID while no
     // playback voice is available to render the stream.
-    CriAtomExAdxVoicePoolConfig voicePoolConfig;
-    std::memset(&voicePoolConfig, 0, sizeof(voicePoolConfig));
     criAtomExVoicePool_SetDefaultConfigForAdxVoicePool(&voicePoolConfig);
     voicePoolConfig.num_voices = kChannelCount;
     voicePoolConfig.player_config.streaming_flag = CRI_TRUE;
-    const CriSint32 adxPoolWorkSize = criAtomExVoicePool_CalculateWorkSizeForAdxVoicePool(&voicePoolConfig);
+    adxPoolWorkSize = criAtomExVoicePool_CalculateWorkSizeForAdxVoicePool(&voicePoolConfig);
     if (adxPoolWorkSize < 0) {
         __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not calculate CRI ADX voice-pool work size: %d", adxPoolWorkSize);
         goto fail;
@@ -103,14 +107,12 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
 
     // Imported user tracks are decoded to PCM16 WAV, not ADX. They need their
     // own streaming Wave voice pool; an ADX pool cannot render WAV streams.
-    CriAtomExWaveVoicePoolConfig wavePoolConfig;
-    std::memset(&wavePoolConfig, 0, sizeof(wavePoolConfig));
     criAtomExVoicePool_SetDefaultConfigForWaveVoicePool(&wavePoolConfig);
     wavePoolConfig.num_voices = 1;
     wavePoolConfig.player_config.streaming_flag = CRI_TRUE;
     wavePoolConfig.player_config.max_channels = 2;
     wavePoolConfig.player_config.max_sampling_rate = 192000;
-    const CriSint32 wavePoolWorkSize = criAtomExVoicePool_CalculateWorkSizeForWaveVoicePool(&wavePoolConfig);
+    wavePoolWorkSize = criAtomExVoicePool_CalculateWorkSizeForWaveVoicePool(&wavePoolConfig);
     if (wavePoolWorkSize < 0) {
         __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not calculate CRI Wave voice-pool work size: %d", wavePoolWorkSize);
         goto fail;
@@ -141,8 +143,9 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
             __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not calculate player work size (%d)", index);
             goto fail;
         }
-        gPlayerWork[index] = std::calloc(1, static_cast<size_t>(playerWorkSize));
-        if (gPlayerWork[index] == nullptr) {
+        gPlayerWork[index] = playerWorkSize > 0
+            ? std::calloc(1, static_cast<size_t>(playerWorkSize)) : nullptr;
+        if (playerWorkSize > 0 && gPlayerWork[index] == nullptr) {
             __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not allocate player work (%d)", index);
             goto fail;
         }
@@ -162,8 +165,9 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
             __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not calculate CRI Tween work size (%d)", index);
             goto fail;
         }
-        gTweenWork[index] = std::calloc(1, static_cast<size_t>(tweenWorkSize));
-        if (gTweenWork[index] == nullptr) {
+        gTweenWork[index] = tweenWorkSize > 0
+            ? std::calloc(1, static_cast<size_t>(tweenWorkSize)) : nullptr;
+        if (tweenWorkSize > 0 && gTweenWork[index] == nullptr) {
             __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not allocate CRI Tween work (%d)", index);
             goto fail;
         }
