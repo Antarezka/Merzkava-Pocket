@@ -1426,7 +1426,11 @@ function showSplash() {
           <span class="splash-kicker">A LITTLE WORLD, ALWAYS WITHIN REACH</span>
           <div class="splash-logo">MERZKAVA</div>
           <span class="splash-rule"></span>
-          <span class="splash-subtitle">POCKET</span>
+          <div class="splash-subtitle-row" aria-label="Pocket, powered by CRIWARE">
+            <span class="splash-subtitle">POCKET</span>
+            <span class="splash-criware-divider" aria-hidden="true"></span>
+            <img class="splash-criware-logo" src="/splash-screen/criware/criware_logo01.png" alt="CRIWARE" decoding="async">
+          </div>
           <small class="splash-foot">THE ARCHIVE OPENS</small>
         </div>
       </div>
