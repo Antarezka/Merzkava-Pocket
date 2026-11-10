@@ -94,6 +94,7 @@ jobs:
           git show "origin/chore/pocket-audio-folder-2026-11-09:review-apk/web/public/audio/chill-1a.ogg" > "$AUDIO_DIR/chill-1a.ogg"
           git show "origin/chore/pocket-audio-folder-2026-11-09:review-apk/web/public/audio/Retroatrical-a1.ogg" > "$AUDIO_DIR/Retroatrical-1.ogg"
           git show "origin/chore/pocket-audio-folder-2026-11-09:review-apk/web/public/audio/Retroatrical-2.ogg" > "$AUDIO_DIR/Retroatrical-2.ogg"
+          git show "origin/feat/settings-vinyl-player-2026-11-09:review-apk/web/public/audio/vinyl-surface-noise.ogg" > "$AUDIO_DIR/vinyl-surface-noise.ogg"
           declare -A INPUTS=(
             ["Happy-1a.adx"]="$AUDIO_DIR/Happy-1a.ogg"
             ["chill-1a.adx"]="$AUDIO_DIR/chill-1a.ogg"
@@ -148,6 +149,8 @@ jobs:
           grep -q 'CHANNEL_NEEDLE' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
           grep -q 'CHANNEL_EFFECTS' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
           test -s review-apk/app/src/main/cpp/cri_audio_jni.cpp
+          grep -q "criAtomEx_ExecuteMain" review-apk/app/src/main/cpp/cri_audio_jni.cpp
+          grep -q "gServerRunning" review-apk/app/src/main/cpp/cri_audio_jni.cpp
           test -s review-apk/app/src/main/cpp/CMakeLists.txt
           echo "Verified: one CRI AtomEx runtime routes BGM, imported music, ambience and every registered FX channel."
       - name: Build Pocket web shell
