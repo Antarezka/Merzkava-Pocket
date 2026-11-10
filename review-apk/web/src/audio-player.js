@@ -14,6 +14,7 @@ export const VINYL_SURFACE_NOISE_SRC = "/audio/vinyl-surface-noise.ogg";
 const VINYL_SURFACE_NOISE_GAIN = 0.16;
 const MUSIC_FADE_DURATION_MS = 2200;
 const MUSIC_FADE_TICK_MS = 24;
+const MUSIC_FADE_END_SAFETY_MS = 140;
 
 export const SUPPORTED_AUDIO_EXTENSIONS = Object.freeze([
   "ogg", "oga", "opus", "mp3", "wav", "wave", "m4a", "aac", "flac", "3gp", "amr"
@@ -102,6 +103,7 @@ export function createPocketAudioController({
   let needleToken = 0;
   let activeNeedleEffect = null;
   let lastPlaybackDuration = 0;
+  let activeSourceReady = false;
   let lastCycleNotification = 0;
   let vinylNoiseStartToken = 0;
   let musicFadeGain = 1;
@@ -248,7 +250,7 @@ export function createPocketAudioController({
     if (!shouldMaintainPlayback() || !isPlaying()) return;
     clearTrackEndGuard();
     const token = trackEndToken;
-    const duration = Number.isFinite(Number(music.duration)) && Number(music.duration) > 1
+    const duration = activeSourceReady && Number.isFinite(Number(music.duration)) && Number(music.duration) > 1
       ? Number(music.duration)
       : lastPlaybackDuration;
     const current = Math.max(0, Number(music.currentTime) || 0);
@@ -260,7 +262,7 @@ export function createPocketAudioController({
       if (token !== trackEndToken) return;
       trackEndTimer = null;
       if (!shouldMaintainPlayback()) return;
-      const actualDuration = Number.isFinite(Number(music.duration)) && Number(music.duration) > 1
+      const actualDuration = activeSourceReady && Number.isFinite(Number(music.duration)) && Number(music.duration) > 1
         ? Number(music.duration)
         : lastPlaybackDuration;
       const position = Math.max(0, Number(music.currentTime) || 0);
@@ -382,7 +384,7 @@ export function createPocketAudioController({
     queueMicrotask(() => {
       endHandlingQueued = false;
       if (!shouldMaintainPlayback()) return;
-      const duration = Number.isFinite(Number(music.duration)) && Number(music.duration) > 1
+      const duration = activeSourceReady && Number.isFinite(Number(music.duration)) && Number(music.duration) > 1
         ? Number(music.duration)
         : lastPlaybackDuration;
       const position = Math.max(0, Number(music.currentTime) || 0);
@@ -422,7 +424,7 @@ export function createPocketAudioController({
   };
 
   music.addEventListener?.("play", () => {
-    lastPlaybackDuration = Number.isFinite(music.duration) ? music.duration : 0;
+    lastPlaybackDuration = activeSourceReady && Number.isFinite(music.duration) ? music.duration : 0;
     previousMusicTime = Number(music.currentTime) || 0;
     syncVinylSurfaceNoise();
     scheduleTrackEndGuard();
@@ -431,7 +433,7 @@ export function createPocketAudioController({
   music.addEventListener?.("pause", () => {
     if (!shouldMaintainPlayback()) stopVinylSurfaceNoise();
     else {
-      const duration = Number.isFinite(Number(music.duration)) && Number(music.duration) > 1
+      const duration = activeSourceReady && Number.isFinite(Number(music.duration)) && Number(music.duration) > 1
         ? Number(music.duration)
         : lastPlaybackDuration;
       const current = Math.max(0, Number(music.currentTime) || 0);
@@ -456,19 +458,25 @@ export function createPocketAudioController({
   music.addEventListener?.("loadedmetadata", () => {
     const duration = Number(music.duration);
     if (Number.isFinite(duration) && duration > 1) {
+      activeSourceReady = true;
       lastPlaybackDuration = duration;
       previousMusicTime = Math.max(0, Number(music.currentTime) || 0);
     }
     if (isPlaying()) scheduleTrackEndGuard();
   });
   music.addEventListener?.("durationchange", () => {
+    const duration = Number(music.duration);
+    if (Number.isFinite(duration) && duration > 1) {
+      activeSourceReady = true;
+      lastPlaybackDuration = duration;
+    }
     if (isPlaying()) scheduleTrackEndGuard();
   });
   music.addEventListener?.("timeupdate", () => {
     // Media time keeps advancing in Floating Mode even when WebView intervals are throttled.
     musicFadeTick?.();
     const current = Number(music.currentTime) || 0;
-    const actualDuration = Number(music.duration);
+    const actualDuration = activeSourceReady ? Number(music.duration) : NaN;
     const duration = Number.isFinite(actualDuration) && actualDuration > 0
       ? actualDuration
       : lastPlaybackDuration;
@@ -482,11 +490,15 @@ export function createPocketAudioController({
     }
     if (Number.isFinite(duration) && duration > 1) {
       const remainingMs = Math.max(0, (duration - current) * 1000);
-      const fadeWindowMs = Math.min(MUSIC_FADE_DURATION_MS + 250, Math.max(500, duration * 250));
+      const fadeWindowMs = Math.min(MUSIC_FADE_DURATION_MS + 420, Math.max(650, duration * 25));
       if (remainingMs <= fadeWindowMs && !endFadeStarted) {
         endFadeStarted = true;
-        // Keep the final fade tied to media time; the guard handles a missing ended event.
-        const fadeDurationMs = Math.max(1, Math.min(MUSIC_FADE_DURATION_MS, remainingMs - MUSIC_FADE_TICK_MS));
+        // Start against the current track's confirmed duration and finish with
+        // a small media-boundary cushion, rather than racing the native loop.
+        const fadeDurationMs = Math.max(1, Math.min(
+          MUSIC_FADE_DURATION_MS,
+          remainingMs - MUSIC_FADE_END_SAFETY_MS
+        ));
         animateMusicFade(0, fadeDurationMs);
       }
       lastPlaybackDuration = duration;
@@ -583,6 +595,7 @@ export function createPocketAudioController({
     music.currentTime = 0;
     previousMusicTime = 0;
     lastPlaybackDuration = 0;
+    activeSourceReady = false;
     selectedTrack = id;
     music.src = trackCatalog[selectedTrack].src;
     music.loop = true;
@@ -705,7 +718,7 @@ export function createPocketAudioController({
     if (!shouldMaintainPlayback()) return false;
     syncVinylSurfaceNoise();
     if (endHandlingQueued) return true;
-    const duration = Number.isFinite(Number(music.duration)) && Number(music.duration) > 1
+    const duration = activeSourceReady && Number.isFinite(Number(music.duration)) && Number(music.duration) > 1
       ? Number(music.duration) : lastPlaybackDuration;
     const current = Math.max(0, Number(music.currentTime) || 0);
     if (music.ended || (music.paused && Number.isFinite(duration) && duration > 1 && current >= duration - 0.55)) {
@@ -734,6 +747,9 @@ export function createPocketAudioController({
       music.pause();
       selectedTrack = "happy";
       music.currentTime = 0;
+      previousMusicTime = 0;
+      lastPlaybackDuration = 0;
+      activeSourceReady = false;
       music.src = trackCatalog.happy.src;
       music.loop = true;
       music.load?.();
