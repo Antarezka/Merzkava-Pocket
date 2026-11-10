@@ -24,7 +24,9 @@ const vinylDesigns = createVinylDesignController({ onChange: syncAudioUI });
 const pocketAudio = createPocketAudioController({
   customTracks: readNativeMusicLibrary(),
   onChange: syncAudioUI,
-  onPlaybackCycle: () => vinylDesigns.rotateRandom("track-end")
+  onPlaybackCycle: () => {
+    if (vinylDesigns.getState().mode === "auto") vinylDesigns.rotateRandom("track-end");
+  }
 });
 window.addEventListener("pocket:audio-effect", event => {
   const effect = String(event.detail?.effect || "").trim().toLowerCase();
@@ -615,6 +617,7 @@ function mountAudioSettings() {
     if (!button || !recordList.contains(button) || editListMode) return;
     const changed = pocketAudio.selectTrack(button.dataset.audioRecord);
     if (!changed) return;
+    if (vinylDesigns.getState().mode === "auto") vinylDesigns.rotateRandom("track-change");
     pocketAudio.playEffect("placement");
     animateRecordToPlatter(button);
   });

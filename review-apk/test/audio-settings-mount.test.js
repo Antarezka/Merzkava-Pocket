@@ -88,3 +88,28 @@ test("the turntable motor eases up to LP speed and brakes smoothly", async () =>
   assert.equal(stopped.running, false);
   motion.dispose();
 });
+
+test("automatic vinyl labels rotate on record changes and preserve manual selections", () => {
+  assert.match(source, /onPlaybackCycle:\s*\(\)\s*=>\s*\{\s*if\s*\(vinylDesigns\.getState\(\)\.mode\s*===\s*"auto"\)\s*vinylDesigns\.rotateRandom\("track-end"\);\s*\}/);
+  assert.match(source, /if\s*\(vinylDesigns\.getState\(\)\.mode\s*===\s*"auto"\)\s*vinylDesigns\.rotateRandom\("track-change"\)/);
+});
+
+test("record placement animates a vinyl sleeve onto the platter", () => {
+  const start = source.indexOf("function animateRecordToPlatter");
+  const end = source.indexOf("function mountAudioSettings", start);
+  assert.notEqual(start, -1);
+  assert.notEqual(end, -1);
+  const placement = source.slice(start, end);
+  assert.match(placement, /className\s*=\s*"audio-record-flight"/);
+  assert.match(placement, /duration:\s*680/);
+  assert.match(placement, /onComplete/);
+  assert.match(cssSource, /\.audio-record-flight\s*\{/);
+});
+
+test("CRI fade ramp uses timed smoothstep updates and isolates BGM from ambience", () => {
+  assert.match(runtimeSource, /FADE_FRAME_MS\s*=\s*20L/);
+  assert.match(runtimeSource, /linear\s*\*\s*linear\s*\*\s*\(3f\s*-\s*2f\s*\*\s*linear\)/);
+  assert.match(runtimeSource, /Fade out only BGM[\s\S]*vinyl ambience channel is independent/);
+  assert.match(runtimeSource, /fadeChannelTo\(CHANNEL_MUSIC,\s*volume\(musicVolume\),\s*240L/);
+  assert.match(runtimeSource, /fadeChannelTo\(CHANNEL_AMBIENCE,\s*volume\(effectsVolume\),\s*320L/);
+});
