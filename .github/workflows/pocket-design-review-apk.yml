@@ -12,6 +12,9 @@ on:
   # Rebuild after removing the Yuma/Fox character integration.
 permissions:
   contents: write
+concurrency:
+  group: merzkava-pocket-apk-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   build:
     runs-on: ubuntu-latest
