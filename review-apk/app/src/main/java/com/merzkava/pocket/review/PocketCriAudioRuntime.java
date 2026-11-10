@@ -597,6 +597,9 @@ public final class PocketCriAudioRuntime {
                 for (int channel : CHANNELS) {
                     int status = nativeGetStatus(channel);
                     if (status == 1 || status == 2) active = true;
+                    if (channel == CHANNEL_MUSIC || channel == CHANNEL_VINYL_CRACKLE) {
+                        markChannelActive(channel, status == 1 || status == 2);
+                    }
                     int completedLoops = nativeTakeLoopCycles(channel);
                     if (channel == CHANNEL_MUSIC && completedLoops > 0) {
                         publish("music", "cycle", "");
