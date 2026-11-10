@@ -146,10 +146,8 @@ public final class PocketUpdateProgressService extends Service {
             title, summary, percent, ongoing, actionLabel, actionName);
         setNotificationView(expanded, background, foreground, muted, accent, build, version,
             title, summary, percent, ongoing, actionLabel, actionName);
-        if (expanded.getLayoutId() != 0) {
-            expanded.setTextViewText(R.id.pocket_update_notification_notes,
-                "Pocket keeps the verified APK inside its app-specific Download folder. Installation checks the SHA-256 hash before Android opens the installer.");
-        }
+        expanded.setTextViewText(R.id.pocket_update_notification_notes,
+            "Pocket keeps the verified APK inside its app-specific Download folder. Installation checks the SHA-256 hash before Android opens the installer.");
 
         Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
         PendingIntent open = null;
