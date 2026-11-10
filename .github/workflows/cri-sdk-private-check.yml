@@ -62,7 +62,31 @@ jobs:
               'Android|arm64-v8a|armeabi-v7a|x86_64|ADX|HCA|HCA-MX|CRIWARE|CriAtom|MP3|OGG|WAV|decoder|license|license key' "$ROOT" | head -n 1800 || true
           } | tee "$REPORT"
           cp "$REPORT" "$GITHUB_WORKSPACE/cri-sdk-report.txt"
+      - name: Inspect exact Android APIs and CRI license
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/cri-sdk/unpacked"
+          REPORT="$GITHUB_WORKSPACE/cri-sdk-api-license.txt"
+          {
+            echo "=== ANDROID INITIALIZATION CONFIG ==="
+            sed -n '90,190p' "$ROOT/cri/android/include/cri_le_atom_android.h"
+            sed -n '550,620p' "$ROOT/cri/android/include/cri_le_atom_android.h"
+            echo
+            echo "=== AUDIO FORMAT ENUM ==="
+            sed -n '1925,1995p' "$ROOT/cri/android/include/cri_le_atom_ex.h"
+            echo
+            echo "=== PLAYER AND PLAYBACK API DECLARATIONS ==="
+            grep -nE 'criAtomEx(Player_Create|Player_Destroy|Player_SetFile|Player_SetData|Player_Start|Player_Stop|Player_SetVolume|Playback_GetStatus|Playback_Stop|Playback_Pause|Playback_Resume)' "$ROOT/cri/android/include/cri_le_atom_ex.h" || true
+            echo
+            echo "=== SDK LICENSE AGREEMENT ==="
+            cat "$ROOT/cri/common/license/CRI_ADX_LE_SDK_License_Agreement_en.txt"
+            echo
+            echo "=== END USER NOTICE ==="
+            cat "$ROOT/cri/common/license/CRI_ADX_LE_End_User_License_Agreement.txt"
+          } | tee "$REPORT"
       - name: Upload SDK inventory report (no SDK binaries)
+        uses: actions/upload-artifact@v4
         uses: actions/upload-artifact@v4
         with:
           name: cri-sdk-v2.31.01-inventory
