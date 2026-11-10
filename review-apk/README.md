@@ -1,3 +1,9 @@
+### BGM playback reliability
+
+Pocket uses the native HTML media loop for continuous playback, then detects the media-time wrap to run the fade-in and vinyl-label rotation without issuing a second `play()` request at each track boundary. The explicit `ended` path remains a fallback for WebViews that fail to maintain native looping. Playback start is single-flight, preserves a pending resume request across lifecycle races, retries transient media interruptions, and keeps the vinyl-surface-noise element independent from music-element errors or pauses. Visibility, native-resume, focus, and user gestures re-sync audio while respecting explicit user pause state.
+
+Behavioral references: [Howler.js HTML5 playback and end handling](https://github.com/goldfire/howler.js/blob/master/src/howler.core.js) and [FPlayWeb's playlist/audio-context resume flow](https://github.com/carlosrafaelgn/FPlayWeb/blob/main/scripts/player/player.ts). Pocket remains on its existing HTMLAudioElement path; these are references, not bundled dependencies.
+
 # Merzkava Pocket — Android Shell
 
 Android shell implementation for the approved Pocket launch flow and homepage frame.

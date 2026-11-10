@@ -69,6 +69,14 @@ class FakeAudio {
     this.paused = true;
     this.dispatch("pause");
   }
+  wrapToStart() {
+    this.currentTime = 0.1;
+    this.dispatch("timeupdate");
+  }
+}
+
+async function flushAudioMicrotasks() {
+  for (let index = 0; index < 5; index += 1) await Promise.resolve();
 }
 
 function harness(values = {}, callbacks = {}) {
@@ -122,6 +130,7 @@ test("vinyl surface noise loops for the full music playback and stops with music
   assert.equal(noise.currentTime, 0);
 
   audio.enterMainMenu();
+  await flushAudioMicrotasks();
   assert.equal(noise.paused, false);
   audio.resetSession();
   assert.equal(noise.paused, true);
@@ -150,6 +159,7 @@ test("music pauses during splash and resumes only after the main menu returns", 
   audio.pauseForSplash();
   assert.equal(audio.getState().isPlaying, false);
   audio.enterMainMenu();
+  await flushAudioMicrotasks();
   assert.equal(audio.getState().isPlaying, true);
 });
 
@@ -358,7 +368,7 @@ test("end fade completes and the ended event replays with fade-in in Floating Mo
   assert.equal(music.volume,0,"fade-out reaches silence before the track boundary");
 
   music.finish();
-  await Promise.resolve();
+  await flushAudioMicrotasks();
   assert.equal(cycles,1);
   assert.equal(music.currentTime,0);
   assert.equal(music.paused,false);
@@ -437,6 +447,37 @@ function makeAudioFadeClock() {
   };
 }
 
+test("native looping keeps one playback session, fades into the next cycle, and leaves vinyl noise running", async () => {
+  const clock = makeAudioFadeClock();
+  let cycles = 0;
+  const { audio } = harness({}, {
+    now: clock.now,
+    setIntervalFn: clock.setInterval,
+    clearIntervalFn: clock.clearInterval,
+    onPlaybackCycle: () => { cycles += 1; }
+  });
+  audio.enterMainMenu();
+  await flushAudioMicrotasks();
+  const music = FakeAudio.instances[0];
+  const noise = FakeAudio.instances.find(item => item.src === VINYL_SURFACE_NOISE_SRC);
+  assert.equal(music.loop, true);
+  assert.equal(music.playCount, 1);
+  clock.advance(2200);
+  music.currentTime = 98;
+  music.dispatch("timeupdate");
+  clock.advance(2200);
+  assert.equal(music.volume, 0, "the outgoing native loop fades all the way down");
+  music.wrapToStart();
+  assert.equal(cycles, 1, "the loop boundary rotates the vinyl design once");
+  assert.equal(music.playCount, 1, "the media engine continues the same playback session");
+  assert.equal(music.paused, false);
+  assert.equal(noise.paused, false, "the ambience track is not stopped or restarted at the loop boundary");
+  clock.advance(1100);
+  assert.ok(music.volume > 0 && music.volume < 0.68);
+  clock.advance(1100);
+  assert.ok(Math.abs(music.volume - 0.68) < 0.001);
+});
+
 test("ended event explicitly replays a completed Pocket music track",async()=>{
   const {audio}=harness();
   audio.enterMainMenu();
@@ -446,7 +487,7 @@ test("ended event explicitly replays a completed Pocket music track",async()=>{
   assert.equal(music.loop,false);
   assert.equal(music.playCount,1);
   music.finish();
-  await Promise.resolve();
+  await flushAudioMicrotasks();
   assert.equal(music.paused,false);
   assert.equal(music.ended,false);
   assert.equal(music.currentTime,0);
@@ -461,7 +502,7 @@ test("end recovery also works when WebView pauses at duration but omits the ende
   const music = FakeAudio.instances[0];
   const noise = FakeAudio.instances.find(item => item.src === VINYL_SURFACE_NOISE_SRC);
   music.finishWithoutEndedEvent();
-  await Promise.resolve();
+  await flushAudioMicrotasks();
   assert.equal(music.paused, false, "the duration guard should start the next cycle");
   assert.equal(music.currentTime, 0);
   assert.equal(music.playCount, 2);
@@ -474,11 +515,11 @@ test("a transient play rejection does not kill vinyl ambience and can recover af
   const noise = FakeAudio.instances.find(item => item.src === VINYL_SURFACE_NOISE_SRC);
   music.failNextPlay = true;
   audio.enterMainMenu();
-  await Promise.resolve();
+  await flushAudioMicrotasks();
   assert.equal(audio.getState().isPlaying, false);
   assert.equal(noise.paused, false, "a failed music restart must not stop the independent ambience layer");
   assert.equal(audio.retryPendingPlayback(), true);
-  await Promise.resolve();
+  await flushAudioMicrotasks();
   assert.equal(audio.getState().isPlaying, true);
   assert.equal(noise.paused, false);
 });
@@ -495,7 +536,7 @@ test("BGM fades out at track end and fades back in after the ended event", async
   audio.enterMainMenu();
   const music = FakeAudio.instances[0];
   const noise = FakeAudio.instances.find(item => item.src === VINYL_SURFACE_NOISE_SRC);
-  assert.equal(music.loop, false);
+  assert.equal(music.loop, true);
   assert.equal(music.volume, 0);
   await Promise.resolve();
 
@@ -513,7 +554,7 @@ test("BGM fades out at track end and fades back in after the ended event", async
 
   // The final fade reaches silence, then the ended event explicitly starts the next cycle.
   music.finish();
-  await Promise.resolve();
+  await flushAudioMicrotasks();
   assert.equal(cycles,1);
   assert.equal(music.currentTime,0);
   assert.equal(music.paused,false);

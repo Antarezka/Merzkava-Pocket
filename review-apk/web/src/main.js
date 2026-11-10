@@ -23,8 +23,14 @@ const pocketAudio = createPocketAudioController({
   onPlaybackCycle: () => vinylDesigns.rotateRandom("track-end")
 });
 const retryPocketAudioAfterGesture = () => pocketAudio.retryPendingPlayback?.();
+const recoverPocketAudioAfterInterruption = () => pocketAudio.recoverAfterInterruption?.();
 document.addEventListener("click", retryPocketAudioAfterGesture, { passive: true });
 document.addEventListener("keydown", retryPocketAudioAfterGesture);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) recoverPocketAudioAfterInterruption();
+});
+window.addEventListener("focus", recoverPocketAudioAfterInterruption);
+window.addEventListener("pocket:native-resume", recoverPocketAudioAfterInterruption);
 window.addEventListener("pocket:season-start", event => {
   const seasonKey = event.detail?.seasonId ?? event.detail?.seasonKey ?? "";
   vinylDesigns.onSeasonStart(seasonKey);
