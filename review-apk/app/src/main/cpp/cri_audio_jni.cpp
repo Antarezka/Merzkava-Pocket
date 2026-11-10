@@ -4,10 +4,13 @@
 #include <cri_le_atom_ex.h>
 
 #include <array>
+#include <atomic>
+#include <chrono>
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
 #include <string>
+#include <thread>
 
 namespace {
 constexpr const char* kTag = "PocketCriAudio";
@@ -17,6 +20,8 @@ constexpr int kFormatWave = 2;
 
 std::mutex gMutex;
 bool gInitialized = false;
+std::atomic<bool> gServerRunning{false};
+std::thread gServerThread;
 void* gAtomWork = nullptr;
 CriAtomExPlayerHn gPlayers[kChannelCount] = {nullptr, nullptr, nullptr, nullptr};
 void* gPlayerWork[kChannelCount] = {nullptr, nullptr, nullptr, nullptr};
@@ -89,7 +94,23 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
         }
     }
 
-    __android_log_print(ANDROID_LOG_INFO, kTag, "CRI ADX LE initialized with four isolated players");
+    // CRI's default Android thread model is timer-driven MULTI. Even in that
+    // mode ExecuteMain must be called periodically to advance server-side
+    // bookkeeping (including player status and file-system completion).
+    gServerRunning.store(true, std::memory_order_release);
+    gServerThread = std::thread([]() {
+        while (gServerRunning.load(std::memory_order_acquire)) {
+            {
+                std::lock_guard<std::mutex> serverLock(gMutex);
+                if (gInitialized) {
+                    criAtomEx_ExecuteMain();
+                }
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    });
+
+    __android_log_print(ANDROID_LOG_INFO, kTag, "CRI ADX LE initialized with four isolated players and a 10 Hz server pump");
     return JNI_TRUE;
 
 fail:
@@ -110,8 +131,16 @@ fail:
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeShutdown(JNIEnv*, jclass) {
-    std::lock_guard<std::mutex> lock(gMutex);
+    std::unique_lock<std::mutex> lock(gMutex);
     if (!gInitialized) return;
+
+    // Stop and join the server pump outside the CRI mutex so it can finish
+    // an in-flight ExecuteMain call before players and AtomEx are destroyed.
+    gServerRunning.store(false, std::memory_order_release);
+    lock.unlock();
+    if (gServerThread.joinable()) gServerThread.join();
+    lock.lock();
+
     for (int index = 0; index < kChannelCount; ++index) {
         if (gPlayers[index] != nullptr) {
             criAtomExPlayer_Stop(gPlayers[index]);
