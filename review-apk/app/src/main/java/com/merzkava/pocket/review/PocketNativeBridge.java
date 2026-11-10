@@ -722,15 +722,15 @@ public final class PocketNativeBridge {
             DownloadManager manager = (DownloadManager) activity.getSystemService(Context.DOWNLOAD_SERVICE);
             Cursor cursor = manager == null ? null : manager.query(new DownloadManager.Query().setFilterById(id));
             if (cursor == null) {
-                clearPocketUpdateDownloadState();
-                return result.put("downloadId", -1L).put("status", "idle").put("buildNumber", expectedBuildNumber)
-                    .put("progress", 0).put("bytesDownloaded", 0).put("totalBytes", 0).toString();
+                return result.put("status", "failed").put("buildNumber", expectedBuildNumber > 0 ? expectedBuildNumber : targetBuild)
+                    .put("progress", 0).put("bytesDownloaded", 0).put("totalBytes", 0)
+                    .put("message", "Pocket could not find the Android download record. You can retry from the notification.").toString();
             }
             try {
                 if (!cursor.moveToFirst()) {
-                    clearPocketUpdateDownloadState();
-                    return result.put("downloadId", -1L).put("status", "idle").put("buildNumber", expectedBuildNumber)
-                        .put("progress", 0).put("bytesDownloaded", 0).put("totalBytes", 0).toString();
+                    return result.put("status", "failed").put("buildNumber", expectedBuildNumber > 0 ? expectedBuildNumber : targetBuild)
+                        .put("progress", 0).put("bytesDownloaded", 0).put("totalBytes", 0)
+                        .put("message", "Pocket could not find the Android download record. You can retry from the notification.").toString();
                 }
                 int status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
                 long downloaded = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
@@ -746,9 +746,8 @@ public final class PocketNativeBridge {
                 if (status == DownloadManager.STATUS_FAILED) {
                     int reason = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON));
                     String message = "The Build #" + targetBuild + " download failed (code " + reason + "). Check storage and connection.";
-                    clearPocketUpdateDownloadState();
-                    return result.put("downloadId", -1L).put("buildNumber", expectedBuildNumber > 0 ? expectedBuildNumber : targetBuild)
-                        .put("status", "failed").put("progress", 0).put("bytesDownloaded", 0).put("totalBytes", 0)
+                    // Keep the verified URL, filename and SHA record so the notification can offer Retry.
+                    return result.put("status", "failed").put("progress", 0).put("bytesDownloaded", 0).put("totalBytes", 0)
                         .put("reason", reason).put("message", message).toString();
                 }
                 result.put("status", state).put("bytesDownloaded", downloaded).put("totalBytes", total).put("progress", progress);
