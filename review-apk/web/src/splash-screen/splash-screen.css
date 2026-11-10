@@ -41,6 +41,9 @@
   height:100%;
   isolation:isolate;
 }
+.splash-character.no-art{display:none}
+.splash-layout.no-fox-art{grid-template-rows:1fr}
+.splash-layout.no-fox-art .splash-copy{align-self:center}
 .splash-fox-layer{
   position:absolute;
   inset:0;
