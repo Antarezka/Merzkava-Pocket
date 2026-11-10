@@ -281,6 +281,58 @@ test("a manually selected track recovers when Android backgrounds Floating Mode"
   assert.equal(noise.paused, false, "the independent vinyl ambience layer remains active");
 });
 
+test("a manually selected track restarts after ending in Floating Mode", async () => {
+  const { audio } = harness();
+  audio.enterMainMenu();
+  await flushAudioMicrotasks();
+
+  assert.equal(audio.selectTrack("chill"), true);
+  await audio.toggleNeedle();
+  await flushAudioMicrotasks();
+
+  const music = FakeAudio.instances[0];
+  const noise = FakeAudio.instances.find(item => item.src === VINYL_SURFACE_NOISE_SRC);
+  const playsBeforeEnd = music.playCount;
+  assert.equal(audio.getState().track, "chill");
+  assert.equal(await audio.setFloatingMode(true), true);
+
+  music.finish();
+  await flushAudioMicrotasks();
+
+  assert.equal(audio.getState().track, "chill", "the selected record must remain selected");
+  assert.equal(music.currentTime, 0, "the next cycle starts from the beginning");
+  assert.equal(music.paused, false, "BGM continues in Floating Mode after the track ends");
+  assert.equal(music.playCount, playsBeforeEnd + 1, "exactly one new playback cycle starts");
+  assert.equal(noise.paused, false, "vinyl ambience remains independent and uninterrupted");
+});
+
+test("Floating Mode resolves a boundary pause before attempting generic background resume", async () => {
+  const { audio } = harness();
+  audio.enterMainMenu();
+  await flushAudioMicrotasks();
+
+  assert.equal(audio.selectTrack("chill"), true);
+  await audio.toggleNeedle();
+  await flushAudioMicrotasks();
+
+  const music = FakeAudio.instances[0];
+  const playsBeforeEnd = music.playCount;
+  await audio.setFloatingMode(true);
+
+  // Android/WebView may pause at the track boundary before its ended callback
+  // is delivered. Trigger the background recovery in the same event turn.
+  music.currentTime = music.duration;
+  music.pause();
+  assert.equal(music.paused, true);
+  assert.equal(audio.recoverAfterBackgroundTransition(), true);
+  await flushAudioMicrotasks();
+
+  assert.equal(music.currentTime, 0, "recovery must rewind the completed record before playing");
+  assert.equal(music.paused, false, "the next selected-track cycle must resume");
+  assert.equal(music.playCount, playsBeforeEnd + 1, "the race must not start an extra playback request");
+  assert.equal(audio.getState().track, "chill");
+});
+
 test("switching tracks clears the previous fade and media-time position", async () => {
   const clock = makeAudioFadeClock();
   let cycles = 0;

@@ -710,14 +710,19 @@ export function createPocketAudioController({
       // Android may pause a freshly loaded WebView media source while moving
       // the Activity behind the bubble. Re-check after the native transition
       // instead of waiting for a foreground/focus event to restart it.
+      // Resolve an ended or boundary-paused track before generic resume.
+      // Otherwise startMusic() may try to resume a manually selected record
+      // from its duration endpoint while the ended-event microtask is pending.
+      if (recoverMissedMusicEnd()) return;
+      if (endHandlingQueued) return;
       if (music.paused || music.ended) {
         playbackRetryCount = 0;
         playbackRetryPending = false;
         clearPlaybackRetry();
         void startMusic();
-      } else if (!recoverMissedMusicEnd()) {
-        syncVinylSurfaceNoise();
+        return;
       }
+      syncVinylSurfaceNoise();
     };
     verifyPlayback();
     [180, 520, 1100, 1900].forEach(delay => setTimeoutFn(verifyPlayback, delay));
