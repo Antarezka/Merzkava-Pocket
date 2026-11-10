@@ -104,8 +104,7 @@ export function createPocketAudioController({
       isPlaying = false;
       isPaused = false;
       status = "preparing";
-      native?.stopPocketAudio?.();
-      const nativeId = track.custom ? track.id : track.id;
+      const nativeId = track.id;
       const accepted = native?.playPocketAudio?.(nativeId) === true;
       if (!accepted) {
         isStarting = false;
