@@ -56,6 +56,9 @@ jobs:
           test -s "$AUDIO_PLAYER"
           test -s "$MAIN_ENTRY"
           test -s "$SERVICE"
+          test -s "review-apk/dist/THIRD_PARTY_NOTICES.txt"
+          grep -Fq "OxiAudio 0.2.1" "review-apk/dist/THIRD_PARTY_NOTICES.txt"
+          grep -Fq "OxiSound 0.2.1" "review-apk/dist/THIRD_PARTY_NOTICES.txt"
           grep -Fq "createNativePocketAudioController" "$AUDIO_PLAYER"
           grep -Fq "createPocketAudioController" "$MAIN_ENTRY"
           grep -Fq "PocketMediaPlaybackService" "$MANIFEST"
@@ -70,7 +73,7 @@ jobs:
           grep -Fq 'System.loadLibrary("pocket_audio")' "$SERVICE"
           grep -Fq "nativeInitialize(this)" "$SERVICE"
           grep -Fq "nativeStart(trackId, path, volume)" "$SERVICE"
-          ! grep -R -E "androidx\.media3|ExoPlayer|MediaSessionService" review-apk/app/src/main/java review-apk/app/build.gradle.kts
+          ! grep -R -E "androidx\\.media3|ExoPlayer|MediaSessionService|Media3" review-apk/app/src/main/java review-apk/app/build.gradle.kts review-apk/web/src/audio-player.js review-apk/native-audio
           for track in Happy-1a.ogg chill-1a.ogg Retroatrical-1.ogg Retroatrical-2.ogg; do
             test -s "review-apk/dist/audio/$track"
           done

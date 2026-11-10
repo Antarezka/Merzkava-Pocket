@@ -253,7 +253,7 @@ function createNativePocketAudioController({
     }
     if (state.error) nativeStartError = String(state.error);
     // Generic service teardown (for splash/logout) is not a user pause.
-    // Only MediaSession's explicit pause action should persist paused intent.
+    // Only an explicit Android media-button pause should persist paused intent.
     if (state.userPaused === true) userPaused = true;
     const id = String(state.trackId || "");
     if (nativePlaying && id && Object.hasOwn(trackCatalog, id)) {

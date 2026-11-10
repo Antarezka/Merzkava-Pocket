@@ -165,6 +165,13 @@ for (const [digest, entry] of groupedTexts) {
   notice += "=".repeat(76) + "\n";
   notice += entry.text.trimEnd() + "\n";
 }
+notice += "\nNATIVE ANDROID AUDIO ENGINE LICENCE TEXTS\n";
+for (const licence of nativeAudioLicenseTexts) {
+  notice += "\n" + "=".repeat(76) + "\n";
+  notice += licence.name + "\n";
+  notice += "=".repeat(76) + "\n";
+  notice += licence.text.trimEnd() + "\n";
+}
 notice += "\nPROJECT ASSET, BUILD-TOOL AND PROVENANCE NOTES\n";
 notice += await readFile(sourceNoticePath, "utf8");
 await writeFile(outputPath, notice, "utf8");
