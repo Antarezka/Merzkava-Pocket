@@ -155,7 +155,9 @@ export function createCriAudioDeck({
   function startAutomatically() {
     if (automaticStartRequested) return false;
     automaticStartRequested = true;
-    return startPlayback();
+    // Startup BGM has no visible stylus interaction yet. Keep stylus-drop
+    // SFX tied to an actual user pressing the on-screen needle.
+    return requestTrackStart();
   }
 
   updateCustomTracks(customTracks);
