@@ -1742,8 +1742,9 @@ function renderPage(destination, transitionDuration=420) {
   if(destination==="settings"){
     const menuCleanup=currentDisposer;
     const updateCleanup=mountPocketUpdateSettings();
+    const audioCleanup=mountAudioSettings();
     const legalCleanup=mountLegalNotices();
-    currentDisposer=()=>{menuCleanup?.();updateCleanup?.();legalCleanup?.();};
+    currentDisposer=()=>{menuCleanup?.();updateCleanup?.();audioCleanup?.();legalCleanup?.();};
   }
   if(destination==="economy"){
     const menuCleanup=currentDisposer;
