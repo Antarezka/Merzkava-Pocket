@@ -17,6 +17,8 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.graphics.Color;
 import android.util.Log;
+
+import androidx.work.WorkManager;
 import org.json.JSONObject;
 
 import java.io.InputStream;
@@ -42,6 +44,7 @@ public final class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        PocketUpdateWorker.schedule(getApplicationContext());
         Window window = getWindow();
         window.setStatusBarColor(Color.rgb(9, 10, 12));
         window.setNavigationBarColor(Color.rgb(9, 10, 12));
