@@ -1,6 +1,8 @@
 const TRACKS = Object.freeze({
   happy: { title: "Happy-1a", src: "/audio/Happy-1a.ogg" },
-  chill: { title: "chill-1a", src: "/audio/chill-1a.ogg" }
+  chill: { title: "chill-1a", src: "/audio/chill-1a.ogg" },
+  retroatrical2: { title: "Retroatrical-2", src: "/audio/Retroatrical-2.ogg" },
+  retroatricalA1: { title: "Retroatrical-a1", src: "/audio/Retroatrical-a1.ogg" }
 });
 
 const EFFECTS = Object.freeze({
