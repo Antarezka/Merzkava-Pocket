@@ -58,6 +58,17 @@ public final class PocketCriAudioRuntime {
     private static final String[] CHANNEL_NAMES = {"music", "vinyl-crackle", "stylus", "record", "door-chime", "door-rattle"};
     private static final int[] CHANNELS = {CHANNEL_MUSIC, CHANNEL_VINYL_CRACKLE, CHANNEL_STYLUS, CHANNEL_RECORD, CHANNEL_DOOR_CHIME, CHANNEL_DOOR_RATTLE};
 
+    // Logical buses mapped to dedicated CRI players. These are player-gain routes,
+    // not Atom Craft Categories; authored ACF/ACB banks are required for true Categories.
+    private static final int BUS_MUSIC = 0;
+    private static final int BUS_AMBIENCE = 1;
+    private static final int BUS_MECHANICAL = 2;
+    private static final int BUS_UI = 3;
+    private static final int BUS_SFX = 4;
+    private static final int[] CHANNEL_BUSES = {
+        BUS_MUSIC, BUS_AMBIENCE, BUS_MECHANICAL, BUS_MECHANICAL, BUS_UI, BUS_SFX
+    };
+
     static {
         System.loadLibrary("pocket_cri_audio");
     }
@@ -100,7 +111,9 @@ public final class PocketCriAudioRuntime {
     private volatile boolean pausedByFocusLoss;
     private volatile boolean musicPaused;
     private volatile boolean pauseRequested;
+    private volatile int masterVolume = 100;
     private volatile int musicVolume = 68;
+    private volatile int ambienceVolume = 34;
     private volatile int effectsVolume = 76;
 
     public PocketCriAudioRuntime(Activity activity, WebView webView) {
@@ -117,12 +130,9 @@ public final class PocketCriAudioRuntime {
             boolean ready = nativeInit();
             initialized = ready;
             if (ready) {
-                nativeSetVolume(CHANNEL_MUSIC, volume(musicVolume));
-                nativeSetVolume(CHANNEL_VINYL_CRACKLE, volume(effectsVolume));
-                nativeSetVolume(CHANNEL_STYLUS, volume(effectsVolume));
-                nativeSetVolume(CHANNEL_RECORD, volume(effectsVolume));
-                nativeSetVolume(CHANNEL_DOOR_CHIME, volume(effectsVolume));
-                nativeSetVolume(CHANNEL_DOOR_RATTLE, volume(effectsVolume));
+                for (int channel : CHANNELS) {
+                    nativeSetVolume(channel, effectiveChannelVolume(channel));
+                }
             }
             if (!ready) {
                 publish("music", "error", "CRI ADX LE could not initialize.");
@@ -306,7 +316,7 @@ public final class PocketCriAudioRuntime {
         publish("music", "preparing", "");
         Runnable startSelectedTrack = () -> {
             if (disposed || generation != generations[CHANNEL_MUSIC].get()) return;
-            startFileAtVolume(CHANNEL_MUSIC, file, format, metadata, volume(musicVolume), 0f, true, generation,
+            startFileAtVolume(CHANNEL_MUSIC, file, format, metadata, effectiveChannelVolume(CHANNEL_MUSIC), 0f, true, generation,
                 () -> {
                     // Re-read pause intent when CRI confirms Start(). A user may
                     // tap the stylus during PREP, after this file request was queued.
@@ -321,8 +331,7 @@ public final class PocketCriAudioRuntime {
                         });
                     } else {
                         fadeChannelTo(CHANNEL_MUSIC, 1f, 240L, null);
-                        if (!ambienceStreamActive) playAmbience();
-                        else fadeChannelTo(CHANNEL_VINYL_CRACKLE, 1f, 240L, null);
+                        if (ambienceStreamActive) fadeChannelTo(CHANNEL_VINYL_CRACKLE, 1f, 240L, null);
                     }
                 });
         };
@@ -359,7 +368,7 @@ public final class PocketCriAudioRuntime {
         }
         final long generation = generations[CHANNEL_VINYL_CRACKLE].incrementAndGet();
         publish("vinyl-crackle", "preparing", "");
-        startFileAtVolume(CHANNEL_VINYL_CRACKLE, file, FORMAT_ADX, metadata, volume(effectsVolume), 0f, true, generation,
+        startFileAtVolume(CHANNEL_VINYL_CRACKLE, file, FORMAT_ADX, metadata, effectiveChannelVolume(CHANNEL_VINYL_CRACKLE), 0f, true, generation,
             () -> fadeChannelTo(CHANNEL_VINYL_CRACKLE, 1f, 320L, null));
         return true;
     }
@@ -394,7 +403,7 @@ public final class PocketCriAudioRuntime {
             publish(CHANNEL_NAMES[channel], "error", safeMessage(error));
             return false;
         }
-        enqueuePlay(channel, file, FORMAT_ADX, metadata, volume(effectsVolume), false, "preparing");
+        enqueuePlay(channel, file, FORMAT_ADX, metadata, effectiveChannelVolume(channel), false, "preparing");
         return true;
     }
 
@@ -505,9 +514,8 @@ public final class PocketCriAudioRuntime {
         pauseRequested = false;
         musicPaused = false;
         pausedByFocusLoss = false;
-        // A track selected while paused is intentionally kept silent. On resume,
-        // start the crackle bed if it was not running yet, otherwise unmute it.
-        if (musicStreamActive && !ambienceStreamActive) playAmbience();
+        // The Audio Director requests the ambience bed after native BGM reports PLAYING.
+        // This engine only resumes CRI players that were already requested.
         commands.execute(() -> {
             if (disposed || transition != pauseTransition.get()) return;
             nativePause(CHANNEL_MUSIC, false);
@@ -544,18 +552,26 @@ public final class PocketCriAudioRuntime {
         }), 170L);
     }
 
+    public void setMasterVolume(int value) {
+        masterVolume = clampPercent(value);
+        for (int channel : CHANNELS) setChannelVolume(channel, effectiveChannelVolume(channel));
+    }
+
     public void setMusicVolume(int value) {
         musicVolume = clampPercent(value);
-        setChannelVolume(CHANNEL_MUSIC, volume(musicVolume));
+        setChannelVolume(CHANNEL_MUSIC, effectiveChannelVolume(CHANNEL_MUSIC));
+    }
+
+    public void setAmbienceVolume(int value) {
+        ambienceVolume = clampPercent(value);
+        setChannelVolume(CHANNEL_VINYL_CRACKLE, effectiveChannelVolume(CHANNEL_VINYL_CRACKLE));
     }
 
     public void setEffectsVolume(int value) {
         effectsVolume = clampPercent(value);
-        setChannelVolume(CHANNEL_VINYL_CRACKLE, volume(effectsVolume));
-        setChannelVolume(CHANNEL_STYLUS, volume(effectsVolume));
-        setChannelVolume(CHANNEL_RECORD, volume(effectsVolume));
-        setChannelVolume(CHANNEL_DOOR_CHIME, volume(effectsVolume));
-        setChannelVolume(CHANNEL_DOOR_RATTLE, volume(effectsVolume));
+        for (int channel = CHANNEL_STYLUS; channel <= CHANNEL_DOOR_RATTLE; channel++) {
+            setChannelVolume(channel, effectiveChannelVolume(channel));
+        }
     }
 
     private void setChannelVolume(int channel, float value) {
@@ -718,6 +734,20 @@ public final class PocketCriAudioRuntime {
         target.post(() -> {
             if (webView == target && !disposed) target.evaluateJavascript(js, null);
         });
+    }
+
+    private float effectiveChannelVolume(int channel) {
+        if (channel < 0 || channel >= CHANNEL_BUSES.length) return 0f;
+        final int busVolume;
+        switch (CHANNEL_BUSES[channel]) {
+            case BUS_MUSIC: busVolume = musicVolume; break;
+            case BUS_AMBIENCE: busVolume = ambienceVolume; break;
+            case BUS_MECHANICAL:
+            case BUS_UI:
+            case BUS_SFX:
+            default: busVolume = effectsVolume; break;
+        }
+        return volume(masterVolume) * volume(busVolume);
     }
 
     private static float volume(int percent) {
