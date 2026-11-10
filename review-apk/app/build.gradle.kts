@@ -10,12 +10,25 @@ val hasStablePocketSigning = !pocketKeystorePath.isNullOrBlank() &&
     !pocketKeyAlias.isNullOrBlank() &&
     !pocketKeyPassword.isNullOrBlank()
 android {
+    ndkVersion = "27.2.12479018"
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
     namespace = "com.merzkava.pocket.review"
     compileSdk = 35
     defaultConfig {
         applicationId = "com.merzkava.pocket"
         minSdk = 23
         targetSdk = 34
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
+        externalNativeBuild {
+            cmake {
+                cppFlags += listOf("-std=c++17", "-fexceptions", "-frtti")
+            }
+        }
         versionCode = pocketVersionCode
         versionName = pocketVersion
     }
