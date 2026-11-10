@@ -31,6 +31,20 @@ const ACCESSORY_OPTIONS=[
   {id:"ribbon_bow",name:"Ribbon Bow",description:"A tied silk ribbon at the side of the hair."},
   {id:"earring_chains",name:"Earring Chains",description:"Fine chains and small jade drops."}
 ];
+const activeHomeBaseGames = new Set();
+let homeBaseRenderSuspended = false;
+
+export function setHomeBaseRenderSuspended(suspended) {
+  homeBaseRenderSuspended = suspended === true;
+  for (const instance of activeHomeBaseGames) {
+    if (homeBaseRenderSuspended) {
+      if (!instance.isPaused) instance.pause();
+    } else if (instance.isPaused) {
+      instance.resume();
+    }
+  }
+}
+
 const WORLD_SCALE=1.5;
 const CHARACTER_FRAME={width:48,height:64};
 const NPC_APPEARANCES=[
@@ -580,6 +594,8 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
     render:{pixelArt:true,antialias:false,roundPixels:true,clearBeforeRender:true,premultipliedAlpha:false},
     scene:[scene]
   });
+  activeHomeBaseGames.add(game);
+  if (homeBaseRenderSuspended && !game.isPaused) game.pause();
   const updateClick=async event=>{
     const btn=event.target.closest("[data-shop-buy],[data-shop-exit],[data-shop-confirm-buy],[data-shop-cancel-buy],[data-world-action],[data-world-appearance],[data-world-build],[data-world-location],[data-world-facility],[data-world-start-placement],[data-world-open-build],[data-world-rest],[data-world-forage],[data-world-water],[data-world-gather],[data-world-hair],[data-world-outfit],[data-world-accessory]");
     if(!btn)return;
@@ -695,6 +711,6 @@ export async function mountHomeBase(root,identity,navigateBack,isActive=()=>true
     root.removeEventListener("click",updateClick);root.removeEventListener("change",inputChange);
     document.removeEventListener("click",dismissUnconfirmedShop,true);
     document.removeEventListener("keydown",onShopEscape,true);
-    if(game)game.destroy(true);
+    if(game){activeHomeBaseGames.delete(game);game.destroy(true);}
   };
 }
