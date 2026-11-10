@@ -1488,9 +1488,12 @@
 }
 .audio-player.is-playing .turntable-needle{transform:rotate(12deg);filter:drop-shadow(0 1px 2px #0008)}
 .audio-player.is-starting .turntable-needle{transform:rotate(12deg)}
+.audio-player.is-paused .turntable-needle{transform:rotate(0deg);filter:opacity(.88)}
 .audio-player.is-playing .needle-tip,.audio-player.is-starting .needle-tip{transform:translateY(2px)}
 .audio-player.is-playing .vinyl-disc{filter:brightness(1.06)}
 .audio-player.is-starting .vinyl-disc{filter:brightness(1.025)}
+.audio-player.is-paused .vinyl-disc{filter:brightness(.98)}
+.audio-player.is-paused .turntable-status-light{background:#858a82;box-shadow:0 0 0 2px #858a822b}
 .vinyl-disc{transition:filter .45s ease;will-change:transform;backface-visibility:hidden}
 .turntable-speed{position:absolute;left:10px;bottom:14px;color:#d6c8a5;font:7px var(--ui);letter-spacing:.1em}
 :root[data-theme="light"] .turntable-speed{color:#35382f}
