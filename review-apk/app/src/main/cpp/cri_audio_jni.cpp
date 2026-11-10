@@ -23,8 +23,11 @@ bool gInitialized = false;
 std::atomic<bool> gServerRunning{false};
 std::thread gServerThread;
 void* gAtomWork = nullptr;
-CriAtomExPlayerHn gPlayers[kChannelCount] = {nullptr, nullptr, nullptr, nullptr};
-void* gPlayerWork[kChannelCount] = {nullptr, nullptr, nullptr, nullptr};
+CriAtomExVoicePoolHn gAdxVoicePool = nullptr;
+CriAtomExPlayerHn gPlayers[kChannelCount] = {};
+CriAtomExTweenHn gVolumeTweens[kChannelCount] = {};
+void* gPlayerWork[kChannelCount] = {};
+void* gTweenWork[kChannelCount] = {};
 bool gLoopEnabled[kChannelCount] = {false, false, false, false, false, false};
 CriAtomExPlaybackId gPlaybackIds[kChannelCount] = {
     CRIATOMEX_INVALID_PLAYBACK_ID,
@@ -67,6 +70,21 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
     criAtomEx_Initialize_ANDROID(&config, gAtomWork, workSize);
     gInitialized = true;
 
+    // SetFile() streams ADX data. A streaming ADX voice pool is mandatory:
+    // without it, players can be created and Start() can return an ID while no
+    // playback voice is available to render the stream.
+    CriAtomExAdxVoicePoolConfig voicePoolConfig;
+    std::memset(&voicePoolConfig, 0, sizeof(voicePoolConfig));
+    criAtomExVoicePool_SetDefaultConfigForAdxVoicePool(&voicePoolConfig);
+    voicePoolConfig.num_voices = kChannelCount;
+    voicePoolConfig.player_config.streaming_flag = CRI_TRUE;
+    gAdxVoicePool = criAtomExVoicePool_AllocateAdxVoicePool(&voicePoolConfig, nullptr, 0);
+    if (gAdxVoicePool == nullptr) {
+        __android_log_print(ANDROID_LOG_ERROR, kTag,
+            "CRI could not allocate the ADX streaming voice pool (%d voices)", kChannelCount);
+        goto fail;
+    }
+
     for (int index = 0; index < kChannelCount; ++index) {
         CriAtomExPlayerConfig playerConfig;
         std::memset(&playerConfig, 0, sizeof(playerConfig));
@@ -89,6 +107,28 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
             __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not create CRI player (%d)", index);
             goto fail;
         }
+
+        // CRI Tween owns the fade ramp. Its work memory must remain alive until
+        // the Tween is destroyed.
+        CriAtomExTweenConfig tweenConfig;
+        std::memset(&tweenConfig, 0, sizeof(tweenConfig));
+        criAtomExTween_SetDefaultConfig(&tweenConfig);
+        const CriSint32 tweenWorkSize = criAtomExTween_CalculateWorkSize(&tweenConfig);
+        if (tweenWorkSize < 0) {
+            __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not calculate CRI Tween work size (%d)", index);
+            goto fail;
+        }
+        gTweenWork[index] = std::calloc(1, static_cast<size_t>(tweenWorkSize));
+        if (gTweenWork[index] == nullptr) {
+            __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not allocate CRI Tween work (%d)", index);
+            goto fail;
+        }
+        gVolumeTweens[index] = criAtomExTween_Create(&tweenConfig, gTweenWork[index], tweenWorkSize);
+        if (gVolumeTweens[index] == nullptr) {
+            __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not create CRI volume Tween (%d)", index);
+            goto fail;
+        }
+        criAtomExPlayer_AttachTween(gPlayers[index], gVolumeTweens[index]);
     }
 
     // Android uses CRI's timer-driven MULTI model. CRI owns its worker threads,
@@ -114,11 +154,22 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
 fail:
     for (int index = 0; index < kChannelCount; ++index) {
         if (gPlayers[index] != nullptr) {
+            criAtomExPlayer_Stop(gPlayers[index]);
             criAtomExPlayer_Destroy(gPlayers[index]);
             gPlayers[index] = nullptr;
         }
+        if (gVolumeTweens[index] != nullptr) {
+            criAtomExTween_Destroy(gVolumeTweens[index]);
+            gVolumeTweens[index] = nullptr;
+        }
+        std::free(gTweenWork[index]);
+        gTweenWork[index] = nullptr;
         std::free(gPlayerWork[index]);
         gPlayerWork[index] = nullptr;
+    }
+    if (gAdxVoicePool != nullptr) {
+        criAtomExVoicePool_Free(gAdxVoicePool);
+        gAdxVoicePool = nullptr;
     }
     criAtomEx_Finalize_ANDROID();
     std::free(gAtomWork);
@@ -163,10 +214,20 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeShutdown(JNIEnv*, jc
             criAtomExPlayer_Destroy(gPlayers[index]);
             gPlayers[index] = nullptr;
         }
+        if (gVolumeTweens[index] != nullptr) {
+            criAtomExTween_Destroy(gVolumeTweens[index]);
+            gVolumeTweens[index] = nullptr;
+        }
+        std::free(gTweenWork[index]);
+        gTweenWork[index] = nullptr;
         std::free(gPlayerWork[index]);
         gPlayerWork[index] = nullptr;
         gPlaybackIds[index] = CRIATOMEX_INVALID_PLAYBACK_ID;
         gLoopEnabled[index] = false;
+    }
+    if (gAdxVoicePool != nullptr) {
+        criAtomExVoicePool_Free(gAdxVoicePool);
+        gAdxVoicePool = nullptr;
     }
     criAtomEx_Finalize_ANDROID();
     std::free(gAtomWork);
@@ -178,7 +239,7 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeShutdown(JNIEnv*, jc
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativePlayFile(
         JNIEnv* env, jclass, jint channel, jstring pathValue, jint format,
-        jint numChannels, jint samplingRate, jfloat volume, jboolean loop) {
+        jint numChannels, jint samplingRate, jfloat volume, jfloat fadeMultiplier, jboolean loop) {
     if (!validChannel(channel) || pathValue == nullptr ||
         (format != kFormatAdx && format != kFormatWave) ||
         numChannels < 1 || numChannels > 2 || samplingRate < 8000 || samplingRate > 192000) {
@@ -222,7 +283,15 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativePlayFile(
     criAtomExPlayer_SetFormat(player, format == kFormatAdx ? CRIATOMEX_FORMAT_ADX : CRIATOMEX_FORMAT_WAVE);
     criAtomExPlayer_SetNumChannels(player, numChannels);
     criAtomExPlayer_SetSamplingRate(player, samplingRate);
-    criAtomExPlayer_SetVolume(player, volume < 0.0f ? 0.0f : (volume > 1.0f ? 1.0f : volume));
+    const float clampedVolume = volume < 0.0f ? 0.0f : (volume > 1.0f ? 1.0f : volume);
+    const float clampedFade = fadeMultiplier < 0.0f ? 0.0f : (fadeMultiplier > 1.0f ? 1.0f : fadeMultiplier);
+    criAtomExPlayer_SetVolume(player, clampedVolume);
+    // Tween volume multiplies the user's base channel volume.
+    // Music and ambience start muted, then fade the Tween up after Start().
+    if (gVolumeTweens[channel] != nullptr) {
+        criAtomExTween_Stop(gVolumeTweens[channel]);
+        criAtomExTween_MoveTo(gVolumeTweens[channel], 0, clampedFade);
+    }
     // Data-request callbacks repeat caller-supplied SetData buffers, not SetFile streams.
     criAtomExPlayer_SetDataRequestCallback(player, nullptr, nullptr);
     criAtomExPlayer_SetFile(player, nullptr, path.c_str());
@@ -236,8 +305,8 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativePlayFile(
         return JNI_FALSE;
     }
     __android_log_print(ANDROID_LOG_INFO, kTag,
-        "CRI stream started: channel=%d format=%d channels=%d rate=%d loop=%d path=%s",
-        channel, format, numChannels, samplingRate, loop == JNI_TRUE ? 1 : 0, path.c_str());
+        "CRI stream started: channel=%d format=%d channels=%d rate=%d fade=%.3f loop=%d path=%s",
+        channel, format, numChannels, samplingRate, clampedFade, loop == JNI_TRUE ? 1 : 0, path.c_str());
     return JNI_TRUE;
 }
 
@@ -272,6 +341,17 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeSetVolume(JNIEnv*, j
             criAtomExPlayer_Update(gPlayers[channel], gPlaybackIds[channel]);
         }
     }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeFadeVolume(
+        JNIEnv*, jclass, jint channel, jint durationMs, jfloat volume) {
+    if (!validChannel(channel)) return;
+    std::lock_guard<std::mutex> lock(gMutex);
+    if (!gInitialized || gPlayers[channel] == nullptr || gVolumeTweens[channel] == nullptr) return;
+    const jint safeDuration = durationMs < 0 ? 0 : (durationMs > 65535 ? 65535 : durationMs);
+    const float clamped = volume < 0.0f ? 0.0f : (volume > 1.0f ? 1.0f : volume);
+    criAtomExTween_MoveTo(gVolumeTweens[channel], static_cast<CriUint16>(safeDuration), clamped);
 }
 
 extern "C" JNIEXPORT jint JNICALL
