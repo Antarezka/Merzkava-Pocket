@@ -34,6 +34,8 @@ public final class PocketCriAudioRuntime {
     private static final int CHANNEL_AMBIENCE = 1;
     private static final int CHANNEL_NEEDLE = 2;
     private static final int CHANNEL_EFFECTS = 3;
+    private static final int CHANNEL_DOOR_CHIME = 4;
+    private static final int CHANNEL_DOOR_RATTLE = 5;
     private static final int FORMAT_ADX = 1;
     private static final int FORMAT_WAVE = 2;
 
@@ -50,8 +52,8 @@ public final class PocketCriAudioRuntime {
         BUILT_IN.put("door-rattle", "door-rattle.adx");
     }
 
-    private static final String[] CHANNEL_NAMES = {"music", "ambience", "needle", "effects"};
-    private static final int[] CHANNELS = {CHANNEL_MUSIC, CHANNEL_AMBIENCE, CHANNEL_NEEDLE, CHANNEL_EFFECTS};
+    private static final String[] CHANNEL_NAMES = {"music", "ambience", "needle", "effects", "door-chime", "door-rattle"};
+    private static final int[] CHANNELS = {CHANNEL_MUSIC, CHANNEL_AMBIENCE, CHANNEL_NEEDLE, CHANNEL_EFFECTS, CHANNEL_DOOR_CHIME, CHANNEL_DOOR_RATTLE};
 
     static {
         System.loadLibrary("pocket_cri_audio");
@@ -70,9 +72,9 @@ public final class PocketCriAudioRuntime {
     private final ExecutorService commands = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final AtomicLong[] generations = {
-        new AtomicLong(), new AtomicLong(), new AtomicLong(), new AtomicLong()
+        new AtomicLong(), new AtomicLong(), new AtomicLong(), new AtomicLong(), new AtomicLong(), new AtomicLong()
     };
-    private final int[] lastStatuses = {-1, -1, -1, -1};
+    private final int[] lastStatuses = {-1, -1, -1, -1, -1, -1};
     private final AudioManager audioManager;
     private final AudioManager.OnAudioFocusChangeListener focusListener = this::onAudioFocusChanged;
 
@@ -103,6 +105,8 @@ public final class PocketCriAudioRuntime {
                 nativeSetVolume(CHANNEL_AMBIENCE, volume(effectsVolume));
                 nativeSetVolume(CHANNEL_NEEDLE, volume(effectsVolume));
                 nativeSetVolume(CHANNEL_EFFECTS, volume(effectsVolume));
+                nativeSetVolume(CHANNEL_DOOR_CHIME, volume(effectsVolume));
+                nativeSetVolume(CHANNEL_DOOR_RATTLE, volume(effectsVolume));
             }
             if (!ready) {
                 publish("music", "error", "CRI ADX LE could not initialize.");
@@ -194,8 +198,14 @@ public final class PocketCriAudioRuntime {
         if ("needle".equals(key)) {
             channel = CHANNEL_NEEDLE;
             asset = BUILT_IN.get("needle");
-        } else if ("placement".equals(key) || "door-chime".equals(key) || "door-rattle".equals(key)) {
+        } else if ("placement".equals(key)) {
             channel = CHANNEL_EFFECTS;
+            asset = BUILT_IN.get(key);
+        } else if ("door-chime".equals(key)) {
+            channel = CHANNEL_DOOR_CHIME;
+            asset = BUILT_IN.get(key);
+        } else if ("door-rattle".equals(key)) {
+            channel = CHANNEL_DOOR_RATTLE;
             asset = BUILT_IN.get(key);
         } else {
             return false;
@@ -248,6 +258,8 @@ public final class PocketCriAudioRuntime {
         setChannelVolume(CHANNEL_AMBIENCE, volume(effectsVolume));
         setChannelVolume(CHANNEL_NEEDLE, volume(effectsVolume));
         setChannelVolume(CHANNEL_EFFECTS, volume(effectsVolume));
+        setChannelVolume(CHANNEL_DOOR_CHIME, volume(effectsVolume));
+        setChannelVolume(CHANNEL_DOOR_RATTLE, volume(effectsVolume));
     }
 
     private void setChannelVolume(int channel, float value) {
@@ -283,7 +295,7 @@ public final class PocketCriAudioRuntime {
             commands.execute(() -> {
                 if (disposed) return;
                 boolean active = false;
-                for (int channel : new int[]{CHANNEL_MUSIC, CHANNEL_AMBIENCE, CHANNEL_NEEDLE, CHANNEL_EFFECTS}) {
+                for (int channel : CHANNELS) {
                     int status = nativeGetStatus(channel);
                     if (status == 1 || status == 2) active = true;
                     if (status != lastStatuses[channel]) {
@@ -303,7 +315,7 @@ public final class PocketCriAudioRuntime {
                         commands.execute(() -> {
                             if (disposed) return;
                             boolean activeAgain = false;
-                            for (int channel : new int[]{CHANNEL_MUSIC, CHANNEL_AMBIENCE, CHANNEL_NEEDLE, CHANNEL_EFFECTS}) {
+                            for (int channel : CHANNELS) {
                                 int status = nativeGetStatus(channel);
                                 if (status == 1 || status == 2) activeAgain = true;
                             }
@@ -367,6 +379,8 @@ public final class PocketCriAudioRuntime {
             setChannelVolume(CHANNEL_AMBIENCE, volume(effectsVolume));
             setChannelVolume(CHANNEL_NEEDLE, volume(effectsVolume));
             setChannelVolume(CHANNEL_EFFECTS, volume(effectsVolume));
+            setChannelVolume(CHANNEL_DOOR_CHIME, volume(effectsVolume));
+            setChannelVolume(CHANNEL_DOOR_RATTLE, volume(effectsVolume));
             if (resumeAfterFocusLoss) {
                 resumeAfterFocusLoss = false;
                 pauseMusic(false);
@@ -376,6 +390,8 @@ public final class PocketCriAudioRuntime {
             setChannelVolume(CHANNEL_AMBIENCE, volume(effectsVolume) * 0.25f);
             setChannelVolume(CHANNEL_NEEDLE, volume(effectsVolume) * 0.25f);
             setChannelVolume(CHANNEL_EFFECTS, volume(effectsVolume) * 0.25f);
+            setChannelVolume(CHANNEL_DOOR_CHIME, volume(effectsVolume) * 0.25f);
+            setChannelVolume(CHANNEL_DOOR_RATTLE, volume(effectsVolume) * 0.25f);
         }
     }
 
