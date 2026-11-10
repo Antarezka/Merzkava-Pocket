@@ -27,6 +27,12 @@ import java.util.Map;
 
 public final class MainActivity extends Activity {
     private static final String ASSET_HOST = "pocket.local";
+    public static final String ACTION_DOWNLOAD_UPDATE = "com.merzkava.pocket.action.DOWNLOAD_UPDATE";
+    public static final String ACTION_INSTALL_UPDATE = "com.merzkava.pocket.action.INSTALL_UPDATE";
+    public static final String EXTRA_UPDATE_URL = "pocket_update_url";
+    public static final String EXTRA_UPDATE_FILE_NAME = "pocket_update_file_name";
+    public static final String EXTRA_UPDATE_SHA256 = "pocket_update_sha256";
+    public static final String EXTRA_UPDATE_BUILD = "pocket_update_build";
     private static final int REQUEST_POCKET_AUDIO_PICKER = 7402;
     private WebView webView;
     private PocketNativeBridge nativeBridge;
@@ -60,6 +66,7 @@ public final class MainActivity extends Activity {
         webView.addJavascriptInterface(nativeBridge, "PocketNative");
         setContentView(webView);
         webView.loadUrl("https://" + ASSET_HOST + "/index.html");
+        handleUpdateNotificationIntent(getIntent());
         handleFloatingLaunchIntent();
         if (Build.VERSION.SDK_INT >= 33) {
             systemBackCallback = this::handleBackPressed;
@@ -222,10 +229,37 @@ public final class MainActivity extends Activity {
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-        if (intent != null && PocketFloatingService.ACTION_OPEN_WINDOW.equals(intent.getAction())) {
+        if (intent != null && (ACTION_DOWNLOAD_UPDATE.equals(intent.getAction()) ||
+            ACTION_INSTALL_UPDATE.equals(intent.getAction()))) {
+            handleUpdateNotificationIntent(intent);
+        } else if (intent != null && PocketFloatingService.ACTION_OPEN_WINDOW.equals(intent.getAction())) {
             handleFloatingLaunchIntent();
         } else if (floatingWindow != null && floatingWindow.isShowing()) {
             restoreFloatingToActivity();
+        }
+    }
+
+    private void handleUpdateNotificationIntent(Intent intent) {
+        if (intent == null || nativeBridge == null) return;
+        String action = intent.getAction();
+        if (ACTION_DOWNLOAD_UPDATE.equals(action)) {
+            String address = intent.getStringExtra(EXTRA_UPDATE_URL);
+            String fileName = intent.getStringExtra(EXTRA_UPDATE_FILE_NAME);
+            String sha256 = intent.getStringExtra(EXTRA_UPDATE_SHA256);
+            int build = intent.getIntExtra(EXTRA_UPDATE_BUILD, 0);
+            intent.setAction(null);
+            intent.removeExtra(EXTRA_UPDATE_URL);
+            intent.removeExtra(EXTRA_UPDATE_FILE_NAME);
+            intent.removeExtra(EXTRA_UPDATE_SHA256);
+            intent.removeExtra(EXTRA_UPDATE_BUILD);
+            setIntent(intent);
+            String result = nativeBridge.startPocketUpdateDownload(address, fileName, sha256, build);
+            Log.i("PocketUpdate", "Notification download action handled: " + result);
+        } else if (ACTION_INSTALL_UPDATE.equals(action)) {
+            intent.setAction(null);
+            setIntent(intent);
+            String result = nativeBridge.installDownloadedPocketUpdate();
+            Log.i("PocketUpdate", "Notification install action handled: " + result);
         }
     }
 
