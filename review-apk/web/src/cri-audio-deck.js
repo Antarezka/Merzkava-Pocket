@@ -115,9 +115,11 @@ export function createCriAudioDeck({
     if (isPlaying() || isStarting()) return true;
     if (isPaused()) {
       if (typeof native?.criPauseMusic !== "function") return fail("CRI pause control is unavailable.");
+      playEffect("needle");
       native.criPauseMusic(false);
       return true;
     }
+    playEffect("needle");
     return requestTrackStart();
   }
 
@@ -157,6 +159,10 @@ export function createCriAudioDeck({
   }
 
   updateCustomTracks(customTracks);
+  // Apply persisted mixer levels to the native CRI channels before any
+  // automatic startup playback request is issued.
+  native?.criSetVolume?.("music", musicVolume);
+  native?.criSetVolume?.("effects", effectsVolume);
 
   return {
     getState,
