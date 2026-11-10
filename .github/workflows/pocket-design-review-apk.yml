@@ -57,10 +57,10 @@ jobs:
           mkdir -p "$SDK_DIR/unpacked"
           unzip -q "$ZIP" -d "$SDK_DIR/unpacked"
           echo "Inspecting CRI SDK Android package layout (paths only):"
-          find "$SDK_DIR/unpacked" -type f \\( -iname 'libcri_ware_android*le.so' -o -name 'cri_le_atom_android.h' -o -name 'cri_le_atom_ex.h' \\) -print | sort
+          find "$SDK_DIR/unpacked" -type f \( -iname 'libcri_ware_android*le.so' -o -name 'cri_le_atom_android.h' -o -name 'cri_le_atom_ex.h' \) -print | sort
           ARM64_LIB="$(find "$SDK_DIR/unpacked" -type f -iname 'libcri_ware_android*le.so' | grep -E '/arm64-v8a/' | head -n1)"
           ARM32_LIB="$(find "$SDK_DIR/unpacked" -type f -iname 'libcri_ware_android*le.so' | grep -E '/armeabi-v7a/' | head -n1)"
-          HEADER_DIR="$(find "$SDK_DIR/unpacked" -type f -name 'cri_le_atom_android.h' -printf '%h\\n' | head -n1)"
+          HEADER_DIR="$(find "$SDK_DIR/unpacked" -type f -name 'cri_le_atom_android.h' -printf '%h\n' | head -n1)"
           test -n "$ARM64_LIB" && test -s "$ARM64_LIB"
           test -n "$ARM32_LIB" && test -s "$ARM32_LIB"
           test -n "$HEADER_DIR" && test -s "$HEADER_DIR/cri_le_atom_ex.h"
@@ -123,7 +123,7 @@ jobs:
         run: |
           set -euo pipefail
           test -s review-apk/web/src/audio-player.js
-          if grep -R -n -E "new[[:space:]]+Audio[[:space:]]*\\(|AudioContext|webkitAudioContext|canPlayType|createElement\\([\\"']audio|<audio" review-apk/web/src review-apk/web/public; then
+          if grep -R -n -E "new[[:space:]]+Audio[[:space:]]*\(|AudioContext|webkitAudioContext|canPlayType|createElement\([\\"']audio|<audio" review-apk/web/src review-apk/web/public; then
             echo "::error::A WebView/browser audio playback path remains. All BGM and FX must go through PocketCriAudioRuntime."
             exit 1
           fi
