@@ -44,6 +44,14 @@ The logical bus map is the migration contract. The next authoring stage is to cr
 - CRI's Atom Craft Japanese guide explains categories are game-wide rules, category metadata is stored in ACF, Cue membership is stored in ACB, and the paired outputs must be rebuilt together when categories change.
 - The Japanese MPD package description is a useful media-player architecture analogue: playback service and user interface are separate; output routes, playlists, gapless playback, and crossfade are controlled independently. It is not a runtime to add to Pocket.
 
+## Cross-checks from Japanese developer and music-player documentation
+
+Unity's Japanese Audio Mixer documentation uses a persistent Master/group hierarchy, signal routing, snapshots, and ducking; this supports keeping routing and state transitions independent from the objects that trigger sound. Pocket mirrors that responsibility split through CRI player channels and the Audio Director, without embedding Unity or another mixer engine.
+
+The Japanese moOde/MPD guide describes one playback daemon controlled by multiple clients, separate queue/playback/output configuration, and explicit renderer behavior. One useful caution is that some alternate renderers stop MPD playback rather than mix concurrently; Pocket's vinyl ambience therefore stays inside the same CRI runtime and is assigned its own CRI player channel.
+
+References: [Unity Audio Mixer (Japanese)](https://docs.unity3d.com/ja/current/Manual/AudioMixer.html), [Unity Audio Mixer overview (Japanese)](https://docs.unity3d.com/ja/current/Manual/AudioMixerOverview.html), [moOde/MPD setup and playback architecture (Japanese)](https://www.openaudiolab.com/settingmoode/jp/).
+
 ## Verification invariants
 
 - No parallel playback engine exists in the WebView or Java UI.
