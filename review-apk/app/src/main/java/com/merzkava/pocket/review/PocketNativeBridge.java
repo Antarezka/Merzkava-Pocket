@@ -124,6 +124,10 @@ public final class PocketNativeBridge {
         return criAudio.playTrack(trackId);
     }
 
+    @JavascriptInterface public boolean criPlayAmbience() {
+        return criAudio.playAmbience();
+    }
+
     @JavascriptInterface public boolean criPlayEffect(String effectId) {
         return criAudio.playEffect(effectId);
     }
@@ -139,7 +143,9 @@ public final class PocketNativeBridge {
     }
 
     @JavascriptInterface public void criSetVolume(String channel, int value) {
-        if ("music".equalsIgnoreCase(channel)) criAudio.setMusicVolume(value);
+        if ("master".equalsIgnoreCase(channel)) criAudio.setMasterVolume(value);
+        else if ("music".equalsIgnoreCase(channel)) criAudio.setMusicVolume(value);
+        else if ("ambience".equalsIgnoreCase(channel)) criAudio.setAmbienceVolume(value);
         else if ("effects".equalsIgnoreCase(channel)) criAudio.setEffectsVolume(value);
     }
 
