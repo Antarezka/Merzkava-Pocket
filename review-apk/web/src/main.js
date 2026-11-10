@@ -22,6 +22,9 @@ const pocketAudio = createPocketAudioController({
   onChange: syncAudioUI,
   onPlaybackCycle: () => vinylDesigns.rotateRandom("track-end")
 });
+const retryPocketAudioAfterGesture = () => pocketAudio.retryPendingPlayback?.();
+document.addEventListener("click", retryPocketAudioAfterGesture, { passive: true });
+document.addEventListener("keydown", retryPocketAudioAfterGesture);
 window.addEventListener("pocket:season-start", event => {
   const seasonKey = event.detail?.seasonId ?? event.detail?.seasonKey ?? "";
   vinylDesigns.onSeasonStart(seasonKey);

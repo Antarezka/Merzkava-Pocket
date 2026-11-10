@@ -14,6 +14,9 @@ class FakeAudio {
     this.volume = 1;
     this.listeners = new Map();
     this.playCount = 0;
+    this.inEndedDispatch = false;
+    this.playAttemptedInsideEnded = 0;
+    this.failNextPlay = false;
     FakeAudio.instances.push(this);
   }
   addEventListener(name, callback) {
@@ -24,6 +27,14 @@ class FakeAudio {
   dispatch(name) { for (const callback of [...(this.listeners.get(name) || [])]) callback(); }
   play() {
     this.playCount += 1;
+    if (this.inEndedDispatch) {
+      this.playAttemptedInsideEnded += 1;
+      return Promise.reject(new Error("play() was called before ended dispatch completed"));
+    }
+    if (this.failNextPlay) {
+      this.failNextPlay = false;
+      return Promise.reject(new Error("simulated transient media play failure"));
+    }
     this.paused = false;
     this.ended = false;
     this.dispatch("play");
@@ -48,7 +59,15 @@ class FakeAudio {
     this.ended = true;
     this.paused = true;
     this.dispatch("pause");
+    this.inEndedDispatch = true;
     this.dispatch("ended");
+    this.inEndedDispatch = false;
+  }
+  finishWithoutEndedEvent() {
+    this.currentTime = this.duration;
+    this.ended = false;
+    this.paused = true;
+    this.dispatch("pause");
   }
 }
 
@@ -59,7 +78,14 @@ function harness(values = {}, callbacks = {}) {
     getItem: key => data.has(key) ? data.get(key) : null,
     setItem: (key, value) => data.set(key, String(value))
   };
-  const audio = createPocketAudioController({ AudioCtor: FakeAudio, storage, ...callbacks });
+  const {
+    setTimeoutFn = () => 0,
+    clearTimeoutFn = () => {},
+    ...controllerOptions
+  } = callbacks;
+  const audio = createPocketAudioController({
+    AudioCtor: FakeAudio, storage, setTimeoutFn, clearTimeoutFn, ...controllerOptions
+  });
   return { audio, data };
 }
 
@@ -428,6 +454,35 @@ test("ended event explicitly replays a completed Pocket music track",async()=>{
   assert.equal(noise.paused,false,"vinyl ambience continues across the fallback restart");
 });
 
+test("end recovery also works when WebView pauses at duration but omits the ended event", async () => {
+  const { audio } = harness();
+  audio.enterMainMenu();
+  await Promise.resolve();
+  const music = FakeAudio.instances[0];
+  const noise = FakeAudio.instances.find(item => item.src === VINYL_SURFACE_NOISE_SRC);
+  music.finishWithoutEndedEvent();
+  await Promise.resolve();
+  assert.equal(music.paused, false, "the duration guard should start the next cycle");
+  assert.equal(music.currentTime, 0);
+  assert.equal(music.playCount, 2);
+  assert.equal(noise.paused, false, "vinyl ambience must stay alive during missed-ended recovery");
+});
+
+test("a transient play rejection does not kill vinyl ambience and can recover after a user gesture", async () => {
+  const { audio } = harness();
+  const music = FakeAudio.instances[0];
+  const noise = FakeAudio.instances.find(item => item.src === VINYL_SURFACE_NOISE_SRC);
+  music.failNextPlay = true;
+  audio.enterMainMenu();
+  await Promise.resolve();
+  assert.equal(audio.getState().isPlaying, false);
+  assert.equal(noise.paused, false, "a failed music restart must not stop the independent ambience layer");
+  assert.equal(audio.retryPendingPlayback(), true);
+  await Promise.resolve();
+  assert.equal(audio.getState().isPlaying, true);
+  assert.equal(noise.paused, false);
+});
+
 test("BGM fades out at track end and fades back in after the ended event", async () => {
   const clock = makeAudioFadeClock();
   let cycles = 0;
@@ -464,6 +519,7 @@ test("BGM fades out at track end and fades back in after the ended event", async
   assert.equal(music.paused,false);
   assert.equal(music.volume,0);
   assert.equal(music.playCount,2,"the ended event explicitly starts the next cycle");
+  assert.equal(music.playAttemptedInsideEnded,0,"play() must wait until the native ended dispatch is complete");
   assert.equal(noise.paused,false,"vinyl noise remains uninterrupted between BGM cycles");
 
   clock.advance(1100);

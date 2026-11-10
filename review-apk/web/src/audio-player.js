@@ -51,7 +51,9 @@ export function createPocketAudioController({
   customTracks = [],
   now = () => Date.now(),
   setIntervalFn = globalThis.setInterval,
-  clearIntervalFn = globalThis.clearInterval
+  clearIntervalFn = globalThis.clearInterval,
+  setTimeoutFn = globalThis.setTimeout,
+  clearTimeoutFn = globalThis.clearTimeout
 } = {}) {
   if (typeof AudioCtor !== "function") throw new Error("Audio playback is unavailable.");
 
@@ -105,6 +107,13 @@ export function createPocketAudioController({
   let musicFadeToken = 0;
   let endFadeStarted = false;
   let previousMusicTime = 0;
+  let musicStartPromise = null;
+  let trackEndTimer = null;
+  let trackEndToken = 0;
+  let endHandlingQueued = false;
+  let playbackRetryTimer = null;
+  let playbackRetryCount = 0;
+  let playbackRetryPending = false;
 
   const music = new AudioCtor(trackCatalog[selectedTrack].src);
   music.preload = "auto";
@@ -118,6 +127,7 @@ export function createPocketAudioController({
 
   const notify = () => onChange(getState());
   const isPlaying = () => music.paused === false && music.ended !== true;
+  const shouldMaintainPlayback = () => menuEntered && !userPaused;
   const applyMusicVolume = () => {
     music.volume = (musicVolume / 100) * musicFadeGain;
   };
@@ -157,7 +167,10 @@ export function createPocketAudioController({
     try { vinylSurfaceNoise.currentTime = 0; } catch {}
   };
   const syncVinylSurfaceNoise = () => {
-    if (!menuEntered || !isPlaying() || effectsVolume <= 0) {
+    // The ambience bed follows the user's playback intent, not the transient
+    // paused/ended state of the music element. A failed automatic restart must
+    // never silence the separate vinyl layer as a side effect.
+    if (!shouldMaintainPlayback() || effectsVolume <= 0) {
       stopVinylSurfaceNoise();
       return;
     }
@@ -167,7 +180,7 @@ export function createPocketAudioController({
     try {
       const result = vinylSurfaceNoise.play();
       result?.then?.(() => {
-        if (token === vinylNoiseStartToken && (!menuEntered || !isPlaying() || effectsVolume <= 0)) {
+        if (token === vinylNoiseStartToken && (!shouldMaintainPlayback() || effectsVolume <= 0)) {
           stopVinylSurfaceNoise();
         }
       }).catch?.(() => {
@@ -203,27 +216,102 @@ export function createPocketAudioController({
       try { effect.pause(); effect.currentTime = 0; } catch {}
     }
   };
-  const startMusic = async () => {
-    if (!menuEntered) {
-      stopVinylSurfaceNoise();
-      return false;
+  const clearTrackEndGuard = () => {
+    trackEndToken += 1;
+    if (trackEndTimer !== null) clearTimeoutFn(trackEndTimer);
+    trackEndTimer = null;
+  };
+  const clearPlaybackRetry = () => {
+    if (playbackRetryTimer !== null) clearTimeoutFn(playbackRetryTimer);
+    playbackRetryTimer = null;
+  };
+  const schedulePlaybackRetry = () => {
+    if (!shouldMaintainPlayback() || playbackRetryTimer !== null) return;
+    const delays = [180, 480, 1200];
+    if (playbackRetryCount >= delays.length) {
+      playbackRetryPending = true;
+      return;
     }
-    stopMusicFade();
-    musicFadeGain = 0;
-    endFadeStarted = false;
-    applyMusicVolume();
-    try {
-      await music.play();
-      animateMusicFade(1, MUSIC_FADE_DURATION_MS);
-      syncVinylSurfaceNoise();
-      notify();
-      return true;
-    } catch {
+    const delay = delays[playbackRetryCount++];
+    playbackRetryTimer = setTimeoutFn(() => {
+      playbackRetryTimer = null;
+      if (shouldMaintainPlayback() && !isPlaying()) void startMusic();
+    }, delay);
+  };
+  const scheduleTrackEndGuard = () => {
+    if (!shouldMaintainPlayback() || !isPlaying()) return;
+    clearTrackEndGuard();
+    const token = trackEndToken;
+    const duration = Number.isFinite(Number(music.duration)) && Number(music.duration) > 1
+      ? Number(music.duration)
+      : lastPlaybackDuration;
+    const current = Math.max(0, Number(music.currentTime) || 0);
+    const remainingMs = Number.isFinite(duration) && duration > 1
+      ? Math.max(0, (duration - current) * 1000)
+      : 750;
+    const delay = Math.max(120, Math.min(remainingMs + 180, 30000));
+    trackEndTimer = setTimeoutFn(() => {
+      if (token !== trackEndToken) return;
+      trackEndTimer = null;
+      if (!shouldMaintainPlayback()) return;
+      const actualDuration = Number.isFinite(Number(music.duration)) && Number(music.duration) > 1
+        ? Number(music.duration)
+        : lastPlaybackDuration;
+      const position = Math.max(0, Number(music.currentTime) || 0);
+      const reachedEnd = music.ended || (music.paused && Number.isFinite(actualDuration) &&
+        actualDuration > 1 && position >= actualDuration - 0.55);
+      if (reachedEnd) {
+        queueMusicEnded();
+        return;
+      }
+      // Howler.js checks again in short intervals when the media node has not
+      // actually reached its stop position yet instead of assuming the timer
+      // alone means the track ended.
+      if (!music.paused) scheduleTrackEndGuard();
+    }, delay);
+  };
+  const scheduleMusicRetryAfterGesture = () => {
+    playbackRetryPending = true;
+    schedulePlaybackRetry();
+    // Keep the ambience bed alive while the browser retries the main element.
+    syncVinylSurfaceNoise();
+  };
+  const startMusic = () => {
+    if (!shouldMaintainPlayback()) {
+      if (!menuEntered) stopVinylSurfaceNoise();
+      return Promise.resolve(false);
+    }
+    if (musicStartPromise) return musicStartPromise;
+    const run = async () => {
+      clearTrackEndGuard();
+      clearPlaybackRetry();
       stopMusicFade();
-      stopVinylSurfaceNoise();
-      notify();
-      return false;
-    }
+      musicFadeGain = 0;
+      endFadeStarted = false;
+      applyMusicVolume();
+      try {
+        // Rewind only after the native ended dispatch has completed.
+        if (music.ended) {
+          try { music.currentTime = 0; } catch {}
+        }
+        await music.play();
+        playbackRetryCount = 0;
+        playbackRetryPending = false;
+        animateMusicFade(1, MUSIC_FADE_DURATION_MS);
+        syncVinylSurfaceNoise();
+        scheduleTrackEndGuard();
+        notify();
+        return true;
+      } catch {
+        stopMusicFade();
+        if (shouldMaintainPlayback()) scheduleMusicRetryAfterGesture();
+        else stopVinylSurfaceNoise();
+        notify();
+        return false;
+      }
+    };
+    musicStartPromise = run().finally(() => { musicStartPromise = null; });
+    return musicStartPromise;
   };
   const waitForEffect = effect => new Promise(resolve => {
     let finished = false;
@@ -252,41 +340,81 @@ export function createPocketAudioController({
     notify();
   };
 
-  // Do not use HTMLMediaElement.loop here: it suppresses the ended event in
-  // WebViews, which made end-of-track replay unreliable in Floating Mode.
-  // The ended event is the single authoritative boundary: replay explicitly,
-  // starting from silence so every track has a complete fade-out/fade-in.
-  const handleMusicEnded = () => {
-    if (!menuEntered || userPaused) return;
-    stopMusicFade();
-    musicFadeGain = 0;
-    endFadeStarted = false;
-    applyMusicVolume();
-    try { music.currentTime = 0; } catch {}
-    previousMusicTime = 0;
-    reportPlaybackCycle();
-    void startMusic();
+  // Mirror two proven player patterns: Howler emits its end callback after the
+  // media event stack has returned, and it verifies the node really reached its
+  // stop position before advancing. This avoids calling play() re-entrantly
+  // from Android WebView's native ended dispatch and provides a timer fallback.
+  const queueMusicEnded = () => {
+    if (!shouldMaintainPlayback() || endHandlingQueued) return;
+    endHandlingQueued = true;
+    clearTrackEndGuard();
+    queueMicrotask(() => {
+      endHandlingQueued = false;
+      if (!shouldMaintainPlayback()) return;
+      const duration = Number.isFinite(Number(music.duration)) && Number(music.duration) > 1
+        ? Number(music.duration)
+        : lastPlaybackDuration;
+      const position = Math.max(0, Number(music.currentTime) || 0);
+      const reachedEnd = music.ended || (music.paused && Number.isFinite(duration) &&
+        duration > 1 && position >= duration - 0.55);
+      if (!reachedEnd) {
+        scheduleTrackEndGuard();
+        return;
+      }
+      stopMusicFade();
+      musicFadeGain = 0;
+      endFadeStarted = false;
+      applyMusicVolume();
+      try { music.currentTime = 0; } catch {}
+      previousMusicTime = 0;
+      reportPlaybackCycle();
+      playbackRetryCount = 0;
+      playbackRetryPending = false;
+      // startMusic() runs in a later microtask, after the browser has completed
+      // dispatching pause/ended and committed the media element's ended state.
+      queueMicrotask(() => { if (shouldMaintainPlayback()) void startMusic(); });
+    });
   };
+  const handleMusicEnded = () => queueMusicEnded();
 
   music.addEventListener?.("play", () => {
     lastPlaybackDuration = Number.isFinite(music.duration) ? music.duration : 0;
     previousMusicTime = Number(music.currentTime) || 0;
     syncVinylSurfaceNoise();
+    scheduleTrackEndGuard();
     notify();
   });
   music.addEventListener?.("pause", () => {
-    if (isPlaying()) syncVinylSurfaceNoise();
-    else if (!(music.ended && menuEntered && !userPaused) &&
-             !(endFadeStarted && menuEntered && !userPaused)) stopVinylSurfaceNoise();
+    if (!shouldMaintainPlayback()) stopVinylSurfaceNoise();
+    else {
+      const duration = Number.isFinite(Number(music.duration)) && Number(music.duration) > 1
+        ? Number(music.duration)
+        : lastPlaybackDuration;
+      const current = Math.max(0, Number(music.currentTime) || 0);
+      if (music.ended || (Number.isFinite(duration) && duration > 1 && current >= duration - 0.55)) {
+        queueMusicEnded();
+      } else if (!endFadeStarted) {
+        // An OS/WebView pause is not interpreted as a user pressing the turntable.
+        playbackRetryPending = true;
+      }
+    }
     notify();
   });
   music.addEventListener?.("ended", handleMusicEnded);
   music.addEventListener?.("error", () => {
     stopMusicFade();
-    stopVinylSurfaceNoise();
+    clearTrackEndGuard();
+    if (shouldMaintainPlayback()) scheduleMusicRetryAfterGesture();
+    else stopVinylSurfaceNoise();
     notify();
   });
   music.addEventListener?.("emptied", stopVinylSurfaceNoise);
+  music.addEventListener?.("loadedmetadata", () => {
+    if (isPlaying()) scheduleTrackEndGuard();
+  });
+  music.addEventListener?.("durationchange", () => {
+    if (isPlaying()) scheduleTrackEndGuard();
+  });
   music.addEventListener?.("timeupdate", () => {
     // Media time keeps advancing in Floating Mode even when WebView intervals are throttled.
     musicFadeTick?.();
@@ -300,12 +428,14 @@ export function createPocketAudioController({
       const fadeWindowMs = Math.min(MUSIC_FADE_DURATION_MS + 250, Math.max(500, duration * 250));
       if (remainingMs <= fadeWindowMs && !endFadeStarted) {
         endFadeStarted = true;
-        // Finish slightly before the media's ended event, even when timeupdate is late.
+        // Keep the final fade tied to media time; the guard handles a missing ended event.
         const fadeDurationMs = Math.max(1, Math.min(MUSIC_FADE_DURATION_MS, remainingMs - MUSIC_FADE_TICK_MS));
         animateMusicFade(0, fadeDurationMs);
       }
       lastPlaybackDuration = duration;
+      if (music.ended || (music.paused && current >= duration - 0.55)) queueMusicEnded();
     }
+    if (trackEndTimer === null && isPlaying()) scheduleTrackEndGuard();
     previousMusicTime = current;
   });
 
@@ -336,6 +466,10 @@ export function createPocketAudioController({
 
   function pauseForSplash() {
     resumeAfterSplash = isPlaying();
+    clearTrackEndGuard();
+    clearPlaybackRetry();
+    playbackRetryPending = false;
+    endHandlingQueued = false;
     cancelNeedleStart();
     stopMusicFade();
     musicFadeGain = 0;
@@ -347,6 +481,10 @@ export function createPocketAudioController({
   }
 
   function resetSession() {
+    clearTrackEndGuard();
+    clearPlaybackRetry();
+    playbackRetryPending = false;
+    endHandlingQueued = false;
     cancelNeedleStart();
     stopMusicFade();
     musicFadeGain = 0;
@@ -362,6 +500,10 @@ export function createPocketAudioController({
 
   function selectTrack(id) {
     if (!Object.hasOwn(trackCatalog, id) || id === selectedTrack) return false;
+    clearTrackEndGuard();
+    clearPlaybackRetry();
+    playbackRetryPending = false;
+    endHandlingQueued = false;
     cancelNeedleStart();
     stopMusicFade();
     musicFadeGain = 0;
@@ -408,6 +550,10 @@ export function createPocketAudioController({
     if (isPlaying() || needleStarting) {
       cancelNeedleStart();
       userPaused = true;
+      clearTrackEndGuard();
+      clearPlaybackRetry();
+      playbackRetryPending = false;
+      endHandlingQueued = false;
       stopMusicFade();
       musicFadeGain = 0;
       endFadeStarted = false;
@@ -447,6 +593,15 @@ export function createPocketAudioController({
     if (musicFadeGain < 1) animateMusicFade(1, MUSIC_FADE_DURATION_MS);
     syncVinylSurfaceNoise();
     return Promise.resolve(true);
+  }
+
+  function retryPendingPlayback() {
+    if (!playbackRetryPending || !shouldMaintainPlayback()) return false;
+    clearPlaybackRetry();
+    playbackRetryCount = 0;
+    playbackRetryPending = false;
+    void startMusic();
+    return true;
   }
 
   function updateCustomTracks(entries) {
@@ -494,7 +649,8 @@ export function createPocketAudioController({
     playEffect,
     setMusicVolume,
     setEffectsVolume,
-    setFloatingMode
+    setFloatingMode,
+    retryPendingPlayback
   };
 }
 
