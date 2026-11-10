@@ -199,6 +199,24 @@ public final class PocketNativeBridge {
         return target;
     }
 
+    @JavascriptInterface public boolean pausePocketNativeMusic(boolean userPause) {
+        try {
+            prefs().edit()
+                .putBoolean("pocket_native_audio_playing", false)
+                .putBoolean("pocket_native_audio_preparing", false)
+                .putBoolean("pocket_native_audio_user_paused", userPause)
+                .apply();
+            if (!PocketMediaPlaybackService.isRunning()) return true;
+            activity.startService(new Intent(activity, PocketMediaPlaybackService.class)
+                .setAction(PocketMediaPlaybackService.ACTION_PAUSE)
+                .putExtra("userPause", userPause));
+            return true;
+        } catch (Exception error) {
+            android.util.Log.w("PocketMedia3", "Could not pause native BGM without destroying the service", error);
+            return false;
+        }
+    }
+
     @JavascriptInterface public boolean stopPocketNativeMusic() {
         try {
             prefs().edit()
