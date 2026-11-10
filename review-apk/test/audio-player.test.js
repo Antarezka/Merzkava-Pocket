@@ -114,6 +114,77 @@ function harness(values = {}, callbacks = {}) {
   return { audio, data };
 }
 
+
+test("Android BGM is delegated to native Media3 while vinyl crackle stays a separate WebView effect", async () => {
+  const calls = [];
+  let nativeState = { playing: false, trackId: "", cycleCount: 0 };
+  const nativeBridge = {
+    getPocketNativeMusicState: () => JSON.stringify(nativeState),
+    startPocketNativeMusic: (id, title, source, volume) => {
+      calls.push(["start", id, title, source, volume]);
+      nativeState = { playing: true, trackId: id, cycleCount: nativeState.cycleCount };
+      return JSON.stringify({ ok: true });
+    },
+    stopPocketNativeMusic: () => {
+      calls.push(["stop"]);
+      nativeState = { ...nativeState, playing: false };
+      return true;
+    },
+    setPocketNativeMusicVolume: volume => {
+      calls.push(["volume", volume]);
+      return true;
+    }
+  };
+  const { audio } = harness({}, { nativeBridge });
+  audio.enterMainMenu();
+  await flushAudioMicrotasks();
+
+  assert.equal(audio.getState().isPlaying, true);
+  assert.equal(calls[0][0], "start");
+  assert.equal(calls[0][1], "happy");
+  assert.match(calls[0][3], /^\/audio\//);
+  assert.equal(FakeAudio.instances.some(item => item.src.includes("Happy-1a.ogg")), false,
+    "the primary BGM must not be instantiated as an HTMLAudio element");
+
+  const noise = FakeAudio.instances.find(item => item.src === VINYL_SURFACE_NOISE_SRC);
+  assert.ok(noise, "the dedicated vinyl crackle layer remains in the WebView");
+  assert.equal(noise.paused, false);
+
+  audio.setMusicVolume(41);
+  assert.deepEqual(calls.find(call => call[0] === "volume"), ["volume", 41]);
+
+  assert.equal(audio.selectTrack("chill"), true);
+  assert.equal(audio.getState().isPlaying, false);
+  assert.ok(calls.some(call => call[0] === "stop"));
+  await audio.toggleNeedle();
+  await flushAudioMicrotasks();
+  assert.equal(calls.filter(call => call[0] === "start").at(-1)[1], "chill");
+});
+
+test("native Media3 repeat counts are recovered after Floating Mode without WebView ended events", () => {
+  const cycles = [];
+  let nativeState = { playing: true, trackId: "chill", cycleCount: 0 };
+  const nativeBridge = {
+    getPocketNativeMusicState: () => JSON.stringify(nativeState),
+    startPocketNativeMusic: () => JSON.stringify({ ok: true }),
+    stopPocketNativeMusic: () => true,
+    setPocketNativeMusicVolume: () => true
+  };
+  const { audio } = harness({}, {
+    nativeBridge,
+    onPlaybackCycle: value => cycles.push(value)
+  });
+
+  audio.enterMainMenu();
+  audio.setFloatingMode(true);
+  nativeState = { playing: true, trackId: "chill", cycleCount: 3 };
+  audio.recoverAfterBackgroundTransition();
+
+  assert.equal(cycles.length, 3, "each native track boundary is recovered when Pocket returns");
+  assert.equal(audio.getState().track, "chill");
+  assert.equal(audio.getState().isPlaying, true);
+});
+
 test("the two new built-in BGM records use the approved Retroatrical names", () => {
   const { audio } = harness();
   const titles = audio.getTracks().map(track => track.title);
