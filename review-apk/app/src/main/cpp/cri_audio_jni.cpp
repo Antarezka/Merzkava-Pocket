@@ -369,6 +369,8 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativePlayFile(
             channel, format, numChannels, samplingRate, path.c_str());
         return JNI_FALSE;
     }
+    // Apply the Tween's initial multiplier to the just-started PlaybackId.
+    criAtomExPlayer_Update(player, gPlaybackIds[channel]);
     __android_log_print(ANDROID_LOG_INFO, kTag,
         "CRI stream started: channel=%d format=%d channels=%d rate=%d fade=%.3f loop=%d path=%s",
         channel, format, numChannels, samplingRate, clampedFade, loop == JNI_TRUE ? 1 : 0, path.c_str());
@@ -417,6 +419,11 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeFadeVolume(
     const jint safeDuration = durationMs < 0 ? 0 : (durationMs > 65535 ? 65535 : durationMs);
     const float clamped = volume < 0.0f ? 0.0f : (volume > 1.0f ? 1.0f : volume);
     criAtomExTween_MoveTo(gVolumeTweens[channel], static_cast<CriUint16>(safeDuration), clamped);
+    // CRI requires Player_Update (or UpdateAll) for Tween changes to affect
+    // an already-playing voice; ExecuteMain alone is not this parameter commit.
+    if (gPlaybackIds[channel] != CRIATOMEX_INVALID_PLAYBACK_ID) {
+        criAtomExPlayer_Update(gPlayers[channel], gPlaybackIds[channel]);
+    }
 }
 
 extern "C" JNIEXPORT jint JNICALL
