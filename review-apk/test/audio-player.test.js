@@ -115,7 +115,7 @@ function harness(values = {}, callbacks = {}) {
 }
 
 
-test("Android BGM is delegated to native Media3 while vinyl crackle stays a separate WebView effect", async () => {
+test("Android BGM is delegated to native OxiAudio/OxiSound while vinyl crackle stays a separate WebView effect", async () => {
   const calls = [];
   let nativeState = { playing: false, trackId: "", cycleCount: 0 };
   const nativeBridge = {
@@ -164,7 +164,7 @@ test("Android BGM is delegated to native Media3 while vinyl crackle stays a sepa
   assert.equal(audio.selectTrack("chill"), true);
   assert.equal(audio.getState().isPlaying, false);
   assert.ok(calls.some(call => call[0] === "pause" && call[1] === true),
-    "choosing another record must pause the active player without destroying Media3 service");
+    "choosing another record must pause the active player without destroying OxiAudio/OxiSound service");
   assert.equal(calls.some(call => call[0] === "stop"), false,
     "track changes must not race service teardown against the next ACTION_PLAY");
   await audio.toggleNeedle();
@@ -174,7 +174,7 @@ test("Android BGM is delegated to native Media3 while vinyl crackle stays a sepa
 });
 
 
-test("native start stays single-flight while Media3 reports its initial stopped state", () => {
+test("native start stays single-flight while OxiAudio/OxiSound reports its initial stopped state", () => {
   const calls = [];
   let nativeState = { playing: false, trackId: "", cycleCount: 0, userPaused: false };
   const nativeBridge = {
@@ -259,7 +259,7 @@ test("global gesture recovery does not race the needle-drop preparation", async 
   assert.equal(calls.filter(call => call[0] === "start").length, 1);
 });
 
-test("native Media3 repeat counts are recovered after Floating Mode without WebView ended events", () => {
+test("native OxiAudio/OxiSound repeat counts are recovered after Floating Mode without WebView ended events", () => {
   const cycles = [];
   let nativeState = { playing: true, trackId: "chill", cycleCount: 0 };
   const nativeBridge = {
@@ -284,7 +284,7 @@ test("native Media3 repeat counts are recovered after Floating Mode without WebV
 });
 
 
-test("native pause during splash preserves resume intent without destroying Media3 service", async () => {
+test("native pause during splash preserves resume intent without destroying OxiAudio/OxiSound service", async () => {
   const calls = [];
   let nativeState = { playing: false, trackId: "", cycleCount: 0, userPaused: false };
   const nativeBridge = {
@@ -329,7 +329,7 @@ test("native pause during splash preserves resume intent without destroying Medi
   assert.equal(audio.getState().isPlaying, true);
 });
 
-test("an explicit MediaSession pause remains paused until the user resumes", () => {
+test("an explicit native audio service pause remains paused until the user resumes", () => {
   let nativeState = { playing: true, trackId: "happy", cycleCount: 0, userPaused: false };
   const calls = [];
   const nativeBridge = {

@@ -61,13 +61,41 @@ jobs:
           grep -Fq "PocketMediaPlaybackService" "$MANIFEST"
           grep -Fq 'android:foregroundServiceType="mediaPlayback"' "$MANIFEST"
           grep -Fq "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" "$MANIFEST"
-          grep -Fq "androidx.media3:media3-exoplayer" "$GRADLE"
-          grep -Fq "androidx.media3:media3-session" "$GRADLE"
+          NATIVE_CARGO="review-apk/native-audio/Cargo.toml"
+          NATIVE_SOURCE="review-apk/native-audio/src/lib.rs"
+          test -s "$NATIVE_CARGO"
+          test -s "$NATIVE_SOURCE"
+          grep -Fq 'oxiaudio = { version = "0.2.1"' "$NATIVE_CARGO"
+          grep -Fq 'oxisound = { version = "0.2.1"' "$NATIVE_CARGO"
+          grep -Fq 'System.loadLibrary("pocket_audio")' "$SERVICE"
+          grep -Fq "nativeInitialize(this)" "$SERVICE"
+          grep -Fq "nativeStart(trackId, path, volume)" "$SERVICE"
+          ! grep -R -E "androidx\.media3|ExoPlayer|MediaSessionService" review-apk/app/src/main/java review-apk/app/build.gradle.kts
           for track in Happy-1a.ogg chill-1a.ogg Retroatrical-1.ogg Retroatrical-2.ogg; do
             test -s "review-apk/dist/audio/$track"
           done
           test -s "review-apk/dist/audio/vinyl-surface-noise.ogg"
-          echo "Native Media3 BGM controller, service, permissions, and all built-in audio assets are present."
+          echo "OxiAudio/OxiSound BGM controller, Android audio service, permissions, and all built-in audio assets are present."
+      - name: Install Rust Android targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android, armv7-linux-androideabi, x86_64-linux-android
+      - name: Install Android NDK
+        run: sdkmanager --install "ndk;27.2.12479018"
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+      - name: Build OxiAudio and OxiSound native Android library
+        working-directory: review-apk/native-audio
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
+        run: |
+          cargo ndk --platform 26 -t arm64-v8a -t armeabi-v7a -t x86_64 -o ../app/src/main/jniLibs build --release
+      - name: Verify native library ABIs
+        run: |
+          set -euo pipefail
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            test -s "review-apk/app/src/main/jniLibs/$abi/libpocket_audio.so"
+          done
       - name: Render CSS launcher icon with Takumi
         working-directory: review-apk
         run: npm run render:launcher-icon
@@ -135,7 +163,10 @@ jobs:
           for track in Happy-1a.ogg chill-1a.ogg Retroatrical-1.ogg Retroatrical-2.ogg vinyl-surface-noise.ogg; do
             unzip -Z1 "$APK" | grep -Fx "assets/audio/$track" >/dev/null
           done
-          echo "All built-in music and vinyl ambience assets are packaged in the APK."
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            unzip -Z1 "$APK" | grep -Fx "lib/$abi/libpocket_audio.so" >/dev/null
+          done
+          echo "OxiAudio/OxiSound native libraries and all music/vinyl assets are packaged in the APK."
       - name: Verify APK package and signature
         run: |
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "review-apk/app/build/outputs/apk/debug/app-debug.apk"

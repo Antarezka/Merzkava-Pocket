@@ -14,7 +14,7 @@ android {
     compileSdk = 35
     defaultConfig {
         applicationId = "com.merzkava.pocket"
-        minSdk = 23
+        minSdk = 26
         targetSdk = 34
         versionCode = pocketVersionCode
         versionName = pocketVersion
@@ -49,6 +49,4 @@ android {
 
 
 dependencies {
-    implementation("androidx.media3:media3-exoplayer:1.9.4")
-    implementation("androidx.media3:media3-session:1.9.4")
 }

@@ -1,363 +1,229 @@
 package com.merzkava.pocket.review;
 
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.Service;
 import android.content.Intent;
-import android.content.SharedPreferences;
-import android.net.Uri;
+import android.os.Build;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.Looper;
-import android.os.SystemClock;
+import android.os.PowerManager;
 import android.util.Log;
 
-import androidx.media3.common.AudioAttributes;
-import androidx.media3.common.C;
-import androidx.media3.common.MediaItem;
-import androidx.media3.common.MediaMetadata;
-import androidx.media3.common.PlaybackException;
-import androidx.media3.common.Player;
-import androidx.media3.exoplayer.ExoPlayer;
-import androidx.media3.session.MediaSession;
-import androidx.media3.session.MediaSessionService;
+import org.json.JSONObject;
 
-public final class PocketMediaPlaybackService extends MediaSessionService {
-    static final String ACTION_PLAY = "com.merzkava.pocket.MEDIA_PLAY";
-    static final String ACTION_PAUSE = "com.merzkava.pocket.MEDIA_PAUSE";
-    static final String ACTION_VOLUME = "com.merzkava.pocket.MEDIA_VOLUME";
-    static final String ACTION_STATE = "com.merzkava.pocket.MEDIA_STATE";
+public final class PocketMediaPlaybackService extends Service {
+    public static final String ACTION_PLAY = "com.merzkava.pocket.MEDIA_PLAY";
+    public static final String ACTION_PAUSE = "com.merzkava.pocket.MEDIA_PAUSE";
+    public static final String ACTION_VOLUME = "com.merzkava.pocket.MEDIA_VOLUME";
+    public static final String ACTION_STATE = "com.merzkava.pocket.MEDIA_STATE";
+    public static final String ACTION_STOP = "com.merzkava.pocket.MEDIA_STOP";
 
-    private static final String TAG = "PocketMedia3";
-    private static final String PREFS = "merzkava-pocket-access";
-    private static final String PREF_PLAYING = "pocket_native_audio_playing";
-    private static final String PREF_PREPARING = "pocket_native_audio_preparing";
-    private static final String PREF_ERROR = "pocket_native_audio_error";
-    private static final String PREF_TRACK = "pocket_native_audio_track";
-    private static final String PREF_CYCLES = "pocket_native_audio_cycles";
-    private static final String PREF_VOLUME = "pocket_native_audio_volume";
-    private static final String PREF_USER_PAUSED = "pocket_native_audio_user_paused";
-    private static final long FADE_MS = 2200L;
-    private static final long FADE_MONITOR_MS = 90L;
-    private static final long FADE_TICK_MS = 40L;
-
+    private static final String TAG = "PocketOxiAudio";
+    private static final String CHANNEL_ID = "pocket_bgm";
+    private static final int NOTIFICATION_ID = 4202;
     private static volatile boolean running = false;
-    private ExoPlayer player;
-    private MediaSession mediaSession;
+    private static volatile boolean nativeLibraryLoaded = false;
+
+    static {
+        try {
+            System.loadLibrary("pocket_audio");
+            nativeLibraryLoaded = true;
+        } catch (UnsatisfiedLinkError error) {
+            Log.e(TAG, "The OxiAudio/OxiSound native library could not be loaded.", error);
+        }
+    }
+
+    private static native boolean nativeInitialize(android.content.Context context);
+    private static native boolean nativeStart(String trackId, String path, int volume);
+    private static native void nativePause(boolean userPause);
+    private static native void nativeStop();
+    private static native void nativeSetVolume(int volume);
+    private static native String nativeGetState();
+
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private String activeTrackId = "";
-    private float musicVolume = 0.68f;
-    private float fadeGain = 1f;
-    private float fadeFrom = 1f;
-    private float fadeTo = 1f;
-    private long fadeDurationMs = 0L;
-    private long fadeElapsedBeforePauseMs = 0L;
-    private long fadeStartedAtMs = 0L;
-    private boolean fadeActive = false;
-    private boolean endFadeStarted = false;
-    private boolean explicitUserPause = false;
-    private boolean playbackRequested = false;
-    private boolean applyingPocketPause = false;
-    private int cycleCount = 0;
-
-    private final Runnable fadeStep = new Runnable() {
+    private PowerManager.WakeLock wakeLock;
+    private boolean nativeReady = false;
+    private int lastCycleCount = 0;
+    private String notificationTitle = "Merzkava Pocket";
+    private final Runnable statePoll = new Runnable() {
         @Override public void run() {
-            if (!fadeActive || player == null || !player.isPlaying()) return;
-            long elapsed = fadeElapsedBeforePauseMs +
-                Math.max(0L, SystemClock.elapsedRealtime() - fadeStartedAtMs);
-            float progress = fadeDurationMs <= 0L ? 1f :
-                Math.min(1f, elapsed / (float) fadeDurationMs);
-            float eased = progress * progress * (3f - 2f * progress);
-            fadeGain = fadeFrom + (fadeTo - fadeFrom) * eased;
-            applyPlayerVolume();
-            if (progress >= 1f) {
-                fadeActive = false;
-                fadeElapsedBeforePauseMs = 0L;
-                handler.removeCallbacks(this);
-            } else {
-                handler.postDelayed(this, FADE_TICK_MS);
-            }
+            if (!running) return;
+            publishNativeState();
+            handler.postDelayed(this, 250L);
         }
     };
 
-    private final Runnable fadeMonitor = new Runnable() {
-        @Override public void run() {
-            if (player == null || !player.isPlaying()) return;
-            long duration = player.getDuration();
-            long position = player.getCurrentPosition();
-            if (duration > 0L && duration != C.TIME_UNSET) {
-                long remaining = Math.max(0L, duration - position);
-                if (!endFadeStarted && remaining <= FADE_MS + 180L) {
-                    endFadeStarted = true;
-                    long fadeDuration = Math.max(180L, Math.min(FADE_MS, remaining - 120L));
-                    beginFadeTo(0f, fadeDuration);
-                }
-            }
-            handler.postDelayed(this, FADE_MONITOR_MS);
-        }
-    };
-
-    static boolean isRunning() { return running; }
+    public static boolean isRunning() {
+        return running;
+    }
 
     @Override public void onCreate() {
         super.onCreate();
         running = true;
-        SharedPreferences preferences = getPreferences();
-        musicVolume = Math.max(0, Math.min(100, preferences.getInt(PREF_VOLUME, 68))) / 100f;
-        cycleCount = Math.max(0, preferences.getInt(PREF_CYCLES, 0));
-        explicitUserPause = preferences.getBoolean(PREF_USER_PAUSED, false);
-
-        player = new ExoPlayer.Builder(this)
-            .setWakeMode(C.WAKE_MODE_LOCAL)
-            .setAudioAttributes(new AudioAttributes.Builder()
-                .setUsage(C.USAGE_MEDIA)
-                .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                .build(), true)
-            .build();
-        player.setRepeatMode(Player.REPEAT_MODE_ONE);
-        player.addListener(new Player.Listener() {
-            @Override public void onPlayWhenReadyChanged(boolean playWhenReady, int reason) {
-                if (playWhenReady) {
-                    explicitUserPause = false;
-                    playbackRequested = true;
-                } else if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST) {
-                    if (!applyingPocketPause) explicitUserPause = true;
-                    playbackRequested = false;
-                }
-                publishState(false, null);
-            }
-
-            @Override public void onIsPlayingChanged(boolean isPlaying) {
-                if (isPlaying) {
-                    playbackRequested = true;
-                    resumeFadeClock();
-                    scheduleFadeMonitor();
-                } else {
-                    pauseFadeClock();
-                    handler.removeCallbacks(fadeMonitor);
-                }
-                publishState(false, null);
-            }
-
-            @Override public void onPlaybackStateChanged(int playbackState) {
-                publishState(false, null);
-            }
-
-            @Override public void onMediaItemTransition(MediaItem mediaItem, int reason) {
-                if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) {
-                    cycleCount = cycleCount == Integer.MAX_VALUE ? 0 : cycleCount + 1;
-                    getPreferences().edit().putInt(PREF_CYCLES, cycleCount).apply();
-                    endFadeStarted = false;
-                    cancelFade();
-                    fadeGain = 0f;
-                    applyPlayerVolume();
-                    beginFadeTo(1f, FADE_MS);
-                    publishState(true, null);
-                } else if (mediaItem != null && mediaItem.mediaId != null &&
-                        !mediaItem.mediaId.isEmpty()) {
-                    activeTrackId = mediaItem.mediaId;
-                    publishState(false, null);
-                }
-            }
-
-            @Override public void onPlayerError(PlaybackException error) {
-                playbackRequested = false;
-                Log.e(TAG, "Native BGM playback failed", error);
-                publishState(false, error.getErrorCodeName());
-            }
-        });
-
-        mediaSession = new MediaSession.Builder(this, player)
-            .setId("MerzkavaPocketBgm")
-            .build();
-        // Do not publish an initial STOPPED snapshot before ACTION_PLAY arrives.
-        // The bridge has already marked the accepted hand-off as PREPARING.
+        createNotificationChannel();
+        PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+        if (powerManager != null) {
+            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MerzkavaPocket:OxiAudio");
+            wakeLock.setReferenceCounted(false);
+        }
+        nativeReady = nativeLibraryLoaded && nativeInitialize(this);
+        if (!nativeReady) {
+            Log.e(TAG, "OxiAudio/OxiSound initialization failed. Android audio context was not prepared.");
+            updateStoredState(false, false, "OxiAudio/OxiSound could not initialize on this Android device.", "", false, 0);
+        }
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
-        super.onStartCommand(intent, flags, startId);
-        if (intent == null) return START_NOT_STICKY;
-        String action = intent.getAction();
+        String action = intent == null ? ACTION_PLAY : intent.getAction();
         if (ACTION_PLAY.equals(action)) {
-            startTrack(intent);
+            String trackId = intent.getStringExtra("trackId");
+            String title = intent.getStringExtra("title");
+            String path = intent.getStringExtra("path");
+            int volume = Math.max(0, Math.min(100, intent.getIntExtra("volume", 68)));
+            notificationTitle = (title == null || title.trim().isEmpty()) ? "Merzkava Pocket" : title.trim();
+            enterForeground(notificationTitle);
+            acquireWakeLock();
+
+            if (!nativeReady || !nativeLibraryLoaded) {
+                updateStoredState(false, false, "OxiAudio/OxiSound native playback is unavailable.", trackId, false, lastCycleCount);
+            } else if (trackId == null || path == null || path.isEmpty() || !nativeStart(trackId, path, volume)) {
+                updateStoredState(false, false, "OxiAudio could not start the selected audio file.", trackId, false, lastCycleCount);
+            } else {
+                updateStoredState(false, true, "", trackId, false, lastCycleCount);
+                nativeSetVolume(volume);
+            }
+            beginPolling();
         } else if (ACTION_PAUSE.equals(action)) {
-            pauseTrack(intent.getBooleanExtra("userPause", true));
+            boolean userPause = intent != null && intent.getBooleanExtra("userPause", false);
+            if (nativeReady) nativePause(userPause);
+            releaseWakeLock();
+            publishNativeState();
         } else if (ACTION_VOLUME.equals(action)) {
-            int value = Math.max(0, Math.min(100, intent.getIntExtra("volume", 68)));
-            musicVolume = value / 100f;
-            getPreferences().edit().putInt(PREF_VOLUME, value).apply();
-            applyPlayerVolume();
+            int volume = Math.max(0, Math.min(100, intent == null ? 68 : intent.getIntExtra("volume", 68)));
+            if (nativeReady) nativeSetVolume(volume);
+            publishNativeState();
+        } else if (ACTION_STOP.equals(action)) {
+            stopNativePlayback();
+            stopSelf(startId);
+        } else {
+            beginPolling();
         }
         return START_NOT_STICKY;
     }
 
-    private void pauseTrack(boolean userPause) {
-        playbackRequested = false;
-        cancelFade();
-        endFadeStarted = false;
-        handler.removeCallbacks(fadeMonitor);
-        if (player != null) {
-            applyingPocketPause = true;
-            try { player.pause(); }
-            finally { applyingPocketPause = false; }
-        }
-        explicitUserPause = userPause;
-        getPreferences().edit()
-            .putBoolean(PREF_PLAYING, false)
-            .putBoolean(PREF_PREPARING, false)
-            .putString(PREF_ERROR, "")
-            .putBoolean(PREF_USER_PAUSED, userPause)
-            .apply();
-        publishState(false, null);
+    private void enterForeground(String title) {
+        String text = "Playing " + title;
+        Notification.Builder builder = Build.VERSION.SDK_INT >= 26
+            ? new Notification.Builder(this, CHANNEL_ID)
+            : new Notification.Builder(this);
+        builder.setSmallIcon(getApplicationInfo().icon)
+            .setContentTitle("Merzkava Pocket")
+            .setContentText(text)
+            .setOngoing(true)
+            .setCategory(Notification.CATEGORY_TRANSPORT)
+            .setOnlyAlertOnce(true);
+        startForeground(NOTIFICATION_ID, builder.build());
     }
 
-    private void startTrack(Intent intent) {
-        String uriValue = intent.getStringExtra("uri");
-        String id = intent.getStringExtra("trackId");
-        String title = intent.getStringExtra("title");
-        if (uriValue == null || uriValue.trim().isEmpty() ||
-                id == null || id.trim().isEmpty()) {
-            playbackRequested = false;
-            publishState(false, "The selected Pocket record is incomplete.");
-            stopSelf();
-            return;
-        }
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT < 26) return;
+        NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        if (manager == null) return;
+        NotificationChannel channel = new NotificationChannel(
+            CHANNEL_ID, "Pocket background music", NotificationManager.IMPORTANCE_LOW);
+        channel.setDescription("Background music playback for Merzkava Pocket.");
+        channel.setShowBadge(false);
+        manager.createNotificationChannel(channel);
+    }
+
+    private void acquireWakeLock() {
         try {
-            activeTrackId = id;
-            playbackRequested = true;
-            explicitUserPause = false;
-            musicVolume = Math.max(0, Math.min(100,
-                intent.getIntExtra("volume", 68))) / 100f;
-            getPreferences().edit()
-                .putInt(PREF_VOLUME, Math.round(musicVolume * 100f))
-                .putString(PREF_TRACK, activeTrackId)
-                .putBoolean(PREF_PLAYING, false)
-                .putBoolean(PREF_PREPARING, true)
-                .putString(PREF_ERROR, "")
-                .putBoolean(PREF_USER_PAUSED, false)
-                .apply();
-
-            MediaMetadata metadata = new MediaMetadata.Builder()
-                .setTitle(title == null || title.trim().isEmpty() ? "Pocket Record" : title)
-                .setArtist("MERZKAVA POCKET")
-                .setAlbumTitle("POCKET RECORD RACK")
-                .build();
-            MediaItem item = new MediaItem.Builder()
-                .setMediaId(activeTrackId)
-                .setUri(Uri.parse(uriValue))
-                .setMediaMetadata(metadata)
-                .build();
-
-            player.setRepeatMode(Player.REPEAT_MODE_ONE);
-            player.setMediaItem(item);
-            player.prepare();
-            endFadeStarted = false;
-            cancelFade();
-            fadeGain = 0f;
-            applyPlayerVolume();
-            player.play();
-            beginFadeTo(1f, FADE_MS);
-            scheduleFadeMonitor();
-            publishState(false, null);
+            if (wakeLock != null && !wakeLock.isHeld()) wakeLock.acquire();
         } catch (Exception error) {
-            playbackRequested = false;
-            Log.e(TAG, "Could not start the selected Pocket record", error);
-            publishState(false, error.getMessage());
+            Log.w(TAG, "Could not acquire audio wake lock.", error);
         }
     }
 
-    private void scheduleFadeMonitor() {
-        handler.removeCallbacks(fadeMonitor);
-        if (player != null && player.isPlaying()) handler.post(fadeMonitor);
+    private void releaseWakeLock() {
+        try {
+            if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
+        } catch (Exception error) {
+            Log.w(TAG, "Could not release audio wake lock.", error);
+        }
     }
 
-    private void beginFadeTo(float target, long durationMs) {
-        handler.removeCallbacks(fadeStep);
-        fadeFrom = fadeGain;
-        fadeTo = Math.max(0f, Math.min(1f, target));
-        fadeDurationMs = Math.max(1L, durationMs);
-        fadeElapsedBeforePauseMs = 0L;
-        fadeStartedAtMs = SystemClock.elapsedRealtime();
-        fadeActive = true;
-        if (player != null && player.isPlaying()) handler.post(fadeStep);
+    private void beginPolling() {
+        handler.removeCallbacks(statePoll);
+        handler.post(statePoll);
     }
 
-    private void pauseFadeClock() {
-        if (!fadeActive) return;
-        fadeElapsedBeforePauseMs += Math.max(0L,
-            SystemClock.elapsedRealtime() - fadeStartedAtMs);
-        handler.removeCallbacks(fadeStep);
+    private void publishNativeState() {
+        if (!nativeReady) return;
+        try {
+            String raw = nativeGetState();
+            JSONObject state = new JSONObject(raw == null ? "{}" : raw);
+            boolean playing = state.optBoolean("playing", false);
+            boolean preparing = state.optBoolean("preparing", false);
+            String trackId = state.optString("trackId", "");
+            String error = state.optString("error", "");
+            boolean userPaused = state.optBoolean("userPaused", false);
+            int cycleCount = Math.max(0, state.optInt("cycleCount", 0));
+            updateStoredState(playing, preparing, error, trackId, userPaused, cycleCount);
+        } catch (Exception error) {
+            Log.w(TAG, "Could not read OxiAudio/OxiSound playback state.", error);
+        }
     }
 
-    private void resumeFadeClock() {
-        if (!fadeActive) return;
-        fadeStartedAtMs = SystemClock.elapsedRealtime();
-        handler.removeCallbacks(fadeStep);
-        handler.post(fadeStep);
+    private void updateStoredState(boolean playing, boolean preparing, String error,
+                                   String trackId, boolean userPaused, int cycleCount) {
+        getSharedPreferences("PocketNativeAudio", MODE_PRIVATE).edit()
+            .putBoolean("pocket_native_audio_playing", playing)
+            .putBoolean("pocket_native_audio_preparing", preparing)
+            .putString("pocket_native_audio_error", error == null ? "" : error)
+            .putString("pocket_native_audio_track", trackId == null ? "" : trackId)
+            .putInt("pocket_native_audio_cycles", Math.max(0, cycleCount))
+            .putInt("pocket_native_audio_volume",
+                getSharedPreferences("PocketNativeAudio", MODE_PRIVATE).getInt("pocket_native_audio_volume", 68))
+            .putBoolean("pocket_native_audio_user_paused", userPaused)
+            .apply();
+
+        Intent broadcast = new Intent(ACTION_STATE);
+        broadcast.setPackage(getPackageName());
+        broadcast.putExtra("playing", playing);
+        broadcast.putExtra("preparing", preparing);
+        broadcast.putExtra("trackId", trackId == null ? "" : trackId);
+        broadcast.putExtra("cycleCount", Math.max(0, cycleCount));
+        broadcast.putExtra("userPaused", userPaused);
+        if (error != null && !error.isEmpty()) broadcast.putExtra("error", error);
+        if (cycleCount > lastCycleCount) broadcast.putExtra("cycle", true);
+        lastCycleCount = Math.max(0, cycleCount);
+        sendBroadcast(broadcast);
     }
 
-    private void cancelFade() {
-        handler.removeCallbacks(fadeStep);
-        fadeActive = false;
-        fadeElapsedBeforePauseMs = 0L;
-    }
-
-    private void applyPlayerVolume() {
-        if (player != null) player.setVolume(
-            Math.max(0f, Math.min(1f, musicVolume * fadeGain)));
-    }
-
-    private SharedPreferences getPreferences() {
-        return getSharedPreferences(PREFS, MODE_PRIVATE);
-    }
-
-    private void publishState(boolean completedCycle, String error) {
-        boolean playing = player != null && player.isPlaying();
-        int playbackState = player == null ? Player.STATE_IDLE : player.getPlaybackState();
-        boolean hasPendingMedia = player != null && player.getCurrentMediaItem() != null;
-        boolean preparing = playbackRequested && !playing && error == null &&
-            (playbackState == Player.STATE_BUFFERING ||
-             (playbackState == Player.STATE_IDLE && hasPendingMedia));
-        SharedPreferences.Editor editor = getPreferences().edit()
-            .putBoolean(PREF_PLAYING, playing)
-            .putBoolean(PREF_PREPARING, preparing)
-            .putString(PREF_ERROR, error == null ? "" : error)
-            .putString(PREF_TRACK, activeTrackId)
-            .putBoolean(PREF_USER_PAUSED, explicitUserPause);
-        if (completedCycle) editor.putInt(PREF_CYCLES, cycleCount);
-        editor.apply();
-
-        Intent state = new Intent(ACTION_STATE)
-            .setPackage(getPackageName())
-            .putExtra("playing", playing)
-            .putExtra("preparing", preparing)
-            .putExtra("playbackState", playbackState)
-            .putExtra("trackId", activeTrackId)
-            .putExtra("cycleCount", cycleCount)
-            .putExtra("userPaused", explicitUserPause);
-        if (completedCycle) state.putExtra("cycle", true);
-        if (error != null && !error.isEmpty()) state.putExtra("error", error);
-        sendBroadcast(state);
-    }
-
-    @Override public MediaSession onGetSession(MediaSession.ControllerInfo controllerInfo) {
-        return mediaSession;
+    private void stopNativePlayback() {
+        if (nativeReady) nativeStop();
+        releaseWakeLock();
+        updateStoredState(false, false, "", "", false, 0);
+        handler.removeCallbacks(statePoll);
     }
 
     @Override public void onTaskRemoved(Intent rootIntent) {
-        if (player == null || !player.getPlayWhenReady()) stopSelf();
+        // The foreground service owns playback; removing the task must not tear down the decoder.
+        super.onTaskRemoved(rootIntent);
     }
 
     @Override public void onDestroy() {
-        playbackRequested = false;
-        handler.removeCallbacksAndMessages(null);
-        if (mediaSession != null) {
-            mediaSession.release();
-            mediaSession = null;
-        }
-        if (player != null) {
-            player.release();
-            player = null;
-        }
+        handler.removeCallbacks(statePoll);
+        stopNativePlayback();
         running = false;
-        getPreferences().edit().putBoolean(PREF_PLAYING, false).apply();
-        publishState(false, null);
+        try { stopForeground(STOP_FOREGROUND_REMOVE); } catch (Exception ignored) {}
         super.onDestroy();
+    }
+
+    @Override public IBinder onBind(Intent intent) {
+        return null;
     }
 }

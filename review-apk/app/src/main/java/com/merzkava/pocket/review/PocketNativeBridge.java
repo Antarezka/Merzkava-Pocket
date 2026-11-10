@@ -124,7 +124,7 @@ public final class PocketNativeBridge {
                 .setAction(PocketMediaPlaybackService.ACTION_PLAY)
                 .putExtra("trackId", trackId)
                 .putExtra("title", notificationText(title, 120))
-                .putExtra("uri", Uri.fromFile(musicFile).toString())
+                .putExtra("path", musicFile.getAbsolutePath())
                 .putExtra("volume", safeVolume);
             prefs().edit()
                 .putBoolean("pocket_native_audio_playing", false)
@@ -141,9 +141,9 @@ public final class PocketNativeBridge {
                 .putBoolean("pocket_native_audio_playing", false)
                 .putBoolean("pocket_native_audio_preparing", false)
                 .putString("pocket_native_audio_error",
-                    error.getMessage() == null ? "Native media service could not start." : error.getMessage())
+                    error.getMessage() == null ? "Native audio service could not start." : error.getMessage())
                 .apply();
-            android.util.Log.e("PocketMedia3", "Could not hand BGM to the native media service", error);
+            android.util.Log.e("PocketAudioNative", "Could not hand BGM to the native media service", error);
             try {
                 return new JSONObject()
                     .put("ok", false)
@@ -212,7 +212,7 @@ public final class PocketNativeBridge {
                 .putExtra("userPause", userPause));
             return true;
         } catch (Exception error) {
-            android.util.Log.w("PocketMedia3", "Could not pause native BGM without destroying the service", error);
+            android.util.Log.w("PocketAudioNative", "Could not pause native BGM without destroying the service", error);
             return false;
         }
     }
@@ -226,7 +226,7 @@ public final class PocketNativeBridge {
             activity.stopService(new Intent(activity, PocketMediaPlaybackService.class));
             return true;
         } catch (Exception error) {
-            android.util.Log.w("PocketMedia3", "Could not stop native BGM", error);
+            android.util.Log.w("PocketAudioNative", "Could not stop native BGM", error);
             return false;
         }
     }
@@ -241,7 +241,7 @@ public final class PocketNativeBridge {
                 .putExtra("volume", safeVolume));
             return true;
         } catch (Exception error) {
-            android.util.Log.w("PocketMedia3", "Could not update native BGM volume", error);
+            android.util.Log.w("PocketAudioNative", "Could not update native BGM volume", error);
             return false;
         }
     }
