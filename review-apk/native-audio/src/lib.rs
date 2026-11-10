@@ -7,7 +7,7 @@ use ringbuf::{traits::{Consumer, Producer, Split}, HeapRb};
 use serde_json::json;
 use std::fs::File;
 use std::io::BufReader;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::Duration;
@@ -20,6 +20,7 @@ static ANDROID_CONTEXT: OnceLock<GlobalRef> = OnceLock::new();
 static COMMAND_TX: OnceLock<mpsc::Sender<Command>> = OnceLock::new();
 static PLAYER_STATE: OnceLock<Arc<Mutex<PlayerSnapshot>>> = OnceLock::new();
 static CYCLE_COUNT: AtomicU32 = AtomicU32::new(0);
+static NEXT_GENERATION: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Clone)]
 struct PlayerSnapshot {
@@ -29,6 +30,7 @@ struct PlayerSnapshot {
     track_id: String,
     user_paused: bool,
     volume: u8,
+    generation: u64,
 }
 
 impl Default for PlayerSnapshot {
@@ -40,18 +42,20 @@ impl Default for PlayerSnapshot {
             track_id: String::new(),
             user_paused: false,
             volume: 68,
+            generation: 0,
         }
     }
 }
 
 enum Command {
-    Play { track_id: String, path: String, volume: u8 },
-    Pause { user_pause: bool },
-    Stop,
+    Play { generation: u64, track_id: String, path: String, volume: u8 },
+    Pause { generation: u64, user_pause: bool },
+    Stop { generation: u64 },
     Volume(u8),
 }
 
 struct ActivePlayback {
+    generation: u64,
     track_id: String,
     stop: Arc<AtomicBool>,
     paused: Arc<AtomicBool>,
@@ -69,9 +73,18 @@ fn set_state(update: impl FnOnce(&mut PlayerSnapshot)) {
     }
 }
 
-fn set_decoder_error(state_ref: &Arc<Mutex<PlayerSnapshot>>, track_id: &str, message: String) {
+fn is_current_generation(state_ref: &Arc<Mutex<PlayerSnapshot>>, generation: u64) -> bool {
+    state_ref.lock().map(|snapshot| snapshot.generation == generation).unwrap_or(false)
+}
+
+fn set_decoder_error(
+    state_ref: &Arc<Mutex<PlayerSnapshot>>,
+    generation: u64,
+    track_id: &str,
+    message: String,
+) {
     if let Ok(mut snapshot) = state_ref.lock() {
-        if snapshot.track_id == track_id {
+        if snapshot.generation == generation && snapshot.track_id == track_id {
             snapshot.playing = false;
             snapshot.preparing = false;
             snapshot.error = message;
@@ -166,6 +179,7 @@ fn push_stereo_buffer<P: Producer<Item = f32>>(
 fn start_decoder_worker(
     path: String,
     track_id: String,
+    generation: u64,
     mut producer: impl Producer<Item = f32> + Send + 'static,
     stop: Arc<AtomicBool>,
     paused: Arc<AtomicBool>,
@@ -180,7 +194,7 @@ fn start_decoder_worker(
                 Ok(stream) => stream,
                 Err(error) => {
                     let _ = ready_tx.send(Err(error.clone()));
-                    set_decoder_error(&state_ref, &track_id, error);
+                    set_decoder_error(&state_ref, generation, &track_id, error);
                     return;
                 }
             };
@@ -190,13 +204,13 @@ fn start_decoder_worker(
                 Some(Ok(_)) | None => {
                     let error = "The selected audio file contains no decodable audio frames.".to_string();
                     let _ = ready_tx.send(Err(error.clone()));
-                    set_decoder_error(&state_ref, &track_id, error);
+                    set_decoder_error(&state_ref, generation, &track_id, error);
                     return;
                 }
                 Some(Err(error)) => {
                     let message = format!("OxiAudio could not decode the selected file: {error}");
                     let _ = ready_tx.send(Err(message.clone()));
-                    set_decoder_error(&state_ref, &track_id, message);
+                    set_decoder_error(&state_ref, generation, &track_id, message);
                     return;
                 }
             };
@@ -226,7 +240,7 @@ fn start_decoder_worker(
                     }
                     Some(Err(error)) => {
                         let message = format!("OxiAudio decode error: {error}");
-                        set_decoder_error(&state_ref, &track_id, message);
+                        set_decoder_error(&state_ref, generation, &track_id, message);
                         stop.store(true, Ordering::Relaxed);
                         break;
                     }
@@ -234,12 +248,15 @@ fn start_decoder_worker(
                         if stop.load(Ordering::Relaxed) {
                             break;
                         }
+                        if !is_current_generation(&state_ref, generation) {
+                            break;
+                        }
                         CYCLE_COUNT.fetch_add(1, Ordering::Relaxed);
                         fade_frames = 0;
                         stream = match open_stream(&path) {
                             Ok(next) => next,
                             Err(error) => {
-                                set_decoder_error(&state_ref, &track_id, error);
+                                set_decoder_error(&state_ref, generation, &track_id, error);
                                 stop.store(true, Ordering::Relaxed);
                                 break;
                             }
@@ -251,12 +268,12 @@ fn start_decoder_worker(
                                 }
                             }
                             Some(Err(error)) => {
-                                set_decoder_error(&state_ref, &track_id, format!("OxiAudio repeat decode error: {error}"));
+                                set_decoder_error(&state_ref, generation, &track_id, format!("OxiAudio repeat decode error: {error}"));
                                 stop.store(true, Ordering::Relaxed);
                                 break;
                             }
                             Some(Ok(_)) | None => {
-                                set_decoder_error(&state_ref, &track_id, "The audio file ended without a repeatable audio block.".into());
+                                set_decoder_error(&state_ref, generation, &track_id, "The audio file ended without a repeatable audio block.".into());
                                 stop.store(true, Ordering::Relaxed);
                                 break;
                             }
@@ -281,13 +298,18 @@ fn stop_active(active: &mut Option<ActivePlayback>) {
 
 fn start_playback(
     active: &mut Option<ActivePlayback>,
+    generation: u64,
     track_id: String,
     path: String,
     volume: u8,
     state_ref: &Arc<Mutex<PlayerSnapshot>>,
 ) {
+    if !is_current_generation(state_ref, generation) {
+        return;
+    }
     if let Some(current) = active.as_mut() {
         if current.track_id == track_id && !current.stop.load(Ordering::Relaxed) && !current.stream.is_disconnected() {
+            current.generation = generation;
             current.volume_bits.store((volume as f32 / 100.0).to_bits(), Ordering::Relaxed);
             if current.stream.resume().is_ok() {
                 current.paused.store(false, Ordering::Relaxed);
@@ -306,12 +328,16 @@ fn start_playback(
     stop_active(active);
     CYCLE_COUNT.store(0, Ordering::Relaxed);
     if let Ok(mut snapshot) = state_ref.lock() {
+        if snapshot.generation != generation {
+            return;
+        }
         snapshot.playing = false;
         snapshot.preparing = true;
         snapshot.error.clear();
         snapshot.track_id = track_id.clone();
         snapshot.user_paused = false;
         snapshot.volume = volume;
+        snapshot.generation = generation;
     }
 
     let stop = Arc::new(AtomicBool::new(false));
@@ -323,6 +349,7 @@ fn start_playback(
     let sample_rate = match start_decoder_worker(
         path,
         track_id.clone(),
+        generation,
         producer,
         Arc::clone(&stop),
         Arc::clone(&paused),
@@ -331,14 +358,21 @@ fn start_playback(
         Ok(rate) => rate,
         Err(error) => {
             if let Ok(mut snapshot) = state_ref.lock() {
+                if snapshot.generation == generation {
                 snapshot.playing = false;
                 snapshot.preparing = false;
                 snapshot.error = error;
+                }
             }
             stop.store(true, Ordering::Relaxed);
             return;
         }
     };
+
+    if !is_current_generation(state_ref, generation) || stop.load(Ordering::Relaxed) {
+        stop.store(true, Ordering::Relaxed);
+        return;
+    }
 
     let callback_volume = Arc::clone(&volume_bits);
     let callback_paused = Arc::clone(&paused);
@@ -374,7 +408,8 @@ fn start_playback(
         }
     };
 
-    if stop.load(Ordering::Relaxed) {
+    if stop.load(Ordering::Relaxed) || !is_current_generation(state_ref, generation) {
+        stop.store(true, Ordering::Relaxed);
         let _ = stream.pause();
         if let Ok(mut snapshot) = state_ref.lock() {
             if snapshot.error.is_empty() {
@@ -387,6 +422,11 @@ fn start_playback(
     }
 
     if let Ok(mut snapshot) = state_ref.lock() {
+        if snapshot.generation != generation {
+            stop.store(true, Ordering::Relaxed);
+            let _ = stream.pause();
+            return;
+        }
         snapshot.playing = true;
         snapshot.preparing = false;
         snapshot.error.clear();
@@ -396,6 +436,7 @@ fn start_playback(
     }
 
     *active = Some(ActivePlayback {
+        generation,
         track_id,
         stop,
         paused,
@@ -408,11 +449,15 @@ fn manager_loop(receiver: mpsc::Receiver<Command>, state_ref: Arc<Mutex<PlayerSn
     let mut active: Option<ActivePlayback> = None;
     loop {
         match receiver.recv_timeout(Duration::from_millis(250)) {
-            Ok(Command::Play { track_id, path, volume }) => {
-                start_playback(&mut active, track_id, path, volume, &state_ref);
+            Ok(Command::Play { generation, track_id, path, volume }) => {
+                start_playback(&mut active, generation, track_id, path, volume, &state_ref);
             }
-            Ok(Command::Pause { user_pause }) => {
+            Ok(Command::Pause { generation, user_pause }) => {
+                if !is_current_generation(&state_ref, generation) {
+                    continue;
+                }
                 if let Some(current) = active.as_mut() {
+                    current.generation = generation;
                     current.paused.store(true, Ordering::Relaxed);
                     let _ = current.stream.pause();
                 }
@@ -430,11 +475,14 @@ fn manager_loop(receiver: mpsc::Receiver<Command>, state_ref: Arc<Mutex<PlayerSn
                     snapshot.volume = volume;
                 }
             }
-            Ok(Command::Stop) => {
+            Ok(Command::Stop { generation }) => {
+                if !is_current_generation(&state_ref, generation) {
+                    continue;
+                }
                 stop_active(&mut active);
                 CYCLE_COUNT.store(0, Ordering::Relaxed);
                 if let Ok(mut snapshot) = state_ref.lock() {
-                    *snapshot = PlayerSnapshot::default();
+                    *snapshot = PlayerSnapshot { generation, ..PlayerSnapshot::default() };
                 }
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {
@@ -511,7 +559,9 @@ pub extern "system" fn Java_com_merzkava_pocket_review_PocketMediaPlaybackServic
         return JNI_FALSE;
     }
     let volume = volume.clamp(0, 100) as u8;
+    let generation = NEXT_GENERATION.fetch_add(1, Ordering::Relaxed).saturating_add(1);
     set_state(|snapshot| {
+        snapshot.generation = generation;
         snapshot.playing = false;
         snapshot.preparing = true;
         snapshot.error.clear();
@@ -519,7 +569,7 @@ pub extern "system" fn Java_com_merzkava_pocket_review_PocketMediaPlaybackServic
         snapshot.user_paused = false;
         snapshot.volume = volume;
     });
-    if send_command(Command::Play { track_id, path, volume }) { JNI_TRUE } else { JNI_FALSE }
+    if send_command(Command::Play { generation, track_id, path, volume }) { JNI_TRUE } else { JNI_FALSE }
 }
 
 #[no_mangle]
@@ -529,12 +579,14 @@ pub extern "system" fn Java_com_merzkava_pocket_review_PocketMediaPlaybackServic
     user_pause: jboolean,
 ) {
     let user_pause = user_pause == JNI_TRUE;
+    let generation = NEXT_GENERATION.fetch_add(1, Ordering::Relaxed).saturating_add(1);
     set_state(|snapshot| {
+        snapshot.generation = generation;
         snapshot.playing = false;
         snapshot.preparing = false;
         snapshot.user_paused = user_pause;
     });
-    let _ = send_command(Command::Pause { user_pause });
+    let _ = send_command(Command::Pause { generation, user_pause });
 }
 
 #[no_mangle]
@@ -542,7 +594,11 @@ pub extern "system" fn Java_com_merzkava_pocket_review_PocketMediaPlaybackServic
     _env: JNIEnv<'_>,
     _class: JClass<'_>,
 ) {
-    let _ = send_command(Command::Stop);
+    let generation = NEXT_GENERATION.fetch_add(1, Ordering::Relaxed).saturating_add(1);
+    set_state(|snapshot| {
+        *snapshot = PlayerSnapshot { generation, ..PlayerSnapshot::default() };
+    });
+    let _ = send_command(Command::Stop { generation });
 }
 
 #[no_mangle]
@@ -569,10 +625,11 @@ pub extern "system" fn Java_com_merzkava_pocket_review_PocketMediaPlaybackServic
             "trackId": snapshot.track_id,
             "cycleCount": CYCLE_COUNT.load(Ordering::Relaxed),
             "userPaused": snapshot.user_paused,
-            "volume": snapshot.volume
+            "volume": snapshot.volume,
+            "generation": snapshot.generation
         }).to_string()
     } else {
-        json!({"playing":false,"preparing":false,"error":"Native audio state is unavailable.","trackId":"","cycleCount":0,"userPaused":false,"volume":68}).to_string()
+        json!({"playing":false,"preparing":false,"error":"Native audio state is unavailable.","trackId":"","cycleCount":0,"userPaused":false,"volume":68,"generation":0}).to_string()
     };
     env.new_string(json_text).map(|value| value.into_raw()).unwrap_or(std::ptr::null_mut())
 }

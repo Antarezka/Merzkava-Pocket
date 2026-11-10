@@ -117,11 +117,17 @@ public final class PocketMediaPlaybackService extends Service {
                 releaseWakeLock();
             } else if (!nativeReady || !nativeLibraryLoaded) {
                 updateStoredState(false, false, "OxiAudio/OxiSound native playback is unavailable.", trackId, false, lastCycleCount);
-            } else if (trackId == null || path == null || path.isEmpty() || !nativeStart(trackId, path, volume)) {
-                updateStoredState(false, false, "OxiAudio could not start the selected audio file.", trackId, false, lastCycleCount);
+                releaseWakeLock();
             } else {
-                updateStoredState(false, true, "", trackId, false, lastCycleCount);
-                nativeSetVolume(volume);
+                acquireWakeLock();
+                if (trackId == null || path == null || path.isEmpty() || !nativeStart(trackId, path, volume)) {
+                    updateStoredState(false, false, "OxiAudio could not start the selected audio file.", trackId, false, lastCycleCount);
+                    releaseWakeLock();
+                } else {
+                    // nativeStart() only enqueues a generation-stamped command. The native
+                    // manager owns PREPARING -> PLAYING; do not overwrite its snapshot here.
+                    nativeSetVolume(volume);
+                }
             }
             beginPolling();
         } else if (ACTION_PAUSE.equals(action)) {
@@ -198,7 +204,10 @@ public final class PocketMediaPlaybackService extends Service {
                 resumeAfterFocusGain = false;
                 acquireWakeLock();
                 boolean accepted = nativeStart(activeTrackId, activeTrackPath, activeVolume);
-                updateStoredState(false, accepted, accepted ? "" : "OxiAudio could not resume after Android audio focus returned.", activeTrackId, false, lastCycleCount);
+                if (!accepted) {
+                    updateStoredState(false, false, "OxiAudio could not resume after Android audio focus returned.", activeTrackId, false, lastCycleCount);
+                    releaseWakeLock();
+                }
             }
         }
     }

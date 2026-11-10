@@ -323,8 +323,7 @@ function createNativePocketAudioController({
       return Promise.resolve(true);
     }
     // One pending native start is enough. Re-dispatching ACTION_PLAY during
-    // OxiAudio/OxiSound preparation repeatedly replaces the MediaItem and can trap
-    // the interface in READY/PREPARING while the service restarts itself.
+    // Native preparation must stay single-flight; stale start commands are generation-guarded.
     if (nativeStarting) return Promise.resolve(false);
     const track = trackCatalog[selectedTrack];
     try {
