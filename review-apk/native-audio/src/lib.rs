@@ -395,7 +395,7 @@ fn start_playback(
     let (producer, mut consumer) = ring.split();
 
     let sample_rate = match start_decoder_worker(
-        path,
+        path.clone(),
         track_id.clone(),
         generation,
         producer,
@@ -589,8 +589,18 @@ fn manager_loop(receiver: mpsc::Receiver<Command>, state_ref: Arc<Mutex<PlayerSn
                     retry_attempt = 0;
                     retry_keeps_playing = false;
                 } else if disconnected {
-                    if let Some(request) = desired.clone() {
+                    let active_request = active.as_ref().map(|current| PlaybackRequest {
+                        generation: current.generation,
+                        track_id: current.track_id.clone(),
+                        path: current.path.clone(),
+                        volume: current.volume,
+                    });
+                    let has_play_intent = desired.as_ref().map(|request| {
+                        active_request.as_ref().map(|active| active.generation == request.generation).unwrap_or(false)
+                    }).unwrap_or(false);
+                    if let Some(request) = active_request.filter(|_| has_play_intent) {
                         if is_current_generation(&state_ref, request.generation) {
+                            desired = Some(request.clone());
                             stop_active(&mut active);
                             retry_keeps_playing = true;
                             retry_attempt = 0;
