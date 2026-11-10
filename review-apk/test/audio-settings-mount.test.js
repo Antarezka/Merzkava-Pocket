@@ -180,6 +180,15 @@ test("The turntable motor eases up to LP speed and brakes smoothly", async () =>
   motion.dispose();
 });
 
+test("Continuous file loops are restarted by the native CRI server, not Java UI polling", () => {
+  const server = nativeSource.indexOf("gServerThread = std::thread");
+  const loopCheck = nativeSource.indexOf("CRIATOMEXPLAYER_STATUS_PLAYEND", server);
+  const uiStatus = nativeSource.indexOf("Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeGetStatus");
+  assert.ok(server >= 0 && loopCheck > server && uiStatus > loopCheck);
+  assert.match(nativeSource, /++gLoopCycleCounts\[channel\]/);
+  assert.match(runtimeSource, /nativeTakeLoopCycles\(channel\)/);
+});
+
 test("Vinyl labels rotate on CRI playback-cycle callbacks, track changes and seasons", () => {
   assert.match(source, /onPlaybackCycle:\s*\(\)\s*=>\s*\{\s*if\s*\(vinylDesigns\.getState\(\)\.mode\s*===\s*"auto"\)\s*vinylDesigns\.rotateRandom\("track-end"\);/);
   assert.match(source, /vinylDesigns\.rotateRandom\("track-change"\)/);
