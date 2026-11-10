@@ -5,6 +5,8 @@
 Pocket has one playback engine: CRI ADX LE. Android and WebView are command/presentation layers only; they must not create a second audio engine through MediaPlayer, AudioTrack, HTMLAudioElement, or AudioContext.
 
 - CRI engine (PocketCriAudioRuntime + JNI): owns playback players, decoding/streaming, looping, pause/stop, player gain, and CRI Tween fades.
+
+The Android target uses CRI's MULTI thread model. CRI owns the periodic server process on its internal high-priority thread. Pocket's native 16 ms loop-monitor thread only checks for PLAYEND and restarts BGM/ambience file streams; it must not call the CRI server-pump function. Running a second manual server pump alongside MULTI can contend with CRI's decoder/streaming work and produce broken-up or noisy output. The CRI server thread remains the only scheduler for file reads, decoding, voice updates, and audio output.
 - Audio Director (pocket-audio-director.js): owns intent and policy: selected BGM, when to start the ambience bed, how native status changes affect the deck, and which CRI channels receive effects.
 - Visual presentation (audio-player.js + CSS): reads the Director's stylus intent plus native CRI status and animates platter, disc, stylus, and status light. It never issues playback commands or decides what audio file to play.
 
