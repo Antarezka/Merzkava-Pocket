@@ -76,6 +76,18 @@ jobs:
             echo "=== AUDIO FORMAT ENUM ==="
             sed -n '1925,1995p' "$ROOT/cri/android/include/cri_le_atom_ex.h"
             echo
+            echo "=== PLAYER CREATE / DESTROY / VOLUME ==="
+            sed -n '10960,11140p' "$ROOT/cri/android/include/cri_le_atom_ex.h"
+            echo
+            echo "=== PLAYER SET DATA / FILE / FORMAT ==="
+            sed -n '11240,11420p' "$ROOT/cri/android/include/cri_le_atom_ex.h"
+            echo
+            echo "=== PLAYER START / STOP ==="
+            sed -n '11440,11560p' "$ROOT/cri/android/include/cri_le_atom_ex.h"
+            echo
+            echo "=== PLAYBACK STATUS / PAUSE / RESUME ==="
+            sed -n '15120,15330p' "$ROOT/cri/android/include/cri_le_atom_ex.h"
+            echo
             echo "=== PLAYER AND PLAYBACK API DECLARATIONS ==="
             grep -nE 'criAtomEx(Player_Create|Player_Destroy|Player_SetFile|Player_SetData|Player_Start|Player_Stop|Player_SetVolume|Playback_GetStatus|Playback_Stop|Playback_Pause|Playback_Resume)' "$ROOT/cri/android/include/cri_le_atom_ex.h" || true
             echo
