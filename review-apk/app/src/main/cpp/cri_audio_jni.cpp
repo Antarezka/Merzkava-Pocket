@@ -160,6 +160,8 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
         CriAtomExTweenConfig tweenConfig;
         std::memset(&tweenConfig, 0, sizeof(tweenConfig));
         criAtomExTween_SetDefaultConfig(&tweenConfig);
+        tweenConfig.parameter_type = CRIATOMEX_PARAMETER_TYPE_BASIC;
+        tweenConfig.id.parameter_id = CRIATOMEX_PARAMETER_ID_VOLUME;
         const CriSint32 tweenWorkSize = criAtomExTween_CalculateWorkSize(&tweenConfig);
         if (tweenWorkSize < 0) {
             __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not calculate CRI Tween work size (%d)", index);
