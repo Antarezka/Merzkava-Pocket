@@ -281,9 +281,12 @@ export function createPocketAudioController({
       ? actualDuration
       : lastPlaybackDuration;
     if (Number.isFinite(duration) && duration > 1) {
-      const fadeDurationMs = Math.min(MUSIC_FADE_DURATION_MS, Math.max(500, duration * 200));
-      if (duration - current <= fadeDurationMs / 1000 && !endFadeStarted) {
+      const remainingMs = Math.max(0, (duration - current) * 1000);
+      const fadeWindowMs = Math.min(MUSIC_FADE_DURATION_MS + 250, Math.max(500, duration * 250));
+      if (remainingMs <= fadeWindowMs && !endFadeStarted) {
         endFadeStarted = true;
+        // Finish slightly before the media's ended event, even when timeupdate is late.
+        const fadeDurationMs = Math.max(1, Math.min(MUSIC_FADE_DURATION_MS, remainingMs - MUSIC_FADE_TICK_MS));
         animateMusicFade(0, fadeDurationMs);
       }
       lastPlaybackDuration = duration;

@@ -403,8 +403,8 @@ test("BGM fades in, fades out near the end, and restarts with a smooth fade-in",
   music.dispatch("timeupdate");
   clock.advance(1100);
   assert.ok(music.volume > 0 && music.volume < 0.68);
-  clock.advance(1100);
-  assert.equal(music.volume, 0);
+  clock.advance(876);
+  assert.equal(music.volume, 0, "fade-out must finish just before the natural end");
 
   music.currentTime = music.duration;
   music.ended = true;
