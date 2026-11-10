@@ -386,12 +386,68 @@ public final class PocketNativeBridge {
         });
     }
 
+    private int getInstalledPocketBuildNumber() throws Exception {
+        PackageInfo installed = activity.getPackageManager().getPackageInfo(activity.getPackageName(), 0);
+        long versionCode = Build.VERSION.SDK_INT >= 28 ? installed.getLongVersionCode() : installed.versionCode;
+        return (int)Math.max(0L, versionCode - POCKET_VERSION_CODE_OFFSET);
+    }
+
+    private void clearPocketUpdateDownloadState() {
+        SharedPreferences preferences = prefs();
+        long oldId = preferences.getLong(PREF_UPDATE_DOWNLOAD_ID, -1L);
+        String oldName = preferences.getString(PREF_UPDATE_FILE_NAME, "");
+        if (oldId >= 0L) {
+            try {
+                DownloadManager manager = (DownloadManager) activity.getSystemService(Context.DOWNLOAD_SERVICE);
+                if (manager != null) manager.remove(oldId);
+            } catch (Exception error) {
+                android.util.Log.w("PocketUpdate", "Could not remove a stale updater download row.", error);
+            }
+        }
+        if (oldName != null && oldName.matches("Merzkava-Pocket-Build-[0-9]+-[A-Za-z0-9._-]+\\.apk")) {
+            File directory = activity.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+            if (directory != null) {
+                File oldFile = new File(directory, oldName);
+                if (oldFile.isFile() && !oldFile.delete()) {
+                    android.util.Log.w("PocketUpdate", "Could not delete stale Pocket APK " + oldName);
+                }
+            }
+        }
+        preferences.edit().remove(PREF_UPDATE_DOWNLOAD_ID).remove(PREF_UPDATE_SHA256)
+            .remove(PREF_UPDATE_FILE_NAME).remove(PREF_UPDATE_BUILD_NUMBER).commit();
+    }
+
+    private void removePocketApkFilesExcept(int keepBuildNumber) {
+        File directory = activity.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+        if (directory == null || !directory.isDirectory()) return;
+        File[] files = directory.listFiles();
+        if (files == null) return;
+        Pattern apkPattern = Pattern.compile("^Merzkava-Pocket-Build-([0-9]+)-[A-Za-z0-9._-]+\\.apk$");
+        for (File file : files) {
+            if (!file.isFile()) continue;
+            Matcher match = apkPattern.matcher(file.getName());
+            if (!match.matches()) continue;
+            try {
+                int fileBuild = Integer.parseInt(match.group(1));
+                if (fileBuild != keepBuildNumber && !file.delete()) {
+                    android.util.Log.w("PocketUpdate", "Could not remove older Pocket APK " + file.getName());
+                }
+            } catch (NumberFormatException ignored) {}
+        }
+    }
+
     @JavascriptInterface public String startPocketUpdateDownload(String address, String fileName, String sha256, int buildNumber) {
         try {
             if (address == null || fileName == null || sha256 == null || buildNumber <= 0 ||
-                !fileName.matches("[A-Za-z0-9._-]+\\.apk") ||
+                !fileName.matches("Merzkava-Pocket-Build-[0-9]+-[A-Za-z0-9._-]+\\.apk") ||
                 !sha256.toLowerCase(Locale.ROOT).matches("[a-f0-9]{64}")) {
                 return new JSONObject().put("ok", false).put("message", "The Pocket update download details are invalid.").toString();
+            }
+            int installedBuild = getInstalledPocketBuildNumber();
+            if (buildNumber <= installedBuild) {
+                clearPocketUpdateDownloadState();
+                removePocketApkFilesExcept(-1);
+                return new JSONObject().put("ok", false).put("message", "This Pocket build is already installed. Check Again for the newest release.").toString();
             }
             Uri uri = Uri.parse(address);
             String prefix = "/" + POCKET_REPOSITORY + "/releases/download/pocket-build-";
@@ -401,10 +457,25 @@ public final class PocketNativeBridge {
                 !releasePath.matches() || Integer.parseInt(releasePath.group(1)) != buildNumber) {
                 return new JSONObject().put("ok", false).put("message", "The Pocket update download address is not trusted.").toString();
             }
+
+            JSONObject existing = new JSONObject(getPocketUpdateDownloadState(buildNumber));
+            String existingStatus = existing.optString("status", "idle");
+            if (existing.optInt("buildNumber", 0) == buildNumber &&
+                ("queued".equals(existingStatus) || "downloading".equals(existingStatus) ||
+                 "paused".equals(existingStatus) || "completed".equals(existingStatus))) {
+                existing.put("ok", true);
+                existing.put("message", "This build already has a download. Pocket has restored its current progress.");
+                return existing.toString();
+            }
+
+            // A different release starts with a fresh DownloadManager row, hash, file and 0% progress.
+            clearPocketUpdateDownloadState();
+            removePocketApkFilesExcept(-1);
             DownloadManager manager = (DownloadManager) activity.getSystemService(Context.DOWNLOAD_SERVICE);
+            if (manager == null) throw new IOException("Android Download Manager is unavailable.");
             DownloadManager.Request request = new DownloadManager.Request(uri);
             request.setMimeType("application/vnd.android.package-archive");
-            request.setTitle("Merzkava Pocket · Update");
+            request.setTitle("Merzkava Pocket · Build #" + buildNumber);
             request.setDescription("Downloading " + fileName);
             request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
             request.setDestinationInExternalFilesDir(activity, Environment.DIRECTORY_DOWNLOADS, fileName);
@@ -416,29 +487,64 @@ public final class PocketNativeBridge {
                 .putString(PREF_UPDATE_FILE_NAME, fileName)
                 .putInt(PREF_UPDATE_BUILD_NUMBER, buildNumber).commit()) {
                 manager.remove(id);
-                return new JSONObject().put("ok", false).put("message", "Pocket could not save the update download state.").toString();
+                clearPocketUpdateDownloadState();
+                return new JSONObject().put("ok", false).put("message", "Pocket could not save the new build download state.").toString();
             }
-            return new JSONObject().put("ok", true).put("downloadId", id)
-                .put("status", "queued").put("message", "Pocket update download has started.").toString();
+            return new JSONObject().put("ok", true).put("downloadId", id).put("buildNumber", buildNumber)
+                .put("status", "queued").put("progress", 0).put("bytesDownloaded", 0).put("totalBytes", 0)
+                .put("message", "Pocket Build #" + buildNumber + " download has started.").toString();
         } catch (Exception error) {
             try {
                 return new JSONObject().put("ok", false)
-                    .put("message", "Pocket could not start the update download. Check available storage and try again.").toString();
+                    .put("message", "Pocket could not start the new update download. Check storage and connection.").toString();
             } catch (Exception ignored) { return "{}"; }
         }
     }
 
     @JavascriptInterface public String getPocketUpdateDownloadState() {
+        return getPocketUpdateDownloadState(0);
+    }
+
+    @JavascriptInterface public String getPocketUpdateDownloadState(int expectedBuildNumber) {
         JSONObject result = new JSONObject();
-        long id = prefs().getLong(PREF_UPDATE_DOWNLOAD_ID, -1L);
+        SharedPreferences preferences = prefs();
+        long id = preferences.getLong(PREF_UPDATE_DOWNLOAD_ID, -1L);
+        int targetBuild = preferences.getInt(PREF_UPDATE_BUILD_NUMBER, 0);
+        try {
+            int installedBuild = getInstalledPocketBuildNumber();
+            boolean alreadyInstalled = targetBuild > 0 && targetBuild <= installedBuild;
+            boolean pointsToAnotherBuild = expectedBuildNumber > 0 && targetBuild > 0 && targetBuild != expectedBuildNumber;
+            boolean missingBuildIdentity = id >= 0L && targetBuild <= 0;
+            if (alreadyInstalled || pointsToAnotherBuild || missingBuildIdentity) {
+                clearPocketUpdateDownloadState();
+                if (alreadyInstalled) removePocketApkFilesExcept(-1);
+                id = -1L;
+                targetBuild = 0;
+            }
+        } catch (Exception error) {
+            android.util.Log.w("PocketUpdate", "Could not compare downloaded and installed Pocket build numbers.", error);
+        }
+
         try {
             result.put("downloadId", id);
-            if (id < 0L) return result.put("status", "idle").put("progress", 0).toString();
+            result.put("buildNumber", targetBuild > 0 ? targetBuild : expectedBuildNumber);
+            if (id < 0L) {
+                return result.put("status", "idle").put("progress", 0)
+                    .put("bytesDownloaded", 0).put("totalBytes", 0).toString();
+            }
             DownloadManager manager = (DownloadManager) activity.getSystemService(Context.DOWNLOAD_SERVICE);
-            Cursor cursor = manager.query(new DownloadManager.Query().setFilterById(id));
-            if (cursor == null) return result.put("status", "unknown").put("message", "Download status is unavailable.").toString();
+            Cursor cursor = manager == null ? null : manager.query(new DownloadManager.Query().setFilterById(id));
+            if (cursor == null) {
+                clearPocketUpdateDownloadState();
+                return result.put("downloadId", -1L).put("status", "idle").put("buildNumber", expectedBuildNumber)
+                    .put("progress", 0).put("bytesDownloaded", 0).put("totalBytes", 0).toString();
+            }
             try {
-                if (!cursor.moveToFirst()) return result.put("status", "unknown").put("message", "The saved update download was not found.").toString();
+                if (!cursor.moveToFirst()) {
+                    clearPocketUpdateDownloadState();
+                    return result.put("downloadId", -1L).put("status", "idle").put("buildNumber", expectedBuildNumber)
+                        .put("progress", 0).put("bytesDownloaded", 0).put("totalBytes", 0).toString();
+                }
                 int status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
                 long downloaded = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
                 long total = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES));
@@ -449,17 +555,24 @@ public final class PocketNativeBridge {
                 else if (status == DownloadManager.STATUS_PAUSED) state = "paused";
                 else if (status == DownloadManager.STATUS_SUCCESSFUL) state = "completed";
                 else if (status == DownloadManager.STATUS_FAILED) state = "failed";
-                result.put("status", state);
-                result.put("bytesDownloaded", downloaded);
-                result.put("totalBytes", total);
-                result.put("progress", progress);
+
                 if (status == DownloadManager.STATUS_FAILED) {
                     int reason = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON));
-                    result.put("reason", reason);
-                    result.put("message", "The update download failed (code " + reason + "). Check storage and connection.");
+                    String message = "The Build #" + targetBuild + " download failed (code " + reason + "). Check storage and connection.";
+                    clearPocketUpdateDownloadState();
+                    return result.put("downloadId", -1L).put("buildNumber", expectedBuildNumber > 0 ? expectedBuildNumber : targetBuild)
+                        .put("status", "failed").put("progress", 0).put("bytesDownloaded", 0).put("totalBytes", 0)
+                        .put("reason", reason).put("message", message).toString();
                 }
+                result.put("status", state).put("bytesDownloaded", downloaded).put("totalBytes", total).put("progress", progress);
                 if (status == DownloadManager.STATUS_SUCCESSFUL) {
-                    result.put("downloadedUriAvailable", manager.getUriForDownloadedFile(id) != null);
+                    boolean available = manager.getUriForDownloadedFile(id) != null;
+                    result.put("downloadedUriAvailable", available);
+                    if (!available) {
+                        clearPocketUpdateDownloadState();
+                        return result.put("downloadId", -1L).put("buildNumber", expectedBuildNumber)
+                            .put("status", "idle").put("progress", 0).put("bytesDownloaded", 0).put("totalBytes", 0).toString();
+                    }
                 }
             } finally { cursor.close(); }
         } catch (Exception error) {

@@ -78,3 +78,6 @@ New-build alerts use compact and expanded native Android notification layouts. T
 After Android confirms a package replacement, Pocket verifies the installed build number and removes all Pocket release APK files and DownloadManager entries whose build number is at or below the installed build. The sweep covers the app-specific updater directory and Pocket-named APKs left in shared Downloads. It does not touch unrelated APKs, imported music, player saves or other Pocket data.
 
 Pocket maintains `Downloads/Merzkava Pocket/Merzkava-Pocket-Installed-Build.txt` through Android's shared Downloads collection. On Android 10 and later this file is outside app-private storage and remains available after Pocket is uninstalled. It records the latest installed build, package, version, version code, install/update timestamps, last verification time and Android/device version. Android 6–9 use an app-specific fallback that does not survive uninstall.
+
+
+Updater state is now bound to the target build number. When the saved download belongs to another release or a build already installed on the device, Pocket removes the stale DownloadManager row and APK, clears its stored hash/file/build ID, and returns the progress indicator to 0% before a fresh download can begin. The completed state of a previous release cannot disable the next release's Download button.

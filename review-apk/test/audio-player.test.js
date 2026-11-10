@@ -134,7 +134,7 @@ test("placing another record changes track but never starts playback", () => {
   assert.equal(audio.getState().track, "chill");
   assert.equal(audio.getState().isPlaying, false);
   assert.equal(audio.getState().title, "chill-1a");
-  assert.equal(FakeAudio.instances[0].loop, true);
+  assert.equal(FakeAudio.instances[0].loop, false);
 });
 
 test("needle must be lowered before a newly selected track starts", async () => {
@@ -305,26 +305,44 @@ test("lifting the needle during the crackle cancels the pending music start", as
 });
 
 
-test("native loop wraps and fades back in without a second play call in Floating Mode",async()=>{
+test("end fade completes and the ended event replays with fade-in in Floating Mode",async()=>{
+  const clock=makeAudioFadeClock();
   let cycles=0;
-  const {audio}=harness({}, {onPlaybackCycle:()=>{cycles+=1;}});
+  const {audio}=harness({}, {
+    now:clock.now,setIntervalFn:clock.setInterval,clearIntervalFn:clock.clearInterval,
+    onPlaybackCycle:()=>{cycles+=1;}
+  });
   audio.enterMainMenu();
-  await Promise.resolve();
   const music=FakeAudio.instances[0];
   const noise=FakeAudio.instances.find(item=>item.src===VINYL_SURFACE_NOISE_SRC);
-  assert.equal(music.loop,true);
+  assert.equal(music.loop,false);
   assert.equal(music.playCount,1);
-  music.currentTime=98;music.dispatch("timeupdate");
-  music.currentTime=0;music.dispatch("timeupdate");
+  await Promise.resolve();
+  clock.advance(2200);
+  assert.ok(Math.abs(music.volume-.68)<.001,"initial fade-in completes");
+  await audio.setFloatingMode(true);
+
+  music.currentTime=98;
+  music.dispatch("timeupdate");
+  assert.ok(Math.abs(music.volume-.68)<.001,"fade-out starts at the end window");
+  clock.advance(900);
+  assert.ok(music.volume>0&&music.volume<.68,"the end fade progresses while floating");
+  music.dispatch("timeupdate");
+  clock.advance(1076);
+  assert.equal(music.volume,0,"fade-out reaches silence before the track boundary");
+
+  music.finish();
   await Promise.resolve();
   assert.equal(cycles,1);
   assert.equal(music.currentTime,0);
   assert.equal(music.paused,false);
-  assert.equal(music.playCount,1,"the HTML media loop remains the same play session");
-  assert.equal(music.volume,0,"the next loop fades in from zero");
-  assert.equal(noise.paused,false,"vinyl surface noise remains untouched");
-  await audio.setFloatingMode(true);
-  assert.equal(music.volume,0,"Floating Mode does not interrupt the fade-in");
+  assert.equal(music.playCount,2,"the ended event explicitly starts the next playback cycle");
+  assert.equal(music.volume,0,"the new track cycle begins at silence");
+  assert.equal(noise.paused,false,"vinyl surface noise stays continuous");
+  clock.advance(1100);
+  assert.ok(music.volume>0&&music.volume<.68,"fade-in restarts after the ended event");
+  clock.advance(1100);
+  assert.ok(Math.abs(music.volume-.68)<.001);
 });
 test("all twenty vinyl label designs are available and manually selectable", () => {
   assert.equal(VINYL_STYLES.length, 20);
@@ -393,13 +411,13 @@ function makeAudioFadeClock() {
   };
 }
 
-test("ended-event fallback restarts a WebView track that failed to native-loop",async()=>{
+test("ended event explicitly replays a completed Pocket music track",async()=>{
   const {audio}=harness();
   audio.enterMainMenu();
   await Promise.resolve();
   const music=FakeAudio.instances[0];
   const noise=FakeAudio.instances.find(item=>item.src===VINYL_SURFACE_NOISE_SRC);
-  assert.equal(music.loop,true);
+  assert.equal(music.loop,false);
   assert.equal(music.playCount,1);
   music.finish();
   await Promise.resolve();
@@ -410,7 +428,7 @@ test("ended-event fallback restarts a WebView track that failed to native-loop",
   assert.equal(noise.paused,false,"vinyl ambience continues across the fallback restart");
 });
 
-test("BGM fades out at track end and fades back in after the native loop", async () => {
+test("BGM fades out at track end and fades back in after the ended event", async () => {
   const clock = makeAudioFadeClock();
   let cycles = 0;
   const { audio } = harness({}, {
@@ -422,7 +440,7 @@ test("BGM fades out at track end and fades back in after the native loop", async
   audio.enterMainMenu();
   const music = FakeAudio.instances[0];
   const noise = FakeAudio.instances.find(item => item.src === VINYL_SURFACE_NOISE_SRC);
-  assert.equal(music.loop, true);
+  assert.equal(music.loop, false);
   assert.equal(music.volume, 0);
   await Promise.resolve();
 
@@ -438,15 +456,14 @@ test("BGM fades out at track end and fades back in after the native loop", async
   clock.advance(876);
   assert.equal(music.volume, 0, "fade-out must finish just before the native loop");
 
-  // The native loop moves currentTime to zero without an ended/play event.
-  music.currentTime=0;
-  music.dispatch("timeupdate");
+  // The final fade reaches silence, then the ended event explicitly starts the next cycle.
+  music.finish();
   await Promise.resolve();
   assert.equal(cycles,1);
   assert.equal(music.currentTime,0);
   assert.equal(music.paused,false);
   assert.equal(music.volume,0);
-  assert.equal(music.playCount,1,"native looping does not need an explicit replay");
+  assert.equal(music.playCount,2,"the ended event explicitly starts the next cycle");
   assert.equal(noise.paused,false,"vinyl noise remains uninterrupted between BGM cycles");
 
   clock.advance(1100);

@@ -101,6 +101,7 @@ export function createPocketAudioController({
   let vinylNoiseStartToken = 0;
   let musicFadeGain = 1;
   let musicFadeTimer = null;
+  let musicFadeTick = null;
   let musicFadeToken = 0;
   let endFadeStarted = false;
   let previousMusicTime = 0;
@@ -124,6 +125,7 @@ export function createPocketAudioController({
     musicFadeToken += 1;
     if (musicFadeTimer !== null) clearIntervalFn(musicFadeTimer);
     musicFadeTimer = null;
+    musicFadeTick = null;
   };
   const animateMusicFade = (targetGain, durationMs = MUSIC_FADE_DURATION_MS) => {
     stopMusicFade();
@@ -141,8 +143,10 @@ export function createPocketAudioController({
       if (progress >= 1) {
         if (musicFadeTimer !== null) clearIntervalFn(musicFadeTimer);
         musicFadeTimer = null;
+        musicFadeTick = null;
       }
     };
+    musicFadeTick = tick;
     musicFadeTimer = setIntervalFn(tick, MUSIC_FADE_TICK_MS);
     tick();
   };
@@ -284,6 +288,8 @@ export function createPocketAudioController({
   });
   music.addEventListener?.("emptied", stopVinylSurfaceNoise);
   music.addEventListener?.("timeupdate", () => {
+    // Media time keeps advancing in Floating Mode even when WebView intervals are throttled.
+    musicFadeTick?.();
     const current = Number(music.currentTime) || 0;
     const actualDuration = Number(music.duration);
     const duration = Number.isFinite(actualDuration) && actualDuration > 0

@@ -72,12 +72,14 @@ public final class PocketUpdateInstalledReceiver extends BroadcastReceiver {
                     int idCol=cursor.getColumnIndex(DownloadManager.COLUMN_ID);
                     int uriCol=cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI);
                     int descCol=cursor.getColumnIndex(DownloadManager.COLUMN_DESCRIPTION);
+                    int titleCol=cursor.getColumnIndex(DownloadManager.COLUMN_TITLE);
                     while(cursor.moveToNext()){
                         String name=uriCol>=0?fileNameFromUri(cursor.getString(uriCol)):"";
-                        if(name.isEmpty()&&descCol>=0){
+                        if(buildNumberFromName(name)<=0&&descCol>=0){
                             String description=cursor.getString(descCol);
                             if(description!=null&&description.startsWith("Downloading "))name=description.substring("Downloading ".length());
                         }
+                        if(buildNumberFromName(name)<=0&&titleCol>=0)name=cursor.getString(titleCol);
                         int build=buildNumberFromName(name);
                         if(build>0&&build<=installedBuild&&idCol>=0)idsToRemove.add(cursor.getLong(idCol));
                     }

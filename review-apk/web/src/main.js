@@ -190,8 +190,16 @@ function refreshPocketUpdatePanel(downloadState=null) {
   set("[data-update-storage-value]",total>0?freePercent+"% FREE":"UNAVAILABLE");
   set("[data-update-storage-meta]",total>0?formatPocketBytes(available)+" free of "+formatPocketBytes(total)+" internal storage":"Internal storage information is unavailable on this device.");
 
+  const expectedDownloadBuild=latest?.buildNumber>0?(hasUpdate?availableBuild:currentBuild):0;
   let state=downloadState;
-  if(!state){try{state=JSON.parse(native?.getPocketUpdateDownloadState?.()||"{}");}catch{state={};}}
+  if(!state){
+    try{state=JSON.parse(native?.getPocketUpdateDownloadState?.(expectedDownloadBuild)||"{}");}
+    catch{state={};}
+  }
+  const stateBuild=Number(state?.buildNumber)||0;
+  if(expectedDownloadBuild>0&&stateBuild>0&&stateBuild!==expectedDownloadBuild){
+    state={status:"idle",buildNumber:expectedDownloadBuild,progress:0,bytesDownloaded:0,totalBytes:0};
+  }
   const running=["queued","downloading","paused"].includes(state.status),completed=state.status==="completed";
   const area=q("[data-update-download-area]");if(area)area.hidden=!hasUpdate||(!running&&!completed&&!state.message);
   const fill=q("[data-update-progress-fill]");if(fill)fill.style.width=(Number(state.progress)||0)+"%";
@@ -209,12 +217,14 @@ function mountPocketUpdateSettings() {
   let disposed=false,pollTimer=null;
   const refresh=()=>{
     if(disposed)return;
-    let state={};try{state=JSON.parse(native?.getPocketUpdateDownloadState?.()||"{}");}catch{}
+    const expectedBuild=Number(latestPocketUpdate?.buildNumber)||0;
+    let state={};try{state=JSON.parse(native?.getPocketUpdateDownloadState?.(expectedBuild)||"{}");}catch{}
     refreshPocketUpdatePanel(state);
     if(["queued","downloading","paused"].includes(state.status)){
       if(pollTimer===null)pollTimer=window.setInterval(()=>{
         if(disposed)return;
-        let next={};try{next=JSON.parse(native?.getPocketUpdateDownloadState?.()||"{}");}catch{}
+        const expectedBuild=Number(latestPocketUpdate?.buildNumber)||0;
+        let next={};try{next=JSON.parse(native?.getPocketUpdateDownloadState?.(expectedBuild)||"{}");}catch{}
         refreshPocketUpdatePanel(next);
         if(!["queued","downloading","paused"].includes(next.status)&&pollTimer!==null){window.clearInterval(pollTimer);pollTimer=null;}
       },850);
@@ -223,6 +233,7 @@ function mountPocketUpdateSettings() {
   const check=async()=>{if(checkButton){checkButton.disabled=true;checkButton.textContent="CHECKING…";}await checkPocketUpdates(false);refresh();};
   const download=()=>{
     if(!latestPocketUpdate?.apkUrl||!latestPocketUpdate?.apkSha256||!latestPocketUpdate?.apkName)return;
+    if(downloadButton){downloadButton.disabled=true;downloadButton.textContent="PREPARING DOWNLOAD…";}
     let result={};try{result=JSON.parse(native.startPocketUpdateDownload(latestPocketUpdate.apkUrl,latestPocketUpdate.apkName,latestPocketUpdate.apkSha256,Number(latestPocketUpdate.buildNumber)||0)||"{}");}
     catch{result={ok:false,message:"Pocket could not start the download. Check available storage."};}
     if(!result.ok){const status=panel.querySelector("[data-update-status]");if(status){status.textContent=result.message||"DOWNLOAD COULD NOT START";status.dataset.tone="warning";}}
