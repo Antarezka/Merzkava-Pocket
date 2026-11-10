@@ -114,6 +114,7 @@ export function createPocketAudioController({
   let previousMusicTime = 0;
   let musicStartPromise = null;
   let restartAfterStart = false;
+  let playbackGeneration = 0;
   let trackEndTimer = null;
   let trackEndToken = 0;
   let endHandlingQueued = false;
@@ -301,6 +302,7 @@ export function createPocketAudioController({
       return musicStartPromise;
     }
     const run = async () => {
+      const generation = playbackGeneration;
       clearTrackEndGuard();
       clearPlaybackRetry();
       if (music.ended) { try { music.currentTime = 0; } catch {} }
@@ -312,6 +314,12 @@ export function createPocketAudioController({
       applyMusicVolume();
       try {
         await music.play();
+        if (generation !== playbackGeneration) {
+          // A record was replaced or playback was explicitly stopped while
+          // play() was pending. Never let that stale request control the new source.
+          music.pause();
+          return false;
+        }
         if (!shouldMaintainPlayback()) {
           music.pause();
           stopMusicFade();
@@ -342,6 +350,7 @@ export function createPocketAudioController({
         notify();
         return true;
       } catch {
+        if (generation !== playbackGeneration) return false;
         stopMusicFade();
         if (shouldMaintainPlayback()) scheduleMusicRetryAfterGesture();
         else stopVinylSurfaceNoise();
@@ -588,6 +597,8 @@ export function createPocketAudioController({
   }
 
   function pauseForSplash() {
+    playbackGeneration += 1;
+    restartAfterStart = false;
     floatingModeActive = false;
     backgroundRecoveryToken += 1;
     resumeAfterSplash = shouldMaintainPlayback() && !needleStarting;
@@ -608,6 +619,8 @@ export function createPocketAudioController({
   }
 
   function resetSession() {
+    playbackGeneration += 1;
+    restartAfterStart = false;
     lifecycleSuspended = false;
     floatingModeActive = false;
     backgroundRecoveryToken += 1;
@@ -630,6 +643,8 @@ export function createPocketAudioController({
 
   function selectTrack(id) {
     if (!Object.hasOwn(trackCatalog, id) || id === selectedTrack) return false;
+    playbackGeneration += 1;
+    restartAfterStart = false;
     clearTrackEndGuard();
     clearPlaybackRetry();
     playbackRetryPending = false;
@@ -680,6 +695,8 @@ export function createPocketAudioController({
 
   function toggleNeedle() {
     if (isPlaying() || needleStarting) {
+      playbackGeneration += 1;
+      restartAfterStart = false;
       cancelNeedleStart();
       userPaused = true;
       clearTrackEndGuard();

@@ -186,6 +186,56 @@ test("needle must be lowered before a newly selected track starts", async () => 
   assert.equal(audio.getState().isPlaying, true);
 });
 
+test("a delayed play() from the previous record cannot override a manually selected record", async () => {
+  class DelayedFirstPlayAudio extends FakeAudio {
+    constructor(src = "") {
+      super(src);
+      this.delayFirstPlay = src.includes("Happy-1a");
+      this.pendingPlayResolve = null;
+    }
+    play() {
+      if (this.delayFirstPlay) {
+        this.delayFirstPlay = false;
+        this.playCount += 1;
+        return new Promise(resolve => {
+          this.pendingPlayResolve = () => {
+            this.paused = false;
+            this.ended = false;
+            this.dispatch("play");
+            resolve();
+          };
+        });
+      }
+      return super.play();
+    }
+  }
+
+  FakeAudio.instances = [];
+  const data = new Map();
+  const audio = createPocketAudioController({
+    AudioCtor: DelayedFirstPlayAudio,
+    storage: {
+      getItem: key => data.has(key) ? data.get(key) : null,
+      setItem: (key, value) => data.set(key, String(value))
+    }
+  });
+  audio.enterMainMenu();
+
+  const music = FakeAudio.instances[0];
+  assert.equal(typeof music.pendingPlayResolve, "function");
+
+  audio.selectTrack("chill");
+  const needleStart = audio.toggleNeedle();
+  await flushAudioMicrotasks();
+  music.pendingPlayResolve();
+  await needleStart;
+  await flushAudioMicrotasks();
+
+  assert.match(music.src, /chill-1a\.ogg$/);
+  assert.equal(music.paused, false, "the new manually selected record should start after the stale request is discarded");
+  assert.equal(audio.getState().track, "chill");
+});
+
 test("a manually selected track recovers when Android backgrounds Floating Mode", async () => {
   const { audio } = harness();
   audio.enterMainMenu();
