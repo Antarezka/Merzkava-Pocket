@@ -113,7 +113,7 @@ test("background music stays silent until the main menu is entered", () => {
   assert.equal(audio.getState().isPlaying, true);
 });
 
-test("vinyl surface noise loops for the full music playback and stops with music", () => {
+test("vinyl surface noise loops for the full music playback and stops with music", async () => {
   const { audio } = harness();
   const noise = FakeAudio.instances.find(item => item.src === VINYL_SURFACE_NOISE_SRC);
   assert.ok(noise, "the dedicated vinyl surface-noise layer should be created");
