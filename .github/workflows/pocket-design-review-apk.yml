@@ -248,7 +248,11 @@ jobs:
           grep -q 'CHANNEL_EFFECTS' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
           grep -q 'CHANNEL_DOOR_CHIME' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
           grep -q 'CHANNEL_DOOR_RATTLE' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java
+          grep -q 'pocket:audio-effect' review-apk/web/src/main.js
+          grep -q 'door-chime' review-apk/web/src/daily-login.js
+          grep -q 'door-rattle' review-apk/web/src/daily-login.js
           grep -q 'kChannelCount = 6' review-apk/app/src/main/cpp/cri_audio_jni.cpp
+          grep -q 'CRIATOMEX_INVALID_PLAYBACK_ID' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           test -s review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q "criAtomEx_ExecuteMain" review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q "gServerRunning" review-apk/app/src/main/cpp/cri_audio_jni.cpp
