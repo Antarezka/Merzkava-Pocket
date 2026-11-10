@@ -25,10 +25,12 @@ export function mountFoxSplashMotion(stage, { animate, reducedMotion = () => fal
   const animations = [];
   const missingHandlers = [];
   const character = stage.querySelector(".splash-character");
+  const layout = stage.querySelector(".splash-layout");
   const getLayer = id => stage.querySelector(`[data-splash-fox-layer="${id}"]`);
   const refreshArtVisibility = () => {
     const visibleLayer = stage.querySelector(".splash-fox-layer:not(.is-missing)");
     character?.classList.toggle("no-art", !visibleLayer);
+    layout?.classList.toggle("no-fox-art", !visibleLayer);
   };
 
   for (const { id } of FOX_LAYERS) {
