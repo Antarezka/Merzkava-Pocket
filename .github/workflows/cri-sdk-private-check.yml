@@ -88,8 +88,13 @@ jobs:
             echo "=== PLAYBACK STATUS / PAUSE / RESUME ==="
             sed -n '15120,15330p' "$ROOT/cri/android/include/cri_le_atom_ex.h"
             echo
-            echo "=== PLAYER AND PLAYBACK API DECLARATIONS ==="
-            grep -nE 'criAtomEx(Player_Create|Player_Destroy|Player_SetFile|Player_SetData|Player_Start|Player_Stop|Player_SetVolume|Playback_GetStatus|Playback_Stop|Playback_Pause|Playback_Resume)' "$ROOT/cri/android/include/cri_le_atom_ex.h" || true
+            echo "=== PLAYER / PLAYBACK SIGNATURES ==="
+            for api in criAtomExPlayer_Create criAtomExPlayer_Destroy criAtomExPlayer_SetData criAtomExPlayer_SetFile criAtomExPlayer_SetFormat criAtomExPlayer_SetVolume criAtomExPlayer_SetLoop criAtomExPlayer_Start criAtomExPlayer_Stop criAtomExPlayback_Pause criAtomExPlayback_GetStatus criAtomExPlayback_Stop; do
+              grep -n -A3 -B2 "$api(" "$ROOT/cri/android/include/cri_le_atom_ex.h" | tail -n 7 || true
+            done
+            echo
+            echo "=== RAW PCM / BUFFER INPUT DETAILS ==="
+            grep -n -A6 -B5 -iE 'raw.?pcm|sample.?rate|sampling.?rate|channel.?count|number.?of.?channels|data.?request' "$ROOT/cri/android/include/cri_le_atom_ex.h" | tail -n 220 || true
             echo
             echo "=== SDK LICENSE AGREEMENT ==="
             cat "$ROOT/cri/common/license/CRI_ADX_LE_SDK_License_Agreement_en.txt"
