@@ -505,12 +505,15 @@ public final class PocketCriAudioRuntime {
         pauseRequested = false;
         musicPaused = false;
         pausedByFocusLoss = false;
+        // A track selected while paused is intentionally kept silent. On resume,
+        // start the crackle bed if it was not running yet, otherwise unmute it.
+        if (musicStreamActive && !ambienceStreamActive) playAmbience();
         commands.execute(() -> {
             if (disposed || transition != pauseTransition.get()) return;
             nativePause(CHANNEL_MUSIC, false);
-            nativePause(CHANNEL_AMBIENCE, false);
+            if (ambienceStreamActive) nativePause(CHANNEL_AMBIENCE, false);
             fadeChannelTo(CHANNEL_MUSIC, 1f, 230L, null);
-            fadeChannelTo(CHANNEL_AMBIENCE, 1f, 280L, null);
+            if (ambienceStreamActive) fadeChannelTo(CHANNEL_AMBIENCE, 1f, 280L, null);
             publish("music", "playing", "");
             startPolling();
         });
