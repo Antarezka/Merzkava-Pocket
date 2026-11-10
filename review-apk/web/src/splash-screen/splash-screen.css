@@ -1,10 +1,21 @@
 .splash-stage{
-  display:grid;
-  place-items:center;
+  position:relative;
+  display:block;
+  width:100%;
+  height:100dvh;
+  min-height:100%;
+  overflow:hidden;
+  isolation:isolate;
   background:
     radial-gradient(ellipse at 50% 34%,rgba(191,211,230,.13),transparent 34%),
     radial-gradient(ellipse at 50% 80%,rgba(169,140,84,.12),transparent 48%),
     linear-gradient(180deg,#080a0d 0%,#11161b 52%,#090b0e 100%);
+}
+.splash-vignette,.splash-light{
+  position:absolute;
+  z-index:0;
+  inset:0;
+  pointer-events:none;
 }
 .splash-vignette{
   background:
@@ -14,8 +25,9 @@
 }
 .splash-light{opacity:.8}
 .splash-layout{
-  position:relative;
+  position:absolute;
   z-index:1;
+  inset:0;
   display:flex;
   flex-direction:column;
   align-items:center;
@@ -50,7 +62,7 @@
   background:transparent;
 }
 .splash-character.no-art{display:none}
-.splash-layout.no-fox-art{grid-template-rows:1fr}
+.splash-layout.no-fox-art{justify-content:center}
 .splash-layout.no-fox-art .splash-copy{align-self:center}
 .splash-fox-layer{
   position:absolute;
