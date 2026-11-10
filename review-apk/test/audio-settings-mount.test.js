@@ -39,7 +39,11 @@ test("Audio UI controls are presentation and user-intent adapters only", () => {
 
 test("Only CRI owns playback; the web layer has no parallel audio engine", () => {
   assert.match(source, /import \{ createPocketAudioDirector \} from "\.\/pocket-audio-director\.js"/);
-  assert.match(source, /audioDirector\.startAutomatically\(\)/);
+  assert.match(source, /audioDirector\.startStartupSequence\(\)/);
+  assert.doesNotMatch(source, /audioDirector\.startAutomatically\(\)/);
+  const splash = source.slice(source.indexOf("function showSplash()"), source.indexOf("function renderHome()"));
+  assert.ok(splash.indexOf("audioDirector.startStartupSequence()") < splash.indexOf("renderHome()"),
+    "startup playback must be requested only after the authenticated splash animation completes");
   assert.match(source, /state\.ambienceStatus === "error"/);
   assert.doesNotMatch(source, /createPocketAudioController|playPocketAudio|startPocketAmbience|setPocketAudioVolume/);
   assert.doesNotMatch(audioVisualSource, /AudioContext|webkitAudioContext|new Audio\s*\(|createElement\s*\(\s*["']audio/);
@@ -71,24 +75,30 @@ test("Selecting a record while idle only selects it; active playback changes use
   calls.length = 0;
   assert.equal(deck.selectTrack("chill"), true);
   assert.equal(calls.length, 0, "placing a record while idle must not start playback");
-  assert.equal(deck.startAutomatically(), true);
-  assert.deepEqual(calls, [["play", "chill"]], "automatic BGM start must not fake a visible stylus action");
+  assert.equal(deck.startStartupSequence(), true);
+  assert.deepEqual(calls, [["effect", "record-placement"]],
+    "startup begins with the record-placement cue instead of BGM");
+  deck.updateNativeState("record", "playing");
+  assert.equal(calls.length, 1, "BGM must wait while the CRI record-placement cue is playing");
+  deck.updateNativeState("record", "ended");
+  assert.deepEqual(calls[1], ["play", "chill"], "BGM starts after the record-placement cue ends");
+  assert.equal(deck.getState().needleDown, true);
   deck.updateNativeState("music", "playing");
-  assert.deepEqual(calls[1], ["ambience"], "Director starts crackle only after CRI confirms BGM playback");
+  assert.deepEqual(calls[2], ["ambience"], "Director starts crackle only after CRI confirms BGM playback");
   assert.equal(deck.selectTrack("retroatrical1"), true);
-  assert.deepEqual(calls[2], ["play", "retroatrical1"], "BGM replacement leaves ambience running");
+  assert.deepEqual(calls[3], ["play", "retroatrical1"], "BGM replacement leaves ambience running");
   deck.updateNativeState("music", "paused");
   deck.toggleNeedle();
-  assert.deepEqual(calls.slice(3, 5), [["effect", "stylus-drop"], ["pause", false]]);
+  assert.deepEqual(calls.slice(4, 6), [["effect", "stylus-drop"], ["pause", false]]);
   deck.updateNativeState("music", "playing");
   deck.toggleNeedle();
-  assert.deepEqual(calls[5], ["pause", true]);
+  assert.deepEqual(calls[6], ["pause", true]);
   deck.setMusicVolume(52);
   deck.setEffectsVolume(41);
   deck.setAmbienceVolume(28);
   deck.playEffect("record-placement");
   deck.stop();
-  assert.deepEqual(calls.slice(6), [
+  assert.deepEqual(calls.slice(7), [
     ["volume", "music", 52],
     ["volume", "effects", 41],
     ["volume", "ambience", 28],
@@ -158,7 +168,8 @@ test("CRI Tween owns fades; the Java runtime does not simulate a 20ms volume ram
 });
 
 test("CRI playback state drives visual-only disc, motor and stylus motion", () => {
-  assert.match(source, /activeTurntableMotion\?\.setPlaying\(state\.isPlaying/);
+  assert.match(source, /activeTurntableMotion\?\.setPlaying\(state\.needleDown/);
+  assert.match(source, /player\.classList\.toggle\("is-needle-down", state\.needleDown\)/);
   assert.match(source, /player\.classList\.toggle\("is-playing", state\.isPlaying\)/);
   assert.match(source, /player\.classList\.toggle\("is-paused", state\.isPaused\)/);
   assert.match(source, /player\.classList\.toggle\("is-needle-down", state\.needleDown\)/);
@@ -389,7 +400,8 @@ test("Turntable render loop suspends only in bubble mode and resumes at its reta
   assert.equal(motion.getState().speed, beforeHide.speed);
   motion.setRenderEnabled(true);
   assert.equal(callbacks.size, 1, "full and mini-window mode restore the visual motor");
-  step(500);
+  step(500); // first restored frame initializes its clock without advancing the angle
+  step(516);
   assert.ok(motion.getState().angle !== beforeHide.angle);
   motion.setRenderEnabled(false);
   motion.setPlaying(false);
