@@ -23,6 +23,8 @@ bool gInitialized = false;
 std::atomic<bool> gServerRunning{false};
 std::thread gServerThread;
 void* gAtomWork = nullptr;
+CriAtomDbasId gDbasId = CRIATOMDBAS_ILLEGAL_ID;
+void* gDbasWork = nullptr;
 CriAtomExVoicePoolHn gAdxVoicePool = nullptr;
 CriAtomExVoicePoolHn gWaveVoicePool = nullptr;
 void* gAdxVoicePoolWork = nullptr;
@@ -57,11 +59,14 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
     if (gInitialized) return JNI_TRUE;
 
     CriAtomExConfig_ANDROID config;
+    CriAtomDbasConfig dbasConfig;
     CriAtomExAdxVoicePoolConfig voicePoolConfig;
     CriAtomExWaveVoicePoolConfig wavePoolConfig;
+    CriSint32 dbasWorkSize = 0;
     CriSint32 adxPoolWorkSize = 0;
     CriSint32 wavePoolWorkSize = 0;
     std::memset(&config, 0, sizeof(config));
+    std::memset(&dbasConfig, 0, sizeof(dbasConfig));
     std::memset(&voicePoolConfig, 0, sizeof(voicePoolConfig));
     std::memset(&wavePoolConfig, 0, sizeof(wavePoolConfig));
     criAtomEx_SetDefaultConfig_ANDROID(&config);
@@ -79,6 +84,30 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
 
     criAtomEx_Initialize_ANDROID(&config, gAtomWork, workSize);
     gInitialized = true;
+
+    // D-BAS manages streaming buffers. CRI's streaming playback sequence
+    // requires a D-BAS instance before any streaming voice pool/player.
+    criAtomDbas_SetDefaultConfig(&dbasConfig);
+    dbasConfig.max_streams = kChannelCount;
+    // CI normalizes packaged ADX files to stereo-capable 48 kHz.
+    dbasConfig.max_bps = criAtom_CalculateAdxBitrate(2, 48000) * kChannelCount;
+    dbasWorkSize = criAtomDbas_CalculateWorkSize(&dbasConfig);
+    if (dbasWorkSize < 0) {
+        __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not calculate CRI D-BAS work size: %d", dbasWorkSize);
+        goto fail;
+    }
+    if (dbasWorkSize > 0) {
+        gDbasWork = std::calloc(1, static_cast<size_t>(dbasWorkSize));
+        if (gDbasWork == nullptr) {
+            __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not allocate CRI D-BAS work memory");
+            goto fail;
+        }
+    }
+    gDbasId = criAtomDbas_Create(&dbasConfig, gDbasWork, dbasWorkSize);
+    if (gDbasId == CRIATOMDBAS_ILLEGAL_ID) {
+        __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not create CRI D-BAS for six streaming channels");
+        goto fail;
+    }
 
     // SetFile() streams ADX data. A streaming ADX voice pool is mandatory:
     // without it, players can be created and Start() can return an ID while no
@@ -229,6 +258,12 @@ fail:
     }
     std::free(gAdxVoicePoolWork);
     gAdxVoicePoolWork = nullptr;
+    if (gDbasId != CRIATOMDBAS_ILLEGAL_ID) {
+        criAtomDbas_Destroy(gDbasId);
+        gDbasId = CRIATOMDBAS_ILLEGAL_ID;
+    }
+    std::free(gDbasWork);
+    gDbasWork = nullptr;
     criAtomEx_Finalize_ANDROID();
     std::free(gAtomWork);
     gAtomWork = nullptr;
@@ -295,6 +330,12 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeShutdown(JNIEnv*, jc
     }
     std::free(gAdxVoicePoolWork);
     gAdxVoicePoolWork = nullptr;
+    if (gDbasId != CRIATOMDBAS_ILLEGAL_ID) {
+        criAtomDbas_Destroy(gDbasId);
+        gDbasId = CRIATOMDBAS_ILLEGAL_ID;
+    }
+    std::free(gDbasWork);
+    gDbasWork = nullptr;
     criAtomEx_Finalize_ANDROID();
     std::free(gAtomWork);
     gAtomWork = nullptr;
