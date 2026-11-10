@@ -490,7 +490,7 @@ export function createPocketAudioController({
     }
     if (Number.isFinite(duration) && duration > 1) {
       const remainingMs = Math.max(0, (duration - current) * 1000);
-      const fadeWindowMs = Math.min(MUSIC_FADE_DURATION_MS + 420, Math.max(650, duration * 25));
+      const fadeWindowMs = Math.min(MUSIC_FADE_DURATION_MS + 250, Math.max(650, duration * 250));
       if (remainingMs <= fadeWindowMs && !endFadeStarted) {
         endFadeStarted = true;
         // Start against the current track's confirmed duration and finish with
