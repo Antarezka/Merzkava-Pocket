@@ -126,10 +126,23 @@ public final class PocketNativeBridge {
                 .putExtra("title", notificationText(title, 120))
                 .putExtra("uri", Uri.fromFile(musicFile).toString())
                 .putExtra("volume", safeVolume);
+            prefs().edit()
+                .putBoolean("pocket_native_audio_playing", false)
+                .putBoolean("pocket_native_audio_preparing", true)
+                .putString("pocket_native_audio_error", "")
+                .putString("pocket_native_audio_track", trackId)
+                .putBoolean("pocket_native_audio_user_paused", false)
+                .apply();
             if (Build.VERSION.SDK_INT >= 26) activity.startForegroundService(service);
             else activity.startService(service);
             return new JSONObject().put("ok", true).toString();
         } catch (Exception error) {
+            prefs().edit()
+                .putBoolean("pocket_native_audio_playing", false)
+                .putBoolean("pocket_native_audio_preparing", false)
+                .putString("pocket_native_audio_error",
+                    error.getMessage() == null ? "Native media service could not start." : error.getMessage())
+                .apply();
             android.util.Log.e("PocketMedia3", "Could not hand BGM to the native media service", error);
             try {
                 return new JSONObject()
@@ -188,6 +201,10 @@ public final class PocketNativeBridge {
 
     @JavascriptInterface public boolean stopPocketNativeMusic() {
         try {
+            prefs().edit()
+                .putBoolean("pocket_native_audio_playing", false)
+                .putBoolean("pocket_native_audio_preparing", false)
+                .apply();
             activity.stopService(new Intent(activity, PocketMediaPlaybackService.class));
             return true;
         } catch (Exception error) {
@@ -215,6 +232,8 @@ public final class PocketNativeBridge {
         try {
             return new JSONObject()
                 .put("playing", prefs().getBoolean("pocket_native_audio_playing", false))
+                .put("preparing", prefs().getBoolean("pocket_native_audio_preparing", false))
+                .put("error", prefs().getString("pocket_native_audio_error", ""))
                 .put("trackId", prefs().getString("pocket_native_audio_track", ""))
                 .put("cycleCount", prefs().getInt("pocket_native_audio_cycles", 0))
                 .put("userPaused", prefs().getBoolean("pocket_native_audio_user_paused", false))
