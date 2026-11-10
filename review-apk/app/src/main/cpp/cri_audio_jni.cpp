@@ -25,6 +25,8 @@ std::thread gServerThread;
 void* gAtomWork = nullptr;
 CriAtomExVoicePoolHn gAdxVoicePool = nullptr;
 CriAtomExVoicePoolHn gWaveVoicePool = nullptr;
+void* gAdxVoicePoolWork = nullptr;
+void* gWaveVoicePoolWork = nullptr;
 CriAtomExPlayerHn gPlayers[kChannelCount] = {};
 CriAtomExTweenHn gVolumeTweens[kChannelCount] = {};
 void* gPlayerWork[kChannelCount] = {};
@@ -80,7 +82,19 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
     criAtomExVoicePool_SetDefaultConfigForAdxVoicePool(&voicePoolConfig);
     voicePoolConfig.num_voices = kChannelCount;
     voicePoolConfig.player_config.streaming_flag = CRI_TRUE;
-    gAdxVoicePool = criAtomExVoicePool_AllocateAdxVoicePool(&voicePoolConfig, nullptr, 0);
+    const CriSint32 adxPoolWorkSize = criAtomExVoicePool_CalculateWorkSizeForAdxVoicePool(&voicePoolConfig);
+    if (adxPoolWorkSize < 0) {
+        __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not calculate CRI ADX voice-pool work size: %d", adxPoolWorkSize);
+        goto fail;
+    }
+    if (adxPoolWorkSize > 0) {
+        gAdxVoicePoolWork = std::calloc(1, static_cast<size_t>(adxPoolWorkSize));
+        if (gAdxVoicePoolWork == nullptr) {
+            __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not allocate CRI ADX voice-pool work memory");
+            goto fail;
+        }
+    }
+    gAdxVoicePool = criAtomExVoicePool_AllocateAdxVoicePool(&voicePoolConfig, gAdxVoicePoolWork, adxPoolWorkSize);
     if (gAdxVoicePool == nullptr) {
         __android_log_print(ANDROID_LOG_ERROR, kTag,
             "CRI could not allocate the ADX streaming voice pool (%d voices)", kChannelCount);
@@ -96,7 +110,19 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
     wavePoolConfig.player_config.streaming_flag = CRI_TRUE;
     wavePoolConfig.player_config.max_channels = 2;
     wavePoolConfig.player_config.max_sampling_rate = 192000;
-    gWaveVoicePool = criAtomExVoicePool_AllocateWaveVoicePool(&wavePoolConfig, nullptr, 0);
+    const CriSint32 wavePoolWorkSize = criAtomExVoicePool_CalculateWorkSizeForWaveVoicePool(&wavePoolConfig);
+    if (wavePoolWorkSize < 0) {
+        __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not calculate CRI Wave voice-pool work size: %d", wavePoolWorkSize);
+        goto fail;
+    }
+    if (wavePoolWorkSize > 0) {
+        gWaveVoicePoolWork = std::calloc(1, static_cast<size_t>(wavePoolWorkSize));
+        if (gWaveVoicePoolWork == nullptr) {
+            __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not allocate CRI Wave voice-pool work memory");
+            goto fail;
+        }
+    }
+    gWaveVoicePool = criAtomExVoicePool_AllocateWaveVoicePool(&wavePoolConfig, gWaveVoicePoolWork, wavePoolWorkSize);
     if (gWaveVoicePool == nullptr) {
         __android_log_print(ANDROID_LOG_ERROR, kTag,
             "CRI could not allocate the imported-WAV streaming voice pool");
@@ -185,10 +211,18 @@ fail:
         std::free(gPlayerWork[index]);
         gPlayerWork[index] = nullptr;
     }
+    if (gWaveVoicePool != nullptr) {
+        criAtomExVoicePool_Free(gWaveVoicePool);
+        gWaveVoicePool = nullptr;
+    }
+    std::free(gWaveVoicePoolWork);
+    gWaveVoicePoolWork = nullptr;
     if (gAdxVoicePool != nullptr) {
         criAtomExVoicePool_Free(gAdxVoicePool);
         gAdxVoicePool = nullptr;
     }
+    std::free(gAdxVoicePoolWork);
+    gAdxVoicePoolWork = nullptr;
     criAtomEx_Finalize_ANDROID();
     std::free(gAtomWork);
     gAtomWork = nullptr;
@@ -247,10 +281,14 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeShutdown(JNIEnv*, jc
         criAtomExVoicePool_Free(gWaveVoicePool);
         gWaveVoicePool = nullptr;
     }
+    std::free(gWaveVoicePoolWork);
+    gWaveVoicePoolWork = nullptr;
     if (gAdxVoicePool != nullptr) {
         criAtomExVoicePool_Free(gAdxVoicePool);
         gAdxVoicePool = nullptr;
     }
+    std::free(gAdxVoicePoolWork);
+    gAdxVoicePoolWork = nullptr;
     criAtomEx_Finalize_ANDROID();
     std::free(gAtomWork);
     gAtomWork = nullptr;
