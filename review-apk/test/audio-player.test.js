@@ -59,6 +59,13 @@ class FakeAudio {
     queueMicrotask(() => this.dispatch("loadedmetadata"));
   }
   finish() {
+    if (this.loop) {
+      this.currentTime = 0;
+      this.ended = false;
+      this.paused = false;
+      this.dispatch("timeupdate");
+      return;
+    }
     this.currentTime = this.duration;
     this.ended = true;
     this.paused = true;
@@ -180,7 +187,7 @@ test("placing another record changes track but never starts playback", () => {
   assert.equal(audio.getState().track, "chill");
   assert.equal(audio.getState().isPlaying, false);
   assert.equal(audio.getState().title, "chill-1a");
-  assert.equal(FakeAudio.instances[0].loop, true);
+  assert.equal(FakeAudio.instances[0].loop, false);
 });
 
 test("needle must be lowered before a newly selected track starts", async () => {
@@ -478,7 +485,7 @@ test("end fade completes and the ended event replays with fade-in in Floating Mo
   audio.enterMainMenu();
   const music=FakeAudio.instances[0];
   const noise=FakeAudio.instances.find(item=>item.src===VINYL_SURFACE_NOISE_SRC);
-  assert.equal(music.loop,true);
+  assert.equal(music.loop, false);
   assert.equal(music.playCount,1);
   await Promise.resolve();
   clock.advance(2200);
@@ -582,36 +589,30 @@ function makeAudioFadeClock() {
   };
 }
 
-test("a delayed background loop event does not start a late fade over a song already in progress", async () => {
+test("a missed ended callback is recovered when Pocket returns from the background", async () => {
   const clock = makeAudioFadeClock();
   let cycles = 0;
   const { audio } = harness({}, {
-    now: clock.now,
-    setIntervalFn: clock.setInterval,
-    clearIntervalFn: clock.clearInterval,
+    now: clock.now, setIntervalFn: clock.setInterval, clearIntervalFn: clock.clearInterval,
     onPlaybackCycle: () => { cycles += 1; }
   });
   audio.enterMainMenu();
   await flushAudioMicrotasks();
-
   const music = FakeAudio.instances[0];
+  const noise = FakeAudio.instances.find(item => item.src === VINYL_SURFACE_NOISE_SRC);
   clock.advance(2200);
-  assert.ok(Math.abs(music.volume - 0.68) < 0.001);
-
   music.currentTime = 98;
   music.dispatch("timeupdate");
-  clock.advance(1900);
-  assert.ok(music.volume < 0.68, "the end fade is underway");
-
-  // Simulate Android keeping native audio alive but delaying WebView callbacks
-  // until the next window/focus transition, twelve seconds into the new cycle.
-  music.currentTime = 12;
+  clock.advance(2200);
+  music.finishWithoutEndedEvent();
+  assert.equal(music.paused, true);
   assert.equal(audio.recoverAfterInterruption(), true);
-
-  assert.equal(cycles, 1, "the missed media loop is counted exactly once");
-  assert.ok(Math.abs(music.volume - 0.68) < 0.001,
-    "a late callback restores the current track instead of fading it after the fact");
+  await flushAudioMicrotasks();
+  assert.equal(cycles, 1, "missed end boundary is reported exactly once");
+  assert.equal(music.playCount, 2, "recovery starts next cycle if WebView dropped ended");
   assert.equal(music.paused, false);
+  assert.equal(music.currentTime, 0);
+  assert.equal(noise.paused, false, "vinyl ambience remains independent");
 });
 
 test("resuming in the middle of a track does not replay the full start fade", async () => {
@@ -636,32 +637,32 @@ test("resuming in the middle of a track does not replay the full start fade", as
     "resume at an existing media position must not drop to silence and fade back up");
 });
 
-test("native looping keeps one playback session, fades into the next cycle, and leaves vinyl noise running", async () => {
+test("BGM restarts after the real ended event and keeps vinyl ambience running", async () => {
   const clock = makeAudioFadeClock();
   let cycles = 0;
   const { audio } = harness({}, {
-    now: clock.now,
-    setIntervalFn: clock.setInterval,
-    clearIntervalFn: clock.clearInterval,
+    now: clock.now, setIntervalFn: clock.setInterval, clearIntervalFn: clock.clearInterval,
     onPlaybackCycle: () => { cycles += 1; }
   });
   audio.enterMainMenu();
   await flushAudioMicrotasks();
   const music = FakeAudio.instances[0];
   const noise = FakeAudio.instances.find(item => item.src === VINYL_SURFACE_NOISE_SRC);
-  assert.equal(music.loop, true);
+  assert.equal(music.loop, false, "BGM must allow the browser to emit ended");
+  assert.equal(noise.loop, true, "vinyl ambience remains a separate continuous loop");
   assert.equal(music.playCount, 1);
   clock.advance(2200);
   music.currentTime = 98;
   music.dispatch("timeupdate");
   clock.advance(2200);
-  assert.ok(music.volume > 0 && music.volume < 0.68,
-    "the fade-in is already aligned to the media loop boundary");
-  music.wrapToStart();
-  assert.equal(cycles, 1, "the loop boundary rotates the vinyl design once");
-  assert.equal(music.playCount, 1, "the media engine continues the same playback session");
+  assert.equal(music.volume, 0, "outgoing BGM cycle fades before restart");
+  music.finish();
+  await flushAudioMicrotasks();
+  assert.equal(cycles, 1, "completed cycle reported exactly once");
+  assert.equal(music.playCount, 2, "controller starts the next BGM cycle explicitly");
+  assert.equal(music.currentTime, 0);
   assert.equal(music.paused, false);
-  assert.equal(noise.paused, false, "the ambience track is not stopped or restarted at the loop boundary");
+  assert.equal(noise.paused, false, "independent ambience remains uninterrupted");
   clock.advance(1100);
   assert.ok(music.volume > 0 && music.volume < 0.68);
   clock.advance(1100);
@@ -674,7 +675,7 @@ test("ended event explicitly replays a completed Pocket music track",async()=>{
   await Promise.resolve();
   const music=FakeAudio.instances[0];
   const noise=FakeAudio.instances.find(item=>item.src===VINYL_SURFACE_NOISE_SRC);
-  assert.equal(music.loop,true);
+  assert.equal(music.loop, false);
   assert.equal(music.playCount,1);
   music.finish();
   await flushAudioMicrotasks();
@@ -726,7 +727,7 @@ test("BGM fades out at track end and fades back in after the ended event", async
   audio.enterMainMenu();
   const music = FakeAudio.instances[0];
   const noise = FakeAudio.instances.find(item => item.src === VINYL_SURFACE_NOISE_SRC);
-  assert.equal(music.loop, true);
+  assert.equal(music.loop, false);
   assert.equal(music.volume, 0);
   await Promise.resolve();
 

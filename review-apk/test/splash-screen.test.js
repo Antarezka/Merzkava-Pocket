@@ -106,7 +106,7 @@ test("reduced-motion preference keeps the uploaded character still", () => {
 
 test("splash artwork and every line of copy are centered in the full viewport", () => {
   const styles = readFileSync(new URL("../web/src/splash-screen/splash-screen.css", import.meta.url), "utf8");
-  assert.match(styles, /\\.splash-stage\\s*\\{[^}]*height:\\s*100dvh;/s);
-  assert.match(styles, /\\.splash-vignette,\\s*\\.splash-light\\s*\\{[^}]*position:\\s*absolute;[^}]*inset:\\s*0;/s);
-  assert.match(styles, /\\.splash-layout\\s*\\{[^}]*position:\\s*absolute;[^}]*inset:\\s*0;[^}]*display:\\s*flex;[^}]*justify-content:\\s*center;/s);
+  assert.match(styles, /\.splash-stage\s*\{[^}]*height:\s*100dvh;/s);
+  assert.match(styles, /\.splash-vignette,\s*\.splash-light\s*\{[^}]*position:\s*absolute;[^}]*inset:\s*0;/s);
+  assert.match(styles, /\.splash-layout\s*\{[^}]*position:\s*absolute;[^}]*inset:\s*0;[^}]*display:\s*flex;[^}]*justify-content:\s*center;/s);
 });
