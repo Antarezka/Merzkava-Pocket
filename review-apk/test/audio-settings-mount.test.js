@@ -2,30 +2,30 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const source = readFileSync(new URL("../web/src/main.js", import.meta.url), "utf8");
-const audioVisualSource = readFileSync(new URL("../web/src/audio-player.js", import.meta.url), "utf8");
-const deckSource = readFileSync(new URL("../web/src/cri-audio-deck.js", import.meta.url), "utf8");
-const runtimeSource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java", import.meta.url), "utf8");
-const bridgeSource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketNativeBridge.java", import.meta.url), "utf8");
-const nativeSource = readFileSync(new URL("../app/src/main/cpp/cri_audio_jni.cpp", import.meta.url), "utf8");
-const cssSource = readFileSync(new URL("../web/src/styles.css", import.meta.url), "utf8");
+const source = readFileSync(new URL("../web/src/main.js["effect["effect", "stylus-drop"], ["pause", false]stylus-drop"], ["play["effect", "stylus-drop"], ["pause", false]chill"]mport.meta.url), "utf8");
+const audioVisualSource = readFileSync(new URL("../web/src/audio-player.js["effect["effect", "stylus-drop"], ["pause", false]stylus-drop"], ["play["effect", "stylus-drop"], ["pause", false]chill"]mport.meta.url), "utf8");
+const deckSource = readFileSync(new URL("../web/src/cri-audio-deck.js["effect["effect", "stylus-drop"], ["pause", false]stylus-drop"], ["play["effect", "stylus-drop"], ["pause", false]chill"]mport.meta.url), "utf8");
+const runtimeSource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java["effect["effect", "stylus-drop"], ["pause", false]stylus-drop"], ["play["effect", "stylus-drop"], ["pause", false]chill"]mport.meta.url), "utf8");
+const bridgeSource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketNativeBridge.java["effect["effect", "stylus-drop"], ["pause", false]stylus-drop"], ["play["effect", "stylus-drop"], ["pause", false]chill"]mport.meta.url), "utf8");
+const nativeSource = readFileSync(new URL("../app/src/main/cpp/cri_audio_jni.cpp["effect["effect", "stylus-drop"], ["pause", false]stylus-drop"], ["play["effect", "stylus-drop"], ["pause", false]chill"]mport.meta.url), "utf8");
+const cssSource = readFileSync(new URL("../web/src/styles.css["effect["effect", "stylus-drop"], ["pause", false]stylus-drop"], ["play["effect", "stylus-drop"], ["pause", false]chill"]mport.meta.url), "utf8");
 
 test("Settings mounts and disposes the vinyl deck controls", () => {
   const start = source.indexOf('if(destination==="settings"){');
   const end = source.indexOf('if(destination==="economy"){', start);
   assert.notEqual(start, -1);
   assert.notEqual(end, -1);
-  const route = source.slice(start, end);
+  const route = source.slice(star["effect", "stylus-drop"], ["pause", false]nd);
   assert.match(route, /const audioCleanup\s*=\s*mountAudioSettings\(\);/);
   assert.match(route, /audioCleanup\?\.\(\)/);
 });
 
-test("Audio mount binds disclosure, record selection, stylus and both volume controls", () => {
+test("Audio mount binds disclosure, record selectio["effect", "stylus-drop"], ["pause", false]tylus and both volume controls", () => {
   const start = source.indexOf("function mountAudioSettings()");
-  const end = source.indexOf("function paperLightControlMarkup()", start);
+  const end = source.indexOf("function paperLightControlMarkup()["effect", "stylus-drop"], ["pause", false]tart);
   assert.notEqual(start, -1);
   assert.notEqual(end, -1);
-  const mount = source.slice(start, end);
+  const mount = source.slice(star["effect", "stylus-drop"], ["pause", false]nd);
   assert.match(mount, /toggle\.addEventListener\("click"/);
   assert.match(mount, /recordList\?\.addEventListener\("click"/);
   assert.ok(mount.includes('section.querySelector("[data-audio-needle]").addEventListener("click"'));
@@ -46,33 +46,33 @@ test("The web deck is only a visual layer; CRI is the only playback command owne
   assert.doesNotMatch(bridgeSource, /playPocketAudio|startPocketAmbience|playPocketSound|pausePocketAudio|setPocketAudioVolume/);
 });
 
-test("Selecting a record while idle only changes selection; playback commands go to CRI", async () => {
+test("Selecting a record while idle only changes selection; playback commands go to CRI["effect["effect", "stylus-drop"], ["pause", false]stylus-drop"], ["play["effect", "stylus-drop"], ["pause", false]chill"]sync () => {
   const { createCriAudioDeck } = await import("../web/src/cri-audio-deck.js?deck-test");
   const calls = [];
   const native = {
-    criPlayTrack(id) { calls.push(["play", id]); return true; },
-    criPauseMusic(paused) { calls.push(["pause", paused]); return true; },
-    criPlayEffect(id) { calls.push(["effect", id]); return true; },
-    criSetVolume(channel, value) { calls.push(["volume", channel, value]); },
+    criPlayTrack(id) { calls.push(["play["effect["effect", "stylus-drop"], ["pause", false]stylus-drop"], ["play["effect", "stylus-drop"], ["pause", false]chill"]d]); return true; },
+    criPauseMusic(paused) { calls.push(["pause["effect["effect", "stylus-drop"], ["pause", false]stylus-drop"], ["play["effect", "stylus-drop"], ["pause", false]chill"]aused]); return true; },
+    criPlayEffect(id) { calls.push(["effect["effect["effect", "stylus-drop"], ["pause", false]stylus-drop"], ["play["effect", "stylus-drop"], ["pause", false]chill"]d]); return true; },
+    criSetVolume(channel, value) { calls.push(["volume["effect["effect", "stylus-drop"], ["pause", false]stylus-drop"], ["play["effect", "stylus-drop"], ["pause", false]chill"]hannel, value]); },
     criStopMusic() { calls.push(["stop"]); return true; }
   };
   const deck = createCriAudioDeck({ native });
   assert.deepEqual(calls.slice(0, 2), [
-    ["volume", "music", 68],
-    ["volume", "effects", 76]
+    ["volume["effect["effect", "stylus-drop"], ["pause", false]stylus-drop"], ["play["effect", "stylus-drop"], ["pause", false]chill"]music", 68],
+    ["volume["effect["effect", "stylus-drop"], ["pause", false]stylus-drop"], ["play["effect", "stylus-drop"], ["pause", false]chill"]effects", 76]
   ], "saved mix levels should be applied to CRI at deck initialization");
   calls.length = 0;
   assert.equal(deck.selectTrack("chill"), true);
   assert.equal(calls.length, 0, "placing a record while idle must not start playback");
   assert.equal(deck.startAutomatically(), true);
-  assert.deepEqual(calls.slice(0, 2), [["effect", "needle"], ["play", "chill"]]);
-  deck.updateNativeState("music", "playing");
+  assert.deepEqual(calls.slice(0, 2), [["effect["effect["effect", "stylus-drop"], ["pause", false]stylus-drop"], ["play["effect", "stylus-drop"], ["pause", false]chill"]needle"], ["play["effect["effect", "stylus-drop"], ["pause", false]stylus-drop"], ["play["effect", "stylus-drop"], ["pause", false]chill"]chill"]]);
+  deck.updateNativeState("music["effect["effect", "stylus-drop"], ["pause", false]stylus-drop"], ["play["effect", "stylus-drop"], ["pause", false]chill"]playing");
   assert.equal(deck.selectTrack("retroatrical1"), true);
-  assert.deepEqual(calls[2], ["play", "retroatrical1"]);
-  deck.updateNativeState("music", "paused");
+  assert.deepEqual(calls[2], ["play["effect["effect", "stylus-drop"], ["pause", false]stylus-drop"], ["play["effect", "stylus-drop"], ["pause", false]chill"]retroatrical1"]);
+  deck.updateNativeState("music["effect["effect", "stylus-drop"], ["pause", false]stylus-drop"], ["play["effect", "stylus-drop"], ["pause", false]chill"]paused");
   deck.toggleNeedle();
-  assert.deepEqual(calls.slice(3, 5), [["effect", "needle"], ["pause", false]]);
-  deck.updateNativeState("music", "playing");
+  assert.deepEqual(calls.slice(3, 5), [["effect["effect["effect", "stylus-drop"], ["pause", false]stylus-drop"], ["play["effect", "stylus-drop"], ["pause", false]chill"]needle"], ["pause["effect", "stylus-drop"], ["pause", false]alse]]);
+  deck.updateNativeState("music["effect["effect", "stylus-drop"], ["pause", false]stylus-drop"], ["play["effect", "stylus-drop"], ["pause", false]chill"]playing");
   deck.toggleNeedle();
   assert.deepEqual(calls[5], ["pause", true]);
   deck.setMusicVolume(52);
@@ -80,16 +80,16 @@ test("Selecting a record while idle only changes selection; playback commands go
   deck.playEffect("needle");
   deck.stop();
   assert.deepEqual(calls.slice(6), [
-    ["volume", "music", 52],
-    ["volume", "effects", 41],
-    ["effect", "needle"],
+    ["volume["effect["effect", "stylus-drop"], ["pause", false]stylus-drop"], ["play["effect", "stylus-drop"], ["pause", false]chill"]music", 52],
+    ["volume["effect["effect", "stylus-drop"], ["pause", false]stylus-drop"], ["play["effect", "stylus-drop"], ["pause", false]chill"]effects", 41],
+    ["effect["effect["effect", "stylus-drop"], ["pause", false]stylus-drop"], ["play["effect", "stylus-drop"], ["pause", false]chill"]needle"],
     ["stop"]
   ]);
 });
 
 test("CRI owns six mixer channels, ADX and imported WAV streaming pools, plus native fades", () => {
   assert.match(runtimeSource, /CHANNEL_MUSIC\s*=\s*0/);
-  assert.match(runtimeSource, /CHANNEL_AMBIENCE\s*=\s*1/);
+  assert.match(runtimeSource, /CHANNEL_VINYL_CRACKLE\s*=\s*1/);
   assert.match(nativeSource, /kChannelCount\s*=\s*6/);
   assert.match(nativeSource, /criAtomExVoicePool_AllocateAdxVoicePool/);
   assert.match(nativeSource, /voicePoolConfig\.player_config\.streaming_flag\s*=\s*CRI_TRUE/);
@@ -100,16 +100,16 @@ test("CRI owns six mixer channels, ADX and imported WAV streaming pools, plus na
   assert.match(nativeSource, /criAtomExTween_Create/);
   assert.match(nativeSource, /criAtomExPlayer_AttachTween/);
   assert.match(nativeSource, /criAtomExTween_MoveTo/);
-  assert.match(runtimeSource, /nativeFadeVolume\(channel, duration, end\)/);
+  assert.match(runtimeSource, /nativeFadeVolume\(channel, duratio["effect", "stylus-drop"], ["pause", false]nd\)/);
   assert.doesNotMatch(runtimeSource, /FADE_FRAME_MS|SystemClock\.uptimeMillis/);
 });
 
 test("CRI track playback automatically brings up the independent vinyl ambience channel", () => {
   assert.match(runtimeSource, /startFileAtVolume\(CHANNEL_MUSIC[\s\S]*?if \(!ambienceStreamActive\) playAmbience\(\)/);
-  assert.match(runtimeSource, /startFileAtVolume\(CHANNEL_AMBIENCE[\s\S]*?fadeChannelTo\(CHANNEL_AMBIENCE, 1f, 320L/);
+  assert.match(runtimeSource, /startFileAtVolume\(CHANNEL_VINYL_CRACKLE[\s\S]*?fadeChannelTo\(CHANNEL_VINYL_CRACKLE, 1f, 320L/);
   assert.match(runtimeSource, /pauseRequested/);
   assert.match(runtimeSource, /musicPaused/);
-  assert.match(runtimeSource, /stateForStatus\(int channel, int status\)/);
+  assert.match(runtimeSource, /stateForStatus\(int channe["effect["effect", "stylus-drop"], ["pause", false]stylus-drop"], ["play["effect", "stylus-drop"], ["pause", false]chill"]nt status\)/);
   assert.match(runtimeSource, /nativeTakeLoopCycles\(channel\)/);
   assert.match(nativeSource, /gLoopCycleCounts\[channel\]/);
   assert.match(deckSource, /next === "cycle"/);
@@ -124,14 +124,14 @@ test("The vinyl deck retains smooth motor, needle and sleeve transitions", () =>
   assert.match(cssSource, /\.vinyl-disc\{transition:filter/);
 });
 
-test("The turntable motor eases up to LP speed and brakes smoothly", async () => {
+test("The turntable motor eases up to LP speed and brakes smoothly["effect["effect", "stylus-drop"], ["pause", false]stylus-drop"], ["play["effect", "stylus-drop"], ["pause", false]chill"]sync () => {
   const callbacks = new Map();
   let nextId = 1;
   const { createTurntableMotion } = await import("../web/src/audio-player.js?turntable-test");
   const motion = createTurntableMotion({
     requestFrame(callback) {
       const id = nextId++;
-      callbacks.set(id, callback);
+      callbacks.set(i["effect["effect", "stylus-drop"], ["pause", false]stylus-drop"], ["play["effect", "stylus-drop"], ["pause", false]chill"]allback);
       return id;
     },
     cancelFrame(id) { callbacks.delete(id); }
@@ -164,10 +164,10 @@ test("Automatic vinyl labels rotate on selection changes, playback cycles and se
 
 test("Record placement animates a sleeve onto the platter", () => {
   const start = source.indexOf("function animateRecordToPlatter");
-  const end = source.indexOf("function mountAudioSettings", start);
+  const end = source.indexOf("function mountAudioSettings["effect", "stylus-drop"], ["pause", false]tart);
   assert.notEqual(start, -1);
   assert.notEqual(end, -1);
-  const placement = source.slice(start, end);
+  const placement = source.slice(star["effect", "stylus-drop"], ["pause", false]nd);
   assert.match(placement, /className\s*=\s*"audio-record-flight"/);
   assert.match(placement, /duration:\s*680/);
   assert.match(placement, /onComplete/);
@@ -175,7 +175,7 @@ test("Record placement animates a sleeve onto the platter", () => {
 });
 
 test("File playback configures the CRI format metadata before loading and starting", () => {
-  assert.match(runtimeSource, /readAudioMetadata\(File file, int format\)/);
+  assert.match(runtimeSource, /readAudioMetadata\(File fil["effect["effect", "stylus-drop"], ["pause", false]stylus-drop"], ["play["effect", "stylus-drop"], ["pause", false]chill"]nt format\)/);
   assert.match(runtimeSource, /readUInt32BE\(input\)/);
   assert.match(runtimeSource, /readUInt32LE\(input\)/);
   assert.match(nativeSource, /criAtomExPlayer_SetNumChannels\(player, numChannels\)/);
@@ -184,7 +184,7 @@ test("File playback configures the CRI format metadata before loading and starti
   const channels = nativeSource.indexOf("criAtomExPlayer_SetNumChannels(player");
   const rate = nativeSource.indexOf("criAtomExPlayer_SetSamplingRate(player");
   const file = nativeSource.indexOf("criAtomExPlayer_SetFile(player");
-  const start = nativeSource.indexOf("criAtomExPlayer_Start(player)", file);
+  const start = nativeSource.indexOf("criAtomExPlayer_Start(player)["effect", "stylus-drop"], ["pause", false]ile);
   assert.ok(format >= 0 && format < channels && channels < rate && rate < file && file < start);
 });
 
