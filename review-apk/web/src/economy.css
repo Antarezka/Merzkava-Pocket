@@ -169,3 +169,18 @@
 .econ-section-head p{max-width:58%;margin:0;color:var(--muted);font:8px/1.45 Georgia,serif;text-align:right}
 .econ-section-head+.econ-toolbar{margin-top:0}
 @media(max-width:420px){.econ-section-head{padding:10px 10px 9px}.econ-section-head h2{font-size:19px}.econ-section-head>div{display:grid;gap:3px}.econ-section-head p{max-width:none;text-align:left}}
+
+
+/* Keep the selected Economy section title and its search controls in a dedicated sticky layer. */
+.econ-tabs{top:env(safe-area-inset-top);z-index:32}
+.econ-search-dock{
+  position:sticky;top:max(176px,calc(env(safe-area-inset-top) + 145px));z-index:28;
+  display:grid;gap:7px;margin:0 -8px 12px;padding:8px 8px 10px;
+  border:1px solid #a98c5480;border-top-color:var(--lime);
+  background:var(--bg);box-shadow:0 10px 24px #0005;isolation:isolate;
+}
+.econ-search-dock .econ-section-head{margin:0;background:linear-gradient(110deg,var(--surface2),var(--surface))}
+.econ-search-dock .econ-toolbar,.econ-search-dock .econ-category-row{margin:0}
+.econ-search-dock .econ-toolbar input,.econ-search-dock .econ-category-row select{width:100%}
+.econ-search-dock+.econ-list-title{margin-top:0}
+@media(max-height:620px){.econ-search-dock{top:max(166px,calc(env(safe-area-inset-top) + 135px));gap:5px;padding:6px}}
