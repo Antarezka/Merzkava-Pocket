@@ -1,0 +1,71 @@
+name: CRI SDK private inspection
+on:
+  push:
+    branches:
+      - fix/build239-manual-audio-floating-fox-splash
+    paths:
+      - .github/workflows/cri-sdk-private-check.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Pocket
+        uses: actions/checkout@v4
+      - name: Download private CRI SDK using repository-scoped token
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.CRI_SDK_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "::error::CRI_SDK_READ_TOKEN is unavailable to this workflow."
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/cri-sdk"
+          gh release download cri-sdk-temp \
+            --repo Antarezka/open-innovation-lab \
+            --pattern "cri_adx2le_sdk_v2.31.01.zip" \
+            --dir "$RUNNER_TEMP/cri-sdk" \
+            --clobber
+          SDK_ZIP="$RUNNER_TEMP/cri-sdk/cri_adx2le_sdk_v2.31.01.zip"
+          test -s "$SDK_ZIP"
+          EXPECTED="a8996d1096ecab760c1fedd5a32a7bcb5013c1894bd555d19c6b33f765ccc5b4"
+          echo "$EXPECTED  $SDK_ZIP" | sha256sum --check -
+          unzip -q "$SDK_ZIP" -d "$RUNNER_TEMP/cri-sdk/unpacked"
+          echo "SDK download and SHA-256 verification succeeded."
+          echo "SDK bytes: $(stat -c%s "$SDK_ZIP")"
+      - name: Inventory Android libraries, samples, headers and format support
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/cri-sdk/unpacked"
+          REPORT="$RUNNER_TEMP/cri-sdk-report.txt"
+          : > "$REPORT"
+          {
+            echo "=== FILE INVENTORY ==="
+            find "$ROOT" -type f -printf '%P | %s bytes\n' | sort
+            echo
+            echo "=== NATIVE LIBRARY FILE TYPES ==="
+            while IFS= read -r -d '' file; do
+              file "$file"
+              if file "$file" | grep -q ELF; then
+                readelf -h "$file" | grep -E 'Class:|Machine:'
+                readelf -d "$file" 2>/dev/null | grep NEEDED || true
+              fi
+            done < <(find "$ROOT" -type f \( -name '*.so' -o -name '*.a' -o -name '*.aar' -o -name '*.jar' \) -print0)
+            echo
+            echo "=== SDK DOCUMENTATION / API MATCHES ==="
+            grep -RniE --include='*.md' --include='*.txt' --include='*.html' --include='*.xml' --include='*.h' --include='*.hpp' --include='*.java' --include='*.kt' --include='*.mk' --include='*.gradle' \
+              'Android|arm64-v8a|armeabi-v7a|x86_64|ADX|HCA|HCA-MX|CRIWARE|CriAtom|MP3|OGG|WAV|decoder|license|license key' "$ROOT" | head -n 1800 || true
+          } | tee "$REPORT"
+          cp "$REPORT" "$GITHUB_WORKSPACE/cri-sdk-report.txt"
+      - name: Upload SDK inventory report (no SDK binaries)
+        uses: actions/upload-artifact@v4
+        with:
+          name: cri-sdk-v2.31.01-inventory
+          path: cri-sdk-report.txt
+          if-no-files-found: error
+          retention-days: 7
