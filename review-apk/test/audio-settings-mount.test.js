@@ -3,12 +3,14 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const source = readFileSync(new URL("../web/src/main.js", import.meta.url), "utf8");
-const audioSource = readFileSync(new URL("../web/src/audio-player.js", import.meta.url), "utf8");
+const audioVisualSource = readFileSync(new URL("../web/src/audio-player.js", import.meta.url), "utf8");
+const deckSource = readFileSync(new URL("../web/src/cri-audio-deck.js", import.meta.url), "utf8");
 const runtimeSource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java", import.meta.url), "utf8");
+const bridgeSource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketNativeBridge.java", import.meta.url), "utf8");
 const nativeSource = readFileSync(new URL("../app/src/main/cpp/cri_audio_jni.cpp", import.meta.url), "utf8");
 const cssSource = readFileSync(new URL("../web/src/styles.css", import.meta.url), "utf8");
 
-test("Settings mounts and disposes the Audio controls", () => {
+test("Settings mounts and disposes the vinyl deck controls", () => {
   const start = source.indexOf('if(destination==="settings"){');
   const end = source.indexOf('if(destination==="economy"){', start);
   assert.notEqual(start, -1);
@@ -18,7 +20,7 @@ test("Settings mounts and disposes the Audio controls", () => {
   assert.match(route, /audioCleanup\?\.\(\)/);
 });
 
-test("Audio mount binds disclosure, record selection, stylus and volume controls", () => {
+test("Audio mount binds disclosure, record selection, stylus and both volume controls", () => {
   const start = source.indexOf("function mountAudioSettings()");
   const end = source.indexOf("function paperLightControlMarkup()", start);
   assert.notEqual(start, -1);
@@ -31,33 +33,93 @@ test("Audio mount binds disclosure, record selection, stylus and volume controls
   assert.ok(mount.includes('section.querySelector("[data-effects-volume]").addEventListener("input"'));
 });
 
-test("BGM and vinyl surface noise use separate CRI channels", () => {
+test("The web deck is only a visual layer; CRI is the only playback command owner", () => {
+  assert.match(source, /import \{ createCriAudioDeck \} from "\.\/cri-audio-deck\.js"/);
+  assert.match(source, /criAudioDeck\.startAutomatically\(\)/);
+  assert.doesNotMatch(source, /createPocketAudioController|playPocketAudio|startPocketAmbience|setPocketAudioVolume/);
+  assert.doesNotMatch(audioVisualSource, /createPocketAudioController|playPocketAudio|AudioContext|new Audio\s*\(/);
+  assert.match(deckSource, /native\.criPlayTrack\(selectedTrack\)/);
+  assert.match(deckSource, /native\?\.criPauseMusic/);
+  assert.match(bridgeSource, /criPlayTrack/);
+  assert.match(bridgeSource, /criPauseMusic/);
+  assert.match(bridgeSource, /criPlayEffect/);
+  assert.doesNotMatch(bridgeSource, /playPocketAudio|startPocketAmbience|playPocketSound|pausePocketAudio|setPocketAudioVolume/);
+});
+
+test("Selecting a record while idle only changes selection; playback commands go to CRI", async () => {
+  const { createCriAudioDeck } = await import("../web/src/cri-audio-deck.js?deck-test");
+  const calls = [];
+  const native = {
+    criPlayTrack(id) { calls.push(["play", id]); return true; },
+    criPauseMusic(paused) { calls.push(["pause", paused]); return true; },
+    criPlayEffect(id) { calls.push(["effect", id]); return true; },
+    criSetVolume(channel, value) { calls.push(["volume", channel, value]); },
+    criStopMusic() { calls.push(["stop"]); return true; }
+  };
+  const deck = createCriAudioDeck({ native });
+  assert.equal(deck.selectTrack("chill"), true);
+  assert.equal(calls.length, 0, "placing a record while idle must not start playback");
+  assert.equal(deck.startAutomatically(), true);
+  assert.deepEqual(calls[0], ["play", "chill"]);
+  deck.updateNativeState("music", "playing");
+  assert.equal(deck.selectTrack("retroatrical1"), true);
+  assert.deepEqual(calls[1], ["play", "retroatrical1"]);
+  deck.updateNativeState("music", "paused");
+  deck.toggleNeedle();
+  assert.deepEqual(calls[2], ["pause", false]);
+  deck.updateNativeState("music", "playing");
+  deck.toggleNeedle();
+  assert.deepEqual(calls[3], ["pause", true]);
+  deck.setMusicVolume(52);
+  deck.setEffectsVolume(41);
+  deck.playEffect("needle");
+  deck.stop();
+  assert.deepEqual(calls.slice(4), [
+    ["volume", "music", 52],
+    ["volume", "effects", 41],
+    ["effect", "needle"],
+    ["stop"]
+  ]);
+});
+
+test("CRI owns six mixer channels, ADX and imported WAV streaming pools, plus native fades", () => {
   assert.match(runtimeSource, /CHANNEL_MUSIC\s*=\s*0/);
   assert.match(runtimeSource, /CHANNEL_AMBIENCE\s*=\s*1/);
-  assert.match(runtimeSource, /playTrack[\s\S]*fadeChannelTo\(CHANNEL_MUSIC/);
-  assert.match(runtimeSource, /playAmbience[\s\S]*fadeChannelTo\(CHANNEL_AMBIENCE/);
   assert.match(nativeSource, /kChannelCount\s*=\s*6/);
-  assert.match(audioSource, /native\.startPocketAmbience\?\.\(\)/);
+  assert.match(nativeSource, /criAtomExVoicePool_AllocateAdxVoicePool/);
+  assert.match(nativeSource, /voicePoolConfig\.player_config\.streaming_flag\s*=\s*CRI_TRUE/);
+  assert.match(nativeSource, /criAtomExVoicePool_AllocateWaveVoicePool/);
+  assert.match(nativeSource, /wavePoolConfig\.player_config\.streaming_flag\s*=\s*CRI_TRUE/);
+  assert.match(nativeSource, /criAtomExVoicePool_Free\(gWaveVoicePool\)/);
+  assert.match(nativeSource, /criAtomExVoicePool_Free\(gAdxVoicePool\)/);
+  assert.match(nativeSource, /criAtomExTween_Create/);
+  assert.match(nativeSource, /criAtomExPlayer_AttachTween/);
+  assert.match(nativeSource, /criAtomExTween_MoveTo/);
+  assert.match(runtimeSource, /nativeFadeVolume\(channel, duration, end\)/);
+  assert.doesNotMatch(runtimeSource, /FADE_FRAME_MS|SystemClock\.uptimeMillis/);
 });
 
-test("CRI playback, pause, stop and focus ducking use per-channel fades", () => {
-  assert.match(runtimeSource, /private void fadeChannelTo\(/);
-  assert.match(runtimeSource, /fadeChannelTo\(CHANNEL_MUSIC, 0f, 170L/);
-  assert.match(runtimeSource, /fadeChannelTo\(CHANNEL_AMBIENCE, 0f, 170L/);
-  assert.match(runtimeSource, /fadeChannelTo\(CHANNEL_MUSIC, volume\(musicVolume\), 230L/);
-  assert.match(runtimeSource, /fadeChannelTo\(CHANNEL_AMBIENCE, volume\(effectsVolume\), 280L/);
-  assert.match(runtimeSource, /fadeChannelTo\(CHANNEL_MUSIC, volume\(musicVolume\) \* 0\.25f/);
+test("CRI track playback automatically brings up the independent vinyl ambience channel", () => {
+  assert.match(runtimeSource, /startFileAtVolume\(CHANNEL_MUSIC[\s\S]*?if \(!ambienceStreamActive\) playAmbience\(\)/);
+  assert.match(runtimeSource, /startFileAtVolume\(CHANNEL_AMBIENCE[\s\S]*?fadeChannelTo\(CHANNEL_AMBIENCE, 1f, 320L/);
+  assert.match(runtimeSource, /pauseRequested/);
+  assert.match(runtimeSource, /musicPaused/);
+  assert.match(runtimeSource, /stateForStatus\(int channel, int status\)/);
+  assert.match(runtimeSource, /nativeTakeLoopCycles\(channel\)/);
+  assert.match(nativeSource, /gLoopCycleCounts\[channel\]/);
+  assert.match(deckSource, /next === "cycle"/);
 });
 
-test("the vinyl deck retains smooth motor and stylus transitions", () => {
-  assert.match(audioSource, /const timeConstant = targetSpeed > speed \? 0\.48 : 0\.32/);
-  assert.match(audioSource, /targetSpeed = playing \? 200 : 0/);
+test("The vinyl deck retains smooth motor, needle and sleeve transitions", () => {
+  assert.match(audioVisualSource, /const timeConstant = targetSpeed > speed \? 0\.48 : 0\.32/);
+  assert.match(audioVisualSource, /targetSpeed = playing \? 200 : 0/);
   assert.match(cssSource, /\.turntable-needle\{[\s\S]*transition:transform/);
   assert.match(cssSource, /\.audio-player\.is-playing \.turntable-needle/);
+  assert.match(cssSource, /\.audio-player\.is-paused/);
   assert.match(cssSource, /\.vinyl-disc\{transition:filter/);
 });
 
-test("the turntable motor eases up to LP speed and brakes smoothly", async () => {
+test("The turntable motor eases up to LP speed and brakes smoothly", async () => {
   const callbacks = new Map();
   let nextId = 1;
   const { createTurntableMotion } = await import("../web/src/audio-player.js?turntable-test");
@@ -89,12 +151,13 @@ test("the turntable motor eases up to LP speed and brakes smoothly", async () =>
   motion.dispose();
 });
 
-test("automatic vinyl labels rotate on record changes and preserve manual selections", () => {
+test("Automatic vinyl labels rotate on selection changes, playback cycles and season starts", () => {
   assert.match(source, /onPlaybackCycle:\s*\(\)\s*=>\s*\{\s*if\s*\(vinylDesigns\.getState\(\)\.mode\s*===\s*"auto"\)\s*vinylDesigns\.rotateRandom\("track-end"\);\s*\}/);
   assert.match(source, /if\s*\(vinylDesigns\.getState\(\)\.mode\s*===\s*"auto"\)\s*vinylDesigns\.rotateRandom\("track-change"\)/);
+  assert.match(source, /vinylDesigns\.onSeasonStart\(seasonKey\)/);
 });
 
-test("record placement animates a vinyl sleeve onto the platter", () => {
+test("Record placement animates a sleeve onto the platter", () => {
   const start = source.indexOf("function animateRecordToPlatter");
   const end = source.indexOf("function mountAudioSettings", start);
   assert.notEqual(start, -1);
@@ -106,14 +169,7 @@ test("record placement animates a vinyl sleeve onto the platter", () => {
   assert.match(cssSource, /\.audio-record-flight\s*\{/);
 });
 
-test("CRI fade ramp uses timed smoothstep updates and isolates BGM from ambience", () => {
-  assert.match(runtimeSource, /FADE_FRAME_MS\s*=\s*20L/);
-  assert.match(runtimeSource, /linear\s*\*\s*linear\s*\*\s*\(3f\s*-\s*2f\s*\*\s*linear\)/);
-  assert.match(runtimeSource, /Fade out only BGM[\s\S]*vinyl ambience channel is independent/);
-  assert.match(runtimeSource, /fadeChannelTo\(CHANNEL_MUSIC,\s*volume\(musicVolume\),\s*240L/);
-  assert.match(runtimeSource, /fadeChannelTo\(CHANNEL_AMBIENCE,\s*volume\(effectsVolume\),\s*320L/);
-});
-test("CRI file playback reads ADX/WAV metadata and configures voice selection before SetFile", () => {
+test("File playback configures the CRI format metadata before loading and starting", () => {
   assert.match(runtimeSource, /readAudioMetadata\(File file, int format\)/);
   assert.match(runtimeSource, /readUInt32BE\(input\)/);
   assert.match(runtimeSource, /readUInt32LE\(input\)/);
@@ -127,15 +183,16 @@ test("CRI file playback reads ADX/WAV metadata and configures voice selection be
   assert.ok(format >= 0 && format < channels && channels < rate && rate < file && file < start);
 });
 
-test("CRI waits for asynchronous STOP before replacing a file and loops retained file sources", () => {
+test("CRI waits for STOP before replacing a stream and restarts looped tracks natively", () => {
   assert.match(nativeSource, /CRIATOMEXPLAYER_STATUS_STOP/);
   assert.match(nativeSource, /Timed out waiting for CRI player STOP/);
   assert.match(nativeSource, /status == CRIATOMEXPLAYER_STATUS_PLAYEND && gLoopEnabled\[channel\]/);
-  assert.match(nativeSource, /SetDataRequestCallback\(player, nullptr, nullptr\)/);
+  assert.match(nativeSource, /criAtomExPlayer_SetDataRequestCallback\(player, nullptr, nullptr\)/);
 });
 
-test("CRI server pump advances at a frame-rate cadence for the six player channels", () => {
+test("CRI server pump and JavaScript UI use one native status stream", () => {
   assert.match(nativeSource, /chrono::milliseconds\(16\)/);
   assert.match(nativeSource, /six isolated players and a 60 Hz server pump/);
   assert.match(nativeSource, /CriAtomExPlayerHn gPlayers\[kChannelCount\]/);
+  assert.match(source, /activeTurntableMotion\?\.setPlaying\(state\.isPlaying/);
 });
