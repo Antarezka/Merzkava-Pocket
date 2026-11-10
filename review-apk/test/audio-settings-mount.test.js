@@ -66,7 +66,7 @@ test("Selecting a record while idle only selects it; active playback changes use
   assert.equal(deck.selectTrack("chill"), true);
   assert.equal(calls.length, 0, "placing a record while idle must not start playback");
   assert.equal(deck.startAutomatically(), true);
-  assert.deepEqual(calls.slice(0, 2), [["effect", "stylus-drop"], ["play", "chill"]]);
+  assert.deepEqual(calls, [["play", "chill"]], "automatic BGM start must not fake a visible stylus action");
   deck.updateNativeState("music", "playing");
   assert.equal(deck.selectTrack("retroatrical1"), true);
   assert.deepEqual(calls[2], ["play", "retroatrical1"]);
