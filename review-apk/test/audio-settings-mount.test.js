@@ -31,12 +31,13 @@ test("Audio UI controls are presentation and user-intent adapters only", () => {
   assert.ok(mount.includes('section.querySelector("[data-audio-needle]").addEventListener("click"'));
   assert.ok(mount.includes('section.querySelector("[data-music-volume]").addEventListener("input"'));
   assert.ok(mount.includes('section.querySelector("[data-effects-volume]").addEventListener("input"'));
+  assert.ok(mount.includes('section.querySelector("[data-ambience-volume]").addEventListener("input"'));
   assert.doesNotMatch(mount, /AudioContext|new Audio\s*\(|\.play\(\)/);
 });
 
 test("Only CRI owns playback; the web layer has no parallel audio engine", () => {
   assert.match(source, /import \{ createPocketAudioDirector \} from "\.\/pocket-audio-director\.js"/);
-  assert.match(source, /criAudioDeck\.startAutomatically\(\)/);
+  assert.match(source, /audioDirector\.startAutomatically\(\)/);
   assert.doesNotMatch(source, /createPocketAudioController|playPocketAudio|startPocketAmbience|setPocketAudioVolume/);
   assert.doesNotMatch(audioVisualSource, /AudioContext|webkitAudioContext|new Audio\s*\(|createElement\s*\(\s*["']audio/);
   assert.match(deckSource, /native\.criPlayTrack\(selectedTrack\)/);
@@ -70,21 +71,21 @@ test("Selecting a record while idle only selects it; active playback changes use
   assert.equal(deck.startAutomatically(), true);
   assert.deepEqual(calls, [["play", "chill"]], "automatic BGM start must not fake a visible stylus action");
   deck.updateNativeState("music", "playing");
-  assert.deepEqual(calls[2], ["ambience"], "Director starts crackle only after CRI confirms BGM playback");
+  assert.deepEqual(calls[1], ["ambience"], "Director starts crackle only after CRI confirms BGM playback");
   assert.equal(deck.selectTrack("retroatrical1"), true);
-  assert.deepEqual(calls[3], ["play", "retroatrical1"], "BGM replacement leaves ambience running");
+  assert.deepEqual(calls[2], ["play", "retroatrical1"], "BGM replacement leaves ambience running");
   deck.updateNativeState("music", "paused");
   deck.toggleNeedle();
-  assert.deepEqual(calls.slice(4, 6), [["effect", "stylus-drop"], ["pause", false]]);
+  assert.deepEqual(calls.slice(3, 5), [["effect", "stylus-drop"], ["pause", false]]);
   deck.updateNativeState("music", "playing");
   deck.toggleNeedle();
-  assert.deepEqual(calls[6], ["pause", true]);
+  assert.deepEqual(calls[5], ["pause", true]);
   deck.setMusicVolume(52);
   deck.setEffectsVolume(41);
+  deck.setAmbienceVolume(28);
   deck.playEffect("record-placement");
   deck.stop();
-  deck.setAmbienceVolume(28);
-  assert.deepEqual(calls.slice(7), [
+  assert.deepEqual(calls.slice(6), [
     ["volume", "music", 52],
     ["volume", "effects", 41],
     ["volume", "ambience", 28],
@@ -223,7 +224,7 @@ test("Selecting a record keeps its sleeve-to-platter flight as a visual-only tra
   assert.match(placement, /duration:\s*680/);
   assert.match(placement, /onComplete/);
   assert.match(cssSource, /\.audio-record-flight\s*\{/);
-  assert.match(source, /criAudioDeck\.playEffect\("record-placement"\)/);
+  assert.match(source, /audioDirector\.playEffect\("record-placement"\)/);
 });
 
 test("CRI file playback configures format metadata before loading and starting", () => {
