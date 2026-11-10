@@ -300,7 +300,7 @@ public final class PocketNativeBridge {
             try {
                 return new JSONObject().put("ok", false)
                     .put("message", "Pocket could not start the update download. Check available storage and try again.").toString();
-            } catch (Exception ignored) { return "{\\"ok\\":false}"; }
+            } catch (Exception ignored) { return "{}"; }
         }
     }
 
@@ -389,7 +389,7 @@ public final class PocketNativeBridge {
             String message = error instanceof IOException ? error.getMessage()
                 : "Android could not open the Pocket package installer.";
             try { return new JSONObject().put("ok", false).put("message", message).toString(); }
-            catch (Exception ignored) { return "{\\"ok\\":false}"; }
+            catch (Exception ignored) { return "{}"; }
         }
     }
 
