@@ -26,6 +26,10 @@ const pocketAudio = createPocketAudioController({
   onChange: syncAudioUI,
   onPlaybackCycle: () => vinylDesigns.rotateRandom("track-end")
 });
+window.addEventListener("pocket:audio-effect", event => {
+  const effect = String(event.detail?.effect || "").trim().toLowerCase();
+  pocketAudio.playEffect(effect);
+});
 window.addEventListener("pocket:season-start", event => {
   const seasonKey = event.detail?.seasonId ?? event.detail?.seasonKey ?? "";
   vinylDesigns.onSeasonStart(seasonKey);
