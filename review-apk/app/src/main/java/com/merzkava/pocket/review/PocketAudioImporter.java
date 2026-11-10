@@ -86,6 +86,7 @@ final class PocketAudioImporter {
             int channels = 0;
             int pcmEncoding = AudioFormat.ENCODING_PCM_16BIT;
             long pcmBytes = 0;
+            long sourceBytes = 0;
 
             while (!outputDone) {
                 if (!inputDone) {
@@ -100,6 +101,10 @@ final class PocketAudioImporter {
                                 MediaCodec.BUFFER_FLAG_END_OF_STREAM);
                             inputDone = true;
                         } else {
+                            sourceBytes += size;
+                            if (sourceBytes > MAX_SOURCE_BYTES) {
+                                throw new IllegalArgumentException("Source audio exceeds Pocket's 64 MB limit.");
+                            }
                             long pts = Math.max(0L, extractor.getSampleTime());
                             decoder.queueInputBuffer(inputIndex, 0, size, pts, 0);
                             extractor.advance();
