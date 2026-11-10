@@ -75,6 +75,7 @@ public final class MainActivity extends Activity {
                         .put("playing", intent.getBooleanExtra("playing", false))
                         .put("trackId", intent.getStringExtra("trackId") == null ? "" : intent.getStringExtra("trackId"))
                         .put("cycleCount", intent.getIntExtra("cycleCount", 0));
+                    state.put("userPaused", intent.getBooleanExtra("userPaused", false));
                     String error = intent.getStringExtra("error");
                     if (error != null && !error.isEmpty()) state.put("error", error);
                     if (intent.getBooleanExtra("cycle", false)) state.put("cycle", true);
