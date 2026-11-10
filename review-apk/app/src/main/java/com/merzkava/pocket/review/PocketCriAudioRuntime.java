@@ -46,6 +46,8 @@ public final class PocketCriAudioRuntime {
         BUILT_IN.put("vinyl-surface-noise", "vinyl-surface-noise.adx");
         BUILT_IN.put("needle", "needle-drop.adx");
         BUILT_IN.put("placement", "record-placement.adx");
+        BUILT_IN.put("door-chime", "door-chime.adx");
+        BUILT_IN.put("door-rattle", "door-rattle.adx");
     }
 
     private static final String[] CHANNEL_NAMES = {"music", "ambience", "needle", "effects"};
@@ -192,9 +194,9 @@ public final class PocketCriAudioRuntime {
         if ("needle".equals(key)) {
             channel = CHANNEL_NEEDLE;
             asset = BUILT_IN.get("needle");
-        } else if ("placement".equals(key)) {
+        } else if ("placement".equals(key) || "door-chime".equals(key) || "door-rattle".equals(key)) {
             channel = CHANNEL_EFFECTS;
-            asset = BUILT_IN.get("placement");
+            asset = BUILT_IN.get(key);
         } else {
             return false;
         }
