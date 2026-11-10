@@ -2848,3 +2848,13 @@
   border-radius:1px 2px 4px 4px;background:#252a29;
   transform:rotate(-9deg);clip-path:polygon(0 0,100% 0,85% 100%,34% 78%);
 }
+
+
+/* Bubble mode: freeze only Pocket's in-WebView visual motion. Native TV and audio remain independent. */
+body.bubble-render-paused *,
+body.bubble-render-paused *::before,
+body.bubble-render-paused *::after {
+  animation-play-state: paused !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
