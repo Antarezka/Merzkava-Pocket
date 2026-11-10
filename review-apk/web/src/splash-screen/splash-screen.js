@@ -1,21 +1,32 @@
 const FOX_ASSET_ROOT = "/splash-screen/fox-girl";
 
+const FOX_TAIL_FILES = Object.freeze([
+  "Based%201.png",
+  "Based%202.png",
+  "based%203.png"
+]);
+
 const FOX_LAYERS = Object.freeze([
-  { id: "tail", file: "base-1.png" },
-  { id: "body", file: "base-0.png" },
-  { id: "ear-one", file: "ear-1.png" },
-  { id: "ear-two", file: "ear-2.png" },
-  { id: "apple", file: "apple.png" }
+  { id: "body", file: "Based%200.png" },
+  { id: "ear-one", file: "ear%201.png" },
+  { id: "ear-two", file: "ear%202.png" },
+  { id: "apple", file: "floating%20blue-apple.png" }
 ]);
 
 export function renderFoxSplashMarkup() {
+  const tailImages = FOX_TAIL_FILES.map((file, index) =>
+    `<img class="splash-fox-tail-layer tail-part-${index + 1}" src="${FOX_ASSET_ROOT}/${file}" alt="" aria-hidden="true" draggable="false" decoding="async">`
+  ).join("");
   const images = FOX_LAYERS.map(({ id, file }) =>
     `<img class="splash-fox-layer splash-fox-${id}" data-splash-fox-layer="${id}" src="${FOX_ASSET_ROOT}/${file}" alt="" aria-hidden="true" draggable="false" decoding="async">`
   ).join("");
 
   return `
     <div class="splash-character" aria-hidden="true">
-      <div class="splash-character-frame">${images}</div>
+      <div class="splash-character-frame">
+        <div class="splash-fox-tail-group" data-splash-fox-tail>${tailImages}</div>
+        ${images}
+      </div>
     </div>`;
 }
 
@@ -34,9 +45,11 @@ export function mountFoxSplashMotion(stage, { animate, reducedMotion = () => fal
     layout?.classList.toggle("no-fox-art", !hasBody);
   };
 
-  for (const { id } of FOX_LAYERS) {
-    const image = getLayer(id);
-    if (!image) continue;
+  const imageLayers = [
+    ...stage.querySelectorAll(".splash-fox-tail-layer"),
+    ...stage.querySelectorAll(".splash-fox-layer")
+  ];
+  for (const image of imageLayers) {
     const markMissing = () => {
       image.classList.add("is-missing");
       refreshArtVisibility();
@@ -48,35 +61,38 @@ export function mountFoxSplashMotion(stage, { animate, reducedMotion = () => fal
   refreshArtVisibility();
 
   if (!reducedMotion()) {
-    const tail = getLayer("tail");
+    const tail = stage.querySelector("[data-splash-fox-tail]");
     const earOne = getLayer("ear-one");
     const earTwo = getLayer("ear-two");
     const apple = getLayer("apple");
 
+    // Animate the tail as one aligned assembly so the separate PNG pieces
+    // never pull apart at their transparent edges.
     if (tail) animations.push(animate(tail, {
-      rotate: [-1.2, 2.1, -1.2],
-      duration: 3400,
+      rotate: [-1.1, 2.2, -1.1],
+      translateY: [0, -1.5, 0],
+      duration: 3600,
       ease: "inOutSine",
       loop: true
     }));
     if (earOne) animations.push(animate(earOne, {
-      rotate: [0, 2.8, 0],
-      duration: 2900,
-      delay: 220,
+      rotate: [0, 2.6, 0],
+      duration: 2850,
+      delay: 180,
       ease: "inOutSine",
       loop: true
     }));
     if (earTwo) animations.push(animate(earTwo, {
-      rotate: [0, -2.1, 0],
-      duration: 3600,
-      delay: 460,
+      rotate: [0, -2.2, 0],
+      duration: 3350,
+      delay: 420,
       ease: "inOutSine",
       loop: true
     }));
     if (apple) animations.push(animate(apple, {
-      translateY: [0, -6, 0],
+      translateY: [0, -5, 0],
       scale: [1, 1.025, 1],
-      duration: 2300,
+      duration: 2350,
       ease: "inOutSine",
       loop: true
     }));
