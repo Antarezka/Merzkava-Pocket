@@ -24,6 +24,7 @@ std::atomic<bool> gServerRunning{false};
 std::thread gServerThread;
 void* gAtomWork = nullptr;
 CriAtomExVoicePoolHn gAdxVoicePool = nullptr;
+CriAtomExVoicePoolHn gWaveVoicePool = nullptr;
 CriAtomExPlayerHn gPlayers[kChannelCount] = {};
 CriAtomExTweenHn gVolumeTweens[kChannelCount] = {};
 void* gPlayerWork[kChannelCount] = {};
@@ -82,6 +83,22 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
     if (gAdxVoicePool == nullptr) {
         __android_log_print(ANDROID_LOG_ERROR, kTag,
             "CRI could not allocate the ADX streaming voice pool (%d voices)", kChannelCount);
+        goto fail;
+    }
+
+    // Imported user tracks are decoded to PCM16 WAV, not ADX. They need their
+    // own streaming Wave voice pool; an ADX pool cannot render WAV streams.
+    CriAtomExWaveVoicePoolConfig wavePoolConfig;
+    std::memset(&wavePoolConfig, 0, sizeof(wavePoolConfig));
+    criAtomExVoicePool_SetDefaultConfigForWaveVoicePool(&wavePoolConfig);
+    wavePoolConfig.num_voices = 1;
+    wavePoolConfig.player_config.streaming_flag = CRI_TRUE;
+    wavePoolConfig.player_config.max_channels = 2;
+    wavePoolConfig.player_config.max_sampling_rate = 192000;
+    gWaveVoicePool = criAtomExVoicePool_AllocateWaveVoicePool(&wavePoolConfig, nullptr, 0);
+    if (gWaveVoicePool == nullptr) {
+        __android_log_print(ANDROID_LOG_ERROR, kTag,
+            "CRI could not allocate the imported-WAV streaming voice pool");
         goto fail;
     }
 
@@ -224,6 +241,10 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeShutdown(JNIEnv*, jc
         gPlayerWork[index] = nullptr;
         gPlaybackIds[index] = CRIATOMEX_INVALID_PLAYBACK_ID;
         gLoopEnabled[index] = false;
+    }
+    if (gWaveVoicePool != nullptr) {
+        criAtomExVoicePool_Free(gWaveVoicePool);
+        gWaveVoicePool = nullptr;
     }
     if (gAdxVoicePool != nullptr) {
         criAtomExVoicePool_Free(gAdxVoicePool);
