@@ -220,7 +220,24 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
             nextTick += std::chrono::milliseconds(16);
             {
                 std::lock_guard<std::mutex> serverLock(gMutex);
-                if (gInitialized) criAtomEx_ExecuteMain();
+                if (gInitialized) {
+                    criAtomEx_ExecuteMain();
+                    // Keep continuous CRI file streams looping on the native
+                    // server cadence, not the slower Java UI-status poll.
+                    for (int channel = 0; channel < kChannelCount; ++channel) {
+                        if (!gLoopEnabled[channel] || gPlayers[channel] == nullptr) continue;
+                        if (criAtomExPlayer_GetStatus(gPlayers[channel]) != CRIATOMEXPLAYER_STATUS_PLAYEND) continue;
+                        const CriAtomExPlaybackId restarted = criAtomExPlayer_Start(gPlayers[channel]);
+                        if (restarted != CRIATOMEX_INVALID_PLAYBACK_ID) {
+                            gPlaybackIds[channel] = restarted;
+                            ++gLoopCycleCounts[channel];
+                        } else {
+                            gLoopEnabled[channel] = false;
+                            __android_log_print(ANDROID_LOG_ERROR, kTag,
+                                "CRI loop restart failed on channel %d", channel);
+                        }
+                    }
+                }
             }
             const auto now = std::chrono::steady_clock::now();
             if (now > nextTick + std::chrono::milliseconds(32)) nextTick = now;
@@ -486,17 +503,6 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeGetStatus(JNIEnv*, j
     std::lock_guard<std::mutex> lock(gMutex);
     if (!gInitialized || gPlayers[channel] == nullptr) return 0;
     const CriAtomExPlayerStatus status = criAtomExPlayer_GetStatus(gPlayers[channel]);
-    if (status == CRIATOMEXPLAYER_STATUS_PLAYEND && gLoopEnabled[channel]) {
-        const CriAtomExPlaybackId restarted = criAtomExPlayer_Start(gPlayers[channel]);
-        if (restarted != CRIATOMEX_INVALID_PLAYBACK_ID) {
-            gPlaybackIds[channel] = restarted;
-            ++gLoopCycleCounts[channel];
-            return static_cast<jint>(CRIATOMEXPLAYER_STATUS_PREP);
-        }
-        gLoopEnabled[channel] = false;
-        __android_log_print(ANDROID_LOG_ERROR, kTag, "CRI loop restart failed on channel %d", channel);
-    } else if (status == CRIATOMEXPLAYER_STATUS_ERROR) {
-        gLoopEnabled[channel] = false;
-    }
+    if (status == CRIATOMEXPLAYER_STATUS_ERROR) gLoopEnabled[channel] = false;
     return static_cast<jint>(status);
 }
