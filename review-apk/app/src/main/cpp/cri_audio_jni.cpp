@@ -1,5 +1,6 @@
 #include <jni.h>
 #include <android/log.h>
+#include <cri_le_atom.h>
 #include <cri_le_atom_android.h>
 #include <cri_le_atom_ex.h>
 
