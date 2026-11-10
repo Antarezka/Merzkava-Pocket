@@ -95,6 +95,8 @@ jobs:
           git show "origin/chore/pocket-audio-folder-2026-11-09:review-apk/web/public/audio/Retroatrical-a1.ogg" > "$AUDIO_DIR/Retroatrical-1.ogg"
           git show "origin/chore/pocket-audio-folder-2026-11-09:review-apk/web/public/audio/Retroatrical-2.ogg" > "$AUDIO_DIR/Retroatrical-2.ogg"
           git show "origin/feat/settings-vinyl-player-2026-11-09:review-apk/web/public/audio/vinyl-surface-noise.ogg" > "$AUDIO_DIR/vinyl-surface-noise.ogg"
+          git show "origin/chore/pocket-audio-folder-2026-11-09:review-apk/web/public/audio/needle drop+vinyls crackle.mp3" > "$AUDIO_DIR/needle drop+vinyls crackle.mp3"
+          git show "origin/chore/pocket-audio-folder-2026-11-09:review-apk/web/public/audio/record placement.mp3" > "$AUDIO_DIR/record placement.mp3"
           declare -A INPUTS=(
             ["Happy-1a.adx"]="$AUDIO_DIR/Happy-1a.ogg"
             ["chill-1a.adx"]="$AUDIO_DIR/chill-1a.ogg"
