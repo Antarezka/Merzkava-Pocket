@@ -113,6 +113,117 @@ public final class PocketNativeBridge {
 
     @JavascriptInterface public boolean isNative() { return true; }
 
+    @JavascriptInterface public String startPocketNativeMusic(String trackId, String title, String source, int volume) {
+        try {
+            if (trackId == null || !trackId.matches("[A-Za-z0-9-]{1,64}")) {
+                throw new IOException("The selected Pocket record ID is invalid.");
+            }
+            File musicFile = resolvePocketNativeMusicFile(source);
+            int safeVolume = Math.max(0, Math.min(100, volume));
+            Intent service = new Intent(activity, PocketMediaPlaybackService.class)
+                .setAction(PocketMediaPlaybackService.ACTION_PLAY)
+                .putExtra("trackId", trackId)
+                .putExtra("title", notificationText(title, 120))
+                .putExtra("uri", Uri.fromFile(musicFile).toString())
+                .putExtra("volume", safeVolume);
+            if (Build.VERSION.SDK_INT >= 26) activity.startForegroundService(service);
+            else activity.startService(service);
+            return new JSONObject().put("ok", true).toString();
+        } catch (Exception error) {
+            android.util.Log.e("PocketMedia3", "Could not hand BGM to the native media service", error);
+            try {
+                return new JSONObject()
+                    .put("ok", false)
+                    .put("message", "Pocket could not start native background playback: " +
+                        (error.getMessage() == null ? "unknown media error" : error.getMessage()))
+                    .toString();
+            } catch (Exception ignored) {
+                return "{}";
+            }
+        }
+    }
+
+    private File resolvePocketNativeMusicFile(String source) throws IOException {
+        if (source == null) throw new IOException("The selected Pocket record has no audio source.");
+        final String customPrefix = "https://pocket.local/user-audio/";
+        if (source.startsWith(customPrefix)) {
+            String fileName = source.substring(customPrefix.length());
+            if (!fileName.matches("[a-fA-F0-9-]{36}\\.(ogg|oga|opus|mp3|wav|wave|m4a|aac|flac|3gp|amr)")) {
+                throw new IOException("The imported Pocket record path is invalid.");
+            }
+            File musicFile = new File(new File(activity.getFilesDir(), "music"), fileName);
+            if (!musicFile.isFile() || musicFile.length() <= 0L) {
+                throw new IOException("The imported Pocket record is no longer available.");
+            }
+            return musicFile;
+        }
+        if (!source.startsWith("/audio/")) {
+            throw new IOException("Pocket only plays its local record library.");
+        }
+        String fileName = source.substring("/audio/".length());
+        if (!fileName.matches("[A-Za-z0-9._-]+\\.(ogg|oga|opus|mp3|wav|m4a|aac|flac)")) {
+            throw new IOException("The built-in Pocket record path is invalid.");
+        }
+        File cache = new File(activity.getFilesDir(), "native-bgm");
+        if (!cache.exists() && !cache.mkdirs()) {
+            throw new IOException("Pocket could not prepare its native audio shelf.");
+        }
+        File target = new File(cache, fileName);
+        if (!target.isFile() || target.length() <= 0L) {
+            File temporary = new File(cache, fileName + ".tmp");
+            try (InputStream input = activity.getAssets().open("audio/" + fileName);
+                 FileOutputStream output = new FileOutputStream(temporary)) {
+                byte[] buffer = new byte[16 * 1024];
+                int count;
+                while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+                output.flush();
+            }
+            if (!temporary.renameTo(target)) {
+                temporary.delete();
+                throw new IOException("Pocket could not prepare the selected built-in record.");
+            }
+        }
+        return target;
+    }
+
+    @JavascriptInterface public boolean stopPocketNativeMusic() {
+        try {
+            activity.stopService(new Intent(activity, PocketMediaPlaybackService.class));
+            return true;
+        } catch (Exception error) {
+            android.util.Log.w("PocketMedia3", "Could not stop native BGM", error);
+            return false;
+        }
+    }
+
+    @JavascriptInterface public boolean setPocketNativeMusicVolume(int volume) {
+        int safeVolume = Math.max(0, Math.min(100, volume));
+        prefs().edit().putInt("pocket_native_audio_volume", safeVolume).apply();
+        if (!PocketMediaPlaybackService.isRunning()) return true;
+        try {
+            activity.startService(new Intent(activity, PocketMediaPlaybackService.class)
+                .setAction(PocketMediaPlaybackService.ACTION_VOLUME)
+                .putExtra("volume", safeVolume));
+            return true;
+        } catch (Exception error) {
+            android.util.Log.w("PocketMedia3", "Could not update native BGM volume", error);
+            return false;
+        }
+    }
+
+    @JavascriptInterface public String getPocketNativeMusicState() {
+        try {
+            return new JSONObject()
+                .put("playing", prefs().getBoolean("pocket_native_audio_playing", false))
+                .put("trackId", prefs().getString("pocket_native_audio_track", ""))
+                .put("cycleCount", prefs().getInt("pocket_native_audio_cycles", 0))
+                .toString();
+        } catch (Exception error) {
+            return "{\"playing\":false,\"trackId\":\"\",\"cycleCount\":0}";
+        }
+    }
+
+
 
     private static final String POCKET_REPOSITORY = "Antarezka/Merzkava-Pocket";
     private static final long POCKET_VERSION_CODE_OFFSET = 10000L;
