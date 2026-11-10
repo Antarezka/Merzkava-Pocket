@@ -86,6 +86,10 @@ export function createCriAudioDeck({
   function updateNativeState(channel, nextStatus, nextError = "") {
     if (channel !== "music") return;
     const next = String(nextStatus || "idle").toLowerCase();
+    if (next === "cycle") {
+      onPlaybackCycle();
+      return;
+    }
     nativeStatus = next;
     nativeError = String(nextError || "");
     if (next === "ended") onPlaybackCycle();
