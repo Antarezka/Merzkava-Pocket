@@ -40,8 +40,10 @@ function makeSplashStage() {
       if (selector === '[data-splash-fox-tail-part="1"]') return tailParts[0];
       if (selector === '[data-splash-fox-tail-part="2"]') return tailParts[1];
       if (selector === '[data-splash-fox-tail-part="3"]') return tailParts[2];
-      const match = selector.match(/^\\[data-splash-fox-layer="([^"]+)"\\]$/);
-      return match ? layers[match[1]] : null;
+      const prefix = '[data-splash-fox-layer="';
+      return selector.startsWith(prefix) && selector.endsWith('"]')
+        ? layers[selector.slice(prefix.length, -2)]
+        : null;
     },
     querySelectorAll(selector) {
       if (selector === ".splash-fox-tail-layer") return tailParts;
