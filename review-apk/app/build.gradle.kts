@@ -14,7 +14,7 @@ android {
     compileSdk = 35
     defaultConfig {
         applicationId = "com.merzkava.pocket"
-        minSdk = 26
+        minSdk = 23
         targetSdk = 34
         versionCode = pocketVersionCode
         versionName = pocketVersion
