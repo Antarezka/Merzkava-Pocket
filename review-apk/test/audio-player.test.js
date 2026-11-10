@@ -185,6 +185,64 @@ test("native Media3 repeat counts are recovered after Floating Mode without WebV
   assert.equal(audio.getState().isPlaying, true);
 });
 
+
+test("native service teardown during splash does not turn resume intent into a user pause", async () => {
+  const calls = [];
+  let nativeState = { playing: false, trackId: "", cycleCount: 0, userPaused: false };
+  const nativeBridge = {
+    getPocketNativeMusicState: () => JSON.stringify(nativeState),
+    startPocketNativeMusic: (id, title, source, volume) => {
+      calls.push(["start", id]);
+      nativeState = { playing: true, trackId: id, cycleCount: nativeState.cycleCount, userPaused: false };
+      return JSON.stringify({ ok: true });
+    },
+    stopPocketNativeMusic: () => {
+      calls.push(["stop"]);
+      nativeState = { ...nativeState, playing: false, userPaused: false };
+      return true;
+    },
+    setPocketNativeMusicVolume: () => true
+  };
+  const { audio } = harness({}, { nativeBridge });
+  audio.enterMainMenu();
+  await flushAudioMicrotasks();
+  assert.equal(audio.getState().isPlaying, true);
+
+  audio.pauseForSplash();
+  audio.recoverAfterBackgroundTransition();
+  assert.equal(audio.getState().isPlaying, false);
+  audio.enterMainMenu();
+  await flushAudioMicrotasks();
+
+  assert.equal(calls.filter(call => call[0] === "start").length, 2,
+    "BGM should resume because splash stopped the service, not the user's music intent");
+  assert.equal(audio.getState().isPlaying, true);
+});
+
+test("an explicit MediaSession pause remains paused until the user resumes", () => {
+  let nativeState = { playing: true, trackId: "happy", cycleCount: 0, userPaused: false };
+  const calls = [];
+  const nativeBridge = {
+    getPocketNativeMusicState: () => JSON.stringify(nativeState),
+    startPocketNativeMusic: (id, title, source, volume) => {
+      calls.push(["start", id]);
+      nativeState = { playing: true, trackId: id, cycleCount: nativeState.cycleCount, userPaused: false };
+      return JSON.stringify({ ok: true });
+    },
+    stopPocketNativeMusic: () => true,
+    setPocketNativeMusicVolume: () => true
+  };
+  const { audio } = harness({}, { nativeBridge });
+  audio.enterMainMenu();
+  nativeState = { playing: false, trackId: "happy", cycleCount: 0, userPaused: true };
+  audio.recoverAfterInterruption();
+
+  assert.equal(audio.getState().isPlaying, false);
+  assert.equal(audio.retryPendingPlayback(), false,
+    "a notification/lock-screen pause must not be auto-restarted by a later UI click");
+  assert.equal(calls.length, 0);
+});
+
 test("the two new built-in BGM records use the approved Retroatrical names", () => {
   const { audio } = harness();
   const titles = audio.getTracks().map(track => track.title);
