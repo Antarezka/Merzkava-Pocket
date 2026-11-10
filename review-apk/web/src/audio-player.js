@@ -434,8 +434,9 @@ function createNativePocketAudioController({
   function retryPendingPlayback() {
     // This is called for every document click. For native Media3, arbitrary
     // gestures must never create another ACTION_PLAY or restart a failed service.
-    // Only main-menu entry and an explicit needle action may start BGM.
-    if (!shouldMaintainPlayback()) return false;
+    // More importantly, do not apply a cached userPaused=true snapshot while a
+    // fresh needle gesture is already preparing its explicit play request.
+    if (!shouldMaintainPlayback() || needleStarting || nativeStarting) return false;
     syncNativeState();
     return false;
   }
