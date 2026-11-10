@@ -91,6 +91,10 @@ function harness(values = {}, callbacks = {}) {
     setItem: (key, value) => data.set(key, String(value))
   };
   const {
+    // Keep default test timers inert: the fake media clock does not advance
+    // unless a test explicitly supplies makeAudioFadeClock().
+    setIntervalFn = () => 0,
+    clearIntervalFn = () => {},
     setTimeoutFn = () => 0,
     clearTimeoutFn = () => {},
     ...controllerOptions
