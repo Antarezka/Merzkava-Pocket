@@ -223,7 +223,13 @@ test("a delayed play() from the previous record cannot override a manually selec
     storage: {
       getItem: key => data.has(key) ? data.get(key) : null,
       setItem: (key, value) => data.set(key, String(value))
-    }
+    },
+    // This isolated stale-play test does not advance media time. Keep guard,
+    // retry and fade timers inert so they cannot keep the Node test process alive.
+    setIntervalFn: () => 0,
+    clearIntervalFn: () => {},
+    setTimeoutFn: () => 0,
+    clearTimeoutFn: () => {}
   });
   audio.enterMainMenu();
 
