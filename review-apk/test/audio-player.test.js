@@ -13,6 +13,7 @@ class FakeAudio {
     this.duration = 100;
     this.volume = 1;
     this.listeners = new Map();
+    this.playCount = 0;
     FakeAudio.instances.push(this);
   }
   addEventListener(name, callback) {
@@ -22,6 +23,7 @@ class FakeAudio {
   removeEventListener(name, callback) { this.listeners.get(name)?.delete(callback); }
   dispatch(name) { for (const callback of [...(this.listeners.get(name) || [])]) callback(); }
   play() {
+    this.playCount += 1;
     this.paused = false;
     this.ended = false;
     this.dispatch("play");
@@ -125,6 +127,7 @@ test("placing another record changes track but never starts playback", () => {
   assert.equal(audio.getState().track, "chill");
   assert.equal(audio.getState().isPlaying, false);
   assert.equal(audio.getState().title, "chill-1a");
+  assert.equal(FakeAudio.instances[0].loop, true);
 });
 
 test("needle must be lowered before a newly selected track starts", async () => {
@@ -295,23 +298,28 @@ test("lifting the needle during the crackle cancels the pending music start", as
 });
 
 
-test("vinyl art rotates when a track ends and Pocket starts its next faded cycle", async () => {
+test("native BGM looping rotates the vinyl label without a scripted replay", async () => {
   let cycles = 0;
   const { audio } = harness({}, { onPlaybackCycle: () => { cycles += 1; } });
   audio.enterMainMenu();
-  const music = FakeAudio.instances[0];
-  assert.equal(music.loop, false);
-  music.currentTime = music.duration;
-  music.ended = true;
-  music.paused = true;
-  music.dispatch("ended");
   await Promise.resolve();
+  const music = FakeAudio.instances[0];
+  assert.equal(music.loop, true);
+  assert.equal(music.playCount, 1);
+
+  // Simulate the final seconds, then the native loop wrapping currentTime to zero.
+  music.currentTime = 98;
+  music.dispatch("timeupdate");
+  music.currentTime = 0;
+  music.dispatch("timeupdate");
+  await Promise.resolve();
+
   assert.equal(cycles, 1);
   assert.equal(music.currentTime, 0);
   assert.equal(music.paused, false);
-  assert.equal(music.volume, 0);
+  assert.equal(music.volume, 0, "the next cycle begins at silence before its fade-in");
+  assert.equal(music.playCount, 1, "native looping must not depend on another scripted play() call");
 });
-
 test("all twenty vinyl label designs are available and manually selectable", () => {
   assert.equal(VINYL_STYLES.length, 20);
   const data = new Map();
@@ -379,7 +387,7 @@ function makeAudioFadeClock() {
   };
 }
 
-test("BGM fades in, fades out near the end, and restarts with a smooth fade-in", async () => {
+test("BGM fades in, fades out near the end, and fades in again after native looping", async () => {
   const clock = makeAudioFadeClock();
   let cycles = 0;
   const { audio } = harness({}, {
@@ -390,7 +398,8 @@ test("BGM fades in, fades out near the end, and restarts with a smooth fade-in",
   });
   audio.enterMainMenu();
   const music = FakeAudio.instances[0];
-  assert.equal(music.loop, false);
+  const noise = FakeAudio.instances.find(item => item.src === VINYL_SURFACE_NOISE_SRC);
+  assert.equal(music.loop, true);
   assert.equal(music.volume, 0);
   await Promise.resolve();
 
@@ -404,24 +413,23 @@ test("BGM fades in, fades out near the end, and restarts with a smooth fade-in",
   clock.advance(1100);
   assert.ok(music.volume > 0 && music.volume < 0.68);
   clock.advance(876);
-  assert.equal(music.volume, 0, "fade-out must finish just before the natural end");
+  assert.equal(music.volume, 0, "fade-out must finish just before the native loop");
 
-  music.currentTime = music.duration;
-  music.ended = true;
-  music.paused = true;
-  music.dispatch("ended");
+  music.currentTime = 0;
+  music.dispatch("timeupdate");
   await Promise.resolve();
   assert.equal(cycles, 1);
   assert.equal(music.currentTime, 0);
   assert.equal(music.paused, false);
   assert.equal(music.volume, 0);
+  assert.equal(music.playCount, 1, "the loop does not need a second play() call");
+  assert.equal(noise.paused, false, "the vinyl noise bed remains uninterrupted between BGM cycles");
 
   clock.advance(1100);
   assert.ok(music.volume > 0 && music.volume < 0.68);
   clock.advance(1100);
   assert.ok(Math.abs(music.volume - 0.68) < 0.001);
 });
-
 test("manually pausing during the end fade cancels its timer and stops only the vinyl ambience bed", async () => {
   const clock = makeAudioFadeClock();
   const { audio } = harness({}, {

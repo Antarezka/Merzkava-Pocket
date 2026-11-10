@@ -2945,3 +2945,32 @@ body.bubble-render-paused *::after {
 @media(max-width:360px){.update-section{padding:12px 11px}.update-build-cell>strong{font-size:20px}.update-actions{gap:5px}.update-actions button{padding-inline:5px;font-size:6px}.pocket-update-toast{left:8px;right:8px;padding:10px 8px;gap:8px}}
 @media(prefers-reduced-motion:reduce){.update-storage-bar>i,.update-download-bar>i{transition:none}.pocket-update-toast{animation:none}.pocket-update-toast-edge{animation:none}}
 
+
+
+/* Compact native disclosures for Pocket Update and its What's New notes. */
+.update-section-toggle,
+.update-section-toggle::-webkit-details-marker,
+.update-notes-toggle,
+.update-notes-toggle::-webkit-details-marker{list-style:none}
+.update-section-toggle::-webkit-details-marker,
+.update-notes-toggle::-webkit-details-marker{display:none}
+.update-section-toggle{display:grid;grid-template-columns:30px minmax(0,1fr) auto 14px;align-items:center;gap:9px;min-height:31px;padding:0;border:0;border-bottom:0;cursor:pointer}
+.update-section[open]>.update-section-toggle{padding-bottom:10px;border-bottom:1px solid #a98c5440}
+.update-section-toggle>b,.update-notes-toggle>b{color:var(--gold);font:400 15px/1 var(--ui);transition:transform .22s ease}
+.update-section[open]>.update-section-toggle>b,
+.update-notes-block[open]>.update-notes-toggle>b{transform:rotate(180deg)}
+.update-content{display:grid;gap:0;padding-top:9px}
+.update-notes-block{min-width:0}
+.update-notes-toggle{min-height:28px;cursor:pointer}
+.update-notes-toggle>span{color:var(--gold)}
+.update-notes-toggle>small{margin-left:auto}
+.update-notes-toggle>b{margin-left:4px}
+.update-notes-block>ul{padding-top:2px}
+:root[data-theme="light"] .update-section[open]>.update-section-toggle{border-bottom-color:#cfc5ae}
+@media(max-width:360px){
+  .update-section-toggle{grid-template-columns:27px minmax(0,1fr) auto 12px;gap:7px}
+  .update-section-toggle>small{grid-column:auto;margin-top:0;text-align:right}
+}
+@media(prefers-reduced-motion:reduce){
+  .update-section-toggle>b,.update-notes-toggle>b{transition:none}
+}

@@ -1566,34 +1566,6 @@ function renderPage(destination, transitionDuration=420) {
         ${paperLightControlMarkup()}
       </article>
 
-      <article class="destination-card update-section" data-update-section>
-        <div class="settings-section-heading"><i class="settings-symbol update-symbol" aria-hidden="true"></i><span>POCKET UPDATE</span><small>BUILD & DEVICE STATUS</small></div>
-        <div class="update-status-line"><i data-update-status data-tone="checking" role="status">CHECKING FOR UPDATES</i><small>PUBLIC RELEASE CHANNEL</small></div>
-        <div class="update-build-grid">
-          <div class="update-build-cell"><small>INSTALLED BUILD</small><strong data-update-current-build>—</strong><span>THIS DEVICE</span></div>
-          <div class="update-build-divider" aria-hidden="true">↗</div>
-          <div class="update-build-cell is-latest"><small>LATEST BUILD</small><strong data-update-latest-build>—</strong><span data-update-version>VERSION CHECK</span></div>
-        </div>
-        <div class="update-package-row"><span><i class="update-package-dot"></i> ANDROID APK PACKAGE</span><b data-update-size>—</b></div>
-        <section class="update-notes-block"><div class="update-subheading"><span>WHAT'S NEW</span><small>RELEASE NOTES</small></div><ul data-update-notes><li>Release notes will appear here when a new Pocket build is published.</li></ul></section>
-        <section class="update-storage-block">
-          <div class="update-subheading"><span>DEVICE STORAGE</span><small>INTERNAL · AVAILABLE SPACE</small></div>
-          <div class="update-storage-head"><strong data-update-storage-value>—</strong><span>FREE SPACE</span></div>
-          <div class="update-storage-bar" data-update-storage-bar role="progressbar" aria-label="Remaining internal device storage" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i data-update-storage-fill></i><b aria-hidden="true"></b></div>
-          <p data-update-storage-meta>Reading internal device storage…</p>
-        </section>
-        <section class="update-download-area" data-update-download-area hidden>
-          <div class="update-subheading"><span>DOWNLOAD PROGRESS</span><strong data-update-progress-value>0%</strong></div>
-          <div class="update-download-bar"><i data-update-progress-fill></i></div>
-          <small data-update-progress-meta>Preparing Pocket update…</small>
-        </section>
-        <div class="update-actions">
-          <button type="button" class="update-download-button" data-update-download hidden>DOWNLOAD UPDATE <b aria-hidden="true">↓</b></button>
-          <button type="button" class="update-install-button" data-update-install hidden>INSTALL UPDATE <b aria-hidden="true">↗</b></button>
-          <button type="button" class="update-check-button" data-update-check>CHECK AGAIN <b aria-hidden="true">⟳</b></button>
-        </div>
-        <p class="update-footnote">Updates are verified before Android opens the installer. Your installed Pocket data remains on this device.</p>
-      </article>
       <article class="destination-card audio-section" data-audio-section>
         <button type="button" class="audio-section-toggle" data-audio-toggle aria-expanded="false">
           <i class="settings-symbol audio-symbol" aria-hidden="true"></i>
@@ -1680,6 +1652,36 @@ function renderPage(destination, transitionDuration=420) {
           <button type="button" data-legal-notices-toggle aria-expanded="false">VIEW FULL LICENCES</button>
           <pre data-legal-notices-output hidden></pre>
         </div>
+      </details>
+      <details class="destination-card update-section" data-update-section>
+        <summary class="settings-section-heading update-section-toggle"><i class="settings-symbol update-symbol" aria-hidden="true"></i><span>POCKET UPDATE</span><small>BUILD & DEVICE STATUS</small><b aria-hidden="true">⌄</b></summary>
+        <div class="update-content">
+        <div class="update-status-line"><i data-update-status data-tone="checking" role="status">CHECKING FOR UPDATES</i><small>PUBLIC RELEASE CHANNEL</small></div>
+        <div class="update-build-grid">
+          <div class="update-build-cell"><small>INSTALLED BUILD</small><strong data-update-current-build>—</strong><span>THIS DEVICE</span></div>
+          <div class="update-build-divider" aria-hidden="true">↗</div>
+          <div class="update-build-cell is-latest"><small>LATEST BUILD</small><strong data-update-latest-build>—</strong><span data-update-version>VERSION CHECK</span></div>
+        </div>
+        <div class="update-package-row"><span><i class="update-package-dot"></i> ANDROID APK PACKAGE</span><b data-update-size>—</b></div>
+        <details class="update-notes-block"><summary class="update-subheading update-notes-toggle"><span>WHAT'S NEW</span><small>RELEASE NOTES</small><b aria-hidden="true">⌄</b></summary><ul data-update-notes><li>Release notes will appear here when a new Pocket build is published.</li></ul></details>
+        <section class="update-storage-block">
+          <div class="update-subheading"><span>DEVICE STORAGE</span><small>INTERNAL · AVAILABLE SPACE</small></div>
+          <div class="update-storage-head"><strong data-update-storage-value>—</strong><span>FREE SPACE</span></div>
+          <div class="update-storage-bar" data-update-storage-bar role="progressbar" aria-label="Remaining internal device storage" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i data-update-storage-fill></i><b aria-hidden="true"></b></div>
+          <p data-update-storage-meta>Reading internal device storage…</p>
+        </section>
+        <section class="update-download-area" data-update-download-area hidden>
+          <div class="update-subheading"><span>DOWNLOAD PROGRESS</span><strong data-update-progress-value>0%</strong></div>
+          <div class="update-download-bar"><i data-update-progress-fill></i></div>
+          <small data-update-progress-meta>Preparing Pocket update…</small>
+        </section>
+        <div class="update-actions">
+          <button type="button" class="update-download-button" data-update-download hidden>DOWNLOAD UPDATE <b aria-hidden="true">↓</b></button>
+          <button type="button" class="update-install-button" data-update-install hidden>INSTALL UPDATE <b aria-hidden="true">↗</b></button>
+          <button type="button" class="update-check-button" data-update-check>CHECK AGAIN <b aria-hidden="true">⟳</b></button>
+        </div>
+        <p class="update-footnote">Updates are verified before Android opens the installer. Your installed Pocket data remains on this device.</p>
+      </div>
       </details>
     </main>`;
   }

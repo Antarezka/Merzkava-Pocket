@@ -103,10 +103,11 @@ export function createPocketAudioController({
   let musicFadeTimer = null;
   let musicFadeToken = 0;
   let endFadeStarted = false;
+  let previousMusicTime = 0;
 
   const music = new AudioCtor(trackCatalog[selectedTrack].src);
   music.preload = "auto";
-  music.loop = false;
+  music.loop = true;
   music.volume = musicVolume / 100;
   // Dedicated ambience bed: independent of needle-drop and record-placement SFX.
   const vinylSurfaceNoise = new AudioCtor(VINYL_SURFACE_NOISE_SRC);
@@ -247,18 +248,40 @@ export function createPocketAudioController({
     notify();
   };
 
-  const handleMusicEnded = () => {
+  const handleMusicLooped = () => {
+    if (!menuEntered || userPaused || !isPlaying()) return;
     stopMusicFade();
     musicFadeGain = 0;
-    applyMusicVolume();
     endFadeStarted = false;
-    try { music.currentTime = 0; } catch {}
+    applyMusicVolume();
     reportPlaybackCycle();
-    if (menuEntered && !userPaused) void startMusic();
+    // Native looping keeps playback alive; only the gain and label cycle here.
+    animateMusicFade(1, MUSIC_FADE_DURATION_MS);
+    syncVinylSurfaceNoise();
+  };
+
+  // Defensive fallback for a WebView that reports "ended" despite loop=true.
+  // Normal track repeats are handled by the timeupdate wrap detector below.
+  const handleMusicEnded = () => {
+    if (!menuEntered || userPaused) return;
+    try { music.currentTime = 0; } catch {}
+    previousMusicTime = 0;
+    stopMusicFade();
+    musicFadeGain = 0;
+    endFadeStarted = false;
+    applyMusicVolume();
+    reportPlaybackCycle();
+    if (music.paused || music.ended) {
+      void startMusic();
+    } else {
+      animateMusicFade(1, MUSIC_FADE_DURATION_MS);
+      syncVinylSurfaceNoise();
+    }
   };
 
   music.addEventListener?.("play", () => {
     lastPlaybackDuration = Number.isFinite(music.duration) ? music.duration : 0;
+    previousMusicTime = Number(music.currentTime) || 0;
     syncVinylSurfaceNoise();
     notify();
   });
@@ -280,6 +303,14 @@ export function createPocketAudioController({
     const duration = Number.isFinite(actualDuration) && actualDuration > 0
       ? actualDuration
       : lastPlaybackDuration;
+    const wrappedToStart = Number.isFinite(duration) && duration > 1 &&
+      previousMusicTime > current + 1 &&
+      (endFadeStarted || previousMusicTime >= duration - 3);
+    if (wrappedToStart) {
+      previousMusicTime = current;
+      handleMusicLooped();
+      return;
+    }
     if (Number.isFinite(duration) && duration > 1) {
       const remainingMs = Math.max(0, (duration - current) * 1000);
       const fadeWindowMs = Math.min(MUSIC_FADE_DURATION_MS + 250, Math.max(500, duration * 250));
@@ -291,6 +322,7 @@ export function createPocketAudioController({
       }
       lastPlaybackDuration = duration;
     }
+    previousMusicTime = current;
   });
 
   function getState() {
@@ -358,7 +390,7 @@ export function createPocketAudioController({
     selectedTrack = id;
     userPaused = true;
     music.src = trackCatalog[selectedTrack].src;
-    music.loop = false;
+    music.loop = true;
     music.load?.();
     write("mp-audio-track", selectedTrack);
     notify();
@@ -432,7 +464,7 @@ export function createPocketAudioController({
       selectedTrack = "happy";
       music.currentTime = 0;
       music.src = trackCatalog.happy.src;
-      music.loop = false;
+      music.loop = true;
       music.load?.();
       write("mp-audio-track", selectedTrack);
       if (resumeBuiltIn) void startMusic();

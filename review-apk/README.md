@@ -41,7 +41,7 @@ Anime.js 4.x owns access pacing, the Pocket Transition, screen transitions, Spla
 
 ## Build
 
-The GitHub Actions workflow builds an installable APK using one persistent signing certificate and a monotonically increasing Android `versionCode`. Updates to `review-apk/**` or `docs/game/**` trigger a new APK, so economy catalogue/specification edits are included in the next package. Android installs the downloaded APK over the existing app when the package ID and signing certificate match; app-private data (including WebView local storage, economy saves, player data and preferences) is retained during a normal package update. There is no app-side updater UI yet: obtain the new APK artifact and tap Install/Update in Android's package installer.
+The GitHub Actions workflow builds an installable APK using one persistent signing certificate and a monotonically increasing Android `versionCode`. Updates to `review-apk/**` or `docs/game/**` trigger a new APK, so economy catalogue/specification edits are included in the next package. Android installs the downloaded APK over the existing app when the package ID and signing certificate match; app-private data (including WebView local storage, economy saves, player data and preferences) is retained during a normal package update. The in-app updater is available at the bottom of Settings under Pocket Update. Its compact disclosure shows the installed and latest build, release notes, APK size, and remaining internal storage; Pocket can download the release, verify its SHA-256 digest, and open Android's package installer. A small in-app notice appears once for each newly detected build. Normal signed updates preserve app-private data.
 
 ### One-time signing setup (required)
 
