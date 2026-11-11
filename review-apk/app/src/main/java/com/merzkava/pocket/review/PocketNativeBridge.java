@@ -337,7 +337,7 @@ public final class PocketNativeBridge {
 
             String version = notificationText(versionName, 72);
             String details = notificationText(releaseDetails, 420);
-            if (details.isEmpty()) details = "A new Merzkava Pocket build is ready. Open Pocket Settings to review and install it.";
+            if (details.isEmpty()) details = "A new Merzkava Pocket build is ready. Tap DOWNLOAD UPDATE in this device notification.";
             String size = humanReadableUpdateSize(apkSizeBytes);
             prefs().edit().putString(PREF_UPDATE_NOTIFICATION_THEME, light ? "light" : "dark").apply();
 
