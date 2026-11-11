@@ -501,11 +501,11 @@ test("Floating window transitions reuse the same CRI runtime and do not pause pl
 });
 
 test("Bundled ADX voice pool preserves CRI default renderer and exact built-in format limits", () => {
-  assert.match(nativeSource, /criAtomExVoicePool_SetDefaultConfigForAdxVoicePool\\(&voicePoolConfig\\)/);
-  assert.match(nativeSource, /voicePoolConfig\\.player_config\\.max_channels\\s*=\\s*2/);
-  assert.match(nativeSource, /voicePoolConfig\\.player_config\\.max_sampling_rate\\s*=\\s*48000/);
-  assert.match(nativeSource, /voicePoolConfig\\.player_config\\.streaming_flag\\s*=\\s*CRI_FALSE/);
-  assert.doesNotMatch(nativeSource, /voicePoolConfig\\.player_config\\.sound_renderer_type\\s*=/,
+  assert.ok(nativeSource.includes("criAtomExVoicePool_SetDefaultConfigForAdxVoicePool(&voicePoolConfig)"));
+  assert.ok(nativeSource.includes("voicePoolConfig.player_config.max_channels = 2"));
+  assert.ok(nativeSource.includes("voicePoolConfig.player_config.max_sampling_rate = 48000"));
+  assert.ok(nativeSource.includes("voicePoolConfig.player_config.streaming_flag = CRI_FALSE"));
+  assert.ok(!nativeSource.includes("voicePoolConfig.player_config.sound_renderer_type ="),
     "Pocket must preserve CRI's platform-default renderer instead of forcing a per-voice output path");
   const defaults = nativeSource.indexOf("criAtomExVoicePool_SetDefaultConfigForAdxVoicePool(&voicePoolConfig)");
   const allocate = nativeSource.indexOf("criAtomExVoicePool_AllocateAdxVoicePool");
