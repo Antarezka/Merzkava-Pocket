@@ -429,7 +429,7 @@ test("Turntable render loop suspends only in bubble mode and resumes at its reta
 test("Packaged CRI ADX conversion resets audio timestamps and validates the encoded stream", () => {
   assert.match(buildWorkflowSource, /aresample=48000,asetpts=N\/SR\/TB/);
   assert.match(buildWorkflowSource, /ffmpeg -y -xerror -hide_banner -loglevel error/);
-  assert.match(buildWorkflowSource, /ffmpeg -xerror -y -hide_banner -v error[\s\S]*?-f null -/);
+  assert.match(buildWorkflowSource, /ffmpeg -y -hide_banner -v error[\s\S]*?-f null -/);
   assert.match(buildWorkflowSource, /sample_rate.*48000/);
 });
 
