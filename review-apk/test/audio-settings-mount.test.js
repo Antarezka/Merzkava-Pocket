@@ -7,6 +7,7 @@ const audioVisualSource = readFileSync(new URL("../web/src/audio-player.js", imp
 const deckSource = readFileSync(new URL("../web/src/pocket-audio-director.js", import.meta.url), "utf8");
 const runtimeSource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java", import.meta.url), "utf8");
 const bridgeSource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketNativeBridge.java", import.meta.url), "utf8");
+const workerSource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketUpdateWorker.java", import.meta.url), "utf8");
 const nativeSource = readFileSync(new URL("../app/src/main/cpp/cri_audio_jni.cpp", import.meta.url), "utf8");
 const cssSource = readFileSync(new URL("../web/src/styles.css", import.meta.url), "utf8");
 const activitySource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/MainActivity.java", import.meta.url), "utf8");
@@ -424,13 +425,20 @@ test("Turntable render loop suspends only in bubble mode and resumes at its reta
   motion.dispose();
 });
 
-test("Pocket Update controls have a protected tap target and recover from lost native callbacks", () => {
-  assert.match(cssSource, /\.update-section\{[^}]*z-index:31/);
-  assert.match(cssSource, /\.update-section-toggle,\.update-actions button\{[^}]*touch-action:manipulation/);
+test("Pocket updater is shown and operated from Android device notifications, not Settings", () => {
+  assert.doesNotMatch(source, /data-update-section|mountPocketUpdateSettings/);
+  assert.match(source, /native\?\.showPocketUpdateNotification\?/);
+  assert.match(source, /void checkPocketUpdates\(true\)/);
+  assert.match(bridgeSource, /setOnClickPendingIntent\(R\.id\.pocket_update_notification_action, downloadUpdate\)/);
+  assert.match(bridgeSource, /MainActivity\.ACTION_DOWNLOAD_UPDATE/);
+  assert.match(workerSource, /\.addAction\(R\.drawable\.ic_notification_tv, "DOWNLOAD UPDATE", download\)/);
+  assert.match(workerSource, /putExtra\(MainActivity\.EXTRA_UPDATE_URL, apkUrl\)/);
+  assert.match(activitySource, /ACTION_DOWNLOAD_UPDATE\.equals\(action\)/);
+  assert.doesNotMatch(cssSource, /\.update-section\{[^}]*z-index:31/);
+  assert.doesNotMatch(cssSource, /\.update-section-toggle,\.update-actions button/);
   assert.match(source, /const timeoutId=window\.setTimeout\(\(\)=>controller\.abort\(\),45000\)/);
   assert.match(source, /window\.clearTimeout\(timeoutId\);\s*pocketUpdateCheckBusy=false/);
   assert.match(source, /method !== "checkPocketUpdate"/);
-  assert.match(source, /checkButton\?\.addEventListener\("click",check\)/);
 });
 
 test("Floating window transitions reuse the same CRI runtime and do not pause playback", () => {
