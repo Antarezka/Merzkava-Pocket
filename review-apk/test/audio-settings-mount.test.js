@@ -39,6 +39,13 @@ test("Audio UI controls are presentation and user-intent adapters only", () => {
   assert.doesNotMatch(mount, /AudioContext|new Audio\s*\(|\.play\(\)/);
 });
 
+test("Turntable motion follows real CRI playback/preparing status and the stylus position", () => {
+  assert.match(source, /audioDirector\.updateNativeState\(channel, state, error\)/);
+  assert.match(source, /activeTurntableMotion\?\.setPlaying\(state\.needleDown && \(state\.isPlaying \|\| state\.isStarting\) && !reducedMotion\(\)\)/);
+  assert.match(source, /player\.classList\.toggle\("is-playing", state\.isPlaying\)/);
+  assert.match(source, /player\.classList\.toggle\("is-paused", state\.isPaused\)/);
+});
+
 test("Only CRI owns playback; the web layer has no parallel audio engine", () => {
   assert.match(source, /import \{ createPocketAudioDirector \} from "\.\/pocket-audio-director\.js"/);
   assert.match(source, /audioDirector\.startStartupSequence\(\)/);
@@ -438,7 +445,7 @@ test("Bundled CRI ADX assets are copied directly and header-validated without pe
   assert.match(buildWorkflowSource, /data\[4\] != 3/);
   assert.match(buildWorkflowSource, /data\[7\]/);
   assert.match(buildWorkflowSource, /data\[8:12\]/);
-  assert.match(buildWorkflowSource, /expected exactly the seven supplied ADX assets/);
+  assert.match(buildWorkflowSource, /Expected exactly the seven supplied ADX assets/i);
   assert.doesNotMatch(buildWorkflowSource, /ffmpeg|adpcm_adx|apt-get install -y ffmpeg/i);
 });
 
