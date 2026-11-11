@@ -10,9 +10,11 @@ Active branch: `fix/build362-audio-update-2026-11-11`
 |---|---|---|
 | `feat/pocket-audio-architecture-2026-11-11` | Source branch that produced public Build #362 | `ba40815d9ef883e72243f8881dcedfea679b2276` |
 | `fix/cri-single-track-bootstrap-2026-11-11` | Earlier CRI bootstrap/streaming investigation; ancestor of the Build 362 branch | `d9d48b2d3913c3e404455ac7d68b02f7a44c0a56` |
-| `fix/build362-audio-update-2026-11-11` | Active repair branch for the next Pocket build | Created from Build 362 source commit `ba40815d9ef883e72243f8881dcedfea679b2276` |
+| `fix/build362-audio-update-2026-11-11` | Active repair branch; produced final Build #368 | `66db2e1b3fe132c4c0397e7b02d2ee96eda96e3f` |
+| `chore/pocket-audio-folder-2026-11-09` | CI source-asset branch for Happy/chill/Retroatrical tracks, needle drop and record placement | `0f1f6b02ce97ffd3b23113c92cc462e47c41679e` |
+| `feat/settings-vinyl-player-2026-11-09` | CI source-asset branch for vinyl surface noise | `0b2eb019dd73d6caa02a41365d26f5b5e85e8257` |
 
-Do not conflate these branches. Continue on the active repair branch. It is not included in the APK build workflow's automatic push-trigger allow-list; the only build workflow path is `workflow_dispatch`, and it must not be dispatched until the user explicitly approves an APK build.
+The first three are the application source/repair history. The final two are referenced by the APK workflow only to restore original audio source files before converting them to CRI ADX; they are not merged into the app source. The active repair branch was added to the APK workflow push allow-list. Build #368 was produced from this branch's final head SHA `66db2e1b3fe132c4c0397e7b02d2ee96eda96e3f`.
 
 ## Build 362 baseline
 
@@ -21,6 +23,21 @@ Do not conflate these branches. Continue on the active repair branch. It is not 
 - Android workflow run: #362, run ID `42927695114`, source commit `ba40815d9ef883e72243f8881dcedfea679b2276`.
 - CI previously passed ADX conversion, tests, web/native compilation, APK signature/package checks, release publication and artifact upload.
 - CI success is not physical-device acceptance. No listening/touch acceptance test on the user's Tecno device has been performed in this repair.
+
+## Final repair build #368
+
+- Final release tag: `pocket-build-368`
+- Release page: https://github.com/Antarezka/Merzkava-Pocket/releases/tag/pocket-build-368
+- APK: `Merzkava-Pocket-Build-368-66db2e1.apk` (47,596,135 bytes)
+- APK URL: https://github.com/Antarezka/Merzkava-Pocket/releases/download/pocket-build-368/Merzkava-Pocket-Build-368-66db2e1.apk
+- APK SHA-256: `d6958d0b0917737b3fa26f01259d859c89440f833bb50da47868ee8f85ca15ec`
+- Full build workflow: run #368, ID `42938533121`, commit `66db2e1b3fe132c4c0397e7b02d2ee96eda96e3f`, conclusion `success`.
+- Repair test workflow: run #18, ID `42938533078`, same commit, both JS/unit tests and native/Java compile jobs `success`.
+- Actions ZIP artifact: `Merzkava-Pocket-Build-368-66db2e1`, artifact ID `13820031082`, 41,803,674 bytes.
+- ZIP SHA-256: `772b2577f8ee39565d2c087a81241ad34ac15de7b35b17d7436e8843b256a7c5`.
+- The ZIP contains the APK plus `merzkava-pocket-shimaenaga.png` and `merzkava-pocket-shimaenaga.ico`.
+- Build #368's log contains zero `non monotonically increasing dts` warnings. All nine packaged ADX tracks reported `48000 Hz | decode OK`. Web build, all 46 npm tests, native-only CRI source checks, Java/JNI compile, APK assembly, signature/package verification, release publication and artifact upload all completed successfully.
+- Intermediate history: #363 failed on a false-negative literal grep contract; #364 succeeded but used the pre-timestamp-reset encode pipeline and is superseded; #365's strict decoder readback check falsely failed at the ADX tail; #366/#367 were superseded/cancelled while the readback contract was corrected. Only #368 is the final build to install.
 
 ## User-reported issue and key diagnostic clarification
 
@@ -45,8 +62,10 @@ File: `review-apk/app/src/main/cpp/cri_audio_jni.cpp`
 - The 16 ms monitor remains for imported PCM-WAV file-stream loops only. It no longer restarts packaged BGM or ambience.
 - D-BAS now serves the single imported PCM-WAV streaming voice: one stream, max bitrate 6,144,000 bits/s (192 kHz × 2 channels × 16-bit PCM).
 - No Android output-buffer values were guessed or copied from CRI's Unity plugin documentation. Pocket is using the Native SDK. If isolated BGM still distorts after this change, inspect SDK 2.31.01's actual Android output/resampler config fields and compare decoded PCM of the source OGG with the packaged ADX.
+- The APK build workflow now resamples to 48 kHz and applies `asetpts=N/SR/TB` before ADX muxing. This resets packet timestamps from the decoded sample count rather than carrying irregular timestamps from OGG/MP3 inputs. Encoding runs with FFmpeg `-xerror`; every encoded ADX is then decoded to a null sink, probed for 48 kHz, and checked for a successful readback.
+- Build #368 converted and read back all nine packaged ADX files successfully. Its log had **zero** non-monotonic DTS warnings. The strict FFmpeg decoder `-xerror` flag is intentionally not used for readback: local reproduction showed it flags the final padding packet of generated mono ADX files even when normal decode exits successfully and produces the expected PCM duration. The encoder itself remains strict.
 
-This architecture change is a reasoned attempt to remove disk-stream underruns and file-loop restart gaps. It does **not** prove the source track is clean or that playback is fixed on the actual device.
+The in-memory CRI path plus the corrected ADX sample-clock pipeline remove two plausible sources of underrun/timestamp discontinuity. CI proves the files decode and the Android/native code compiles; it does **not** prove the sound is clean on the user's physical phone. Device listening is still required.
 
 ## Active updater design — original Settings mechanism + Android notification
 
@@ -67,7 +86,7 @@ The user clarified that the **existing Pocket Settings updater must remain in Se
 - The periodic background `PocketUpdateWorker` notification now also carries the validated release URL, APK filename, SHA-256 and build number in its PendingIntent, with a visible `DOWNLOAD UPDATE` action.
 - Both notification routes use the same existing `startPocketUpdateDownload` / DownloadManager flow. `PocketUpdateProgressService` displays download progress and provides `VERIFY & INSTALL` after a completed download or `TRY AGAIN` after a failure.
 - The installer continues to verify the downloaded APK SHA-256 before Android opens the package installer.
-- Build #362 remains the current public release as last checked. An installed Build 362 should not show an enabled Settings Download button until a newer release exists. This is expected; when a new build exists, the button becomes visible and enabled.
+- Build #368 is the current final public release after this repair. An installed Build #362 (or any older build) should now see a newer build in Settings. The original Settings download button remains part of the existing updater mechanism and calls the native DownloadManager method; the Android notification is an additional route, not a replacement.
 
 ### TV pull-cord and CSS reversion confirmation
 
@@ -96,20 +115,25 @@ Japanese developer/community practice:
 
 Community tuning material is practical corroboration, not a substitute for the matching CRI Native SDK 2.31.01 headers/reference.
 
-## Automated checks and build restrictions
+## Automated checks and final acceptance status
 
 Test-only workflow: `.github/workflows/pocket-repair-tests.yml`.
-- Runs Node syntax checks and the full `npm test` suite.
+- Runs JavaScript syntax checks and the full `npm test` suite.
 - Separately downloads/verifies the pinned private CRI ADX LE SDK 2.31.01 and compiles Pocket JNI + Java sources for ARM64 and ARMv7.
-- It does not run `assembleDebug`, sign an APK, create a GitHub release, or publish an app update.
-- Latest known workflow run after the notification-only change is run #8, ID `42935679886`, commit `0da277d2c9e228d48da1487cd5f527149d860d7a`. It was in progress when inspected; re-check it. A later commit removing unused JS state may have triggered another run.
-- Earlier run #6, ID `42934255046`, passed both npm tests and native compile-only checks for ARM64 and ARMv7 on the preceding audio-only revision. This confirms SDK API/header compatibility at that revision, not device sound quality.
+- Latest run #18, ID `42938533078`, commit `66db2e1b3fe132c4c0397e7b02d2ee96eda96e3f`: both the full tests and native/Java compile jobs passed.
+- Earlier run #16, ID `42936485976`, passed the restored Settings updater contract and native/Java compile before the final ADX timestamp validation was added.
 
-Do not build/publish the next APK until:
-1. Test-only workflow passes on the latest head (full JS tests plus native/Java compile).
-2. Real-device listening confirms isolated BGM at low/medium/high gain and through a full loop; test ambience and each SFX alone and in intended combinations.
-3. If isolated BGM still distorts, compare decoded source OGG and packaged ADX PCM; inspect peak/clipping and Native SDK Android output/resampling configuration. Do not blindly add a limiter or copy Unity buffer fields.
-4. Real device verifies system notification appears, DOWNLOAD UPDATE works, DownloadManager progress notification appears, VERIFY & INSTALL appears on completion, and the APK hash is checked.
-5. Do not claim physical-device acceptance without testing.
+Final APK workflow: `.github/workflows/pocket-design-review-apk.yml`.
+- Run #368, ID `42938533121`, branch `fix/build362-audio-update-2026-11-11`, final commit `66db2e1b3fe132c4c0397e7b02d2ee96eda96e3f`.
+- All workflow steps completed successfully: Android SDK/NDK, pinned CRI SDK verification, FFmpeg ADX encoder, restoration of original audio sources, nine ADX encodes with sample-based PTS reset, all nine readback decodes, 48 kHz metadata checks, npm tests, native-only CRI contract checks, web shell, Java/JNI compile, APK assembly, signature/package checks, release publication and ZIP artifact upload.
+- Workflow log has zero non-monotonic DTS warnings in the final build. This is a build-time audio-data integrity improvement, not proof of on-device sound quality.
 
-**Never trigger the APK build workflow without the user's explicit approval.** The user has not approved the next APK build.
+## Remaining physical-device acceptance checks
+
+1. On the target phone, play each built-in BGM alone at low/medium/high volume and listen through a full loop. Compare the phone speaker and headphones if available.
+2. Listen to vinyl ambience and each SFX separately, then BGM+ambience and the supported overlap combinations.
+3. Open Settings on the installed older build and confirm the original `DOWNLOAD UPDATE` button is visible/enabled for Build #368 and begins DownloadManager. Confirm the progress notification and `VERIFY & INSTALL` flow.
+4. Confirm the update retains local Pocket player/settings data after installation.
+
+No physical-device audio listening or actual touch test was available during this repair. Do not claim the distortion is eliminated until it has been heard on the target device. The current Settings updater's click handler is present, calls the validated native download method, and is covered by source-contract tests; real tap acceptance remains outstanding.
+
