@@ -501,10 +501,10 @@ test("Floating window transitions reuse the same CRI runtime and do not pause pl
 });
 
 test("Bundled ADX voice pool uses the explicit Android native renderer and exact built-in format limits", () => {
-  assert.match(nativeSource, /voicePoolConfig\\.player_config\\.max_channels\\s*=\\s*2/);
-  assert.match(nativeSource, /voicePoolConfig\\.player_config\\.max_sampling_rate\\s*=\\s*48000/);
-  assert.match(nativeSource, /voicePoolConfig\\.player_config\\.sound_renderer_type\\s*=\\s*CRIATOM_SOUND_RENDERER_NATIVE/);
-  assert.match(nativeSource, /voicePoolConfig\\.player_config\\.streaming_flag\\s*=\\s*CRI_FALSE/);
+  assert.match(nativeSource, /voicePoolConfig\.player_config\.max_channels\s*=\s*2/);
+  assert.match(nativeSource, /voicePoolConfig\.player_config\.max_sampling_rate\s*=\s*48000/);
+  assert.match(nativeSource, /voicePoolConfig\.player_config\.sound_renderer_type\s*=\s*CRIATOM_SOUND_RENDERER_NATIVE/);
+  assert.match(nativeSource, /voicePoolConfig\.player_config\.streaming_flag\s*=\s*CRI_FALSE/);
   const renderer = nativeSource.indexOf("voicePoolConfig.player_config.sound_renderer_type");
   const allocate = nativeSource.indexOf("criAtomExVoicePool_AllocateAdxVoicePool");
   assert.ok(renderer >= 0 && renderer < allocate, "Native renderer must be set before the ADX voice pool is allocated");
