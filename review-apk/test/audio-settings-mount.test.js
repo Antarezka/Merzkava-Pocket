@@ -478,7 +478,11 @@ test("Original Settings updater remains mounted and Download calls the validated
   assert.match(activitySource, /ACTION_DOWNLOAD_UPDATE\.equals\(action\)/);
   assert.doesNotMatch(cssSource, /\.update-section\{[^}]*z-index:31/);
   assert.doesNotMatch(cssSource, /\.update-section-toggle,\.update-actions button/);
-  assert.match(source, /const timeoutId=window\.setTimeout\(\(\)=>controller\.abort\(\),45000\)/);
+  assert.match(bridgeSource, /setNotificationVisibility\(DownloadManager\.Request\.VISIBILITY_VISIBLE\)/, "public apps must use a DownloadManager visibility mode they are allowed to request");
+  assert.doesNotMatch(bridgeSource, /setNotificationVisibility\(DownloadManager\.Request\.VISIBILITY_HIDDEN\)/, "VISIBILITY_HIDDEN requires privileged DOWNLOAD_WITHOUT_NOTIFICATION access");
+  assert.match(bridgeSource, /clearPocketUpdateAvailableNotification\(\)/, "starting an update clears the stale availability action before DownloadManager shows its progress notification");
+  assert.doesNotMatch(bridgeSource, /startPocketUpdateProgressService\(\)/, "do not layer a second foreground progress notification over Android DownloadManager");
+    assert.match(source, /const timeoutId=window\.setTimeout\(\(\)=>controller\.abort\(\),45000\)/);
   assert.match(source, /window\.clearTimeout\(timeoutId\);\s*pocketUpdateCheckBusy=false/);
   assert.match(source, /method !== "checkPocketUpdate"/);
 });
