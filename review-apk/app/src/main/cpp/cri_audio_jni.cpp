@@ -166,11 +166,10 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
     criAtomEx_Initialize_ANDROID(&config, gAtomWork, workSize);
     gInitialized = true;
 
-    // D-BAS manages the imported PCM-WAV streaming buffer. Create it before
-    // the streaming Wave voice pool; bundled ADX is kept in memory.
+    // Built-in ADX tracks are decoded to PCM16 WAV before playback. CRI streams
+    // those WAV files, plus the user's imported WAV, through the same six-voice
+    // Wave pool. D-BAS is sized for five built-in voices plus one 192 kHz import.
     criAtomDbas_SetDefaultConfig(&dbasConfig);
-    // Bundled ADX is played from retained memory buffers, not streamed from
-    // storage. D-BAS is reserved for the single imported PCM-WAV voice.
     dbasConfig.max_streams = kWaveMaxStreams;
     dbasConfig.max_bps = kWaveMaxBitrate;
     dbasWorkSize = criAtomDbas_CalculateWorkSize(&dbasConfig);
@@ -191,8 +190,8 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
         goto fail;
     }
 
-    // All bundled ADX tracks and effects are resident in memory. They do not
-    // consume D-BAS streams and do not depend on storage reads during playback.
+    // Keep a small legacy ADX memory pool for any direct-format compatibility
+    // calls. The active built-in record path uses decoded PCM16 WAV instead.
     criAtomExVoicePool_SetDefaultConfigForAdxVoicePool(&voicePoolConfig);
     voicePoolConfig.num_voices = kChannelCount;
     voicePoolConfig.player_config.streaming_flag = CRI_FALSE;
@@ -430,12 +429,6 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeShutdown(JNIEnv*, jc
     }
     std::free(gWaveVoicePoolWork);
     gWaveVoicePoolWork = nullptr;
-    if (gWaveMemoryVoicePool != nullptr) {
-        criAtomExVoicePool_Free(gWaveMemoryVoicePool);
-        gWaveMemoryVoicePool = nullptr;
-    }
-    std::free(gWaveMemoryVoicePoolWork);
-    gWaveMemoryVoicePoolWork = nullptr;
     if (gAdxVoicePool != nullptr) {
         criAtomExVoicePool_Free(gAdxVoicePool);
         gAdxVoicePool = nullptr;
