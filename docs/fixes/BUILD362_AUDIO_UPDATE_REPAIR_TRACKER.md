@@ -111,6 +111,31 @@ References for this renderer decision:
 - CRI ASR resampling and rendering behavior: https://game.criware.jp/manual/native/adx2_en/latest/criatom_library_atomasr.html
 - CRI native noise troubleshooting: https://game.criware.jp/manual/native/adx2/latest/criatom_trblsht_noise.html
 
+### Build 380 still noisy: official-documentation review and what it ruled out
+
+Reported state: Build 380 (buffering 200/400 ms, MULTI pinned, hardware properties applied) is still very noisy.
+
+CRI's own noise troubleshooting page (https://game.criware.jp/manual/native/adx2/latest/criatom_trblsht_noise.html) lists exactly five causes. Each was checked against Pocket:
+
+| CRI-listed cause | Pocket status |
+|---|---|
+| Level above 1.0f is clipped (limit voices, master limiter, lower volume) | Not the cause for BGM alone: decoded peaks 0.52-0.63, player volumes clamped to 0..1. Mixed peak with stylus/door effects on top was not measured. |
+| Processing load too high | Six memory-resident ADX voices, no HCA. Not plausible. |
+| Audio thread shares a core with a heavy thread | SDK default server-thread nice value is -19 (already the strongest useful value, MULTI model only). |
+| Streaming buffer too small (D-BAS max_bps) | Not applicable to ADX: built-in tracks play from memory, no D-BAS stream. |
+| App file I/O locking ADX streaming | Not applicable for the same reason. |
+
+The page has no entry for codec quality, ASR resampling or Android-specific faults. The SDK header text (printed in Repair Tests run 38) adds: `criAtom_SetThreadPriority_ANDROID` default -19, `criAtom_EnableAAudio_ANDROID` is optional and off by default (OpenSL ES is the tested path), and `criAtomExPlayer_SetData` needs SetFormat/SetNumChannels/SetSamplingRate, which Pocket already supplies.
+
+Measured on the shipped files (not an assumption): all seven are ordinary ADX v3, 4-bit, 44.1 kHz stereo; about 4.5 percent of codes sit at the +7/-8 limits, which is the normal peak-scaled 4-bit pattern, not encoder overload. For `chill-1a` (quietest BGM, seconds 60-80) the decoded ADX is 25.6 dB SNR against the source OGG; the codec error is 26 dB below the music at 0-1 kHz, 19 dB at 4-8 kHz, 14 dB at 12-16 kHz and only 5 dB at 16-20 kHz.
+
+Conclusion: no documentation-confirmed engine misconfiguration remains. The one factor present in every build 359-380 is the 4-bit ADX data itself. Next confirmation step is a listening test, not another engine guess:
+
+1. Listen to the decoded-ADX excerpt next to the OGG excerpt in any ordinary player on the target phone (no CRI involved). Noisy ADX excerpt means the data/codec is the cause.
+2. If the ADX excerpt is clean, import the original OGG through Pocket's importer (PCM16 WAV through the CRI Wave pool) and compare with the built-in ADX of the same song. Clean import but noisy built-in means CRI's ADX path; noisy import too means the Android output path, and then `criAtom_EnableAAudio_ANDROID` is the remaining lever.
+
+If the data is the cause, ADX cannot be fixed by engine settings. Options then: PCM or higher-bitrate assets through the existing CRI Wave voice pool (APK size and memory cost) or CRI's HCA codec (needs CRI's encoder, not available in CI).
+
 ## CRI facts found in Build 362
 
 - One native `PocketCriAudioRuntime` owns playback; six dedicated players: MUSIC, vinyl crackle/ambience, stylus, record placement, door chime, door rattle.
