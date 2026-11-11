@@ -71,13 +71,17 @@ Japanese developer-practice references:
 - CRI Android device/OS caveats: https://game.criware.jp/manual/unity_plugin/latest/contents/cri4u_tgtspc_android_noize_spc020.html
   - CRI documents terminal/OS-specific ADX pop/noise reports. Treat this as a reason to record device/OS and compare outputs, not as proof of a Tecno-specific defect.
 
-## Working diagnosis (hypotheses, not yet device-confirmed)
+## Current working diagnosis (after user's BGM-only clarification; not device-confirmed)
 
-1. Aggregate clipping/headroom is a leading hypothesis because all sound groups can overlap, master gain is 100%, and there is no authored master limiter in the source. Test isolated BGM, isolated ambience, isolated SFX, then controlled combinations; capture true peak/output level and native error/status logs.
-2. Stream underrun remains a leading hypothesis. Inspect D-BAS sizing and actual active stream count/bitrate; add diagnostics for buffer amount/stream status and audio-thread scheduling. CRI's Android-specific Unity guide says some devices need larger output decoder buffers than defaults; test the native SDK's equivalent Android settings on the target phone. Do not raise max_bps blindly beyond device storage/read capability.
-3. Loop discontinuity is a separate known architectural weakness. Current PLAYEND -> Start restarts a SetFile stream. Move BGM and ambience loops to CRI-supported waveform loop points or authored Cue/Material loop metadata; preserve loop intent without competing app-side audio engines. Use seamless concatenation only where appropriate.
-4. Check the Android audio thread priority and native scheduling under device load. Avoid blocking/long mutex holds around real-time work; separate diagnostics/control scheduling from CRI's own MULTI server processing.
-5. Do not treat a successful APK compile or source-text tests as proof of clean audio.
+The report that BGM remains distorted while it is the only active sound, even with ambience/SFX at 0 and at low and high gain, means aggregate mix clipping is no longer the primary explanation.
+
+1. Prioritize the single-stream path: Android output/decode/resampling, the exact ADX data, or data supply underruns. The active repair removes storage streaming from packaged ADX by using retained memory playback, but real-device listening is still required.
+2. Verify source OGG and packaged ADX separately. Check channels, sample rate, successful FFmpeg decode, mean/peak level and clipping in the decoded PCM. A 48 kHz ADX container does not prove its original source was recorded cleanly or at native 48 kHz.
+3. If the in-memory ADX path still distorts on the target phone, inspect the actual Native SDK 2.31.01 Android output-buffer/resampling fields and compare phone speaker against headphones. The CRI Unity plugin's documented Android buffer values must not be copied blindly into the Native SDK.
+4. Aggregate clipping/headroom remains relevant for simultaneous BGM + ambience + SFX after single streams are clean; use gain ceilings and category/ducking policies then. It does not explain the reported isolated BGM defect by itself.
+5. Loop gaps are a separate problem: bundled ADX now loops using CRI's memory data-request callback; the 16 ms PLAYEND monitor remains only for imported WAV streaming.
+6. Check CRI thread scheduling and input/output buffer diagnostics if distortion persists. Do not add a second `criAtomEx_ExecuteMain` pump while Android CRI is running in MULTI mode.
+7. A successful npm test suite or native compile is not proof of clean audio; physical listening on the target phone is required.
 
 ## In-app updater source observations
 
@@ -85,8 +89,9 @@ Japanese developer-practice references:
 - `mountPocketUpdateSettings()` attaches click listeners to all three buttons when the Settings route renders.
 - The check action calls `checkPocketUpdates(false)`, which invokes the native `checkPocketUpdate(requestId)` bridge and expects `PocketNativeCallbacks.updateCheck`.
 - The download control is intentionally hidden/disabled unless the remote manifest reports a build number newer than the installed build. Build 362 is currently the latest public release and the public manifest is for Build 362. Therefore an installation of Build 362 should not show an enabled DOWNLOAD UPDATE button until a newer release exists. `CHECK AGAIN` should remain available.
-- The source check has not established why the user-reported tap is not registering. The check handler is attached, native bridge method exists, and the HTTP fetch uses 10 s connect / 12 s read timeouts. CSS inspection found no broad pointer-events blocker on the Update card; the card pseudo-border explicitly has `pointer-events:none`. The global pull-cord handle is a small fixed touch target and could overlap a scrolled control only if their screen rectangles coincide; verify on device rather than assuming it is the cause.
-- Add DOM-level mount/click tests, log event receipt and native bridge dispatch, verify touch target/overlay/scroll state on device, and display a visible error if the native check callback fails or times out. Do not call the hidden download button a broken handler when there is no newer build available.
+- Source inspection showed click listeners on the summary and buttons, but no timeout if the native callback was lost; the user could be left looking at a disabled CHECK AGAIN after an unanswered request. The global pull-cord TV is a fixed touch target at z-index 30.
+- The active repair adds a 45-second JS callback timeout, clears pending callback state and busy state, shows visible timeout/error status, and layers the Update panel at z-index 31 above the pull-cord hit target. Source-contract tests pass. Physical tap testing at different scroll positions remains necessary.
+- Do not call the hidden download button a broken handler when there is no newer build available.
 
 ## Active repair changes (2026-11-11)
 
