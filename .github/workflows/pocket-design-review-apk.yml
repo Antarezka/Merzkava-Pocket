@@ -245,20 +245,12 @@ jobs:
           DIST="review-apk/dist"
           CRI_AUDIO="$DIST/cri-audio"
 
-          # Source OGG/MP3/WAV files are kept in the repository for editing only.
-          # They must never be copied into the installed app; CRI reads the seven ADX assets below.
+          # Source OGG/MP3/WAV files remain in the repository for editing only.
+          # CRI playback uses the seven pre-converted ADX assets.
           rm -rf "$DIST/audio"
-          find "$DIST" -type f \(
-            -iname '*.ogg' -o -iname '*.mp3' -o -iname '*.wav' -o
-            -iname '*.m4a' -o -iname '*.aac' -o -iname '*.flac' -o
-            -iname '*.opus' -o -iname '*.wma' -o -iname '*.aiff'
-          \) -delete
+          find "$DIST" -type f -iregex '.*\.\(ogg\|mp3\|wav\|m4a\|aac\|flac\|opus\|wma\|aiff\)' -delete
 
-          LEGACY_AUDIO="$(find "$DIST" -type f \(
-            -iname '*.ogg' -o -iname '*.mp3' -o -iname '*.wav' -o
-            -iname '*.m4a' -o -iname '*.aac' -o -iname '*.flac' -o
-            -iname '*.opus' -o -iname '*.wma' -o -iname '*.aiff'
-          \) -print)"
+          LEGACY_AUDIO="$(find "$DIST" -type f -iregex '.*\.\(ogg\|mp3\|wav\|m4a\|aac\|flac\|opus\|wma\|aiff\)' -print)"
           if [[ -n "$LEGACY_AUDIO" ]]; then
             printf '%s\n' "$LEGACY_AUDIO"
             echo "::error::Legacy source audio is still present in the app distribution."
