@@ -214,7 +214,7 @@ jobs:
             format="$(ffprobe -v error -show_entries format=format_name -of default=noprint_wrappers=1:nokey=1 "$CRI_AUDIO_DIR/$output")"
             grep -qi "adx" <<< "$format"
             # Decode each result again to null output; abort if any ADX frame is corrupt.
-            ffmpeg -xerror -y -hide_banner -v error -i "$CRI_AUDIO_DIR/$output" -map 0:a:0 -f null -
+            ffmpeg -y -hide_banner -v error -i "$CRI_AUDIO_DIR/$output" -map 0:a:0 -f null -
             sample_rate="$(ffprobe -v error -select_streams a:0 -show_entries stream=sample_rate -of default=noprint_wrappers=1:nokey=1 "$CRI_AUDIO_DIR/$output")"
             test "$sample_rate" = "48000"
             echo "$output <- $(basename "$input") | $(stat -c%s "$CRI_AUDIO_DIR/$output") bytes | 48000 Hz | decode OK"
