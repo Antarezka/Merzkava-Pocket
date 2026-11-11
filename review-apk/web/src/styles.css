@@ -2900,6 +2900,8 @@ body.bubble-render-paused *::after {
 .update-download-area{display:grid;gap:8px;margin-top:13px;padding:10px;border:1px solid color-mix(in srgb,var(--gold) 50%,var(--line));background:color-mix(in srgb,var(--gold) 6%,var(--surface))}
 .update-download-bar{height:7px}.update-download-bar>i{background:linear-gradient(90deg,var(--gold),var(--lime))}
 .update-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:13px}
+.settings-update-actions{grid-template-columns:1fr}
+.settings-update-footnote{margin-top:7px}
 .update-actions button{min-width:0;min-height:37px;padding:0 8px;border:1px solid var(--line);background:var(--surface2);color:var(--paper);font-size:7px;font-weight:700;letter-spacing:.1em}
 .update-actions button b{margin-left:5px;color:var(--lime);font-size:12px}
 .update-actions .update-download-button{border-color:var(--gold);background:linear-gradient(120deg,color-mix(in srgb,var(--gold) 17%,var(--surface2)),var(--surface))}
