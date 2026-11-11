@@ -238,12 +238,43 @@ jobs:
       - name: Build Pocket web shell
         working-directory: review-apk
         run: npm run build
-      - name: Remove source audio from web distribution
+      - name: Remove source audio from web distribution and keep only seven bundled ADX files
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf review-apk/dist/audio
-          test "$(find review-apk/dist/cri-audio -maxdepth 1 -type f -name '*.adx' | wc -l)" -eq 9
+          DIST="review-apk/dist"
+          CRI_AUDIO="$DIST/cri-audio"
+
+          # Source OGG/MP3/WAV files are kept in the repository for editing only.
+          # They must never be copied into the installed app; CRI reads the seven ADX assets below.
+          rm -rf "$DIST/audio"
+          find "$DIST" -type f \(
+            -iname '*.ogg' -o -iname '*.mp3' -o -iname '*.wav' -o
+            -iname '*.m4a' -o -iname '*.aac' -o -iname '*.flac' -o
+            -iname '*.opus' -o -iname '*.wma' -o -iname '*.aiff'
+          \) -delete
+
+          LEGACY_AUDIO="$(find "$DIST" -type f \(
+            -iname '*.ogg' -o -iname '*.mp3' -o -iname '*.wav' -o
+            -iname '*.m4a' -o -iname '*.aac' -o -iname '*.flac' -o
+            -iname '*.opus' -o -iname '*.wma' -o -iname '*.aiff'
+          \) -print)"
+          if [[ -n "$LEGACY_AUDIO" ]]; then
+            printf '%s\n' "$LEGACY_AUDIO"
+            echo "::error::Legacy source audio is still present in the app distribution."
+            exit 1
+          fi
+
+          ADX_COUNT="$(find "$CRI_AUDIO" -maxdepth 1 -type f -name '*.adx' | wc -l)"
+          test "$ADX_COUNT" -eq 7
+          OUTSIDE_ADX="$(find "$DIST" -type f -name '*.adx' ! -path "$CRI_AUDIO/*" -print)"
+          if [[ -n "$OUTSIDE_ADX" ]]; then
+            printf '%s\n' "$OUTSIDE_ADX"
+            echo "::error::ADX files must be bundled only under assets/cri-audio."
+            exit 1
+          fi
+          echo "Verified: exactly seven CRI ADX files retained; no legacy audio sources are packaged."
+
       - name: Render CSS launcher icon with Takumi
         working-directory: review-apk
         run: npm run render:launcher-icon
@@ -315,8 +346,18 @@ jobs:
           for asset in Happy-1a.adx chill-1a.adx Retroatrical-1.adx Retroatrical-2.adx needle-drop.adx record-placement.adx vinyl-surface-noise.adx; do
             unzip -l "$APK" | grep -F "assets/cri-audio/$asset"
           done
-          if unzip -l "$APK" | grep -E 'assets/audio/.*\.(ogg|mp3|m4a|aac|flac)$'; then
-            echo "::error::Compressed source audio must not be routed through the WebView asset folder."
+          ADX_COUNT="$(unzip -Z1 "$APK" | grep -Ec '^assets/cri-audio/[^/]+\.adx$' || true)"
+          test "$ADX_COUNT" -eq 7
+          LEGACY_AUDIO="$(unzip -Z1 "$APK" | grep -Ei '\.(ogg|mp3|wav|m4a|aac|flac|opus|wma|aiff)$' || true)"
+          if [[ -n "$LEGACY_AUDIO" ]]; then
+            printf '%s\n' "$LEGACY_AUDIO"
+            echo "::error::Legacy OGG/MP3/WAV or other source audio was found inside the APK."
+            exit 1
+          fi
+          OUTSIDE_ADX="$(unzip -Z1 "$APK" | grep -E '\.adx$' | grep -v '^assets/cri-audio/' || true)"
+          if [[ -n "$OUTSIDE_ADX" ]]; then
+            printf '%s\n' "$OUTSIDE_ADX"
+            echo "::error::Unexpected ADX file outside the CRI audio asset folder."
             exit 1
           fi
       - name: Rename APK
