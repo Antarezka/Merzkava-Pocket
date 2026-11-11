@@ -41,7 +41,6 @@ public final class PocketCriAudioRuntime {
     private static final int CHANNEL_DOOR_RATTLE = 5;
     private static final int FORMAT_ADX = 1;
     private static final int FORMAT_WAVE = 2;
-    private static final int FORMAT_WAVE_MEMORY = 3;
 
     private static final Map<String, String> BUILT_IN = new HashMap<>();
     static {
@@ -426,7 +425,7 @@ public final class PocketCriAudioRuntime {
         } else {
             prepareBuiltInAdx(file, CHANNEL_MUSIC, generation, new AudioPrepared() {
                 @Override public void onReady(File wav, AudioMetadata metadata) {
-                    beginMusicPlayback(wav, FORMAT_WAVE_MEMORY, metadata, generation, keepPaused);
+                    beginMusicPlayback(wav, FORMAT_WAVE, metadata, generation, keepPaused);
                 }
                 @Override public void onError(String message, Exception cause) {
                     publish("music", "error", "ADX decode failed: " + message);
@@ -485,7 +484,7 @@ public final class PocketCriAudioRuntime {
         publish("vinyl-crackle", "preparing", "");
         prepareBuiltInAdx(file, CHANNEL_VINYL_CRACKLE, generation, new AudioPrepared() {
             @Override public void onReady(File wav, AudioMetadata metadata) {
-                startFileAtVolume(CHANNEL_VINYL_CRACKLE, wav, FORMAT_WAVE_MEMORY, metadata,
+                startFileAtVolume(CHANNEL_VINYL_CRACKLE, wav, FORMAT_WAVE, metadata,
                     effectiveChannelVolume(CHANNEL_VINYL_CRACKLE), 0f, true, generation,
                     () -> fadeChannelTo(CHANNEL_VINYL_CRACKLE, 1f, 320L, null));
             }
@@ -526,7 +525,7 @@ public final class PocketCriAudioRuntime {
         publish(CHANNEL_NAMES[channel], "preparing", "");
         prepareBuiltInAdx(file, channel, generation, new AudioPrepared() {
             @Override public void onReady(File wav, AudioMetadata metadata) {
-                enqueuePlay(channel, wav, FORMAT_WAVE_MEMORY, metadata,
+                enqueuePlay(channel, wav, FORMAT_WAVE, metadata,
                     effectiveChannelVolume(channel), false, "preparing");
             }
             @Override public void onError(String message, Exception cause) {
