@@ -34,3 +34,59 @@ jobs:
       - name: Run Pocket unit and source-contract tests
         working-directory: review-apk
         run: npm test
+
+  native-compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools"
+          accept-android-sdk-licenses: true
+      - name: Install Android SDK platform, NDK and CMake
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          NDK_DIR="$SDK_ROOT/ndk/27.2.12479018"
+          sdkmanager --install "platforms;android-35" "cmake;3.22.1" "ndk;27.2.12479018"
+          test -s "$NDK_DIR/source.properties"
+          grep -q "Pkg.Revision = 27.2.12479018" "$NDK_DIR/source.properties"
+      - name: Download and verify pinned CRI ADX LE SDK
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.CRI_SDK_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "${GH_TOKEN:-}"
+          SDK_DIR="$RUNNER_TEMP/cri-sdk"
+          mkdir -p "$SDK_DIR"
+          gh release download cri-sdk-temp --repo Antarezka/open-innovation-lab \
+            --pattern "cri_adx2le_sdk_v2.31.01.zip" --dir "$SDK_DIR" --clobber
+          ZIP="$SDK_DIR/cri_adx2le_sdk_v2.31.01.zip"
+          EXPECTED="a8996d1096ecab760c1fedd5a32a7bcb5013c1894bd555d19c6b33f765ccc5b4"
+          echo "$EXPECTED  $ZIP" | sha256sum --check -
+          mkdir -p "$SDK_DIR/unpacked"
+          unzip -q "$ZIP" -d "$SDK_DIR/unpacked"
+          ARM64_LIB="$(find "$SDK_DIR/unpacked" -type f -iname 'libcri_ware_android*le.so' | grep -E '/arm64-v8a/' | head -n1)"
+          ARM32_LIB="$(find "$SDK_DIR/unpacked" -type f -iname 'libcri_ware_android*le.so' | grep -E '/armeabi-v7a/' | head -n1)"
+          HEADER_DIR="$(find "$SDK_DIR/unpacked" -type f -name 'cri_le_atom_android.h' -printf '%h\\n' | head -n1)"
+          test -n "$ARM64_LIB" && test -s "$ARM64_LIB"
+          test -n "$ARM32_LIB" && test -s "$ARM32_LIB"
+          test -n "$HEADER_DIR" && test -s "$HEADER_DIR/cri_le_atom_ex.h"
+          CRI_ROOT="$SDK_DIR/normalized"
+          mkdir -p "$CRI_ROOT/include" "$CRI_ROOT/libs/arm64-v8a" "$CRI_ROOT/libs/armeabi-v7a"
+          cp -a "$HEADER_DIR/." "$CRI_ROOT/include/"
+          cp "$ARM64_LIB" "$CRI_ROOT/libs/arm64-v8a/libcri_ware_android_le.so"
+          cp "$ARM32_LIB" "$CRI_ROOT/libs/armeabi-v7a/libcri_ware_android_LE.so"
+          echo "CRI_SDK_ROOT=$CRI_ROOT" >> "$GITHUB_ENV"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Compile Pocket JNI and Java sources without assembling an APK
+        working-directory: review-apk
+        run: gradle --no-daemon :app:externalNativeBuildDebug :app:compileDebugJavaWithJavac
