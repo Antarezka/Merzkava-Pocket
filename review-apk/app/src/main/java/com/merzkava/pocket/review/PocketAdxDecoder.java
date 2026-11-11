@@ -106,7 +106,10 @@ public final class PocketAdxDecoder {
             final int[] history2 = new int[header.channels];
             final int[][] decodedBlock = new int[header.channels][BLOCK_SAMPLES];
             final byte[] compressedBlock = new byte[BLOCK_BYTES - 2];
-            final byte[] pcmChunk = new byte[BLOCK_SAMPLES * header.channels * 2];
+            // Buffer many ADX groups together: 64 KiB writes are much friendlier
+            // to low-end phone storage than one tiny file write per 32 samples.
+            final byte[] pcmChunk = new byte[64 * 1024];
+            int pcmPosition = 0;
 
             long decodedSamples = 0L;
             long groups = (header.sampleCount + BLOCK_SAMPLES - 1L) / BLOCK_SAMPLES;
@@ -152,23 +155,26 @@ public final class PocketAdxDecoder {
 
                 if (endMarker) break;
 
-                int writePosition = 0;
                 for (int sampleIndex = 0; sampleIndex < samplesThisGroup; sampleIndex++) {
                     for (int channel = 0; channel < header.channels; channel++) {
+                        if (pcmPosition + 2 > pcmChunk.length) {
+                            output.write(pcmChunk, 0, pcmPosition);
+                            pcmPosition = 0;
+                        }
                         int sample = decodedBlock[channel][sampleIndex];
                         // Match the conventional Float32-to-PCM16 WAV conversion:
                         // negative samples use 32768; non-negative samples use 32767.
                         int wavSample = sample < 0
                             ? sample
                             : (int) Math.floor((sample * 32767.0 / 32768.0) + 0.5);
-                        pcmChunk[writePosition++] = (byte) (wavSample & 0xff);
-                        pcmChunk[writePosition++] = (byte) ((wavSample >>> 8) & 0xff);
+                        pcmChunk[pcmPosition++] = (byte) (wavSample & 0xff);
+                        pcmChunk[pcmPosition++] = (byte) ((wavSample >>> 8) & 0xff);
                     }
                 }
-                output.write(pcmChunk, 0, writePosition);
                 decodedSamples += samplesThisGroup;
             }
 
+            if (pcmPosition > 0) output.write(pcmChunk, 0, pcmPosition);
             if (decodedSamples <= 0L) {
                 throw new IOException("The ADX decoder did not produce PCM samples.");
             }
