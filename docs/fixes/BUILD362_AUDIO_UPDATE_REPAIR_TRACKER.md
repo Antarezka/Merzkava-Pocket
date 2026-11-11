@@ -2,7 +2,7 @@
 
 Last reviewed: 2026-11-11
 Repository: Antarezka/Merzkava-Pocket
-Active branch: `fix/build362-audio-update-2026-11-11`
+Active follow-up branch: `fix/preserve-source-audio-rate-2026-11-11`
 
 ## Branch map
 
@@ -15,7 +15,7 @@ Active branch: `fix/build362-audio-update-2026-11-11`
 | `chore/pocket-audio-folder-2026-11-09` | CI source-asset branch for Happy/chill/Retroatrical tracks, needle drop and record placement | `0f1f6b02ce97ffd3b23113c92cc462e47c41679e` |
 | `feat/settings-vinyl-player-2026-11-09` | CI source-asset branch for vinyl surface noise | `0b2eb019dd73d6caa02a41365d26f5b5e85e8257` |
 
-The first three are the application source/repair history. The final two are referenced by the APK workflow only to restore original audio source files before converting them to CRI ADX; they are not merged into the app source. The active repair branch was added to the APK workflow push allow-list. Build #368 was produced from this branch's final head SHA `66db2e1b3fe132c4c0397e7b02d2ee96eda96e3f`.
+The application source/repair branches are separate from the two source-asset branches, which the APK workflow reads only to restore original audio files before CRI conversion. The prior `fix/build362-audio-update-2026-11-11` branch was added to the APK workflow push allow-list and produced Build #368 from `66db2e1b3fe132c4c0397e7b02d2ee96eda96e3f`. The follow-up `fix/preserve-source-audio-rate-2026-11-11` branch is not on that allow-list, so its workflow edits do not trigger an APK build automatically.
 
 ## Build 362 baseline
 
@@ -46,7 +46,7 @@ The first three are the application source/repair history. The final two are ref
 - Scope is limited to the build-time conversion step. The CRI playback runtime, native JNI path, player channels, loop handling, fades, and UI are unchanged.
 - The previous pipeline forced every source to 48,000 Hz. The follow-up preserves the original rate whenever it is supported by CRI ADX: 48,000; 44,100; 32,000; 24,000; 22,050; 16,000; 12,000; 11,025; or 8,000 Hz. Unsupported rates are mapped to the nearest supported rate, with a 48 kHz ceiling.
 - Mono and stereo are preserved as mono and stereo. Sources wider than stereo are downmixed to stereo because Pocket's current ADX playback metadata contract is mono/stereo.
-- The sample-count timestamp reset remains in place to avoid the earlier non-monotonic DTS issue. Build validation now checks the generated ADX sample rate and channel count against the selected target values, and logs source codec/rate/channels/layout/bitrate beside output ADX metadata.
+- The sample-count timestamp reset remains in place to avoid the earlier non-monotonic DTS issue. Build validation now checks the generated ADX sample rate and channel count against the selected target values, and logs source/output codec, rate, channels, layout, sample format, raw bit depth, and bitrate.
 - Codec remains ADX and the runtime remains unchanged. CRI documents ADX as 1/4 compression with ADPCM-equivalent quality; high, bright frequencies can be more visibly degraded. This is a separate quality limit from resampling and is not changed in this rate-only correction.
 - Local FFmpeg smoke checks passed for 44.1 kHz stereo, 48 kHz mono, and a 96 kHz stereo source mapped down to 48 kHz; each encoded ADX decoded successfully and preserved the expected target channels.
 - No APK was built from this follow-up branch. Build #368 remains the last public build until a new build is explicitly approved and the resulting CI logs confirm the real source metadata.
