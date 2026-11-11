@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const source = readFileSync(new URL("../web/src/main.js", import.meta.url), "utf8");
+const buildWorkflowSource = readFileSync(new URL("../../.github/workflows/pocket-design-review-apk.yml", import.meta.url), "utf8");
 const audioVisualSource = readFileSync(new URL("../web/src/audio-player.js", import.meta.url), "utf8");
 const deckSource = readFileSync(new URL("../web/src/pocket-audio-director.js", import.meta.url), "utf8");
 const runtimeSource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java", import.meta.url), "utf8");
@@ -423,6 +424,13 @@ test("Turntable render loop suspends only in bubble mode and resumes at its reta
   motion.setRenderEnabled(true);
   assert.equal(callbacks.size, 0, "a stopped platter must stay stopped after restore");
   motion.dispose();
+});
+
+test("Packaged CRI ADX conversion resets audio timestamps and validates the encoded stream", () => {
+  assert.match(buildWorkflowSource, /aresample=48000,asetpts=N\/SR\/TB/);
+  assert.match(buildWorkflowSource, /ffmpeg -y -xerror -hide_banner -loglevel error/);
+  assert.match(buildWorkflowSource, /ffmpeg -xerror -y -hide_banner -v error[\s\S]*?-f null -/);
+  assert.match(buildWorkflowSource, /sample_rate.*48000/);
 });
 
 test("Original Settings updater remains mounted and Download calls the validated native updater", () => {
