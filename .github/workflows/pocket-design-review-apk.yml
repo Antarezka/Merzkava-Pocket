@@ -1,7 +1,7 @@
 name: Merzkava Pocket Android APK
 on:
   push:
-    branches: [main, feat/daily-login-pixel-scene-frame11-mainline, fix/daily-login-japanese-shop-depth-2026-11-08, feat/claude-modular-appearance-expansion-2026-11-08, recovery/claude-full-updates-on-build-146-2026-11-09, feat/settings-vinyl-player-2026-11-09, fix/build196-vinyl-ambience-loader-2026-11-09, feat/role-based-profile-databased-toolbar-2026-11-09, fix/build239-manual-audio-floating-fox-splash, feat/pocket-audio-architecture-2026-11-11, fix/build362-audio-update-2026-11-11, fix/preserve-source-audio-rate-2026-11-11, fix/settings-updater-downloadmanager-build375-2026-11-11]
+    branches: [main, feat/daily-login-pixel-scene-frame11-mainline, fix/daily-login-japanese-shop-depth-2026-11-08, feat/claude-modular-appearance-expansion-2026-11-08, recovery/claude-full-updates-on-build-146-2026-11-09, feat/settings-vinyl-player-2026-11-09, fix/build196-vinyl-ambience-loader-2026-11-09, feat/role-based-profile-databased-toolbar-2026-11-09, fix/build239-manual-audio-floating-fox-splash, feat/pocket-audio-architecture-2026-11-11, fix/build362-audio-update-2026-11-11, fix/preserve-source-audio-rate-2026-11-11, fix/settings-updater-downloadmanager-build375-2026-11-11, fix/pocket-cri-native-renderer-2026-11-11]
     paths:
       - "review-apk/**"
       - "docs/game/**"
