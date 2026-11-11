@@ -425,8 +425,13 @@ test("Turntable render loop suspends only in bubble mode and resumes at its reta
   motion.dispose();
 });
 
-test("Pocket updater is shown and operated from Android device notifications, not Settings", () => {
+test("Settings Download button and Android device notification share the verified native updater", () => {
   assert.doesNotMatch(source, /data-update-section|mountPocketUpdateSettings/);
+  assert.match(source, /data-settings-update-download/);
+  assert.match(source, /mountSettingsUpdateDownload\(\)/);
+  assert.match(source, /native\.startPocketUpdateDownload\([\s\S]*?update\.apkUrl[\s\S]*?update\.apkSha256/);
+  assert.match(source, /native\?\.getPocketUpdateDownloadState\?\./);
+  assert.match(source, /window\.addEventListener\("pocket:update-checked",refresh\)/);
   assert.match(source, /native\?\.showPocketUpdateNotification\?/);
   assert.match(source, /void checkPocketUpdates\(true\)/);
   assert.match(bridgeSource, /setOnClickPendingIntent\(R\.id\.pocket_update_notification_action, downloadUpdate\)/);
@@ -434,6 +439,7 @@ test("Pocket updater is shown and operated from Android device notifications, no
   assert.match(workerSource, /\.addAction\(R\.drawable\.ic_notification_tv, "DOWNLOAD UPDATE", download\)/);
   assert.match(workerSource, /putExtra\(MainActivity\.EXTRA_UPDATE_URL, apkUrl\)/);
   assert.match(activitySource, /ACTION_DOWNLOAD_UPDATE\.equals\(action\)/);
+  assert.match(cssSource, /\.settings-update-actions\{grid-template-columns:1fr\}/);
   assert.doesNotMatch(cssSource, /\.update-section\{[^}]*z-index:31/);
   assert.doesNotMatch(cssSource, /\.update-section-toggle,\.update-actions button/);
   assert.match(source, /const timeoutId=window\.setTimeout\(\(\)=>controller\.abort\(\),45000\)/);
