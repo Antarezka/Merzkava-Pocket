@@ -125,8 +125,18 @@ public final class PocketUpdateWorker extends Worker {
 
             SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
             if (prefs.getInt(PREF_NOTIFIED_BUILD, 0) == buildNumber) return Result.success();
+            JSONArray releaseNotesJson = manifest.optJSONArray("notes");
+            StringBuilder releaseNotes = new StringBuilder();
+            if (releaseNotesJson != null) {
+                for (int i = 0; i < Math.min(4, releaseNotesJson.length()); i++) {
+                    String note = releaseNotesJson.optString(i, "").trim();
+                    if (!note.isEmpty()) releaseNotes.append("• ").append(note).append("\n");
+                }
+            }
+            if (releaseNotes.length() == 0) releaseNotes.append(release.optString("body", "").trim());
+
             if (!postUpdateNotification(context, buildNumber,
-                manifest.optString("versionName", tag), release.optString("body", ""))) {
+                manifest.optString("versionName", tag), apkUrl, apkName, hash, releaseNotes.toString())) {
                 return Result.retry();
             }
             prefs.edit().putInt(PREF_NOTIFIED_BUILD, buildNumber).apply();
@@ -180,7 +190,8 @@ public final class PocketUpdateWorker extends Worker {
     }
 
     private static boolean postUpdateNotification(
-        Context context, int buildNumber, String versionName, String releaseNotes) {
+        Context context, int buildNumber, String versionName,
+        String apkUrl, String apkName, String sha256, String releaseNotes) {
         NotificationManager manager = (NotificationManager)
             context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager == null || !manager.areNotificationsEnabled()) return false;
@@ -188,32 +199,49 @@ public final class PocketUpdateWorker extends Worker {
             NotificationChannel channel = new NotificationChannel(
                 CHANNEL_ID, "Pocket Updates", NotificationManager.IMPORTANCE_DEFAULT);
             channel.setDescription("New Merzkava Pocket builds and release notes.");
+            channel.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
             manager.createNotificationChannel(channel);
         }
 
         Intent launch = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
         if (launch == null) return false;
         launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        PendingIntent open = PendingIntent.getActivity(context, 8202, launch,
+        PendingIntent open = PendingIntent.getActivity(context, NOTIFICATION_ID, launch,
             PendingIntent.FLAG_UPDATE_CURRENT |
                 (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0));
 
+        Intent downloadIntent = new Intent(context, MainActivity.class);
+        downloadIntent.setAction(MainActivity.ACTION_DOWNLOAD_UPDATE);
+        downloadIntent.setData(Uri.parse("merzkava-pocket://periodic-update-download/" + buildNumber));
+        downloadIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        downloadIntent.putExtra(MainActivity.EXTRA_UPDATE_URL, apkUrl);
+        downloadIntent.putExtra(MainActivity.EXTRA_UPDATE_FILE_NAME, apkName);
+        downloadIntent.putExtra(MainActivity.EXTRA_UPDATE_SHA256, sha256);
+        downloadIntent.putExtra(MainActivity.EXTRA_UPDATE_BUILD, buildNumber);
+        PendingIntent download = PendingIntent.getActivity(context, NOTIFICATION_ID + 1,
+            downloadIntent, PendingIntent.FLAG_UPDATE_CURRENT |
+                (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0));
+
         String detail = releaseNotes == null ? "" : releaseNotes.trim();
-        if (detail.length() > 180) detail = detail.substring(0, 177) + "...";
+        if (detail.length() > 420) detail = detail.substring(0, 417) + "...";
+        String title = "Merzkava Pocket · Build #" + buildNumber;
+        String summary = "New Pocket update · " + versionName + " · Tap Download below.";
         Notification.Builder builder = Build.VERSION.SDK_INT >= 26
             ? new Notification.Builder(context, CHANNEL_ID)
             : new Notification.Builder(context);
         builder.setSmallIcon(R.drawable.ic_notification_tv)
-            .setContentTitle("A new Pocket build is ready")
-            .setContentText("Build #" + buildNumber + " · " + versionName + " — open Pocket to review")
+            .setContentTitle(title)
+            .setContentText(summary)
             .setStyle(new Notification.BigTextStyle().bigText(
-                "Merzkava Pocket Build #" + buildNumber + " (" + versionName +
-                ") is available. Open Pocket to view the release details and download it." +
-                (detail.isEmpty() ? "" : "\n" + detail)))
+                "A new Merzkava Pocket build is ready. Tap DOWNLOAD UPDATE in this device notification." +
+                (detail.isEmpty() ? "" : "\n\n" + detail)))
             .setContentIntent(open)
             .setAutoCancel(true)
-            .setCategory(Notification.CATEGORY_RECOMMENDATION)
-            .setPriority(Notification.PRIORITY_DEFAULT);
+            .setOnlyAlertOnce(true)
+            .setCategory(Notification.CATEGORY_STATUS)
+            .setPriority(Notification.PRIORITY_DEFAULT)
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .addAction(R.drawable.ic_notification_tv, "DOWNLOAD UPDATE", download);
         manager.notify(NOTIFICATION_ID, builder.build());
         return true;
     }
