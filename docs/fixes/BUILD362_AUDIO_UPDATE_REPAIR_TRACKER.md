@@ -88,15 +88,43 @@ Japanese developer-practice references:
 - The source check has not established why the user-reported tap is not registering. The check handler is attached, native bridge method exists, and the HTTP fetch uses 10 s connect / 12 s read timeouts. CSS inspection found no broad pointer-events blocker on the Update card; the card pseudo-border explicitly has `pointer-events:none`. The global pull-cord handle is a small fixed touch target and could overlap a scrolled control only if their screen rectangles coincide; verify on device rather than assuming it is the cause.
 - Add DOM-level mount/click tests, log event receipt and native bridge dispatch, verify touch target/overlay/scroll state on device, and display a visible error if the native check callback fails or times out. Do not call the hidden download button a broken handler when there is no newer build available.
 
+## Active repair changes (2026-11-11)
+
+User clarified the highest-priority audio symptom: **BGM is still distorted when it is the only active sound**, with ambience/SFX at 0 and at both low and high volume. This supersedes aggregate-mix clipping as the primary diagnosis. A limiter or lower slider value alone is not an adequate repair for that symptom.
+
+### Native audio changes now on the ACTIVE branch
+
+- Packaged ADX assets (BGM, vinyl ambience, stylus, record placement and door effects) are loaded once into a bounded native memory cache and played with `criAtomExPlayer_SetData`, not `SetFile` streaming.
+- The ADX voice pool is now configured for non-streaming/memory playback. Buffers remain cached until after `criAtomEx_Finalize_ANDROID`; CRI retains the data pointer, so freeing/replacing a buffer before AtomEx finalization would be unsafe.
+- Bundled ADX loops use `criAtomExPlayer_SetDataRequestCallback` and `criAtomPlayer_SetPreviousDataAgain` to repeat the same memory buffer seamlessly. The callback only performs the permitted repeat call and an atomic counter increment; it does not take the runtime mutex, log, allocate, or read files.
+- The 16 ms PLAYEND monitor is retained only for imported PCM-WAV streaming loops. It no longer owns packaged BGM/ambience loop restarts.
+- D-BAS is sized for the single imported WAV streaming voice: max stream count 1 and max bitrate 6,144,000 bits/s (192 kHz × 2 channels × 16-bit PCM). Built-in ADX no longer consumes D-BAS streaming capacity.
+- No Native SDK Android output-buffer value has been guessed or copied from the CRI Unity plugin guide. That guide's Android findings remain a diagnostic reference only; Native SDK 2.31.01's actual Android header/configuration must be checked separately before touching output buffering.
+
+### Updater changes now on the ACTIVE branch
+
+- Update summary and action controls are explicitly tappable and the Update panel is layered above the fixed pull-cord TV hit target (panel z-index 31; pull-cord layer z-index 30).
+- `CHECK AGAIN` now has a 45-second JavaScript-side timeout in addition to the native HTTP timeouts. A lost callback cleans up the pending callback, shows a timeout/error status and resets the busy flag so the button is not left disabled forever.
+- Update-check cancellation no longer calls the player-identity cancellation bridge. The download button remains hidden until a newer release actually exists; this is intentional on Build 362 while Build 362 remains latest.
+
+### Automated checks
+
+- Test-only workflow: `.github/workflows/pocket-repair-tests.yml`. It runs the full npm suite and syntax checks, plus a native compile-only job against the pinned CRI ADX LE SDK 2.31.01.
+- First test-only run: `42934018372` — success for JavaScript syntax and the full Pocket test suite.
+- Second test-only run after adding JNI compile: `42934099545` — check latest job results before claiming native compilation passed.
+- These jobs do not run `assembleDebug`, sign an APK, create a release, or publish an update.
+
+The memory playback change removes storage streaming and file-loop restart from the bundled ADX playback path. It does **not** prove the original BGM source is clean or rule out Android output/decode/resampling distortion. Real-device listening remains required, especially with the reported BGM-only case. If that still distorts, next inspect the actual Native SDK Android output-buffer configuration and decoded ADX PCM peak/waveform on the target device rather than applying a master limiter blindly.
+
 ## Required acceptance checks before the next APK build
 
-1. Run unit tests plus a new automated test that mounts Settings and dispatches clicks on Pocket Update summary and CHECK AGAIN; assert the handler reaches native bridge.
-2. Run native checks that confirm the actual Android CRI thread model is MULTI and that no duplicate server pump is present.
-3. Test BGM, ambience, each SFX, and all intended overlaps separately at controlled levels; inspect for clipping and buffer starvation. Also perform a low-gain diagnostic mix to distinguish a level-over-1 clipping problem from a stream underrun/output-buffer problem.
-4. Replace manual PLAYEND file restart loops with a CRI-supported loop implementation and test loop boundaries for clicks/gaps.
-5. Verify D-BAS max_streams/max_bps and file-loader capacity against actual max concurrent stream usage and device read capability.
-6. Verify update flow on an installed Build 362 device: CHECK AGAIN tap, callback result, newer-build availability, download enabled only for a newer build, checksum, and installer handoff.
-7. Do not run/publish the next Android APK build until the repair is complete and the user explicitly approves the build.
+1. Confirm the latest `pocket-repair-tests.yml` run passes both full npm tests and native CRI SDK compile-only job.
+2. On the real target phone, test one built-in BGM alone at low/medium/high gain; compare speaker and wired/Bluetooth headphones. Verify no clicks or distortions across a full loop.
+3. Test vinyl ambience alone, each SFX alone, then BGM+ambience and all supported overlaps. Confirm loop continuity and channel separation.
+4. If single-stream BGM is still distorted after in-memory playback, decode the exact packaged ADX to PCM and inspect peak/clipping and waveform against the restored OGG; then inspect Native SDK 2.31.01 Android output-buffer/resampling configuration and device audio scheduling. Do not copy Unity plugin fields/defaults without a matching Native SDK field.
+5. Verify the imported PCM-WAV stream at the highest accepted 192 kHz stereo format and confirm D-BAS buffer sufficiency on the target device.
+6. On installed Build 362, tap the Update summary and CHECK AGAIN at different scroll positions; verify hit target, native request, callback/timeout feedback, and that the button becomes enabled again after completion. Confirm DOWNLOAD UPDATE is hidden when no newer release exists.
+7. Do not run/publish the next Android APK build until the user explicitly approves the build.
 
 ## Handoff instruction
 
