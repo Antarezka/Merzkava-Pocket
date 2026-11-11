@@ -12,7 +12,7 @@ Active follow-up branch: `fix/build378-cri-default-renderer-2026-11-11`
 | `fix/cri-single-track-bootstrap-2026-11-11` | Earlier CRI bootstrap/streaming investigation; ancestor of the Build 362 branch | `d9d48b2d3913c3e404455ac7d68b02f7a44c0a56` |
 | `fix/build362-audio-update-2026-11-11` | Active repair branch; produced final Build #368 | `66db2e1b3fe132c4c0397e7b02d2ee96eda96e3f` |
 | `fix/preserve-source-audio-rate-2026-11-11` | Follow-up conversion-only fix: preserve supported source sampling rates and channel count | `28f629370c7a5da769af1b44b679c54716058031` |
-| `fix/build378-cri-default-renderer-2026-11-11` | Build 378 follow-up: restore CRI Android default renderer selection for bundled ADX | based on Build 377 `758287276ac8620816e2387634f423583cfcbc88` |
+| `fix/build378-cri-default-renderer-2026-11-11` | Renderer follow-up; final APK workflow run #379 restores CRI Android default renderer selection for bundled ADX | based on Build 377 `758287276ac8620816e2387634f423583cfcbc88` |
 | `chore/pocket-audio-folder-2026-11-09` | CI source-asset branch for Happy/chill/Retroatrical tracks, needle drop and record placement | `0f1f6b02ce97ffd3b23113c92cc462e47c41679e` |
 | `feat/settings-vinyl-player-2026-11-09` | CI source-asset branch for vinyl surface noise | `0b2eb019dd73d6caa02a41365d26f5b5e85e8257` |
 
@@ -56,14 +56,14 @@ The application source/repair branches are separate from the two source-asset br
 
 The user reported distortion/crackling across BGM, ambience and SFX. They then clarified that **BGM is still distorted while it is the only active sound, with ambience/SFX at 0 and both low and high volume**. This makes aggregate mix clipping a secondary concern, not the primary explanation for the isolated-BGM defect. Do not suggest that reducing gain or adding a master limiter alone fixes it.
 
-## Build 377 APK inspection and Build 378 renderer isolation
+## Build 377 APK inspection and Build 379 renderer isolation
 
 - Build 377 workflow run: #377, ID `42964827788`, source commit `758287276ac8620816e2387634f423583cfcbc88`.
 - Build 377 artifact ZIP SHA-256: `8781dda5aa191d8ace6b1ac91b46c633fd3097b80b226aaf0df320c9fd4a796a`.
 - Inspected APK: `Merzkava-Pocket-Build-377-7582872.apk`, SHA-256 `abdafc6f884c2466c542aa40834a20a47fa8ced5000e9238c8d754b1d27cce17`.
 - All seven packaged ADX files report 44,100 Hz stereo and decode successfully with FFmpeg. The decoded BGM sample peaks are 0.516–0.629 of full scale; none of the seven files has samples at or above 32760/32768. This rules out obvious full-scale digital clipping in the packaged PCM decode, but does not prove playback is clean on the handset or rule out codec/perceptual artifacts.
 - Build 377 explicitly forced `CRIATOM_SOUND_RENDERER_NATIVE` for the ADX voice pool. The matching CRI Native API reference documents the ADX-player default as `CRIATOM_SOUND_RENDERER_DEFAULT`, distinguishes DEFAULT from NATIVE (platform output) and ASR (CRI software renderer), and describes ASR resampling/mixing. The Wave pool already retains the CRI default. The explicit Native override was therefore an unnecessary renderer-path divergence.
-- Build 378 removes only that forced renderer assignment and preserves CRI's default selection for bundled ADX, matching the Wave pool's default selection. It does not change ADX assets, sample rates, channels, gain calculations, Tween fades, thread model, loop callback, D-BAS, import handling, UI, turntable behavior, or updater.
+- The final Build 379 run removes only that forced renderer assignment and preserves CRI's default selection for bundled ADX, matching the Wave pool's default selection. It does not change ADX assets, sample rates, channels, gain calculations, Tween fades, thread model, loop callback, D-BAS, import handling, UI, turntable behavior, or updater.
 - No Native SDK Android buffer field or Unity-plugin buffering number was guessed. The Unity Android guide's 133/100 ms settings are Unity-plugin settings, not automatically transferable to Pocket's Native SDK.
 - Device listening is still the acceptance test. Build/compile checks cannot establish that the sound is clean on the Tecno device.
 
