@@ -41,6 +41,7 @@ public final class PocketCriAudioRuntime {
     private static final int CHANNEL_DOOR_RATTLE = 5;
     private static final int FORMAT_ADX = 1;
     private static final int FORMAT_WAVE = 2;
+    private static final int FORMAT_WAVE_MEMORY = 3;
 
     private static final Map<String, String> BUILT_IN = new HashMap<>();
     static {
@@ -86,6 +87,7 @@ public final class PocketCriAudioRuntime {
     private final Activity activity;
     private final WebView webView;
     private final ExecutorService commands = Executors.newSingleThreadExecutor();
+    private final ExecutorService pcmDecoder = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final AtomicLong[] generations = {
         new AtomicLong(), new AtomicLong(), new AtomicLong(), new AtomicLong(), new AtomicLong(), new AtomicLong()
@@ -156,6 +158,77 @@ public final class PocketCriAudioRuntime {
             this.channels = channels;
             this.sampleRate = sampleRate;
         }
+    }
+
+    private interface AudioPrepared {
+        void onReady(File file, AudioMetadata metadata);
+        void onError(String message, Exception cause);
+    }
+
+    /**
+     * Decode bundled ADX to a cached PCM16 WAV on a worker thread. The WAV
+     * keeps the source rate/channel layout; CRI remains the only playback engine.
+     */
+    private void prepareBuiltInAdx(File source, int channel, long generation, AudioPrepared callback) {
+        try {
+            pcmDecoder.execute(() -> {
+                try {
+                    File wav = ensureDecodedPcmCache(source);
+                    AudioMetadata metadata = readAudioMetadata(wav, FORMAT_WAVE);
+                    AudioMetadata sourceMetadata = readAudioMetadata(source, FORMAT_ADX);
+                    if (metadata.channels != sourceMetadata.channels ||
+                        metadata.sampleRate != sourceMetadata.sampleRate) {
+                        throw new IOException("The decoded WAV metadata does not match the original ADX stream.");
+                    }
+                    mainHandler.post(() -> {
+                        if (disposed || generation != generations[channel].get()) return;
+                        callback.onReady(wav, metadata);
+                    });
+                } catch (Exception error) {
+                    mainHandler.post(() -> {
+                        if (disposed || generation != generations[channel].get()) return;
+                        Log.e(TAG, "Could not decode bundled CRI ADX to PCM WAV", error);
+                        callback.onError(safeMessage(error), error);
+                    });
+                }
+            });
+        } catch (Exception error) {
+            Log.e(TAG, "Could not schedule CRI ADX decoding", error);
+            callback.onError(safeMessage(error), error);
+        }
+    }
+
+    private File ensureDecodedPcmCache(File source) throws IOException {
+        File directory = new File(activity.getFilesDir(), "cri-audio-pcm");
+        if (!directory.isDirectory() && !directory.mkdirs()) {
+            throw new IOException("Could not create the private decoded-audio cache.");
+        }
+        File wav = new File(directory, source.getName() + ".wav");
+        AudioMetadata sourceMetadata = readAudioMetadata(source, FORMAT_ADX);
+        boolean needsDecode = !wav.isFile() || wav.length() < 44L ||
+            wav.lastModified() < source.lastModified();
+
+        if (!needsDecode) {
+            try {
+                AudioMetadata cached = readAudioMetadata(wav, FORMAT_WAVE);
+                needsDecode = cached.channels != sourceMetadata.channels ||
+                    cached.sampleRate != sourceMetadata.sampleRate;
+            } catch (Exception invalidCache) {
+                needsDecode = true;
+            }
+        }
+
+        if (needsDecode) {
+            PocketAdxDecoder.decodeToWav(source, wav);
+        }
+
+        AudioMetadata decoded = readAudioMetadata(wav, FORMAT_WAVE);
+        if (decoded.channels != sourceMetadata.channels ||
+            decoded.sampleRate != sourceMetadata.sampleRate) {
+            if (wav.exists()) wav.delete();
+            throw new IOException("The ADX decoder did not preserve the source sample rate and channel count.");
+        }
+        return wav;
     }
 
     /**
@@ -254,6 +327,10 @@ public final class PocketCriAudioRuntime {
         if (names == null || names.length == 0) throw new IllegalStateException("Built-in CRI audio assets are missing.");
         File directory = new File(activity.getFilesDir(), "cri-audio");
         if (!directory.isDirectory() && !directory.mkdirs()) throw new IllegalStateException("Could not create the private CRI audio directory.");
+        File pcmDirectory = new File(activity.getFilesDir(), "cri-audio-pcm");
+        if (!pcmDirectory.isDirectory() && !pcmDirectory.mkdirs()) {
+            throw new IllegalStateException("Could not create the private decoded-audio cache.");
+        }
         for (String name : names) {
             if (!name.toLowerCase(java.util.Locale.ROOT).endsWith(".adx")) continue;
             if (!name.matches("[A-Za-z0-9._-]+")) throw new IllegalStateException("Unsafe CRI audio asset name.");
@@ -270,6 +347,10 @@ public final class PocketCriAudioRuntime {
                 temporary.delete();
                 throw new IllegalStateException("CRI audio asset is unexpectedly small: " + name);
             }
+            if (filesEqual(temporary, target)) {
+                temporary.delete();
+                continue;
+            }
             if (target.exists() && !target.delete()) {
                 temporary.delete();
                 throw new IllegalStateException("Could not replace the previous CRI audio asset: " + name);
@@ -278,6 +359,30 @@ public final class PocketCriAudioRuntime {
                 temporary.delete();
                 throw new IllegalStateException("Could not install CRI audio asset: " + name);
             }
+            // A changed ADX must never reuse a decoded WAV from an older build.
+            File decoded = new File(pcmDirectory, name + ".wav");
+            if (decoded.exists() && !decoded.delete()) {
+                throw new IllegalStateException("Could not invalidate an outdated decoded WAV: " + name);
+            }
+        }
+    }
+
+    private static boolean filesEqual(File first, File second) throws IOException {
+        if (first == null || second == null || !first.isFile() || !second.isFile() ||
+            first.length() != second.length()) return false;
+        try (InputStream left = new java.io.FileInputStream(first);
+             InputStream right = new java.io.FileInputStream(second)) {
+            byte[] a = new byte[32 * 1024];
+            byte[] b = new byte[32 * 1024];
+            while (true) {
+                int countA = left.read(a);
+                int countB = right.read(b);
+                if (countA != countB) return false;
+                if (countA < 0) return true;
+                for (int i = 0; i < countA; i++) {
+                    if (a[i] != b[i]) return false;
+                }
+            }
         }
     }
 
@@ -285,38 +390,58 @@ public final class PocketCriAudioRuntime {
         if (!initialize()) return false;
         final String id = trackId == null ? "" : trackId.trim().toLowerCase(java.util.Locale.ROOT);
         final File file;
-        final int format;
+        final boolean custom;
         if (id.startsWith("custom:")) {
             String customId = id.substring("custom:".length());
             if (!customId.matches("[a-f0-9-]{36}")) return false;
             file = new File(new File(activity.getFilesDir(), "music"), customId + ".wav");
-            format = FORMAT_WAVE;
+            custom = true;
         } else {
             String asset = BUILT_IN.get(id);
             if (asset == null || id.equals("vinyl-crackle") || id.equals("stylus-drop") || id.equals("record-placement")) return false;
             file = new File(new File(activity.getFilesDir(), "cri-audio"), asset);
-            format = FORMAT_ADX;
+            custom = false;
         }
         if (!file.isFile() || file.length() < 32) {
             publish("music", "error", "The selected record is not available on this device.");
             return false;
         }
-        final AudioMetadata metadata;
-        try {
-            metadata = readAudioMetadata(file, format);
-        } catch (Exception error) {
-            Log.e(TAG, "Could not read selected CRI track metadata", error);
-            publish("music", "error", safeMessage(error));
-            return false;
-        }
+
         requestMusicFocus();
         pausedByFocusLoss = false;
         final boolean keepPaused = pauseRequested || musicPaused;
         final long generation = generations[CHANNEL_MUSIC].incrementAndGet();
         publish("music", "preparing", "");
+
+        if (custom) {
+            final AudioMetadata metadata;
+            try {
+                metadata = readAudioMetadata(file, FORMAT_WAVE);
+            } catch (Exception error) {
+                Log.e(TAG, "Could not read selected PCM WAV metadata", error);
+                publish("music", "error", safeMessage(error));
+                return false;
+            }
+            beginMusicPlayback(file, FORMAT_WAVE, metadata, generation, keepPaused);
+        } else {
+            prepareBuiltInAdx(file, CHANNEL_MUSIC, generation, new AudioPrepared() {
+                @Override public void onReady(File wav, AudioMetadata metadata) {
+                    beginMusicPlayback(wav, FORMAT_WAVE_MEMORY, metadata, generation, keepPaused);
+                }
+                @Override public void onError(String message, Exception cause) {
+                    publish("music", "error", "ADX decode failed: " + message);
+                }
+            });
+        }
+        return true;
+    }
+
+    private void beginMusicPlayback(
+            File file, int format, AudioMetadata metadata, long generation, boolean keepPaused) {
         Runnable startSelectedTrack = () -> {
             if (disposed || generation != generations[CHANNEL_MUSIC].get()) return;
-            startFileAtVolume(CHANNEL_MUSIC, file, format, metadata, effectiveChannelVolume(CHANNEL_MUSIC), 0f, true, generation,
+            startFileAtVolume(CHANNEL_MUSIC, file, format, metadata,
+                effectiveChannelVolume(CHANNEL_MUSIC), 0f, true, generation,
                 () -> {
                     // Re-read pause intent when CRI confirms Start(). A user may
                     // tap the stylus during PREP, after this file request was queued.
@@ -335,15 +460,13 @@ public final class PocketCriAudioRuntime {
                     }
                 });
         };
-        // Fade out only BGM, then replace it even if a volume slider is moved mid-fade.
-        // The vinyl ambience channel is independent and never stops during track changes.
+        // Fade out only BGM, then replace it. Vinyl ambience remains independent.
         if (musicStreamActive) {
             fadeChannelTo(CHANNEL_MUSIC, 0f, 170L, null);
             mainHandler.postDelayed(startSelectedTrack, 185L);
         } else {
             startSelectedTrack.run();
         }
-        return true;
     }
 
     public boolean playAmbience() {
@@ -358,18 +481,18 @@ public final class PocketCriAudioRuntime {
             fadeChannelTo(CHANNEL_VINYL_CRACKLE, 1f, 240L, null);
             return true;
         }
-        final AudioMetadata metadata;
-        try {
-            metadata = readAudioMetadata(file, FORMAT_ADX);
-        } catch (Exception error) {
-            Log.e(TAG, "Could not read vinyl ambience metadata", error);
-            publish("vinyl-crackle", "error", safeMessage(error));
-            return false;
-        }
         final long generation = generations[CHANNEL_VINYL_CRACKLE].incrementAndGet();
         publish("vinyl-crackle", "preparing", "");
-        startFileAtVolume(CHANNEL_VINYL_CRACKLE, file, FORMAT_ADX, metadata, effectiveChannelVolume(CHANNEL_VINYL_CRACKLE), 0f, true, generation,
-            () -> fadeChannelTo(CHANNEL_VINYL_CRACKLE, 1f, 320L, null));
+        prepareBuiltInAdx(file, CHANNEL_VINYL_CRACKLE, generation, new AudioPrepared() {
+            @Override public void onReady(File wav, AudioMetadata metadata) {
+                startFileAtVolume(CHANNEL_VINYL_CRACKLE, wav, FORMAT_WAVE_MEMORY, metadata,
+                    effectiveChannelVolume(CHANNEL_VINYL_CRACKLE), 0f, true, generation,
+                    () -> fadeChannelTo(CHANNEL_VINYL_CRACKLE, 1f, 320L, null));
+            }
+            @Override public void onError(String message, Exception cause) {
+                publish("vinyl-crackle", "error", "ADX decode failed: " + message);
+            }
+        });
         return true;
     }
 
@@ -398,15 +521,18 @@ public final class PocketCriAudioRuntime {
             publish(CHANNEL_NAMES[channel], "error", "Built-in CRI effect is missing: " + asset);
             return false;
         }
-        final AudioMetadata metadata;
-        try {
-            metadata = readAudioMetadata(file, FORMAT_ADX);
-        } catch (Exception error) {
-            Log.e(TAG, "Could not read CRI effect metadata", error);
-            publish(CHANNEL_NAMES[channel], "error", safeMessage(error));
-            return false;
-        }
-        enqueuePlay(channel, file, FORMAT_ADX, metadata, effectiveChannelVolume(channel), false, "preparing");
+        final long generation = generations[channel].incrementAndGet();
+        cancelChannelFade(channel);
+        publish(CHANNEL_NAMES[channel], "preparing", "");
+        prepareBuiltInAdx(file, channel, generation, new AudioPrepared() {
+            @Override public void onReady(File wav, AudioMetadata metadata) {
+                enqueuePlay(channel, wav, FORMAT_WAVE_MEMORY, metadata,
+                    effectiveChannelVolume(channel), false, "preparing");
+            }
+            @Override public void onError(String message, Exception cause) {
+                publish(CHANNEL_NAMES[channel], "error", "ADX decode failed: " + message);
+            }
+        });
         return true;
     }
 
@@ -774,6 +900,7 @@ public final class PocketCriAudioRuntime {
         for (int channel = 0; channel < fadeGenerations.length; channel++) cancelChannelFade(channel);
         mainHandler.removeCallbacks(pollStatus);
         polling = false;
+        pcmDecoder.shutdownNow();
         abandonMusicFocus();
         try {
             commands.execute(() -> {
