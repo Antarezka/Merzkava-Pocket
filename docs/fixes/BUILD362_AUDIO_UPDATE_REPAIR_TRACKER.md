@@ -67,6 +67,39 @@ The user reported distortion/crackling across BGM, ambience and SFX. They then c
 - No Native SDK Android buffer field or Unity-plugin buffering number was guessed. The Unity Android guide's 133/100 ms settings are Unity-plugin settings, not automatically transferable to Pocket's Native SDK.
 - Device listening is still the acceptance test. Build/compile checks cannot establish that the sound is clean on the Tecno device.
 
+## Build 379 distortion elimination (follow-up branch `fix/build379-cri-distortion-2026-11-11`)
+
+Reported state: Build 379 (default renderer restored) still sounds distorted. Method: eliminate variables one by one, using the build history above and measurements of the shipped assets.
+
+| Variable | Builds that changed it | Result |
+|---|---|---|
+| ADX asset integrity (header, decode, clipping, DC offset) | 372 bundled the supplied ADX directly | Eliminated. All seven files: ADX v3, 4-bit, 44.1 kHz stereo, 500 Hz predictor cutoff, decode OK. Peaks 0.52-0.63 (BGM), zero samples at full scale, DC offset below 0.0002. |
+| Codec damage vs. source OGG | 372 | Eliminated as a gross fault. Decoded ADX vs. source OGG: SNR 28-36 dB overall; error is below the music in every band up to 16 kHz and only reaches parity above 16 kHz. This is ordinary 4-bit ADX quantisation, not corruption. |
+| Mix clipping / gain | n/a | Eliminated. Isolated BGM already distorted (tracker note above) and decoded peaks stay under 0.63. |
+| 48 kHz resample / timestamps | 362-368 vs. 371+ | Eliminated. Sample rate and channels in the header match what `SetSamplingRate` / `SetNumChannels` receive; the voice pool allows up to 48 kHz stereo. |
+| Streaming vs. in-memory ADX, loop restarts | 359 vs. 362 | Eliminated per the tracker: distortion persisted after the move to memory playback and callback loops. |
+| Second server pump | 360 | Eliminated: no `criAtomEx_ExecuteMain` and no manual pump in the source. |
+| Forced NATIVE renderer | 377 vs. 379 | Eliminated as the sole cause: 379 restored the default and is still distorted. |
+| Android output configuration | never changed in any build | Remaining candidate. |
+
+Never varied in any build, and therefore not yet eliminated:
+
+- The SDK helper `criAtomEx_SetDefaultConfig_ANDROID` selects `CRIATOMEX_THREAD_MODEL_MULTI_WITH_SONICSYNC` (`cri_le_atom_android.h` line 110). Earlier notes assumed plain MULTI. `cri_le_atom_ex.h` says SONICSYNC behaves like MULTI only in some conditions, so which behavior a handset actually gets was never pinned down.
+- `criAtom_SetSoundStartBufferingTime_ANDROID` and `criAtom_SetSoundBufferingTime_ANDROID` were never called. The SDK header states that on some Android handsets a small start-buffering time or a small sound-decode buffer causes noise.
+- `criAtom_ApplyHardwareProperties_ANDROID` was never called, so the native renderer had no device output properties.
+
+Change in this branch (native init only; assets, runtime, UI, updater unchanged):
+
+- Pin `config.atom_ex.thread_model = CRIATOMEX_THREAD_MODEL_MULTI` right after the Android defaults.
+- Call `criAtom_ApplyHardwareProperties_ANDROID` with the application Context (new `nativeInit(Context)` parameter), then set start buffering 200 and buffering 400 before `criAtomEx_Initialize_ANDROID`.
+- Logcat line `Android output tuning: hardwareProperties=... startBuffering=...ms buffering=...ms` records what was applied.
+
+Open points that must be confirmed rather than assumed:
+
+- The 200 / 400 values are a deliberate first step, not SDK-documented numbers. The build log now prints the SDK's own documentation for both functions (step "Print CRI Android buffering and thread-model documentation"); read the units and default there and adjust if they differ.
+- Unity-plugin figures (133 / 100) are not transferable to the Native SDK and were not used.
+- Device listening on the target phone is still the only real acceptance test. If the sound is still distorted with this change, the next elimination arm is the existing `fix/toolster-adx-pcm-decode-2026-11-11` branch (decode ADX to PCM16 in Java and play through the CRI Wave pool), which bypasses CRI's ADX decoder entirely.
+
 References for this renderer decision:
 - CRI Native ADX player configuration and renderer semantics: https://game.criware.jp/manual/native/adx2_en/latest/structCriAtomAdxPlayerConfigTag.html
 - CRI ASR resampling and rendering behavior: https://game.criware.jp/manual/native/adx2_en/latest/criatom_library_atomasr.html

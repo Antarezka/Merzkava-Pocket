@@ -73,7 +73,7 @@ public final class PocketCriAudioRuntime {
         System.loadLibrary("pocket_cri_audio");
     }
 
-    private static native boolean nativeInit();
+    private static native boolean nativeInit(Context context);
     private static native void nativeShutdown();
     private static native boolean nativePlayFile(int channel, String absolutePath, int format, int numChannels, int samplingRate, float volume, float fadeMultiplier, boolean loop);
     private static native void nativeFadeVolume(int channel, int durationMs, float volume);
@@ -127,7 +127,9 @@ public final class PocketCriAudioRuntime {
         if (initialized) return true;
         try {
             copyBundledAudio();
-            boolean ready = nativeInit();
+            // The application Context lets CRI read the handset's real output
+            // sample rate and buffer geometry before the native renderer opens.
+            boolean ready = nativeInit(activity.getApplicationContext());
             initialized = ready;
             if (ready) {
                 for (int channel : CHANNELS) {

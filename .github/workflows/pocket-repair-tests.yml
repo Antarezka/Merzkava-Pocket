@@ -2,7 +2,7 @@ name: Merzkava Pocket Repair Tests
 
 on:
   push:
-    branches: [fix/build362-audio-update-2026-11-11, fix/settings-updater-downloadmanager-build375-2026-11-11, fix/pocket-cri-native-renderer-2026-11-11, fix/build378-cri-default-renderer-2026-11-11]
+    branches: [fix/build362-audio-update-2026-11-11, fix/settings-updater-downloadmanager-build375-2026-11-11, fix/pocket-cri-native-renderer-2026-11-11, fix/build378-cri-default-renderer-2026-11-11, fix/build379-cri-distortion-2026-11-11]
     paths:
       - "review-apk/**"
       - ".github/workflows/pocket-repair-tests.yml"

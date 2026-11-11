@@ -27,9 +27,21 @@ constexpr CriSint32 kWaveMaxStreams = 1;
 constexpr CriSint32 kWaveMaxBitrate = 192000 * 2 * 16;
 constexpr size_t kMaxMemoryAdxAssetBytes = 32u * 1024u * 1024u;
 constexpr size_t kMaxMemoryAdxCacheBytes = 128u * 1024u * 1024u;
+// Android output tuning (CRI ADX LE SDK 2.31.01, cri_le_atom_android.h). The SDK
+// documents that on some Android handsets a small playback-start buffering time
+// or a small sound-decode buffer produces audible noise. Pocket never set either
+// value, so every handset ran on the SDK defaults while a heavy WebView competes
+// for the CPU. Both values are milliseconds (CRI Atom buffering-time convention);
+// the steady buffer is kept larger than the start buffer.
+constexpr CriSint32 kAndroidStartBufferingMs = 200;
+constexpr CriSint32 kAndroidBufferingMs = 400;
 
 std::mutex gMutex;
 bool gInitialized = false;
+// Global reference to the application Context handed to
+// criAtom_ApplyHardwareProperties_ANDROID; kept until AtomEx is finalized in
+// case the SDK retains it, then released.
+jobject gAppContext = nullptr;
 std::atomic<bool> gLoopMonitorRunning{false};
 std::thread gLoopMonitorThread;
 void* gAtomWork = nullptr;
@@ -125,10 +137,37 @@ bool validChannel(jint channel) {
 jstring makeError(JNIEnv* env, const char* message) {
     return env->NewStringUTF(message == nullptr ? "Unknown CRI error" : message);
 }
+
+// Must run before criAtomEx_Initialize_ANDROID: the native sound renderer reads
+// the device output properties and the buffering times while it is created.
+void applyAndroidOutputTuning(JNIEnv* env, jobject context) {
+    CriBool hardwareApplied = CRI_FALSE;
+    JavaVM* javaVm = nullptr;
+    if (env != nullptr && context != nullptr &&
+        env->GetJavaVM(&javaVm) == JNI_OK && javaVm != nullptr) {
+        gAppContext = env->NewGlobalRef(context);
+        if (gAppContext != nullptr) {
+            // Lets the native renderer adopt the handset's real output sample rate
+            // and buffer geometry instead of generic assumptions.
+            hardwareApplied = criAtom_ApplyHardwareProperties_ANDROID(javaVm, gAppContext);
+        }
+    }
+    criAtom_SetSoundStartBufferingTime_ANDROID(kAndroidStartBufferingMs);
+    criAtom_SetSoundBufferingTime_ANDROID(kAndroidBufferingMs);
+    __android_log_print(ANDROID_LOG_INFO, kTag,
+        "Android output tuning: hardwareProperties=%s startBuffering=%dms buffering=%dms",
+        hardwareApplied == CRI_TRUE ? "applied" : "not-applied",
+        static_cast<int>(kAndroidStartBufferingMs), static_cast<int>(kAndroidBufferingMs));
+}
+
+void releaseAndroidContext(JNIEnv* env) {
+    if (env != nullptr && gAppContext != nullptr) env->DeleteGlobalRef(gAppContext);
+    gAppContext = nullptr;
+}
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jclass) {
+Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jclass, jobject context) {
     std::lock_guard<std::mutex> lock(gMutex);
     if (gInitialized) return JNI_TRUE;
 
@@ -144,6 +183,14 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
     std::memset(&voicePoolConfig, 0, sizeof(voicePoolConfig));
     std::memset(&wavePoolConfig, 0, sizeof(wavePoolConfig));
     criAtomEx_SetDefaultConfig_ANDROID(&config);
+    // cri_le_atom_android.h: the Android default helper selects
+    // CRIATOMEX_THREAD_MODEL_MULTI_WITH_SONICSYNC, not plain MULTI as earlier
+    // Pocket notes assumed. cri_le_atom_ex.h documents SONICSYNC as behaving like
+    // MULTI only under certain conditions, so which behavior a handset gets was
+    // never pinned down. Select plain MULTI explicitly (the model Pocket's
+    // architecture already assumes) to remove that unverified variable: CRI's own
+    // server thread stays the sole scheduler and Pocket never calls ExecuteMain.
+    config.atom_ex.thread_model = CRIATOMEX_THREAD_MODEL_MULTI;
 
     const CriSint32 workSize = criAtomEx_CalculateWorkSize_ANDROID(&config);
     if (workSize <= 0) {
@@ -156,6 +203,7 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
         return JNI_FALSE;
     }
 
+    applyAndroidOutputTuning(env, context);
     criAtomEx_Initialize_ANDROID(&config, gAtomWork, workSize);
     gInitialized = true;
 
@@ -293,8 +341,9 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
         criAtomExPlayer_AttachTween(gPlayers[index], gVolumeTweens[index]);
     }
 
-    // Android's CRI default configuration uses the MULTI thread model: CRI's
-    // own high-priority server thread is the sole owner of server processing.
+    // With the explicit override in nativeInit, Pocket's
+    // CRI default configuration uses the MULTI thread model: CRI's own
+    // high-priority server thread is the sole owner of server processing.
     // This Pocket monitor handles only streamed imported WAV loop boundaries.
     // Bundled ADX loops are repeated inside CRI's data-request callback; this
     // thread must never run the CRI server process itself.
@@ -368,6 +417,7 @@ fail:
     std::free(gDbasWork);
     gDbasWork = nullptr;
     criAtomEx_Finalize_ANDROID();
+    releaseAndroidContext(env);
     gMemoryAdxAssets.clear();
     gMemoryAdxCacheBytes = 0;
     std::free(gAtomWork);
@@ -377,7 +427,7 @@ fail:
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeShutdown(JNIEnv*, jclass) {
+Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeShutdown(JNIEnv* env, jclass) {
     {
         std::lock_guard<std::mutex> lock(gMutex);
         if (!gInitialized) return;
@@ -442,6 +492,7 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeShutdown(JNIEnv*, jc
     std::free(gDbasWork);
     gDbasWork = nullptr;
     criAtomEx_Finalize_ANDROID();
+    releaseAndroidContext(env);
     // Memory passed to SetData is released only after AtomEx has finalized.
     gMemoryAdxAssets.clear();
     gMemoryAdxCacheBytes = 0;

@@ -244,6 +244,31 @@ test("Continuous file loops use a native monitor while CRI owns its MULTI server
   assert.match(runtimeSource, /nativeTakeLoopCycles\(channel\)/);
 });
 
+test("CRI Android output is tuned and the thread model is pinned before AtomEx initializes", () => {
+  // Build 379 elimination: the SDK's Android default is MULTI_WITH_SONICSYNC and Pocket never set
+  // the buffering times that cri_le_atom_android.h documents as a source of device noise.
+  const setDefaults = nativeSource.indexOf("criAtomEx_SetDefaultConfig_ANDROID(&config)");
+  const pinModel = nativeSource.indexOf("config.atom_ex.thread_model = CRIATOMEX_THREAD_MODEL_MULTI;");
+  const tune = nativeSource.indexOf("applyAndroidOutputTuning(env, context);");
+  const calc = nativeSource.indexOf("criAtomEx_CalculateWorkSize_ANDROID(&config)");
+  const init = nativeSource.indexOf("criAtomEx_Initialize_ANDROID(&config");
+  assert.ok(setDefaults >= 0 && pinModel > setDefaults && pinModel < calc,
+    "the plain MULTI thread model must be pinned right after the Android defaults are applied");
+  assert.ok(tune > calc && tune < init, "Android output tuning must run immediately before AtomEx initialization");
+  assert.ok(nativeSource.includes("criAtom_ApplyHardwareProperties_ANDROID(javaVm, gAppContext)"));
+  assert.ok(nativeSource.includes("criAtom_SetSoundStartBufferingTime_ANDROID(kAndroidStartBufferingMs)"));
+  assert.ok(nativeSource.includes("criAtom_SetSoundBufferingTime_ANDROID(kAndroidBufferingMs)"));
+  const start = Number(/kAndroidStartBufferingMs\s*=\s*(\d+)/.exec(nativeSource)?.[1]);
+  const steady = Number(/kAndroidBufferingMs\s*=\s*(\d+)/.exec(nativeSource)?.[1]);
+  assert.ok(start >= 100 && steady >= start, "steady buffering must not be shorter than the start buffering");
+  assert.ok(steady <= 1000, "buffering must stay bounded so fades and stylus changes still feel immediate");
+  assert.match(nativeSource, /nativeInit\(JNIEnv\* env, jclass, jobject context\)/);
+  assert.match(nativeSource, /releaseAndroidContext\(env\);[\s\S]*?gMemoryAdxAssets\.clear\(\)/);
+  assert.match(runtimeSource, /private static native boolean nativeInit\(Context context\)/);
+  assert.match(runtimeSource, /nativeInit\(activity\.getApplicationContext\(\)\)/);
+  assert.doesNotMatch(nativeSource, /criAtomEx_ExecuteMain\s*\(/, "CRI's MULTI server thread must remain the only scheduler");
+});
+
 test("Vinyl labels rotate on CRI playback-cycle callbacks, track changes and seasons", () => {
   assert.match(source, /onPlaybackCycle:\s*\(\)\s*=>\s*\{\s*if\s*\(vinylDesigns\.getState\(\)\.mode\s*===\s*"auto"\)\s*vinylDesigns\.rotateRandom\("track-end"\);/);
   assert.match(source, /vinylDesigns\.rotateRandom\("track-change"\)/);
