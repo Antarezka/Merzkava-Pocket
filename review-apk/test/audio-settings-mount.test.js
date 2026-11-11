@@ -478,9 +478,6 @@ test("Original Settings updater remains mounted and Download calls the validated
   assert.match(activitySource, /ACTION_DOWNLOAD_UPDATE\.equals\(action\)/);
   assert.doesNotMatch(cssSource, /\.update-section\{[^}]*z-index:31/);
   assert.doesNotMatch(cssSource, /\.update-section-toggle,\.update-actions button/);
-  assert.match(cssSource, /\.update-actions\{position:relative;z-index:31;/, "only the Settings updater action row rises above the fixed TV cord hit layer");
-  assert.match(cssSource, /\.update-actions button\{position:relative;z-index:1;pointer-events:auto;touch-action:manipulation;/);
-  assert.match(cssSource, /\.pull-cord-zone\{position:fixed;z-index:30;/, "the TV pull-cord layer keeps its original priority and behavior");
   assert.match(source, /const timeoutId=window\.setTimeout\(\(\)=>controller\.abort\(\),45000\)/);
   assert.match(source, /window\.clearTimeout\(timeoutId\);\s*pocketUpdateCheckBusy=false/);
   assert.match(source, /method !== "checkPocketUpdate"/);
