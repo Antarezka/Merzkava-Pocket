@@ -22,6 +22,7 @@ constexpr const char* kTag = "PocketCriAudio";
 constexpr int kChannelCount = 6;
 constexpr int kFormatAdx = 1;
 constexpr int kFormatWave = 2;
+constexpr int kFormatWaveMemory = 3;
 constexpr CriSint32 kWaveMaxStreams = 1;
 // Imported PCM16 WAV is accepted up to 192 kHz stereo: 192000 * 2 * 16.
 constexpr CriSint32 kWaveMaxBitrate = 192000 * 2 * 16;
@@ -390,8 +391,14 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
                 std::lock_guard<std::mutex> monitorLock(gMutex);
                 if (gInitialized) {
                     for (int channel = 0; channel < kChannelCount; ++channel) {
-                        if (!gLoopEnabled[channel] || gPlayers[channel] == nullptr) continue;
-                        if (criAtomExPlayer_GetStatus(gPlayers[channel]) != CRIATOMEXPLAYER_STATUS_PLAYEND) continue;
+                        if (gPlayers[channel] == nullptr) continue;
+                        const CriAtomExPlayerStatus channelStatus = criAtomExPlayer_GetStatus(gPlayers[channel]);
+                        if (gMemoryWaveAssets[channel] &&
+                            (channelStatus == CRIATOMEXPLAYER_STATUS_STOP ||
+                             channelStatus == CRIATOMEXPLAYER_STATUS_PLAYEND)) {
+                            releaseMemoryWaveAsset(channel);
+                        }
+                        if (!gLoopEnabled[channel] || channelStatus != CRIATOMEXPLAYER_STATUS_PLAYEND) continue;
                         const CriAtomExPlaybackId restarted = criAtomExPlayer_Start(gPlayers[channel]);
                         if (restarted != CRIATOMEX_INVALID_PLAYBACK_ID) {
                             gPlaybackIds[channel] = restarted;
@@ -412,7 +419,7 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
     });
 
     __android_log_print(ANDROID_LOG_INFO, kTag,
-        "CRI ADX LE initialized: six memory-capable ADX players, one streaming WAV voice, D-BAS streams=%d max_bps=%d; CRI MULTI server owns audio processing",
+        "CRI initialized: six in-memory WAV voices for decoded ADX, one streaming imported-WAV voice, D-BAS streams=%d max_bps=%d; CRI MULTI server owns audio processing",
         kWaveMaxStreams, kWaveMaxBitrate);
     return JNI_TRUE;
 
@@ -542,6 +549,8 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeShutdown(JNIEnv*, jc
     // Memory passed to SetData is released only after AtomEx has finalized.
     gMemoryAdxAssets.clear();
     gMemoryAdxCacheBytes = 0;
+    for (int channel = 0; channel < kChannelCount; ++channel) gMemoryWaveAssets[channel].reset();
+    gMemoryWaveCacheBytes = 0;
     std::free(gAtomWork);
     gAtomWork = nullptr;
     gInitialized = false;
@@ -553,7 +562,7 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativePlayFile(
         JNIEnv* env, jclass, jint channel, jstring pathValue, jint format,
         jint numChannels, jint samplingRate, jfloat volume, jfloat fadeMultiplier, jboolean loop) {
     if (!validChannel(channel) || pathValue == nullptr ||
-        (format != kFormatAdx && format != kFormatWave && format != 3) ||
+        (format != kFormatAdx && format != kFormatWave && format != kFormatWaveMemory) ||
         numChannels < 1 || numChannels > 2 || samplingRate < 8000 || samplingRate > 192000) {
         __android_log_print(ANDROID_LOG_ERROR, kTag,
             "Rejected audio request: channel=%d format=%d channels=%d rate=%d",
@@ -599,7 +608,7 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativePlayFile(
         return JNI_FALSE;
     }
     std::shared_ptr<std::vector<CriUint8>> memoryWave;
-    if (format == 3) {
+    if (format == kFormatWaveMemory) {
         memoryWave = loadWaveMemoryAsset(channel, path);
         if (!memoryWave) return JNI_FALSE;
     }
@@ -621,6 +630,7 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativePlayFile(
     }
 
     if (memoryAdx || memoryWave) {
+        if (memoryAdx) releaseMemoryWaveAsset(channel);
         // In-memory ADX and decoded PCM WAV both use CRI's sample-data callback
         // for seamless repeat. Bundled ADX playback itself now uses PCM WAV.
         criAtomExPlayer_SetDataRequestCallback(
