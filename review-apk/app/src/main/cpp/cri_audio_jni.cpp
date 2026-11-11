@@ -159,8 +159,8 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
     criAtomEx_Initialize_ANDROID(&config, gAtomWork, workSize);
     gInitialized = true;
 
-    // D-BAS manages streaming buffers. CRI's streaming playback sequence
-    // requires a D-BAS instance before any streaming voice pool/player.
+    // D-BAS manages the imported PCM-WAV streaming buffer. Create it before
+    // the streaming Wave voice pool; bundled ADX is kept in memory.
     criAtomDbas_SetDefaultConfig(&dbasConfig);
     // Bundled ADX is played from retained memory buffers, not streamed from
     // storage. D-BAS is reserved for the single imported PCM-WAV voice.
@@ -204,7 +204,7 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
     gAdxVoicePool = criAtomExVoicePool_AllocateAdxVoicePool(&voicePoolConfig, gAdxVoicePoolWork, adxPoolWorkSize);
     if (gAdxVoicePool == nullptr) {
         __android_log_print(ANDROID_LOG_ERROR, kTag,
-            "CRI could not allocate the ADX streaming voice pool (%d voices)", kChannelCount);
+            "CRI could not allocate the ADX memory voice pool (%d voices)", kChannelCount);
         goto fail;
     }
 
@@ -286,8 +286,9 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
 
     // Android's CRI default configuration uses the MULTI thread model: CRI's
     // own high-priority server thread is the sole owner of server processing.
-    // This Pocket thread only watches for completed file streams and reissues
-    // BGM/ambience loops; it must never run the CRI server process itself.
+    // This Pocket monitor handles only streamed imported WAV loop boundaries.
+    // Bundled ADX loops are repeated inside CRI's data-request callback; this
+    // thread must never run the CRI server process itself.
     gLoopMonitorRunning.store(true, std::memory_order_release);
     gLoopMonitorThread = std::thread([]() {
         auto nextCheck = std::chrono::steady_clock::now();
