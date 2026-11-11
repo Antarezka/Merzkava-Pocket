@@ -51,12 +51,12 @@ jobs:
           git show "origin/chore/pocket-audio-folder-2026-11-09:review-apk/web/public/audio/chill-1a_dragdropdo.adx" > "$SOURCE"
           test -s "$SOURCE"
           mkdir -p "$TEST_CLASSES"
-          javac -d "$TEST_CLASSES" \\
-            app/src/main/java/com/merzkava/pocket/review/PocketAdxDecoder.java \\
+          javac -d "$TEST_CLASSES" \
+            app/src/main/java/com/merzkava/pocket/review/PocketAdxDecoder.java \
             test/PocketAdxDecoderTest.java
           java -cp "$TEST_CLASSES" com.merzkava.pocket.review.PocketAdxDecoderTest "$SOURCE" "$OUTPUT"
-          curl --fail --silent --show-error --location \\
-            https://raw.githubusercontent.com/dialersapps/gamedac/main/gamedac.js \\
+          curl --fail --silent --show-error --location \
+            https://raw.githubusercontent.com/dialersapps/gamedac/main/gamedac.js \
             --output "$REFERENCE"
           test -s "$REFERENCE"
           node test/adx-reference-compare.mjs "$SOURCE" "$OUTPUT" "$REFERENCE"
