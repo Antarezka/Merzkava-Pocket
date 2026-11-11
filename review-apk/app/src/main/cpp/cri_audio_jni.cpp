@@ -188,7 +188,16 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
     // consume D-BAS streams and do not depend on storage reads during playback.
     criAtomExVoicePool_SetDefaultConfigForAdxVoicePool(&voicePoolConfig);
     voicePoolConfig.num_voices = kChannelCount;
+    // The seven bundled records are stereo ADX at 44.1 kHz. Keep the pool
+    // bounded to Pocket's supported built-in format while allowing 48 kHz
+    // ADX assets in future releases.
+    voicePoolConfig.player_config.max_channels = 2;
+    voicePoolConfig.player_config.max_sampling_rate = 48000;
     voicePoolConfig.player_config.streaming_flag = CRI_FALSE;
+    // These are simple file-backed ADX records, not authored ASR/ACF cues.
+    // Route them to Android's native renderer instead of the software ASR
+    // mixer; imported PCM-WAV remains on its separate CRI streaming voice.
+    voicePoolConfig.player_config.sound_renderer_type = CRIATOM_SOUND_RENDERER_NATIVE;
     adxPoolWorkSize = criAtomExVoicePool_CalculateWorkSizeForAdxVoicePool(&voicePoolConfig);
     if (adxPoolWorkSize < 0) {
         __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not calculate CRI ADX voice-pool work size: %d", adxPoolWorkSize);
