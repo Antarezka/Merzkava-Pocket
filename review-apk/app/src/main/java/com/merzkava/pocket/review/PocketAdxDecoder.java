@@ -238,7 +238,7 @@ public final class PocketAdxDecoder {
         if ((flags & 0x08) != 0) {
             throw new IOException("Encrypted ADX files are not supported by this decoder.");
         }
-        if (cutoff <= 0 || cutoff >= sampleRateLong / 2L) {
+        if (cutoff >= sampleRateLong / 2L) {
             throw new IOException("The ADX predictor cutoff frequency is invalid.");
         }
         if (dataStart < 0x18 || dataStart > fileLength) {
