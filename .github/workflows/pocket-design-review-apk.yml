@@ -266,7 +266,7 @@ jobs:
           grep -q 'criAtomDbas_SetDefaultConfig' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'dbasConfig.max_streams = kWaveMaxStreams' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'dbasConfig.max_bps = kWaveMaxBitrate' review-apk/app/src/main/cpp/cri_audio_jni.cpp
-          grep -q 'kWaveMaxBitrate = 192000 * 2 * 16' review-apk/app/src/main/cpp/cri_audio_jni.cpp
+          grep -Fq 'kWaveMaxBitrate = 192000 * 2 * 16' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'criAtomExPlayer_SetData(player, memoryAdx->data()' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'criAtomPlayer_SetPreviousDataAgain(player)' review-apk/app/src/main/cpp/cri_audio_jni.cpp
           grep -q 'voicePoolConfig.player_config.streaming_flag = CRI_FALSE' review-apk/app/src/main/cpp/cri_audio_jni.cpp
