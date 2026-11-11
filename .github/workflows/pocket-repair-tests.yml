@@ -88,6 +88,31 @@ jobs:
           cp "$ARM64_LIB" "$CRI_ROOT/libs/arm64-v8a/libcri_ware_android_le.so"
           cp "$ARM32_LIB" "$CRI_ROOT/libs/armeabi-v7a/libcri_ware_android_LE.so"
           echo "CRI_SDK_ROOT=$CRI_ROOT" >> "$GITHUB_ENV"
+      - name: Print pinned CRI SDK header documentation for audio-noise levers
+        shell: bash
+        continue-on-error: true
+        run: |
+          set +e
+          INC="$CRI_SDK_ROOT/include"
+          show() {  # show <label> <regex> <lines-before> <lines-after> <file>
+            echo "::group::$1"
+            grep -n -B"$3" -A"$4" -E "$2" "$5" | sed -E "s#^#  #" | cut -c1-240
+            echo "::endgroup::"
+          }
+          A="$INC/cri_le_atom_android.h"
+          show "ANDROID thread priority (Set/Get)"     'void CRIAPI criAtom_SetThreadPriority_ANDROID|int CRIAPI criAtom_GetThreadPriority_ANDROID' 26 1 "$A"
+          show "ANDROID thread priority macros"         'define criAtomEx_(Set|Get)ThreadPriority_ANDROID' 22 2 "$A"
+          show "ANDROID AAudio switch"                  'criAtom_EnableAAudio_ANDROID\(' 12 1 "$A"
+          show "ANDROID default config macros"          'define criAtomEx_SetDefaultConfig_ANDROID|define criAtomExAsrRack_SetDefaultConfig_ANDROID' 6 16 "$A"
+          X="$(grep -rl 'CriAtomExAsrConfigTag' "$INC" | head -n1)"
+          show "CriAtomExAsrConfig struct"              'typedef struct CriAtomExAsrConfigTag' 4 90 "$X"
+          show "CriAtomExConfig (server_frequency etc.)" 'typedef struct CriAtomExConfigTag' 4 140 "$INC/cri_le_atom_ex.h"
+          show "sound renderer type enum"               'CRIATOM_SOUND_RENDERER_DEFAULT' 14 14 "$(grep -rl 'CRIATOM_SOUND_RENDERER_DEFAULT' "$INC" | head -n1)"
+          show "ADX voice pool config"                  'typedef struct CriAtomExAdxVoicePoolConfigTag' 4 30 "$INC/cri_le_atom_ex.h"
+          show "AdxPlayerConfig (renderer, rate)"       'typedef struct CriAtomAdxPlayerConfigTag' 4 70 "$(grep -rl 'CriAtomAdxPlayerConfigTag' "$INC" | head -n1)"
+          show "criAtomExPlayer_SetData"                'criAtomExPlayer_SetData\(' 30 3 "$INC/cri_le_atom_ex.h"
+          show "criAtomExPlayer_SetFormat/SamplingRate" 'void CRIAPI criAtomExPlayer_Set(Format|SamplingRate|NumChannels)\(' 22 1 "$INC/cri_le_atom_ex.h"
+          show "criAtomExPlayer_SetDataRequestCallback" 'criAtomExPlayer_SetDataRequestCallback\(' 30 3 "$INC/cri_le_atom_ex.h"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
