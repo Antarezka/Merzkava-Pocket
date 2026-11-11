@@ -451,12 +451,6 @@ fail:
     }
     std::free(gWaveMemoryVoicePoolWork);
     gWaveMemoryVoicePoolWork = nullptr;
-    if (gWaveMemoryVoicePool != nullptr) {
-        criAtomExVoicePool_Free(gWaveMemoryVoicePool);
-        gWaveMemoryVoicePool = nullptr;
-    }
-    std::free(gWaveMemoryVoicePoolWork);
-    gWaveMemoryVoicePoolWork = nullptr;
     if (gAdxVoicePool != nullptr) {
         criAtomExVoicePool_Free(gAdxVoicePool);
         gAdxVoicePool = nullptr;
@@ -533,6 +527,12 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeShutdown(JNIEnv*, jc
     }
     std::free(gWaveVoicePoolWork);
     gWaveVoicePoolWork = nullptr;
+    if (gWaveMemoryVoicePool != nullptr) {
+        criAtomExVoicePool_Free(gWaveMemoryVoicePool);
+        gWaveMemoryVoicePool = nullptr;
+    }
+    std::free(gWaveMemoryVoicePoolWork);
+    gWaveMemoryVoicePoolWork = nullptr;
     if (gAdxVoicePool != nullptr) {
         criAtomExVoicePool_Free(gAdxVoicePool);
         gAdxVoicePool = nullptr;
