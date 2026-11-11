@@ -48,24 +48,31 @@ File: `review-apk/app/src/main/cpp/cri_audio_jni.cpp`
 
 This architecture change is a reasoned attempt to remove disk-stream underruns and file-loop restart gaps. It does **not** prove the source track is clean or that playback is fixed on the actual device.
 
-## Active updater design — Android notifications only
+## Active updater design — original Settings mechanism + Android notification
 
-The user explicitly corrected the UI requirement: the updater belongs in the **Android device notification shade**, not inside a Pocket Settings/app panel.
+The user clarified that the **existing Pocket Settings updater must remain in Settings with its original mechanism**. The notification is an additional route, not a replacement. Do not remove or redesign the Settings updater again.
 
-### Changes made
+### Settings updater restored
 
-- Removed the entire `data-update-section` Settings panel from `review-apk/web/src/main.js`.
-- Removed `mountPocketUpdateSettings`, its click handlers, panel renderer, and now-unused panel state. Automatic update checks remain on Pocket startup and native resume; when a newer release exists, Pocket posts the native Android update notification.
-- The foreground/native notification already contains a custom `DOWNLOAD UPDATE` action wired to `MainActivity.ACTION_DOWNLOAD_UPDATE`. Its fallback copy now explicitly tells the user to tap that device notification.
-- Fixed the periodic background `PocketUpdateWorker` notification: it now carries verified release URL, APK filename, SHA-256 and build number in a notification PendingIntent, with a visible `DOWNLOAD UPDATE` action. It no longer instructs the user to open a Pocket Settings updater panel.
-- Tapping the notification action reaches `MainActivity.handleUpdateNotificationIntent`, which starts the existing validated DownloadManager flow. `PocketUpdateProgressService` continues to own the device notification during download and exposes `VERIFY & INSTALL` after successful download or `TRY AGAIN` on failure.
-- Build/manifest checks remain: only a strictly newer release is offered; trusted GitHub release URL, APK identity and SHA-256 are validated; installer handoff verifies the downloaded APK hash.
-- JS update-check callback wait remains bounded at 45 seconds. A missing callback cannot leave the internal busy flag stuck. This logic is now notification-only; there is no app updater panel to refresh.
-- Build #362 is still the current public release as last checked. An installed Build 362 should therefore receive no “new version” notification until a later release exists. The absence of a Download action before a newer release is published is intentional.
+- Restored the original full `data-update-section` Settings panel and its existing information hierarchy: installed/latest build, release version and size, release notes, internal storage, download progress, `DOWNLOAD UPDATE`, `INSTALL UPDATE`, and `CHECK AGAIN`.
+- Restored `refreshPocketUpdatePanel` and `mountPocketUpdateSettings` as the original Settings rendering, polling and event-binding mechanism. Settings again mounts and disposes `mountPocketUpdateSettings()` exactly as in the Build 362 source.
+- The existing `DOWNLOAD UPDATE` button's click handler continues to call the existing native `startPocketUpdateDownload(apkUrl, apkName, apkSha256, buildNumber)` method, which validates the release identity and queues the APK through Android DownloadManager. The handler now checks the native method is available, reports a useful error instead of silently returning, and resets the existing button to `RETRY DOWNLOAD` if Android rejects the request. It does not create a replacement UI or a new download protocol.
+- The 45-second update-check callback timeout remains to ensure `CHECK AGAIN` cannot stay disabled forever when a native callback is lost. Update-check cancellation is not routed through the unrelated player-identity cancellation bridge.
+- The latest automated contract test explicitly asserts that the original Settings panel and click handler remain present and that the button calls the validated native updater.
 
-### TV pull-cord reversion confirmation
+### Android notification remains an additional path
 
-A previous attempt temporarily raised updater-card z-index and added touch-target CSS. The user rejected modifying the TV pull-cord or changing anything else to solve the updater issue. Those updater hit-layer changes have been reverted. The active branch's complete `review-apk/web/src/styles.css` now has the exact same blob SHA as the Build 362 baseline branch: `453e7bfae1906953f294e11421f36a2b8b492ac6`. Thus there are **no remaining CSS changes at all**, including no changes to the TV pull-cord's layout, hit area, z-index, or gesture styling. The TV pull-cord JavaScript/gesture implementation was not changed.
+- On startup/native resume, Pocket checks whether a newer public build exists and can post the native Android update notification.
+- The native notification includes its own `DOWNLOAD UPDATE` action wired to `MainActivity.ACTION_DOWNLOAD_UPDATE`.
+- The periodic background `PocketUpdateWorker` notification now also carries the validated release URL, APK filename, SHA-256 and build number in its PendingIntent, with a visible `DOWNLOAD UPDATE` action.
+- Both notification routes use the same existing `startPocketUpdateDownload` / DownloadManager flow. `PocketUpdateProgressService` displays download progress and provides `VERIFY & INSTALL` after a completed download or `TRY AGAIN` after a failure.
+- The installer continues to verify the downloaded APK SHA-256 before Android opens the package installer.
+- Build #362 remains the current public release as last checked. An installed Build 362 should not show an enabled Settings Download button until a newer release exists. This is expected; when a new build exists, the button becomes visible and enabled.
+
+### TV pull-cord and CSS reversion confirmation
+
+The user explicitly rejected changing the TV pull-cord or its behavior to solve the updater problem. The updater z-index/hit-layer experiment was reverted. The complete `review-apk/web/src/styles.css` is identical to the Build 362 baseline blob SHA `453e7bfae1906953f294e11421f36a2b8b492ac6`. No TV pull-cord layout, hit area, z-index, or gesture implementation was changed.
+
 
 ## Japanese CRI research references
 
