@@ -2862,7 +2862,7 @@ body.bubble-render-paused *::after {
 
 
 /* Pocket Update panel — Dark and White theme tokens stay in sync with Settings. */
-.update-section{position:relative;overflow:hidden;gap:0;margin-top:7px;padding:14px 15px 13px;border:1px solid #a98c5480;background:linear-gradient(145deg,color-mix(in srgb,var(--surface2) 94%,var(--gold) 6%),var(--surface) 72%);box-shadow:inset 0 0 0 1px #ffffff08,0 8px 22px #0002}
+.update-section{position:relative;z-index:31;overflow:hidden;gap:0;margin-top:7px;padding:14px 15px 13px;border:1px solid #a98c5480;background:linear-gradient(145deg,color-mix(in srgb,var(--surface2) 94%,var(--gold) 6%),var(--surface) 72%);box-shadow:inset 0 0 0 1px #ffffff08,0 8px 22px #0002}
 .update-section:before{content:"";position:absolute;inset:4px;border:1px solid #a98c5424;pointer-events:none}
 .update-symbol:before{content:"";position:absolute;left:50%;top:50%;width:11px;height:15px;transform:translate(-50%,-50%);border:1px solid var(--gold);border-radius:2px;background:linear-gradient(180deg,var(--surface2),var(--deep));box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--gold) 12%,transparent)}
 .update-symbol:after{content:"";position:absolute;left:50%;top:50%;width:4px;height:4px;transform:translate(-50%,-50%);border-right:1px solid var(--lime);border-bottom:1px solid var(--lime);rotate:45deg}
@@ -2899,7 +2899,8 @@ body.bubble-render-paused *::after {
 .update-storage-block>p,.update-download-area>small{margin:0;color:var(--muted);font:9px/1.5 Georgia,serif}
 .update-download-area{display:grid;gap:8px;margin-top:13px;padding:10px;border:1px solid color-mix(in srgb,var(--gold) 50%,var(--line));background:color-mix(in srgb,var(--gold) 6%,var(--surface))}
 .update-download-bar{height:7px}.update-download-bar>i{background:linear-gradient(90deg,var(--gold),var(--lime))}
-.update-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:13px}
+.update-actions{position:relative;z-index:1;display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:13px;pointer-events:auto}
+.update-section-toggle,.update-actions button{position:relative;z-index:1;pointer-events:auto;touch-action:manipulation}
 .update-actions button{min-width:0;min-height:37px;padding:0 8px;border:1px solid var(--line);background:var(--surface2);color:var(--paper);font-size:7px;font-weight:700;letter-spacing:.1em}
 .update-actions button b{margin-left:5px;color:var(--lime);font-size:12px}
 .update-actions .update-download-button{border-color:var(--gold);background:linear-gradient(120deg,color-mix(in srgb,var(--gold) 17%,var(--surface2)),var(--surface))}
