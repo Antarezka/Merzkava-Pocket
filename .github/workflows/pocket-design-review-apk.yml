@@ -210,6 +210,8 @@ jobs:
             source_rate="$(ffprobe -v error -select_streams a:0 -show_entries stream=sample_rate -of default=noprint_wrappers=1:nokey=1 "$input")"
             source_channels="$(ffprobe -v error -select_streams a:0 -show_entries stream=channels -of default=noprint_wrappers=1:nokey=1 "$input")"
             source_codec="$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$input")"
+            source_sample_fmt="$(ffprobe -v error -select_streams a:0 -show_entries stream=sample_fmt -of default=noprint_wrappers=1:nokey=1 "$input" || true)"
+            source_bits="$(ffprobe -v error -select_streams a:0 -show_entries stream=bits_per_raw_sample -of default=noprint_wrappers=1:nokey=1 "$input" || true)"
             source_bitrate="$(ffprobe -v error -show_entries format=bit_rate -of default=noprint_wrappers=1:nokey=1 "$input" || true)"
             source_layout="$(ffprobe -v error -select_streams a:0 -show_entries stream=channel_layout -of default=noprint_wrappers=1:nokey=1 "$input" || true)"
             [[ "$source_rate" =~ ^[0-9]+$ ]] || { echo "::error::Could not read source sample rate: $input"; exit 1; }
@@ -252,10 +254,12 @@ jobs:
             ffmpeg -y -hide_banner -v error -i "$CRI_AUDIO_DIR/$output" -map 0:a:0 -f null -
             output_rate="$(ffprobe -v error -select_streams a:0 -show_entries stream=sample_rate -of default=noprint_wrappers=1:nokey=1 "$CRI_AUDIO_DIR/$output")"
             output_channels="$(ffprobe -v error -select_streams a:0 -show_entries stream=channels -of default=noprint_wrappers=1:nokey=1 "$CRI_AUDIO_DIR/$output")"
+            output_sample_fmt="$(ffprobe -v error -select_streams a:0 -show_entries stream=sample_fmt -of default=noprint_wrappers=1:nokey=1 "$CRI_AUDIO_DIR/$output")"
+            output_bits="$(ffprobe -v error -select_streams a:0 -show_entries stream=bits_per_raw_sample -of default=noprint_wrappers=1:nokey=1 "$CRI_AUDIO_DIR/$output" || true)"
             output_bitrate="$(ffprobe -v error -select_streams a:0 -show_entries stream=bit_rate -of default=noprint_wrappers=1:nokey=1 "$CRI_AUDIO_DIR/$output")"
             test "$output_rate" = "$target_rate"
             test "$output_channels" = "$target_channels"
-            echo "$output <- $(basename "$input") | source: ${source_codec:-unknown}, ${source_rate} Hz, ${source_channels} ch, ${source_layout:-layout-unknown}, ${source_bitrate:-bitrate-unknown} bps | ADX: ${output_rate} Hz, ${output_channels} ch, ${output_bitrate:-bitrate-unknown} bps | decode OK"
+            echo "$output <- $(basename "$input") | source: ${source_codec:-unknown}, ${source_rate} Hz, ${source_channels} ch, ${source_layout:-layout-unknown}, ${source_sample_fmt:-sample-format-unknown}, ${source_bits:-bit-depth-unknown} bits, ${source_bitrate:-bitrate-unknown} bps | ADX: ${output_rate} Hz, ${output_channels} ch, ${output_sample_fmt:-sample-format-unknown}, ${output_bits:-bit-depth-unknown} bits, ${output_bitrate:-bitrate-unknown} bps | decode OK"
           done
           test "$(find "$CRI_AUDIO_DIR" -maxdepth 1 -type f -name '*.adx' | wc -l)" -eq 9
 
