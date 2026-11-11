@@ -161,17 +161,35 @@ function showPocketUpdateNotification(update) {
   return shown;
 }
 async function checkPocketUpdates(notifyOnAvailable=false) {
-  if(!nativeReady()||pocketUpdateCheckBusy)return latestPocketUpdate;
+  if(pocketUpdateCheckBusy)return latestPocketUpdate;
+  if(!nativeReady()||typeof native.checkPocketUpdate!=="function") {
+    latestPocketUpdate={...(latestPocketUpdate||{}),error:"The Android update service is unavailable. Reopen Pocket and try again."};
+    refreshPocketUpdatePanel();
+    return null;
+  }
   pocketUpdateCheckBusy=true;
+  const controller=new AbortController();
+  // The native bridge performs two HTTPS reads (release metadata + manifest).
+  // Bound the JS callback wait as well so a lost WebView callback cannot leave
+  // CHECK AGAIN disabled forever.
+  const timeoutId=window.setTimeout(()=>controller.abort(),45000);
   try {
-    const update=await invokeNative("checkPocketUpdate",[]);
-    latestPocketUpdate=update;
-    if(notifyOnAvailable)showPocketUpdateNotification(update);
-    refreshPocketUpdatePanel();return update;
+    const update=await invokeNative("checkPocketUpdate",[],controller.signal);
+    latestPocketUpdate=update&&typeof update==="object"?update:{error:"The Pocket update response was empty."};
+    if(notifyOnAvailable)showPocketUpdateNotification(latestPocketUpdate);
+    refreshPocketUpdatePanel();return latestPocketUpdate;
   } catch(error) {
-    if(!latestPocketUpdate)latestPocketUpdate={error:error instanceof Error?error.message:"Update check failed."};
+    const timedOut=controller.signal.aborted||error?.name==="AbortError";
+    const message=timedOut
+      ?"UPDATE CHECK TIMED OUT · CHECK YOUR CONNECTION AND TRY AGAIN."
+      :(error instanceof Error?error.message:"Pocket could not check for updates.");
+    latestPocketUpdate={...(latestPocketUpdate||{}),error:message};
     refreshPocketUpdatePanel();return null;
-  } finally {pocketUpdateCheckBusy=false;refreshPocketUpdatePanel();}
+  } finally {
+    window.clearTimeout(timeoutId);
+    pocketUpdateCheckBusy=false;
+    refreshPocketUpdatePanel();
+  }
 }
 function refreshPocketUpdatePanel(downloadState=null) {
   const panel=root.querySelector("[data-update-section]");if(!panel)return;
@@ -743,7 +761,11 @@ function invokeNative(method, args, signal) {
     };
     const abort = () => {
       finish();
-      try { native.cancelPlayerIdentity?.(id); } catch {}
+      // An update check is a read-only request with its own bounded timeout;
+      // it must not be sent through the player-identity cancellation bridge.
+      if (method !== "checkPocketUpdate") {
+        try { native.cancelPlayerIdentity?.(id); } catch {}
+      }
       reject(new DOMException("Access cancelled.", "AbortError"));
     };
     callbacks.set(id, {
