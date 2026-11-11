@@ -426,12 +426,20 @@ test("Turntable render loop suspends only in bubble mode and resumes at its reta
   motion.dispose();
 });
 
-test("Packaged CRI ADX conversion resets audio timestamps and validates the encoded stream", () => {
-  assert.match(buildWorkflowSource, /-af "aresample=\$\{target_rate\},asetpts=N\/SR\/TB" -ar "\$target_rate"/);
-  assert.match(buildWorkflowSource, /ffmpeg -y -xerror -hide_banner -loglevel error/);
-  assert.match(buildWorkflowSource, /ffmpeg -y -hide_banner -v error[\s\S]*?-f null -/);
-  assert.match(buildWorkflowSource, /for supported_rate in 48000 44100 32000 24000 22050 16000 12000 11025 8000/);
-  assert.match(buildWorkflowSource, /test "\$output_rate" = "\$target_rate"/);
+test("Bundled CRI ADX assets are copied directly and header-validated without per-build transcoding", () => {
+  assert.ok(buildWorkflowSource.includes("Bundle pre-converted CRI ADX assets without a conversion bridge"));
+  assert.ok(buildWorkflowSource.includes('Happy-1a_dragdropdo.adx'));
+  assert.ok(buildWorkflowSource.includes('chill-1a_dragdropdo.adx'));
+  assert.ok(buildWorkflowSource.includes('Retroatrical-a1_dragdropdo.adx'));
+  assert.ok(buildWorkflowSource.includes('Retroatrical-2_dragdropdo.adx'));
+  assert.ok(buildWorkflowSource.includes('needle drop+vinyls crackle_dragdropdo.adx'));
+  assert.ok(buildWorkflowSource.includes('organic vinyl record crackle_dragdropdo.adx'));
+  assert.ok(buildWorkflowSource.includes('record placement_dragdropdo.adx'));
+  assert.match(buildWorkflowSource, /data\[4\] != 3/);
+  assert.match(buildWorkflowSource, /data\[7\]/);
+  assert.match(buildWorkflowSource, /data\[8:12\]/);
+  assert.match(buildWorkflowSource, /expected exactly the seven supplied ADX assets/);
+  assert.doesNotMatch(buildWorkflowSource, /ffmpeg|adpcm_adx|apt-get install -y ffmpeg/i);
 });
 
 test("Original Settings updater remains mounted and Download calls the validated native updater", () => {

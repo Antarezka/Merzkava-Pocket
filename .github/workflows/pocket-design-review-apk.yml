@@ -95,178 +95,77 @@ jobs:
           echo "CRI_SDK_ROOT=$CRI_ROOT" >> "$GITHUB_ENV"
           echo "Verified and normalized CRI ADX LE 2.31.01 Android libraries and headers for ARM64 and ARMv7."
 
-      - name: Ensure FFmpeg with ADX encoder is available
-        shell: bash
-        run: |
-          set -euo pipefail
-          if ! command -v ffmpeg >/dev/null 2>&1 || ! ffmpeg -hide_banner -encoders 2>/dev/null | grep -q "adpcm_adx"; then
-            sudo apt-get update
-            sudo apt-get install -y ffmpeg
-          fi
-          ffmpeg -hide_banner -encoders | grep -q "adpcm_adx"
       - name: Install web dependencies
         working-directory: review-apk
         run: npm install
-      - name: Restore Pocket music sources and encode every sound for CRI
+      - name: Bundle pre-converted CRI ADX assets without a conversion bridge
         shell: bash
         run: |
           set -euo pipefail
-          AUDIO_DIR="review-apk/web/public/audio"
           CRI_AUDIO_DIR="review-apk/web/public/cri-audio"
-          mkdir -p "$AUDIO_DIR" "$CRI_AUDIO_DIR"
-          git show "origin/chore/pocket-audio-folder-2026-11-09:review-apk/web/public/audio/Happy-1a.ogg" > "$AUDIO_DIR/Happy-1a.ogg"
-          git show "origin/chore/pocket-audio-folder-2026-11-09:review-apk/web/public/audio/chill-1a.ogg" > "$AUDIO_DIR/chill-1a.ogg"
-          git show "origin/chore/pocket-audio-folder-2026-11-09:review-apk/web/public/audio/Retroatrical-a1.ogg" > "$AUDIO_DIR/Retroatrical-1.ogg"
-          git show "origin/chore/pocket-audio-folder-2026-11-09:review-apk/web/public/audio/Retroatrical-2.ogg" > "$AUDIO_DIR/Retroatrical-2.ogg"
-          git show "origin/feat/settings-vinyl-player-2026-11-09:review-apk/web/public/audio/vinyl-surface-noise.ogg" > "$AUDIO_DIR/vinyl-surface-noise.ogg"
-          git show "origin/chore/pocket-audio-folder-2026-11-09:review-apk/web/public/audio/needle drop+vinyls crackle.mp3" > "$AUDIO_DIR/needle drop+vinyls crackle.mp3"
-          git show "origin/chore/pocket-audio-folder-2026-11-09:review-apk/web/public/audio/record placement.mp3" > "$AUDIO_DIR/record placement.mp3"
-          python3 - <<'PY'
-          import math
-          import random
-          import struct
-          import wave
+          mkdir -p "$CRI_AUDIO_DIR"
 
-          RATE = 44100
+          copy_adx() {
+            local source_name="$1"
+            local target_name="$2"
+            git show "origin/chore/pocket-audio-folder-2026-11-09:review-apk/web/public/audio/${source_name}" > "$CRI_AUDIO_DIR/${target_name}"
+            test -s "$CRI_AUDIO_DIR/${target_name}"
+            echo "Bundled ${target_name} directly from ${source_name}"
+          }
 
-          def write_wav(path, samples):
-              with wave.open(path, "wb") as out:
-                  out.setnchannels(1)
-                  out.setsampwidth(2)
-                  out.setframerate(RATE)
-                  pcm = bytearray()
-                  for sample in samples:
-                      value = max(-1.0, min(1.0, sample))
-                      pcm.extend(struct.pack("<h", int(round(value * 32767.0))))
-                  out.writeframes(pcm)
+          copy_adx "Happy-1a_dragdropdo.adx" "Happy-1a.adx"
+          copy_adx "chill-1a_dragdropdo.adx" "chill-1a.adx"
+          copy_adx "Retroatrical-a1_dragdropdo.adx" "Retroatrical-1.adx"
+          copy_adx "Retroatrical-2_dragdropdo.adx" "Retroatrical-2.adx"
+          copy_adx "needle drop+vinyls crackle_dragdropdo.adx" "needle-drop.adx"
+          copy_adx "organic vinyl record crackle_dragdropdo.adx" "vinyl-surface-noise.adx"
+          copy_adx "record placement_dragdropdo.adx" "record-placement.adx"
 
-          # Door slide: a soft filtered-noise sweep followed by three descending bell partials.
-          duration = 0.98
-          count = int(RATE * duration)
-          rng = random.Random(20261110)
-          samples = []
-          filtered = 0.0
-          phases = [0.0, 0.0, 0.0]
-          bells = [
-              (1318.5, 0.350, 0.043, 0.480),
-              (1760.0, 0.390, 0.025, 0.580),
-              (2093.0, 0.430, 0.012, 0.550),
-          ]
-          for i in range(count):
-              t = i / RATE
-              noise = 0.0
-              if t < 0.54:
-                  cutoff = 1700.0 * ((390.0 / 1700.0) ** min(1.0, t / 0.50))
-                  alpha = 1.0 - math.exp(-2.0 * math.pi * cutoff / RATE)
-                  filtered += alpha * (rng.random() * 2.0 - 1.0 - filtered)
-                  noise = 0.055 * (1.0 - t / 0.54) * filtered
-              tone = 0.0
-              for index, (frequency, start, level, length) in enumerate(bells):
-                  local = t - start
-                  if 0.0 <= local <= length:
-                      instantaneous = frequency * ((0.72) ** (local / length))
-                      phases[index] += 2.0 * math.pi * instantaneous / RATE
-                      attack = min(1.0, local / 0.018)
-                      tone += level * attack * math.exp(-12.6 * local) * math.sin(phases[index])
-              samples.append(noise + tone)
-          write_wav("review-apk/web/public/audio/door-chime.wav", samples)
+          python3 - "$CRI_AUDIO_DIR" <<'PY'
+          from pathlib import Path
+          import sys
 
-          # Door rattle: three short, low triangle-wave taps with staggered attacks.
-          duration = 0.25
-          count = int(RATE * duration)
-          taps = [(155.0, 0.000, 0.018, 0.085), (112.0, 0.035, 0.011, 0.105), (205.0, 0.090, 0.007, 0.070)]
-          phases = [0.0, 0.0, 0.0]
-          samples = []
-          for i in range(count):
-              t = i / RATE
-              value = 0.0
-              for index, (frequency, start, level, length) in enumerate(taps):
-                  local = t - start
-                  if 0.0 <= local <= length:
-                      phases[index] += 2.0 * math.pi * frequency / RATE
-                      triangle = (2.0 / math.pi) * math.asin(math.sin(phases[index]))
-                      attack = min(1.0, local / 0.008)
-                      decay = math.exp(-math.log(max(1.0, level / 0.0001)) * local / length)
-                      value += level * attack * decay * triangle
-              samples.append(value)
-          write_wav("review-apk/web/public/audio/door-rattle.wav", samples)
+          audio_dir = Path(sys.argv[1])
+          expected = {
+              "Happy-1a.adx",
+              "chill-1a.adx",
+              "Retroatrical-1.adx",
+              "Retroatrical-2.adx",
+              "needle-drop.adx",
+              "vinyl-surface-noise.adx",
+              "record-placement.adx",
+          }
+          supported_rates = {48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000}
+          actual = {path.name for path in audio_dir.glob("*.adx")}
+          if actual != expected:
+              raise SystemExit(
+                  f"Expected exactly the seven supplied ADX assets; found {sorted(actual)}"
+              )
+
+          for name in sorted(expected):
+              data = (audio_dir / name).read_bytes()
+              if len(data) < 32:
+                  raise SystemExit(f"{name}: ADX file is truncated or too small")
+              if int.from_bytes(data[0:2], "big") != 0x8000:
+                  raise SystemExit(f"{name}: invalid ADX signature")
+              if data[4] != 3:
+                  raise SystemExit(f"{name}: unsupported ADX encoding type {data[4]}; expected 3")
+              channels = data[7]
+              sample_rate = int.from_bytes(data[8:12], "big")
+              if channels not in (1, 2):
+                  raise SystemExit(f"{name}: Pocket requires mono/stereo; got {channels} channels")
+              if sample_rate not in supported_rates:
+                  raise SystemExit(f"{name}: unsupported ADX sample rate {sample_rate} Hz")
+              print(
+                  f"{name}: CRI ADX encoding={data[4]}, "
+                  f"{sample_rate} Hz, {channels} channel(s), {len(data)} bytes"
+              )
           PY
-          declare -A INPUTS=(
-            ["Happy-1a.adx"]="$AUDIO_DIR/Happy-1a.ogg"
-            ["chill-1a.adx"]="$AUDIO_DIR/chill-1a.ogg"
-            ["Retroatrical-1.adx"]="$AUDIO_DIR/Retroatrical-1.ogg"
-            ["Retroatrical-2.adx"]="$AUDIO_DIR/Retroatrical-2.ogg"
-            ["needle-drop.adx"]="$AUDIO_DIR/needle drop+vinyls crackle.mp3"
-            ["record-placement.adx"]="$AUDIO_DIR/record placement.mp3"
-            ["vinyl-surface-noise.adx"]="$AUDIO_DIR/vinyl-surface-noise.ogg"
-            ["door-chime.adx"]="$AUDIO_DIR/door-chime.wav"
-            ["door-rattle.adx"]="$AUDIO_DIR/door-rattle.wav"
-          )
-          for output in "${!INPUTS[@]}"; do
-            input="${INPUTS[$output]}"
-            test -s "$input"
-            # Keep the source sampling rate whenever it is one of CRI ADX's supported rates.
-            # Only map unsupported rates to the nearest supported ADX rate; never force every track to 48 kHz.
-            source_rate="$(ffprobe -v error -select_streams a:0 -show_entries stream=sample_rate -of default=noprint_wrappers=1:nokey=1 "$input")"
-            source_channels="$(ffprobe -v error -select_streams a:0 -show_entries stream=channels -of default=noprint_wrappers=1:nokey=1 "$input")"
-            source_codec="$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$input")"
-            source_sample_fmt="$(ffprobe -v error -select_streams a:0 -show_entries stream=sample_fmt -of default=noprint_wrappers=1:nokey=1 "$input" || true)"
-            source_bits="$(ffprobe -v error -select_streams a:0 -show_entries stream=bits_per_raw_sample -of default=noprint_wrappers=1:nokey=1 "$input" || true)"
-            source_bitrate="$(ffprobe -v error -show_entries format=bit_rate -of default=noprint_wrappers=1:nokey=1 "$input" || true)"
-            source_layout="$(ffprobe -v error -select_streams a:0 -show_entries stream=channel_layout -of default=noprint_wrappers=1:nokey=1 "$input" || true)"
-            [[ "$source_rate" =~ ^[0-9]+$ ]] || { echo "::error::Could not read source sample rate: $input"; exit 1; }
-            [[ "$source_channels" =~ ^[0-9]+$ ]] || { echo "::error::Could not read source channel count: $input"; exit 1; }
-            (( source_rate >= 8000 )) || { echo "::error::Source rate below CRI ADX's 8 kHz minimum: $input ($source_rate Hz)"; exit 1; }
-
-            target_rate="$source_rate"
-            case "$source_rate" in
-              48000|44100|32000|24000|22050|16000|12000|11025|8000) ;;
-              *)
-                target_rate=8000
-                best_delta=2147483647
-                for supported_rate in 48000 44100 32000 24000 22050 16000 12000 11025 8000; do
-                  delta=$(( source_rate > supported_rate ? source_rate - supported_rate : supported_rate - source_rate ))
-                  if (( delta < best_delta )); then
-                    best_delta=$delta
-                    target_rate="$supported_rate"
-                  fi
-                done
-                ;;
-            esac
-
-            # Pocket's existing CRI ADX voice path supports mono/stereo.
-            # Preserve 1 or 2 source channels; safely downmix wider sources to stereo.
-            if (( source_channels == 1 )); then
-              target_channels=1
-            else
-              target_channels=2
-            fi
-
-            # Reset timestamps from decoded sample count. Supported source rates remain untouched.
-            # FFmpeg's ADX encoder accepts signed 16-bit PCM input.
-            ffmpeg -y -xerror -hide_banner -loglevel error -i "$input" -map 0:a:0 -vn \
-              -af "aresample=${target_rate},asetpts=N/SR/TB" -ar "$target_rate" -ac "$target_channels" -sample_fmt s16 \
-              -c:a adpcm_adx -f adx "$CRI_AUDIO_DIR/$output"
-            test -s "$CRI_AUDIO_DIR/$output"
-            format="$(ffprobe -v error -show_entries format=format_name -of default=noprint_wrappers=1:nokey=1 "$CRI_AUDIO_DIR/$output")"
-            grep -qi "adx" <<< "$format"
-            # Decode each result again to null output; abort if any ADX frame is corrupt.
-            ffmpeg -y -hide_banner -v error -i "$CRI_AUDIO_DIR/$output" -map 0:a:0 -f null -
-            output_rate="$(ffprobe -v error -select_streams a:0 -show_entries stream=sample_rate -of default=noprint_wrappers=1:nokey=1 "$CRI_AUDIO_DIR/$output")"
-            output_channels="$(ffprobe -v error -select_streams a:0 -show_entries stream=channels -of default=noprint_wrappers=1:nokey=1 "$CRI_AUDIO_DIR/$output")"
-            output_sample_fmt="$(ffprobe -v error -select_streams a:0 -show_entries stream=sample_fmt -of default=noprint_wrappers=1:nokey=1 "$CRI_AUDIO_DIR/$output")"
-            output_bits="$(ffprobe -v error -select_streams a:0 -show_entries stream=bits_per_raw_sample -of default=noprint_wrappers=1:nokey=1 "$CRI_AUDIO_DIR/$output" || true)"
-            output_bitrate="$(ffprobe -v error -select_streams a:0 -show_entries stream=bit_rate -of default=noprint_wrappers=1:nokey=1 "$CRI_AUDIO_DIR/$output")"
-            test "$output_rate" = "$target_rate"
-            test "$output_channels" = "$target_channels"
-            echo "$output <- $(basename "$input") | source: ${source_codec:-unknown}, ${source_rate} Hz, ${source_channels} ch, ${source_layout:-layout-unknown}, ${source_sample_fmt:-sample-format-unknown}, ${source_bits:-bit-depth-unknown} bits, ${source_bitrate:-bitrate-unknown} bps | ADX: ${output_rate} Hz, ${output_channels} ch, ${output_sample_fmt:-sample-format-unknown}, ${output_bits:-bit-depth-unknown} bits, ${output_bitrate:-bitrate-unknown} bps | decode OK"
-          done
-          test "$(find "$CRI_AUDIO_DIR" -maxdepth 1 -type f -name '*.adx' | wc -l)" -eq 9
 
       - name: Run Pocket test suite
         working-directory: review-apk
         run: npm test
-      - name: Verify native-only CRI audio sources and converted assets
+      - name: Verify native-only CRI audio sources and bundled ADX assets
         shell: bash
         run: |
           set -euo pipefail
@@ -288,7 +187,7 @@ jobs:
             echo "::error::A Phaser sound path bypasses the CRI audio handler."
             exit 1
           fi
-          for asset in Happy-1a.adx chill-1a.adx Retroatrical-1.adx Retroatrical-2.adx needle-drop.adx record-placement.adx vinyl-surface-noise.adx door-chime.adx door-rattle.adx; do
+          for asset in Happy-1a.adx chill-1a.adx Retroatrical-1.adx Retroatrical-2.adx needle-drop.adx record-placement.adx vinyl-surface-noise.adx; do
             test -s "review-apk/web/public/cri-audio/$asset"
           done
           grep -q 'PocketCriAudioRuntime' review-apk/app/src/main/java/com/merzkava/pocket/review/PocketNativeBridge.java
@@ -413,7 +312,7 @@ jobs:
           unzip -l "$APK" | grep -F "lib/arm64-v8a/libcri_ware_android_le.so"
           unzip -l "$APK" | grep -F "lib/armeabi-v7a/libcri_ware_android_LE.so"
           unzip -l "$APK" | grep -F "lib/arm64-v8a/libpocket_cri_audio.so"
-          for asset in Happy-1a.adx chill-1a.adx Retroatrical-1.adx Retroatrical-2.adx needle-drop.adx record-placement.adx vinyl-surface-noise.adx door-chime.adx door-rattle.adx; do
+          for asset in Happy-1a.adx chill-1a.adx Retroatrical-1.adx Retroatrical-2.adx needle-drop.adx record-placement.adx vinyl-surface-noise.adx; do
             unzip -l "$APK" | grep -F "assets/cri-audio/$asset"
           done
           if unzip -l "$APK" | grep -E 'assets/audio/.*\.(ogg|mp3|m4a|aac|flac)$'; then
