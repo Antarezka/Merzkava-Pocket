@@ -133,24 +133,35 @@ test("CRI has separate, simultaneous channels for music, crackle, stylus and rec
   assert.match(nativeSource, /kChannelCount\s*=\s*6/);
 });
 
+test("Bundled ADX is retained in memory and loops through CRI's seamless data callback", () => {
+  assert.match(nativeSource, /loadAdxMemoryAsset\(const std::string& path\)/);
+  assert.match(nativeSource, /criAtomExPlayer_SetData\(player, memoryAdx->data\(\), static_cast<CriSint32>\(memoryAdx->size\(\)\)\)/);
+  assert.match(nativeSource, /criAtomExPlayer_SetDataRequestCallback\([\s\S]*?repeatPreviousAdx/);
+  assert.match(nativeSource, /criAtomPlayer_SetPreviousDataAgain\(player\)/);
+  assert.match(nativeSource, /gMemoryAdxAssets\.clear\(\)/);
+  assert.match(nativeSource, /gLoopEnabled\[channel\] = false/);
+  assert.match(nativeSource, /gLoopCycleCounts\[channel\]\.fetch_add/);
+});
+
 test("CRI streaming initialization creates and destroys D-BAS before pools", () => {
   const createDbas = nativeSource.indexOf("criAtomDbas_Create");
   const adxPool = nativeSource.indexOf("criAtomExVoicePool_AllocateAdxVoicePool");
   const destroyDbas = nativeSource.indexOf("criAtomDbas_Destroy");
   assert.ok(createDbas >= 0 && adxPool > createDbas, "D-BAS must exist before streaming voice pools");
   assert.match(nativeSource, /criAtomDbas_SetDefaultConfig\(&dbasConfig\)/);
-  assert.match(nativeSource, /dbasConfig\.max_streams\s*=\s*kChannelCount/);
-  assert.match(nativeSource, /criAtom_CalculateAdxBitrate\(2, 48000\)/);
+  assert.match(nativeSource, /dbasConfig\.max_streams\s*=\s*kWaveMaxStreams/);
+  assert.match(nativeSource, /dbasConfig\.max_bps\s*=\s*kWaveMaxBitrate/);
+  assert.match(nativeSource, /kWaveMaxBitrate\s*=\s*192000\s*\*\s*2\s*\*\s*16/);
   assert.match(nativeSource, /criAtomDbas_CalculateWorkSize\(&dbasConfig\)/);
   assert.match(nativeSource, /CRIATOMDBAS_ILLEGAL_ID/);
   assert.ok(destroyDbas > adxPool, "D-BAS is destroyed after the voice pools");
   assert.match(nativeSource, /std::free\(gDbasWork\)/);
 });
 
-test("ADX and imported Wave streams have their own CRI pools and retained work memory", () => {
+test("Bundled ADX uses a memory voice pool while imported Wave remains streamed", () => {
   assert.match(nativeSource, /criAtomExVoicePool_CalculateWorkSizeForAdxVoicePool/);
   assert.match(nativeSource, /criAtomExVoicePool_AllocateAdxVoicePool/);
-  assert.match(nativeSource, /voicePoolConfig\.player_config\.streaming_flag\s*=\s*CRI_TRUE/);
+  assert.match(nativeSource, /voicePoolConfig\.player_config\.streaming_flag\s*=\s*CRI_FALSE/);
   assert.match(nativeSource, /criAtomExVoicePool_CalculateWorkSizeForWaveVoicePool/);
   assert.match(nativeSource, /criAtomExVoicePool_AllocateWaveVoicePool/);
   assert.match(nativeSource, /wavePoolConfig\.player_config\.streaming_flag\s*=\s*CRI_TRUE/);
@@ -411,6 +422,15 @@ test("Turntable render loop suspends only in bubble mode and resumes at its reta
   motion.setRenderEnabled(true);
   assert.equal(callbacks.size, 0, "a stopped platter must stay stopped after restore");
   motion.dispose();
+});
+
+test("Pocket Update controls have a protected tap target and recover from lost native callbacks", () => {
+  assert.match(cssSource, /\.update-section\{[^}]*z-index:31/);
+  assert.match(cssSource, /\.update-section-toggle,\.update-actions button\{[^}]*touch-action:manipulation/);
+  assert.match(source, /const timeoutId=window\.setTimeout\(\(\)=>controller\.abort\(\),45000\)/);
+  assert.match(source, /window\.clearTimeout\(timeoutId\);\s*pocketUpdateCheckBusy=false/);
+  assert.match(source, /method !== "checkPocketUpdate"/);
+  assert.match(source, /checkButton\?\.addEventListener\("click",check\)/);
 });
 
 test("Floating window transitions reuse the same CRI runtime and do not pause playback", () => {
