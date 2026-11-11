@@ -126,6 +126,7 @@ window.PocketNativeCallbacks = {
 
 let pocketUpdateCheckBusy = false;
 let pocketUpdateStartupCheckStarted = false;
+let latestPocketUpdate = null;
 
 
 function showPocketUpdateNotification(update) {
@@ -145,21 +146,98 @@ function showPocketUpdateNotification(update) {
   return shown;
 }
 async function checkPocketUpdates(notifyOnAvailable=false) {
-  if(pocketUpdateCheckBusy||!nativeReady()||typeof native.checkPocketUpdate!=="function")return null;
+  if(pocketUpdateCheckBusy)return latestPocketUpdate;
+  if(!nativeReady()||typeof native.checkPocketUpdate!=="function")return null;
   pocketUpdateCheckBusy=true;
   const controller=new AbortController();
   const timeoutId=window.setTimeout(()=>controller.abort(),45000);
   try {
     const update=await invokeNative("checkPocketUpdate",[],controller.signal);
-    if(notifyOnAvailable)showPocketUpdateNotification(update);
-    return update;
+    latestPocketUpdate=update&&typeof update==="object"?update:null;
+    if(notifyOnAvailable)showPocketUpdateNotification(latestPocketUpdate);
+    return latestPocketUpdate;
   } catch(error) {
+    latestPocketUpdate={...(latestPocketUpdate||{}),error:controller.signal.aborted
+      ?"UPDATE CHECK TIMED OUT · CHECK YOUR CONNECTION AND TRY AGAIN."
+      :(error instanceof Error?error.message:"Pocket could not check for updates.")};
     console.warn("Pocket update check failed.",error);
     return null;
   } finally {
     window.clearTimeout(timeoutId);
     pocketUpdateCheckBusy=false;
+    window.dispatchEvent(new Event("pocket:update-checked"));
   }
+}
+
+function mountSettingsUpdateDownload() {
+  const button=root.querySelector("[data-settings-update-download]");
+  const status=root.querySelector("[data-settings-update-status]");
+  if(!button)return()=>{};
+  let disposed=false,pollTimer=null;
+  const setStatus=value=>{if(status)status.textContent=value;};
+  const readDownloadState=build=>{
+    try{return JSON.parse(native?.getPocketUpdateDownloadState?.(build)||"{}");}
+    catch{return{};}
+  };
+  const refresh=()=>{
+    if(disposed||!button.isConnected)return;
+    const update=latestPocketUpdate;
+    const build=Number(update?.buildNumber)||0;
+    const installed=Number(update?.currentBuild)||0;
+    const hasUpdate=update?.hasUpdate===true&&build>installed;
+    const state=hasUpdate?readDownloadState(build):{};
+    const running=["queued","downloading","paused"].includes(state.status);
+    const completed=state.status==="completed";
+    const failed=state.status==="failed";
+    button.hidden=!hasUpdate;
+    button.disabled=!hasUpdate||running||completed;
+    button.textContent=running
+      ?(state.status==="paused"?"DOWNLOAD PAUSED…":"DOWNLOADING…")
+      :completed?"DOWNLOAD COMPLETE"
+      :failed?"RETRY DOWNLOAD":"DOWNLOAD UPDATE";
+    if(update?.error)setStatus("UPDATE CHECK UNAVAILABLE · "+update.error);
+    else if(!update)setStatus(pocketUpdateCheckBusy?"CHECKING FOR UPDATES…":"UPDATE STATUS NOT AVAILABLE");
+    else if(!hasUpdate)setStatus("YOUR POCKET IS UP TO DATE · BUILD #"+(installed||build||"—"));
+    else if(completed)setStatus("DOWNLOAD COMPLETE · VERIFY & INSTALL FROM THE DEVICE NOTIFICATION.");
+    else if(running)setStatus((Number(state.progress)||0)+"% · "+String(state.status||"downloading").toUpperCase());
+    else if(failed)setStatus(state.message||"DOWNLOAD FAILED · TAP TO TRY AGAIN.");
+    else setStatus("BUILD #"+build+" IS AVAILABLE · TAP TO DOWNLOAD.");
+    if(running){
+      if(pollTimer===null)pollTimer=window.setInterval(refresh,900);
+    }else if(pollTimer!==null){window.clearInterval(pollTimer);pollTimer=null;}
+  };
+  const download=()=>{
+    const update=latestPocketUpdate;
+    if(!update?.hasUpdate||!update.apkUrl||!update.apkName||!update.apkSha256)return;
+    button.disabled=true;
+    button.textContent="STARTING DOWNLOAD…";
+    let result={};
+    try{
+      result=JSON.parse(native.startPocketUpdateDownload(
+        update.apkUrl,update.apkName,update.apkSha256,Number(update.buildNumber)||0
+      )||"{}");
+    }catch(error){
+      result={ok:false,message:error instanceof Error?error.message:"Pocket could not start the update download."};
+    }
+    if(!result.ok){
+      button.disabled=false;
+      button.textContent="RETRY DOWNLOAD";
+      setStatus(result.message||"DOWNLOAD COULD NOT START · CHECK STORAGE AND CONNECTION.");
+      return;
+    }
+    setStatus(result.message||"DOWNLOAD STARTED · PROGRESS IS SHOWN IN ANDROID NOTIFICATIONS.");
+    refresh();
+  };
+  button.addEventListener("click",download);
+  window.addEventListener("pocket:update-checked",refresh);
+  refresh();
+  if(!latestPocketUpdate&&!pocketUpdateCheckBusy&&nativeReady())void checkPocketUpdates(false);
+  return()=>{
+    disposed=true;
+    button.removeEventListener("click",download);
+    window.removeEventListener("pocket:update-checked",refresh);
+    if(pollTimer!==null)window.clearInterval(pollTimer);
+  };
 }
 
 function readTheme() {
@@ -1595,6 +1673,10 @@ function renderPage(destination, transitionDuration=420) {
           <pre data-legal-notices-output hidden></pre>
         </div>
       </details>
+      <div class="update-actions settings-update-actions">
+        <button type="button" class="update-download-button" data-settings-update-download hidden>DOWNLOAD UPDATE <b aria-hidden="true">↓</b></button>
+      </div>
+      <p class="update-footnote settings-update-footnote" data-settings-update-status role="status" aria-live="polite">CHECKING FOR UPDATES…</p>
     </main>`;
   }
   if(destination==="home")pageMarkup+=accessBufferMarkup("APP RELOAD");
@@ -1637,9 +1719,10 @@ function renderPage(destination, transitionDuration=420) {
   if(destination!=="daily-login")mountMenu();
   if(destination==="settings"){
     const menuCleanup=currentDisposer;
+    const updateCleanup=mountSettingsUpdateDownload();
     const audioCleanup=mountAudioSettings();
     const legalCleanup=mountLegalNotices();
-    currentDisposer=()=>{menuCleanup?.();audioCleanup?.();legalCleanup?.();};
+    currentDisposer=()=>{menuCleanup?.();updateCleanup?.();audioCleanup?.();legalCleanup?.();};
   }
   if(destination==="economy"){
     const menuCleanup=currentDisposer;
