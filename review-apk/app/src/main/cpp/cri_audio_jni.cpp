@@ -60,6 +60,8 @@ int gLoopCallbackChannels[kChannelCount] = {0, 1, 2, 3, 4, 5};
 std::unordered_map<std::string, std::shared_ptr<std::vector<CriUint8>>> gMemoryAdxAssets;
 size_t gMemoryAdxCacheBytes = 0;
 
+bool validChannel(jint channel);
+
 void repeatPreviousAdx(void* obj, CriAtomExPlaybackId, CriAtomPlayerHn player) {
     if (obj == nullptr || player == nullptr) return;
     const int channel = *static_cast<const int*>(obj);
