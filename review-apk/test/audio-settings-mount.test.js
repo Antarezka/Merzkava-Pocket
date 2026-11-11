@@ -434,7 +434,7 @@ test("Original Settings updater remains mounted and Download calls the validated
   assert.match(source, /const updateCleanup=mountPocketUpdateSettings\(\)/);
   assert.match(source, /downloadButton\?\.addEventListener\("click",download\)/);
   assert.match(source, /native\.startPocketUpdateDownload\([\s\S]*?update\.apkUrl[\s\S]*?update\.apkSha256/);
-  assert.match(source, /button\.textContent="RETRY DOWNLOAD"/);
+  assert.match(source, /downloadButton\.textContent="RETRY DOWNLOAD"/);
   assert.match(source, /function refreshPocketUpdatePanel\(downloadState=null\)/);
   assert.match(source, /native\?\.showPocketUpdateNotification\?/);
   assert.match(source, /void checkPocketUpdates\(true\)/);
