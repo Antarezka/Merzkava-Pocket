@@ -7,6 +7,7 @@ const buildWorkflowSource = readFileSync(new URL("../../.github/workflows/pocket
 const audioVisualSource = readFileSync(new URL("../web/src/audio-player.js", import.meta.url), "utf8");
 const deckSource = readFileSync(new URL("../web/src/pocket-audio-director.js", import.meta.url), "utf8");
 const runtimeSource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java", import.meta.url), "utf8");
+const adxDecoderSource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketAdxDecoder.java", import.meta.url), "utf8");
 const bridgeSource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketNativeBridge.java", import.meta.url), "utf8");
 const workerSource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketUpdateWorker.java", import.meta.url), "utf8");
 const nativeSource = readFileSync(new URL("../app/src/main/cpp/cri_audio_jni.cpp", import.meta.url), "utf8");
@@ -142,14 +143,37 @@ test("CRI has separate, simultaneous channels for music, crackle, stylus and rec
   assert.match(nativeSource, /kChannelCount\s*=\s*6/);
 });
 
-test("Bundled ADX is retained in memory and loops through CRI's seamless data callback", () => {
-  assert.match(nativeSource, /loadAdxMemoryAsset\(const std::string& path\)/);
-  assert.match(nativeSource, /criAtomExPlayer_SetData\(player, memoryAdx->data\(\), static_cast<CriSint32>\(memoryAdx->size\(\)\)\)/);
-  assert.match(nativeSource, /criAtomExPlayer_SetDataRequestCallback\([\s\S]*?repeatPreviousAdx/);
+test("Bundled CRI ADX is decoded to canonical PCM16 WAV before CRI playback", () => {
+  assert.match(runtimeSource, /PocketAdxDecoder\.decodeToWav\(source, wav\)/);
+  assert.match(runtimeSource, /prepareBuiltInAdx/);
+  assert.match(runtimeSource, /FORMAT_WAVE_MEMORY\s*=\s*3/);
+  assert.match(runtimeSource, /cri-audio-pcm/);
+  assert.match(adxDecoderSource, /BLOCK_BYTES\s*=\s*18/);
+  assert.match(adxDecoderSource, /BLOCK_SAMPLES\s*=\s*32/);
+  assert.match(adxDecoderSource, /calculateCoefficients/);
+  assert.match(adxDecoderSource, /writeWavHeader/);
+  assert.match(adxDecoderSource, /0x08/);
+  assert.match(nativeSource, /gMemoryWaveAssets\[kChannelCount\]/);
+  assert.match(nativeSource, /loadWaveMemoryAsset\(int channel, const std::string& path\)/);
+  assert.match(nativeSource, /criAtomExPlayer_SetData\(player, memoryData->data\(\), static_cast<CriSint32>\(memoryData->size\(\)\)\)/);
+  assert.match(nativeSource, /repeatPreviousMemoryData/);
   assert.match(nativeSource, /criAtomPlayer_SetPreviousDataAgain\(player\)/);
-  assert.match(nativeSource, /gMemoryAdxAssets\.clear\(\)/);
-  assert.match(nativeSource, /gLoopEnabled\[channel\] = false/);
+  assert.match(nativeSource, /gMemoryWaveAssets\[channel\]\.reset\(\)/);
   assert.match(nativeSource, /gLoopCycleCounts\[channel\]\.fetch_add/);
+});
+
+test("The decoded PCM voice pool is non-streaming while imported PCM WAV remains streamed", () => {
+  assert.match(nativeSource, /waveMemoryPoolConfig\.num_voices\s*=\s*kChannelCount/);
+  assert.match(nativeSource, /waveMemoryPoolConfig\.player_config\.streaming_flag\s*=\s*CRI_FALSE/);
+  assert.match(nativeSource, /criAtomExVoicePool_AllocateWaveVoicePool\([\s\S]*?gWaveMemoryVoicePoolWork/);
+  assert.match(nativeSource, /wavePoolConfig\.num_voices\s*=\s*1/);
+  assert.match(nativeSource, /wavePoolConfig\.player_config\.streaming_flag\s*=\s*CRI_TRUE/);
+  assert.match(nativeSource, /criAtomExVoicePool_AllocateWaveVoicePool\(&wavePoolConfig/);
+  assert.match(nativeSource, /kFormatWaveMemory\s*=\s*3/);
+  assert.match(nativeSource, /format == kFormatWaveMemory/);
+  assert.match(nativeSource, /format == kFormatAdx \? CRIATOMEX_FORMAT_ADX : CRIATOMEX_FORMAT_WAVE/);
+  assert.match(nativeSource, /std::free\(gWaveMemoryVoicePoolWork\)/);
+  assert.match(nativeSource, /std::free\(gWaveVoicePoolWork\)/);
 });
 
 test("CRI streaming initialization creates and destroys D-BAS before pools", () => {
