@@ -205,19 +205,57 @@ jobs:
           for output in "${!INPUTS[@]}"; do
             input="${INPUTS[$output]}"
             test -s "$input"
-            # Re-sample first, then generate PTS from the actual decoded sample count.
-            # This avoids carrying irregular OGG/MP3 packet timestamps into the ADX muxer.
+            # Keep the source sampling rate whenever it is one of CRI ADX's supported rates.
+            # Only map unsupported rates to the nearest supported ADX rate; never force every track to 48 kHz.
+            source_rate="$(ffprobe -v error -select_streams a:0 -show_entries stream=sample_rate -of default=noprint_wrappers=1:nokey=1 "$input")"
+            source_channels="$(ffprobe -v error -select_streams a:0 -show_entries stream=channels -of default=noprint_wrappers=1:nokey=1 "$input")"
+            source_codec="$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 "$input")"
+            source_bitrate="$(ffprobe -v error -show_entries format=bit_rate -of default=noprint_wrappers=1:nokey=1 "$input" || true)"
+            source_layout="$(ffprobe -v error -select_streams a:0 -show_entries stream=channel_layout -of default=noprint_wrappers=1:nokey=1 "$input" || true)"
+            [[ "$source_rate" =~ ^[0-9]+$ ]] || { echo "::error::Could not read source sample rate: $input"; exit 1; }
+            [[ "$source_channels" =~ ^[0-9]+$ ]] || { echo "::error::Could not read source channel count: $input"; exit 1; }
+            (( source_rate >= 8000 )) || { echo "::error::Source rate below CRI ADX's 8 kHz minimum: $input ($source_rate Hz)"; exit 1; }
+
+            target_rate="$source_rate"
+            case "$source_rate" in
+              48000|44100|32000|24000|22050|16000|12000|11025|8000) ;;
+              *)
+                target_rate=8000
+                best_delta=2147483647
+                for supported_rate in 48000 44100 32000 24000 22050 16000 12000 11025 8000; do
+                  delta=$(( source_rate > supported_rate ? source_rate - supported_rate : supported_rate - source_rate ))
+                  if (( delta < best_delta )); then
+                    best_delta=$delta
+                    target_rate="$supported_rate"
+                  fi
+                done
+                ;;
+            esac
+
+            # Pocket's existing CRI ADX voice path supports mono/stereo.
+            # Preserve 1 or 2 source channels; safely downmix wider sources to stereo.
+            if (( source_channels == 1 )); then
+              target_channels=1
+            else
+              target_channels=2
+            fi
+
+            # Reset timestamps from decoded sample count. Supported source rates remain untouched.
+            # FFmpeg's ADX encoder accepts signed 16-bit PCM input.
             ffmpeg -y -xerror -hide_banner -loglevel error -i "$input" -map 0:a:0 -vn \
-              -af "aresample=48000,asetpts=N/SR/TB" -ar 48000 \
+              -af "aresample=${target_rate},asetpts=N/SR/TB" -ar "$target_rate" -ac "$target_channels" -sample_fmt s16 \
               -c:a adpcm_adx -f adx "$CRI_AUDIO_DIR/$output"
             test -s "$CRI_AUDIO_DIR/$output"
             format="$(ffprobe -v error -show_entries format=format_name -of default=noprint_wrappers=1:nokey=1 "$CRI_AUDIO_DIR/$output")"
             grep -qi "adx" <<< "$format"
             # Decode each result again to null output; abort if any ADX frame is corrupt.
             ffmpeg -y -hide_banner -v error -i "$CRI_AUDIO_DIR/$output" -map 0:a:0 -f null -
-            sample_rate="$(ffprobe -v error -select_streams a:0 -show_entries stream=sample_rate -of default=noprint_wrappers=1:nokey=1 "$CRI_AUDIO_DIR/$output")"
-            test "$sample_rate" = "48000"
-            echo "$output <- $(basename "$input") | $(stat -c%s "$CRI_AUDIO_DIR/$output") bytes | 48000 Hz | decode OK"
+            output_rate="$(ffprobe -v error -select_streams a:0 -show_entries stream=sample_rate -of default=noprint_wrappers=1:nokey=1 "$CRI_AUDIO_DIR/$output")"
+            output_channels="$(ffprobe -v error -select_streams a:0 -show_entries stream=channels -of default=noprint_wrappers=1:nokey=1 "$CRI_AUDIO_DIR/$output")"
+            output_bitrate="$(ffprobe -v error -select_streams a:0 -show_entries stream=bit_rate -of default=noprint_wrappers=1:nokey=1 "$CRI_AUDIO_DIR/$output")"
+            test "$output_rate" = "$target_rate"
+            test "$output_channels" = "$target_channels"
+            echo "$output <- $(basename "$input") | source: ${source_codec:-unknown}, ${source_rate} Hz, ${source_channels} ch, ${source_layout:-layout-unknown}, ${source_bitrate:-bitrate-unknown} bps | ADX: ${output_rate} Hz, ${output_channels} ch, ${output_bitrate:-bitrate-unknown} bps | decode OK"
           done
           test "$(find "$CRI_AUDIO_DIR" -maxdepth 1 -type f -name '*.adx' | wc -l)" -eq 9
 
