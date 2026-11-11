@@ -425,13 +425,17 @@ test("Turntable render loop suspends only in bubble mode and resumes at its reta
   motion.dispose();
 });
 
-test("Settings Download button and Android device notification share the verified native updater", () => {
-  assert.doesNotMatch(source, /data-update-section|mountPocketUpdateSettings/);
-  assert.match(source, /data-settings-update-download/);
-  assert.match(source, /mountSettingsUpdateDownload\(\)/);
+test("Original Settings updater remains mounted and Download calls the validated native updater", () => {
+  assert.match(source, /data-update-section/);
+  assert.match(source, /data-update-download/);
+  assert.match(source, /data-update-check/);
+  assert.match(source, /data-update-install/);
+  assert.match(source, /function mountPocketUpdateSettings\(\)/);
+  assert.match(source, /const updateCleanup=mountPocketUpdateSettings\(\)/);
+  assert.match(source, /downloadButton\?\.addEventListener\("click",download\)/);
   assert.match(source, /native\.startPocketUpdateDownload\([\s\S]*?update\.apkUrl[\s\S]*?update\.apkSha256/);
-  assert.match(source, /native\?\.getPocketUpdateDownloadState\?\./);
-  assert.match(source, /window\.addEventListener\("pocket:update-checked",refresh\)/);
+  assert.match(source, /button\.textContent="RETRY DOWNLOAD"/);
+  assert.match(source, /function refreshPocketUpdatePanel\(downloadState=null\)/);
   assert.match(source, /native\?\.showPocketUpdateNotification\?/);
   assert.match(source, /void checkPocketUpdates\(true\)/);
   assert.match(bridgeSource, /setOnClickPendingIntent\(R\.id\.pocket_update_notification_action, downloadUpdate\)/);
@@ -439,7 +443,6 @@ test("Settings Download button and Android device notification share the verifie
   assert.match(workerSource, /\.addAction\(R\.drawable\.ic_notification_tv, "DOWNLOAD UPDATE", download\)/);
   assert.match(workerSource, /putExtra\(MainActivity\.EXTRA_UPDATE_URL, apkUrl\)/);
   assert.match(activitySource, /ACTION_DOWNLOAD_UPDATE\.equals\(action\)/);
-  assert.match(cssSource, /\.settings-update-actions\{grid-template-columns:1fr\}/);
   assert.doesNotMatch(cssSource, /\.update-section\{[^}]*z-index:31/);
   assert.doesNotMatch(cssSource, /\.update-section-toggle,\.update-actions button/);
   assert.match(source, /const timeoutId=window\.setTimeout\(\(\)=>controller\.abort\(\),45000\)/);
