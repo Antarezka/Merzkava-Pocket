@@ -2,7 +2,7 @@ name: Merzkava Pocket Repair Tests
 
 on:
   push:
-    branches: [fix/build362-audio-update-2026-11-11, fix/settings-updater-downloadmanager-build375-2026-11-11]
+    branches: [fix/build362-audio-update-2026-11-11, fix/settings-updater-downloadmanager-build375-2026-11-11, fix/toolster-adx-pcm-decode-2026-11-11]
     paths:
       - "review-apk/**"
       - ".github/workflows/pocket-repair-tests.yml"
@@ -23,6 +23,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
       - name: Install Pocket test dependencies
         working-directory: review-apk
         run: npm install
@@ -34,6 +38,28 @@ jobs:
       - name: Run Pocket unit and source-contract tests
         working-directory: review-apk
         run: npm test
+      - name: Decode bundled chill-1a and compare PCM against an independent ADX decoder
+        working-directory: review-apk
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin chore/pocket-audio-folder-2026-11-09
+          SOURCE="$RUNNER_TEMP/chill-1a.adx"
+          OUTPUT="$RUNNER_TEMP/chill-1a.wav"
+          TEST_CLASSES="$RUNNER_TEMP/pocket-adx-decoder-test"
+          REFERENCE="$RUNNER_TEMP/gamedac.js"
+          git show "origin/chore/pocket-audio-folder-2026-11-09:review-apk/web/public/audio/chill-1a_dragdropdo.adx" > "$SOURCE"
+          test -s "$SOURCE"
+          mkdir -p "$TEST_CLASSES"
+          javac -d "$TEST_CLASSES" \\
+            app/src/main/java/com/merzkava/pocket/review/PocketAdxDecoder.java \\
+            test/PocketAdxDecoderTest.java
+          java -cp "$TEST_CLASSES" com.merzkava.pocket.review.PocketAdxDecoderTest "$SOURCE" "$OUTPUT"
+          curl --fail --silent --show-error --location \\
+            https://raw.githubusercontent.com/dialersapps/gamedac/main/gamedac.js \\
+            --output "$REFERENCE"
+          test -s "$REFERENCE"
+          node test/adx-reference-compare.mjs "$SOURCE" "$OUTPUT" "$REFERENCE"
 
   native-compile:
     runs-on: ubuntu-latest
