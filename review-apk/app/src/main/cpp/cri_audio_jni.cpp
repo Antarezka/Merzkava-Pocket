@@ -22,14 +22,16 @@ constexpr const char* kTag = "PocketCriAudio";
 constexpr int kChannelCount = 6;
 constexpr int kFormatAdx = 1;
 constexpr int kFormatWave = 2;
-constexpr int kFormatWaveMemory = 3;
-constexpr CriSint32 kWaveMaxStreams = 1;
-// Imported PCM16 WAV is accepted up to 192 kHz stereo: 192000 * 2 * 16.
-constexpr CriSint32 kWaveMaxBitrate = 192000 * 2 * 16;
+// Pocket supports six simultaneous decoded-WAV channels. Bundled tracks are
+// capped at 48 kHz stereo; the single user-imported music stream can reach
+// 192 kHz stereo while five built-in voices remain active.
+constexpr CriSint32 kWaveMaxStreams = kChannelCount;
+constexpr CriSint32 kCustomWaveMaxBitrate = 192000 * 2 * 16;
+constexpr CriSint32 kBuiltInWaveMaxBitrate = 48000 * 2 * 16;
+constexpr CriSint32 kWaveMaxBitrate =
+    kCustomWaveMaxBitrate + (kChannelCount - 1) * kBuiltInWaveMaxBitrate;
 constexpr size_t kMaxMemoryAdxAssetBytes = 32u * 1024u * 1024u;
 constexpr size_t kMaxMemoryAdxCacheBytes = 128u * 1024u * 1024u;
-constexpr size_t kMaxMemoryWaveAssetBytes = 64u * 1024u * 1024u;
-constexpr size_t kMaxMemoryWaveCacheBytes = 128u * 1024u * 1024u;
 
 std::mutex gMutex;
 bool gInitialized = false;
@@ -39,10 +41,8 @@ void* gAtomWork = nullptr;
 CriAtomDbasId gDbasId = CRIATOMDBAS_ILLEGAL_ID;
 void* gDbasWork = nullptr;
 CriAtomExVoicePoolHn gAdxVoicePool = nullptr;
-CriAtomExVoicePoolHn gWaveMemoryVoicePool = nullptr;
 CriAtomExVoicePoolHn gWaveVoicePool = nullptr;
 void* gAdxVoicePoolWork = nullptr;
-void* gWaveMemoryVoicePoolWork = nullptr;
 void* gWaveVoicePoolWork = nullptr;
 CriAtomExPlayerHn gPlayers[kChannelCount] = {};
 CriAtomExTweenHn gVolumeTweens[kChannelCount] = {};
@@ -64,9 +64,6 @@ int gLoopCallbackChannels[kChannelCount] = {0, 1, 2, 3, 4, 5};
 // observe freed memory.
 std::unordered_map<std::string, std::shared_ptr<std::vector<CriUint8>>> gMemoryAdxAssets;
 size_t gMemoryAdxCacheBytes = 0;
-std::shared_ptr<std::vector<CriUint8>> gMemoryWaveAssets[kChannelCount] = {};
-std::vector<std::shared_ptr<std::vector<CriUint8>>> gRetiredMemoryWaveAssets;
-size_t gMemoryWaveCacheBytes = 0;
 
 bool validChannel(jint channel);
 
@@ -127,68 +124,6 @@ std::shared_ptr<std::vector<CriUint8>> loadAdxMemoryAsset(const std::string& pat
 }
 
 
-void subtractMemoryWaveBytes(size_t size) {
-    gMemoryWaveCacheBytes = size > gMemoryWaveCacheBytes ? 0 : gMemoryWaveCacheBytes - size;
-}
-
-// CRI explicitly warns that STOP/PLAYEND alone does not prove a SetData buffer
-// is no longer referenced by a voice. Only release after IsDataPlaying is false.
-// All callers hold gMutex so player creation/destruction cannot race this query.
-bool releaseMemoryWaveAsset(int channel) {
-    if (channel < 0 || channel >= kChannelCount) return true;
-    auto& asset = gMemoryWaveAssets[channel];
-    if (!asset) return true;
-    if (criAtomEx_IsDataPlaying(asset->data(), static_cast<CriSint32>(asset->size())) != CRI_FALSE) {
-        return false;
-    }
-    subtractMemoryWaveBytes(asset->size());
-    asset.reset();
-    return true;
-}
-
-void collectRetiredMemoryWaveAssets() {
-    auto it = gRetiredMemoryWaveAssets.begin();
-    while (it != gRetiredMemoryWaveAssets.end()) {
-        const auto& asset = *it;
-        if (!asset || criAtomEx_IsDataPlaying(asset->data(), static_cast<CriSint32>(asset->size())) == CRI_FALSE) {
-            if (asset) subtractMemoryWaveBytes(asset->size());
-            it = gRetiredMemoryWaveAssets.erase(it);
-        } else {
-            ++it;
-        }
-    }
-}
-
-// Load into a temporary shared buffer only. The caller registers ownership in
-// gMemoryWaveAssets after it has attached this exact buffer with SetData.
-std::shared_ptr<std::vector<CriUint8>> loadWaveMemoryAsset(const std::string& path) {
-    std::ifstream input(path, std::ios::binary | std::ios::ate);
-    if (!input) {
-        __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not open decoded PCM WAV for CRI memory playback: %s", path.c_str());
-        return {};
-    }
-    const std::streamoff fileSize = input.tellg();
-    if (fileSize < 44 || fileSize > static_cast<std::streamoff>(kMaxMemoryWaveAssetBytes)) {
-        __android_log_print(ANDROID_LOG_ERROR, kTag,
-            "Decoded PCM WAV size is outside the memory-playback limit: %lld bytes (%s)",
-            static_cast<long long>(fileSize), path.c_str());
-        return {};
-    }
-
-    const size_t byteCount = static_cast<size_t>(fileSize);
-    auto data = std::make_shared<std::vector<CriUint8>>(byteCount);
-    input.seekg(0, std::ios::beg);
-    if (!input.read(reinterpret_cast<char*>(data->data()), static_cast<std::streamsize>(byteCount))) {
-        __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not read complete decoded PCM WAV: %s", path.c_str());
-        return {};
-    }
-    if ((*data)[0] != 'R' || (*data)[1] != 'I' || (*data)[2] != 'F' || (*data)[3] != 'F' ||
-        (*data)[8] != 'W' || (*data)[9] != 'A' || (*data)[10] != 'V' || (*data)[11] != 'E') {
-        __android_log_print(ANDROID_LOG_ERROR, kTag, "Decoded PCM cache is not a RIFF/WAVE file: %s", path.c_str());
-        return {};
-    }
-    return data;
-}
 
 bool validChannel(jint channel) {
     return channel >= 0 && channel < kChannelCount;
@@ -207,16 +142,13 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
     CriAtomExConfig_ANDROID config;
     CriAtomDbasConfig dbasConfig;
     CriAtomExAdxVoicePoolConfig voicePoolConfig;
-    CriAtomExWaveVoicePoolConfig waveMemoryPoolConfig;
     CriAtomExWaveVoicePoolConfig wavePoolConfig;
     CriSint32 dbasWorkSize = 0;
     CriSint32 adxPoolWorkSize = 0;
-    CriSint32 waveMemoryPoolWorkSize = 0;
     CriSint32 wavePoolWorkSize = 0;
     std::memset(&config, 0, sizeof(config));
     std::memset(&dbasConfig, 0, sizeof(dbasConfig));
     std::memset(&voicePoolConfig, 0, sizeof(voicePoolConfig));
-    std::memset(&waveMemoryPoolConfig, 0, sizeof(waveMemoryPoolConfig));
     std::memset(&wavePoolConfig, 0, sizeof(wavePoolConfig));
     criAtomEx_SetDefaultConfig_ANDROID(&config);
 
@@ -283,36 +215,12 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
         goto fail;
     }
 
-    // Bundled ADX is first decoded to PCM16 WAV. Give those in-memory WAVs
-    // six non-streaming voices so BGM, vinyl ambience and SFX can overlap.
-    criAtomExVoicePool_SetDefaultConfigForWaveVoicePool(&waveMemoryPoolConfig);
-    waveMemoryPoolConfig.num_voices = kChannelCount;
-    waveMemoryPoolConfig.player_config.streaming_flag = CRI_FALSE;
-    waveMemoryPoolConfig.player_config.max_channels = 2;
-    waveMemoryPoolConfig.player_config.max_sampling_rate = 192000;
-    waveMemoryPoolWorkSize = criAtomExVoicePool_CalculateWorkSizeForWaveVoicePool(&waveMemoryPoolConfig);
-    if (waveMemoryPoolWorkSize < 0) {
-        __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not calculate CRI memory-WAV voice-pool work size: %d", waveMemoryPoolWorkSize);
-        goto fail;
-    }
-    if (waveMemoryPoolWorkSize > 0) {
-        gWaveMemoryVoicePoolWork = std::calloc(1, static_cast<size_t>(waveMemoryPoolWorkSize));
-        if (gWaveMemoryVoicePoolWork == nullptr) {
-            __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not allocate CRI memory-WAV voice-pool work memory");
-            goto fail;
-        }
-    }
-    gWaveMemoryVoicePool = criAtomExVoicePool_AllocateWaveVoicePool(
-        &waveMemoryPoolConfig, gWaveMemoryVoicePoolWork, waveMemoryPoolWorkSize);
-    if (gWaveMemoryVoicePool == nullptr) {
-        __android_log_print(ANDROID_LOG_ERROR, kTag,
-            "CRI could not allocate the decoded PCM-WAV memory voice pool (%d voices)", kChannelCount);
-        goto fail;
-    }
-
-    // User-imported PCM16 WAV remains on its original single streaming voice.
+    // Bundled ADX is decoded to PCM16 WAV first. Both built-in tracks and
+    // user-imported WAV files use CRI's Wave streaming pool and D-BAS.
+    // Six voices let BGM, vinyl ambience and effects overlap without a second
+    // decoder, mixer or playback engine.
     criAtomExVoicePool_SetDefaultConfigForWaveVoicePool(&wavePoolConfig);
-    wavePoolConfig.num_voices = 1;
+    wavePoolConfig.num_voices = kChannelCount;
     wavePoolConfig.player_config.streaming_flag = CRI_TRUE;
     wavePoolConfig.player_config.max_channels = 2;
     wavePoolConfig.player_config.max_sampling_rate = 192000;
@@ -331,7 +239,7 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
     gWaveVoicePool = criAtomExVoicePool_AllocateWaveVoicePool(&wavePoolConfig, gWaveVoicePoolWork, wavePoolWorkSize);
     if (gWaveVoicePool == nullptr) {
         __android_log_print(ANDROID_LOG_ERROR, kTag,
-            "CRI could not allocate the imported-WAV streaming voice pool");
+            "CRI could not allocate the six-voice decoded-WAV streaming voice pool");
         goto fail;
     }
 
@@ -401,12 +309,6 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
                     for (int channel = 0; channel < kChannelCount; ++channel) {
                         if (gPlayers[channel] == nullptr) continue;
                         const CriAtomExPlayerStatus channelStatus = criAtomExPlayer_GetStatus(gPlayers[channel]);
-                        if (gMemoryWaveAssets[channel] &&
-                            (channelStatus == CRIATOMEXPLAYER_STATUS_STOP ||
-                             channelStatus == CRIATOMEXPLAYER_STATUS_PLAYEND)) {
-                            releaseMemoryWaveAsset(channel);
-                        }
-                        collectRetiredMemoryWaveAssets();
                         if (!gLoopEnabled[channel] || channelStatus != CRIATOMEXPLAYER_STATUS_PLAYEND) continue;
                         const CriAtomExPlaybackId restarted = criAtomExPlayer_Start(gPlayers[channel]);
                         if (restarted != CRIATOMEX_INVALID_PLAYBACK_ID) {
@@ -428,7 +330,7 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
     });
 
     __android_log_print(ANDROID_LOG_INFO, kTag,
-        "CRI initialized: six in-memory WAV voices for decoded ADX, one streaming imported-WAV voice, D-BAS streams=%d max_bps=%d; CRI MULTI server owns audio processing",
+        "CRI initialized: six CRI Wave streaming voices for decoded ADX PCM and imported WAV, D-BAS streams=%d total max_bps=%d; CRI MULTI server owns audio processing",
         kWaveMaxStreams, kWaveMaxBitrate);
     return JNI_TRUE;
 
@@ -454,12 +356,6 @@ fail:
     }
     std::free(gWaveVoicePoolWork);
     gWaveVoicePoolWork = nullptr;
-    if (gWaveMemoryVoicePool != nullptr) {
-        criAtomExVoicePool_Free(gWaveMemoryVoicePool);
-        gWaveMemoryVoicePool = nullptr;
-    }
-    std::free(gWaveMemoryVoicePoolWork);
-    gWaveMemoryVoicePoolWork = nullptr;
     if (gAdxVoicePool != nullptr) {
         criAtomExVoicePool_Free(gAdxVoicePool);
         gAdxVoicePool = nullptr;
@@ -475,9 +371,6 @@ fail:
     criAtomEx_Finalize_ANDROID();
     gMemoryAdxAssets.clear();
     gMemoryAdxCacheBytes = 0;
-    for (int channel = 0; channel < kChannelCount; ++channel) gMemoryWaveAssets[channel].reset();
-    gRetiredMemoryWaveAssets.clear();
-    gMemoryWaveCacheBytes = 0;
     std::free(gAtomWork);
     gAtomWork = nullptr;
     gInitialized = false;
@@ -559,9 +452,6 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeShutdown(JNIEnv*, jc
     // Memory passed to SetData is released only after AtomEx has finalized.
     gMemoryAdxAssets.clear();
     gMemoryAdxCacheBytes = 0;
-    for (int channel = 0; channel < kChannelCount; ++channel) gMemoryWaveAssets[channel].reset();
-    gRetiredMemoryWaveAssets.clear();
-    gMemoryWaveCacheBytes = 0;
     std::free(gAtomWork);
     gAtomWork = nullptr;
     gInitialized = false;
@@ -573,7 +463,7 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativePlayFile(
         JNIEnv* env, jclass, jint channel, jstring pathValue, jint format,
         jint numChannels, jint samplingRate, jfloat volume, jfloat fadeMultiplier, jboolean loop) {
     if (!validChannel(channel) || pathValue == nullptr ||
-        (format != kFormatAdx && format != kFormatWave && format != kFormatWaveMemory) ||
+        (format != kFormatAdx && format != kFormatWave) ||
         numChannels < 1 || numChannels > 2 || samplingRate < 8000 || samplingRate > 192000) {
         __android_log_print(ANDROID_LOG_ERROR, kTag,
             "Rejected audio request: channel=%d format=%d channels=%d rate=%d",
@@ -618,30 +508,9 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativePlayFile(
             channel, status, path.c_str());
         return JNI_FALSE;
     }
-    std::shared_ptr<std::vector<CriUint8>> memoryWave;
-    if (format == kFormatWaveMemory) {
-        memoryWave = loadWaveMemoryAsset(path);
-        if (!memoryWave) return JNI_FALSE;
-    }
-
     std::lock_guard<std::mutex> lock(gMutex);
     if (!gInitialized || gPlayers[channel] == nullptr) return JNI_FALSE;
-    collectRetiredMemoryWaveAssets();
-    if (gMemoryWaveAssets[channel]) {
-        const auto previous = gMemoryWaveAssets[channel];
-        if (criAtomEx_IsDataPlaying(previous->data(), static_cast<CriSint32>(previous->size())) != CRI_FALSE) {
-            gRetiredMemoryWaveAssets.push_back(previous);
-        } else {
-            subtractMemoryWaveBytes(previous->size());
-        }
-        gMemoryWaveAssets[channel].reset();
-    }
-    if (memoryWave && memoryWave->size() > kMaxMemoryWaveCacheBytes - gMemoryWaveCacheBytes) {
-        __android_log_print(ANDROID_LOG_ERROR, kTag,
-            "Decoded PCM WAV cache budget reached (%zu bytes retained), refusing playback: %s",
-            gMemoryWaveCacheBytes, path.c_str());
-        return JNI_FALSE;
-    }
+
     CriAtomExPlayerHn player = gPlayers[channel];
     criAtomExPlayer_SetFormat(player, format == kFormatAdx ? CRIATOMEX_FORMAT_ADX : CRIATOMEX_FORMAT_WAVE);
     criAtomExPlayer_SetNumChannels(player, numChannels);
@@ -656,22 +525,16 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativePlayFile(
         criAtomExTween_MoveTo(gVolumeTweens[channel], 0, clampedFade);
     }
 
-    if (memoryAdx || memoryWave) {
-        // In-memory ADX and decoded PCM WAV both use CRI's sample-data callback
-        // for seamless repeat. Bundled ADX playback itself now uses PCM WAV.
+    if (memoryAdx) {
+        // Legacy direct-ADX playback remains available for compatibility.
+        // Current bundled tracks are decoded to PCM WAV and use SetFile below.
         criAtomExPlayer_SetDataRequestCallback(
             player, loop == JNI_TRUE ? repeatPreviousMemoryData : nullptr,
             loop == JNI_TRUE ? &gLoopCallbackChannels[channel] : nullptr);
-        const auto& memoryData = memoryWave ? memoryWave : memoryAdx;
-        criAtomExPlayer_SetData(player, memoryData->data(), static_cast<CriSint32>(memoryData->size()));
-        if (memoryWave) {
-            gMemoryWaveAssets[channel] = memoryWave;
-            gMemoryWaveCacheBytes += memoryWave->size();
-        }
+        criAtomExPlayer_SetData(player, memoryAdx->data(), static_cast<CriSint32>(memoryAdx->size()));
         gLoopEnabled[channel] = false;
     } else {
-        // User-imported WAV remains the single streaming file route. The prior
-        // memory buffer has already been retired and is checked before release.
+        // Toolster-style PCM16 WAV output is streamed by CRI's Wave voice pool.
         criAtomExPlayer_SetDataRequestCallback(player, nullptr, nullptr);
         criAtomExPlayer_SetFile(player, nullptr, path.c_str());
         gLoopEnabled[channel] = loop == JNI_TRUE;
@@ -689,9 +552,9 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativePlayFile(
     criAtomExPlayer_Update(player, gPlaybackIds[channel]);
     __android_log_print(ANDROID_LOG_INFO, kTag,
         "CRI playback started: channel=%d format=%d mode=%s channels=%d rate=%d fade=%.3f loop=%d bytes=%zu path=%s",
-        channel, format, memoryAdx ? "adx-memory" : (memoryWave ? "pcm-wav-memory" : "file-stream"),
+        channel, format, memoryAdx ? "adx-memory" : "wave-file-stream",
         numChannels, samplingRate, clampedFade, loop == JNI_TRUE ? 1 : 0,
-        memoryWave ? memoryWave->size() : (memoryAdx ? memoryAdx->size() : 0u), path.c_str());
+        memoryAdx ? memoryAdx->size() : 0u, path.c_str());
     return JNI_TRUE;
 }
 
