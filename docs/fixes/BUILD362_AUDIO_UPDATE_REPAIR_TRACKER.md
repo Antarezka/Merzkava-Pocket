@@ -116,7 +116,9 @@ User clarified the highest-priority audio symptom: **BGM is still distorted when
 
 - Test-only workflow: `.github/workflows/pocket-repair-tests.yml`. It runs the full npm suite and syntax checks, plus a native compile-only job against the pinned CRI ADX LE SDK 2.31.01.
 - First test-only run: `42934018372` — success for JavaScript syntax and the full Pocket test suite.
-- Second test-only run after adding JNI compile: `42934099545` — check latest job results before claiming native compilation passed.
+- Second test-only run: `42934099545` — npm/syntax tests passed; the compile job stopped before Gradle because the workflow's CRI header-path lookup was malformed. This was a workflow-script issue, not a C++ compiler result.
+- Third test-only run: `42934255046`, commit `ab34d3bca02d303af03a70336f88749bb925b74c` — **both jobs succeeded**. The npm/syntax/test suite passed; CRI SDK 2.31.01 archive checksum verified; JNI native compilation succeeded for `arm64-v8a` and `armeabi-v7a`; Java compilation also succeeded. Gradle reported `BUILD SUCCESSFUL`. The compile job ran only `:app:externalNativeBuildDebug` and `:app:compileDebugJavaWithJavac`.
+- The successful compile verifies API/header compatibility, not sound quality or runtime behavior on the user's phone.
 - These jobs do not run `assembleDebug`, sign an APK, create a release, or publish an update.
 
 The memory playback change removes storage streaming and file-loop restart from the bundled ADX playback path. It does **not** prove the original BGM source is clean or rule out Android output/decode/resampling distortion. Real-device listening remains required, especially with the reported BGM-only case. If that still distorts, next inspect the actual Native SDK Android output-buffer configuration and decoded ADX PCM peak/waveform on the target device rather than applying a master limiter blindly.
