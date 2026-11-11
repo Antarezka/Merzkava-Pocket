@@ -146,37 +146,31 @@ test("CRI has separate, simultaneous channels for music, crackle, stylus and rec
 test("Bundled CRI ADX is decoded to canonical PCM16 WAV before CRI playback", () => {
   assert.match(runtimeSource, /PocketAdxDecoder\.decodeToWav\(source, wav\)/);
   assert.match(runtimeSource, /prepareBuiltInAdx/);
-  assert.match(runtimeSource, /FORMAT_WAVE_MEMORY\s*=\s*3/);
+  assert.match(runtimeSource, /FORMAT_WAVE\s*=\s*2/);
   assert.match(runtimeSource, /cri-audio-pcm/);
+  assert.match(runtimeSource, /beginMusicPlayback\(wav, FORMAT_WAVE/);
   assert.match(adxDecoderSource, /BLOCK_BYTES\s*=\s*18/);
   assert.match(adxDecoderSource, /BLOCK_SAMPLES\s*=\s*32/);
   assert.match(adxDecoderSource, /calculateCoefficients/);
   assert.match(adxDecoderSource, /writeWavHeader/);
   assert.match(adxDecoderSource, /0x08/);
-  assert.match(nativeSource, /gMemoryWaveAssets\[kChannelCount\]/);
-  assert.match(nativeSource, /loadWaveMemoryAsset\(const std::string& path\)/);
-  assert.match(nativeSource, /criAtomExPlayer_SetData\(player, memoryData->data\(\), static_cast<CriSint32>\(memoryData->size\(\)\)\)/);
-  assert.match(nativeSource, /repeatPreviousMemoryData/);
-  assert.match(nativeSource, /criAtomPlayer_SetPreviousDataAgain\(player\)/);
-  assert.match(nativeSource, /gMemoryWaveAssets\[channel\]\.reset\(\)/);
-  assert.match(nativeSource, /gRetiredMemoryWaveAssets/);
-  assert.match(nativeSource, /criAtomEx_IsDataPlaying\(asset->data\(\), static_cast<CriSint32>\(asset->size\(\)\)\)/);
-  assert.match(nativeSource, /collectRetiredMemoryWaveAssets/);
-  assert.match(nativeSource, /gLoopCycleCounts\[channel\]\.fetch_add/);
+  assert.match(nativeSource, /criAtomExPlayer_SetFile\(player, nullptr, path\.c_str\(\)\)/);
+  assert.match(nativeSource, /CRIATOMEX_FORMAT_WAVE/);
+  assert.doesNotMatch(nativeSource, /kFormatWaveMemory|gMemoryWaveAssets|gRetiredMemoryWaveAssets/);
 });
 
-test("The decoded PCM voice pool is non-streaming while imported PCM WAV remains streamed", () => {
-  assert.match(nativeSource, /waveMemoryPoolConfig\.num_voices\s*=\s*kChannelCount/);
-  assert.match(nativeSource, /waveMemoryPoolConfig\.player_config\.streaming_flag\s*=\s*CRI_FALSE/);
-  assert.match(nativeSource, /criAtomExVoicePool_AllocateWaveVoicePool\([\s\S]*?gWaveMemoryVoicePoolWork/);
-  assert.match(nativeSource, /wavePoolConfig\.num_voices\s*=\s*1/);
+test("Decoded PCM WAV and imported PCM WAV share six CRI streaming voices", () => {
+  assert.match(nativeSource, /wavePoolConfig\.num_voices\s*=\s*kChannelCount/);
   assert.match(nativeSource, /wavePoolConfig\.player_config\.streaming_flag\s*=\s*CRI_TRUE/);
   assert.match(nativeSource, /criAtomExVoicePool_AllocateWaveVoicePool\(&wavePoolConfig/);
-  assert.match(nativeSource, /kFormatWaveMemory\s*=\s*3/);
-  assert.match(nativeSource, /format == kFormatWaveMemory/);
-  assert.match(nativeSource, /format == kFormatAdx \? CRIATOMEX_FORMAT_ADX : CRIATOMEX_FORMAT_WAVE/);
-  assert.match(nativeSource, /std::free\(gWaveMemoryVoicePoolWork\)/);
-  assert.match(nativeSource, /std::free\(gWaveVoicePoolWork\)/);
+  assert.match(nativeSource, /wavePoolConfig\.player_config\.max_channels\s*=\s*2/);
+  assert.match(nativeSource, /wavePoolConfig\.player_config\.max_sampling_rate\s*=\s*192000/);
+  assert.match(nativeSource, /kWaveMaxStreams\s*=\s*kChannelCount/);
+  assert.match(nativeSource, /kCustomWaveMaxBitrate\s*=\s*192000\s*\*\s*2\s*\*\s*16/);
+  assert.match(nativeSource, /kBuiltInWaveMaxBitrate\s*=\s*48000\s*\*\s*2\s*\*\s*16/);
+  assert.match(nativeSource, /kWaveMaxBitrate\s*=\s*kCustomWaveMaxBitrate\s*\+\s*\(kChannelCount\s*-\s*1\)\s*\*\s*kBuiltInWaveMaxBitrate/);
+  assert.match(nativeSource, /dbasConfig\.max_streams\s*=\s*kWaveMaxStreams/);
+  assert.match(nativeSource, /dbasConfig\.max_bps\s*=\s*kWaveMaxBitrate/);
 });
 
 test("CRI streaming initialization creates and destroys D-BAS before pools", () => {
@@ -187,14 +181,14 @@ test("CRI streaming initialization creates and destroys D-BAS before pools", () 
   assert.match(nativeSource, /criAtomDbas_SetDefaultConfig\(&dbasConfig\)/);
   assert.match(nativeSource, /dbasConfig\.max_streams\s*=\s*kWaveMaxStreams/);
   assert.match(nativeSource, /dbasConfig\.max_bps\s*=\s*kWaveMaxBitrate/);
-  assert.match(nativeSource, /kWaveMaxBitrate\s*=\s*192000\s*\*\s*2\s*\*\s*16/);
+  assert.match(nativeSource, /kWaveMaxBitrate\s*=\s*kCustomWaveMaxBitrate/);
   assert.match(nativeSource, /criAtomDbas_CalculateWorkSize\(&dbasConfig\)/);
   assert.match(nativeSource, /CRIATOMDBAS_ILLEGAL_ID/);
   assert.ok(destroyDbas > adxPool, "D-BAS is destroyed after the voice pools");
   assert.match(nativeSource, /std::free\(gDbasWork\)/);
 });
 
-test("Legacy ADX compatibility and separate PCM memory/streaming voice pools remain available", () => {
+test("Legacy ADX memory playback remains available alongside decoded-WAV streaming", () => {
   assert.match(nativeSource, /criAtomExVoicePool_CalculateWorkSizeForAdxVoicePool/);
   assert.match(nativeSource, /criAtomExVoicePool_AllocateAdxVoicePool/);
   assert.match(nativeSource, /voicePoolConfig\.player_config\.streaming_flag\s*=\s*CRI_FALSE/);
