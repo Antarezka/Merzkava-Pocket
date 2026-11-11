@@ -9,15 +9,24 @@
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
+#include <unordered_map>
+#include <vector>
 
 namespace {
 constexpr const char* kTag = "PocketCriAudio";
 constexpr int kChannelCount = 6;
 constexpr int kFormatAdx = 1;
 constexpr int kFormatWave = 2;
+constexpr CriSint32 kWaveMaxStreams = 1;
+// Imported PCM16 WAV is accepted up to 192 kHz stereo: 192000 * 2 * 16.
+constexpr CriSint32 kWaveMaxBitrate = 192000 * 2 * 16;
+constexpr size_t kMaxMemoryAdxAssetBytes = 32u * 1024u * 1024u;
+constexpr size_t kMaxMemoryAdxCacheBytes = 128u * 1024u * 1024u;
 
 std::mutex gMutex;
 bool gInitialized = false;
@@ -43,7 +52,69 @@ CriAtomExPlaybackId gPlaybackIds[kChannelCount] = {
     CRIATOMEX_INVALID_PLAYBACK_ID,
     CRIATOMEX_INVALID_PLAYBACK_ID
 };
-CriUint32 gLoopCycleCounts[kChannelCount] = {};
+std::atomic<CriUint32> gLoopCycleCounts[kChannelCount]{};
+int gLoopCallbackChannels[kChannelCount] = {0, 1, 2, 3, 4, 5};
+// CRI keeps only the data pointer supplied to SetData; retain every loaded ADX
+// buffer until after AtomEx is finalized so a stopped/replaced voice cannot
+// observe freed memory.
+std::unordered_map<std::string, std::shared_ptr<std::vector<CriUint8>>> gMemoryAdxAssets;
+size_t gMemoryAdxCacheBytes = 0;
+
+void repeatPreviousAdx(void* obj, CriAtomExPlaybackId, CriAtomPlayerHn player) {
+    if (obj == nullptr || player == nullptr) return;
+    const int channel = *static_cast<const int*>(obj);
+    if (!validChannel(channel)) return;
+    // This is the only CRI call permitted here: the callback runs on the
+    // AtomEx server thread and must never block or take gMutex.
+    criAtomPlayer_SetPreviousDataAgain(player);
+    gLoopCycleCounts[channel].fetch_add(1, std::memory_order_relaxed);
+}
+
+std::shared_ptr<std::vector<CriUint8>> loadAdxMemoryAsset(const std::string& path) {
+    {
+        std::lock_guard<std::mutex> lock(gMutex);
+        if (!gInitialized) return {};
+        const auto found = gMemoryAdxAssets.find(path);
+        if (found != gMemoryAdxAssets.end()) return found->second;
+    }
+
+    std::ifstream input(path, std::ios::binary | std::ios::ate);
+    if (!input) {
+        __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not open bundled ADX for memory playback: %s", path.c_str());
+        return {};
+    }
+    const std::streamoff fileSize = input.tellg();
+    if (fileSize < 32 || fileSize > static_cast<std::streamoff>(kMaxMemoryAdxAssetBytes)) {
+        __android_log_print(ANDROID_LOG_ERROR, kTag,
+            "Bundled ADX size is outside the memory playback limit: %lld bytes (%s)",
+            static_cast<long long>(fileSize), path.c_str());
+        return {};
+    }
+
+    const size_t byteCount = static_cast<size_t>(fileSize);
+    auto data = std::make_shared<std::vector<CriUint8>>(byteCount);
+    input.seekg(0, std::ios::beg);
+    if (!input.read(reinterpret_cast<char*>(data->data()), static_cast<std::streamsize>(byteCount))) {
+        __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not read complete bundled ADX: %s", path.c_str());
+        return {};
+    }
+
+    std::lock_guard<std::mutex> lock(gMutex);
+    if (!gInitialized) return {};
+    const auto existing = gMemoryAdxAssets.find(path);
+    if (existing != gMemoryAdxAssets.end()) return existing->second;
+    if (byteCount > kMaxMemoryAdxCacheBytes - gMemoryAdxCacheBytes) {
+        __android_log_print(ANDROID_LOG_ERROR, kTag,
+            "Bundled ADX memory cache limit reached (%zu bytes): %s", gMemoryAdxCacheBytes, path.c_str());
+        return {};
+    }
+    gMemoryAdxAssets.emplace(path, data);
+    gMemoryAdxCacheBytes += byteCount;
+    __android_log_print(ANDROID_LOG_INFO, kTag,
+        "Cached ADX in memory: %zu bytes (%zu total): %s",
+        byteCount, gMemoryAdxCacheBytes, path.c_str());
+    return data;
+}
 
 bool validChannel(jint channel) {
     return channel >= 0 && channel < kChannelCount;
@@ -89,9 +160,10 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
     // D-BAS manages streaming buffers. CRI's streaming playback sequence
     // requires a D-BAS instance before any streaming voice pool/player.
     criAtomDbas_SetDefaultConfig(&dbasConfig);
-    dbasConfig.max_streams = kChannelCount;
-    // CI normalizes packaged ADX files to stereo-capable 48 kHz.
-    dbasConfig.max_bps = criAtom_CalculateAdxBitrate(2, 48000) * kChannelCount;
+    // Bundled ADX is played from retained memory buffers, not streamed from
+    // storage. D-BAS is reserved for the single imported PCM-WAV voice.
+    dbasConfig.max_streams = kWaveMaxStreams;
+    dbasConfig.max_bps = kWaveMaxBitrate;
     dbasWorkSize = criAtomDbas_CalculateWorkSize(&dbasConfig);
     if (dbasWorkSize < 0) {
         __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not calculate CRI D-BAS work size: %d", dbasWorkSize);
@@ -110,12 +182,11 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
         goto fail;
     }
 
-    // SetFile() streams ADX data. A streaming ADX voice pool is mandatory:
-    // without it, players can be created and Start() can return an ID while no
-    // playback voice is available to render the stream.
+    // All bundled ADX tracks and effects are resident in memory. They do not
+    // consume D-BAS streams and do not depend on storage reads during playback.
     criAtomExVoicePool_SetDefaultConfigForAdxVoicePool(&voicePoolConfig);
     voicePoolConfig.num_voices = kChannelCount;
-    voicePoolConfig.player_config.streaming_flag = CRI_TRUE;
+    voicePoolConfig.player_config.streaming_flag = CRI_FALSE;
     adxPoolWorkSize = criAtomExVoicePool_CalculateWorkSizeForAdxVoicePool(&voicePoolConfig);
     if (adxPoolWorkSize < 0) {
         __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not calculate CRI ADX voice-pool work size: %d", adxPoolWorkSize);
@@ -246,7 +317,8 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
     });
 
     __android_log_print(ANDROID_LOG_INFO, kTag,
-        "CRI ADX LE initialized with six isolated players; CRI MULTI server owns audio processing");
+        "CRI ADX LE initialized: six memory-capable ADX players, one streaming WAV voice, D-BAS streams=%d max_bps=%d; CRI MULTI server owns audio processing",
+        kWaveMaxStreams, kWaveMaxBitrate);
     return JNI_TRUE;
 
 fail:
@@ -284,6 +356,8 @@ fail:
     std::free(gDbasWork);
     gDbasWork = nullptr;
     criAtomEx_Finalize_ANDROID();
+    gMemoryAdxAssets.clear();
+    gMemoryAdxCacheBytes = 0;
     std::free(gAtomWork);
     gAtomWork = nullptr;
     gInitialized = false;
@@ -356,6 +430,9 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeShutdown(JNIEnv*, jc
     std::free(gDbasWork);
     gDbasWork = nullptr;
     criAtomEx_Finalize_ANDROID();
+    // Memory passed to SetData is released only after AtomEx has finalized.
+    gMemoryAdxAssets.clear();
+    gMemoryAdxCacheBytes = 0;
     std::free(gAtomWork);
     gAtomWork = nullptr;
     gInitialized = false;
@@ -378,6 +455,15 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativePlayFile(
     if (pathChars == nullptr) return JNI_FALSE;
     const std::string path(pathChars);
     env->ReleaseStringUTFChars(pathValue, pathChars);
+
+    // Packaged ADX (BGM, ambience and built-in SFX) is read once and kept in
+    // memory. User-imported WAV remains a CRI SetFile stream.
+    std::shared_ptr<std::vector<CriUint8>> memoryAdx;
+    if (format == kFormatAdx) {
+        memoryAdx = loadAdxMemoryAsset(path);
+        if (!memoryAdx) return JNI_FALSE;
+    }
+
     {
         std::lock_guard<std::mutex> lock(gMutex);
         if (!gInitialized || gPlayers[channel] == nullptr) return JNI_FALSE;
@@ -418,10 +504,21 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativePlayFile(
         criAtomExTween_Stop(gVolumeTweens[channel]);
         criAtomExTween_MoveTo(gVolumeTweens[channel], 0, clampedFade);
     }
-    // Data-request callbacks repeat caller-supplied SetData buffers, not SetFile streams.
-    criAtomExPlayer_SetDataRequestCallback(player, nullptr, nullptr);
-    criAtomExPlayer_SetFile(player, nullptr, path.c_str());
-    gLoopEnabled[channel] = loop == JNI_TRUE;
+
+    if (memoryAdx) {
+        // Register before SetData/Start. The callback repeats the same ADX
+        // buffer seamlessly without a PLAYEND -> Start gap or file read.
+        criAtomExPlayer_SetDataRequestCallback(
+            player, loop == JNI_TRUE ? repeatPreviousAdx : nullptr,
+            loop == JNI_TRUE ? &gLoopCallbackChannels[channel] : nullptr);
+        criAtomExPlayer_SetData(player, memoryAdx->data(), static_cast<CriSint32>(memoryAdx->size()));
+        gLoopEnabled[channel] = false; // ADX looping is callback-owned, not monitor-thread-owned.
+    } else {
+        // Imported WAV is the sole streaming format in Pocket.
+        criAtomExPlayer_SetDataRequestCallback(player, nullptr, nullptr);
+        criAtomExPlayer_SetFile(player, nullptr, path.c_str());
+        gLoopEnabled[channel] = loop == JNI_TRUE;
+    }
     gLoopCycleCounts[channel] = 0;
     gPlaybackIds[channel] = criAtomExPlayer_Start(player);
     if (gPlaybackIds[channel] == CRIATOMEX_INVALID_PLAYBACK_ID) {
@@ -434,8 +531,9 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativePlayFile(
     // Apply the Tween's initial multiplier to the just-started PlaybackId.
     criAtomExPlayer_Update(player, gPlaybackIds[channel]);
     __android_log_print(ANDROID_LOG_INFO, kTag,
-        "CRI stream started: channel=%d format=%d channels=%d rate=%d fade=%.3f loop=%d path=%s",
-        channel, format, numChannels, samplingRate, clampedFade, loop == JNI_TRUE ? 1 : 0, path.c_str());
+        "CRI playback started: channel=%d format=%d mode=%s channels=%d rate=%d fade=%.3f loop=%d bytes=%zu path=%s",
+        channel, format, memoryAdx ? "memory" : "stream", numChannels, samplingRate,
+        clampedFade, loop == JNI_TRUE ? 1 : 0, memoryAdx ? memoryAdx->size() : 0u, path.c_str());
     return JNI_TRUE;
 }
 
@@ -493,8 +591,7 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeTakeLoopCycles(JNIEn
     if (!validChannel(channel)) return 0;
     std::lock_guard<std::mutex> lock(gMutex);
     if (!gInitialized) return 0;
-    const CriUint32 count = gLoopCycleCounts[channel];
-    gLoopCycleCounts[channel] = 0;
+    const CriUint32 count = gLoopCycleCounts[channel].exchange(0, std::memory_order_acq_rel);
     return count > 2147483647u ? 2147483647 : static_cast<jint>(count);
 }
 
