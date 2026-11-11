@@ -194,10 +194,10 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
     voicePoolConfig.player_config.max_channels = 2;
     voicePoolConfig.player_config.max_sampling_rate = 48000;
     voicePoolConfig.player_config.streaming_flag = CRI_FALSE;
-    // These are simple file-backed ADX records, not authored ASR/ACF cues.
-    // Route them to Android's native renderer instead of the software ASR
-    // mixer; imported PCM-WAV remains on its separate CRI streaming voice.
-    voicePoolConfig.player_config.sound_renderer_type = CRIATOM_SOUND_RENDERER_NATIVE;
+    // Preserve CRI's Android default renderer selection. The SDK's default
+    // ADX-player configuration uses CRIATOM_SOUND_RENDERER_DEFAULT; forcing
+    // NATIVE bypasses that selection and sends each voice to the platform
+    // renderer directly. The Wave pool also retains the SDK default.
     adxPoolWorkSize = criAtomExVoicePool_CalculateWorkSizeForAdxVoicePool(&voicePoolConfig);
     if (adxPoolWorkSize < 0) {
         __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not calculate CRI ADX voice-pool work size: %d", adxPoolWorkSize);
