@@ -653,6 +653,7 @@ public final class PocketNativeBridge {
                  "paused".equals(existingStatus) || "completed".equals(existingStatus))) {
                 existing.put("ok", true);
                 existing.put("message", "This build already has a download. Pocket has restored its current progress.");
+                clearPocketUpdateAvailableNotification();
                 return existing.toString();
             }
 
@@ -687,6 +688,7 @@ public final class PocketNativeBridge {
                 .put("status", "queued").put("progress", 0).put("bytesDownloaded", 0).put("totalBytes", 0)
                 .put("message", "Pocket Build #" + buildNumber + " download has started.").toString();
         } catch (Exception error) {
+            android.util.Log.e("PocketUpdate", "The Settings or device-notification download action could not be started.", error);
             try {
                 return new JSONObject().put("ok", false)
                     .put("message", "Pocket could not start the new update download. Check storage and connection.").toString();
