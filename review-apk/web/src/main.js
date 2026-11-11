@@ -124,7 +124,6 @@ window.PocketNativeCallbacks = {
 };
 
 
-let latestPocketUpdate = null;
 let pocketUpdateCheckBusy = false;
 let pocketUpdateStartupCheckStarted = false;
 
