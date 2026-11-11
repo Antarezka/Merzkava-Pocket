@@ -205,11 +205,19 @@ jobs:
           for output in "${!INPUTS[@]}"; do
             input="${INPUTS[$output]}"
             test -s "$input"
-            ffmpeg -y -hide_banner -loglevel error -i "$input" -map 0:a:0 -vn -ar 48000 -c:a adpcm_adx -f adx "$CRI_AUDIO_DIR/$output"
+            # Re-sample first, then generate PTS from the actual decoded sample count.
+            # This avoids carrying irregular OGG/MP3 packet timestamps into the ADX muxer.
+            ffmpeg -y -xerror -hide_banner -loglevel error -i "$input" -map 0:a:0 -vn \
+              -af "aresample=48000,asetpts=N/SR/TB" -ar 48000 \
+              -c:a adpcm_adx -f adx "$CRI_AUDIO_DIR/$output"
             test -s "$CRI_AUDIO_DIR/$output"
             format="$(ffprobe -v error -show_entries format=format_name -of default=noprint_wrappers=1:nokey=1 "$CRI_AUDIO_DIR/$output")"
             grep -qi "adx" <<< "$format"
-            echo "$output <- $(basename "$input") | $(stat -c%s "$CRI_AUDIO_DIR/$output") bytes"
+            # Decode each result again to null output; abort if any ADX frame is corrupt.
+            ffmpeg -xerror -y -hide_banner -v error -i "$CRI_AUDIO_DIR/$output" -map 0:a:0 -f null -
+            sample_rate="$(ffprobe -v error -select_streams a:0 -show_entries stream=sample_rate -of default=noprint_wrappers=1:nokey=1 "$CRI_AUDIO_DIR/$output")"
+            test "$sample_rate" = "48000"
+            echo "$output <- $(basename "$input") | $(stat -c%s "$CRI_AUDIO_DIR/$output") bytes | 48000 Hz | decode OK"
           done
           test "$(find "$CRI_AUDIO_DIR" -maxdepth 1 -type f -name '*.adx' | wc -l)" -eq 9
 
