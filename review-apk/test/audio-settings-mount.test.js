@@ -154,11 +154,14 @@ test("Bundled CRI ADX is decoded to canonical PCM16 WAV before CRI playback", ()
   assert.match(adxDecoderSource, /writeWavHeader/);
   assert.match(adxDecoderSource, /0x08/);
   assert.match(nativeSource, /gMemoryWaveAssets\[kChannelCount\]/);
-  assert.match(nativeSource, /loadWaveMemoryAsset\(int channel, const std::string& path\)/);
+  assert.match(nativeSource, /loadWaveMemoryAsset\(const std::string& path\)/);
   assert.match(nativeSource, /criAtomExPlayer_SetData\(player, memoryData->data\(\), static_cast<CriSint32>\(memoryData->size\(\)\)\)/);
   assert.match(nativeSource, /repeatPreviousMemoryData/);
   assert.match(nativeSource, /criAtomPlayer_SetPreviousDataAgain\(player\)/);
   assert.match(nativeSource, /gMemoryWaveAssets\[channel\]\.reset\(\)/);
+  assert.match(nativeSource, /gRetiredMemoryWaveAssets/);
+  assert.match(nativeSource, /criAtomEx_IsDataPlaying\(asset->data\(\), static_cast<CriSint32>\(asset->size\(\)\)\)/);
+  assert.match(nativeSource, /collectRetiredMemoryWaveAssets/);
   assert.match(nativeSource, /gLoopCycleCounts\[channel\]\.fetch_add/);
 });
 
@@ -191,7 +194,7 @@ test("CRI streaming initialization creates and destroys D-BAS before pools", () 
   assert.match(nativeSource, /std::free\(gDbasWork\)/);
 });
 
-test("Bundled ADX uses a memory voice pool while imported Wave remains streamed", () => {
+test("Legacy ADX compatibility and separate PCM memory/streaming voice pools remain available", () => {
   assert.match(nativeSource, /criAtomExVoicePool_CalculateWorkSizeForAdxVoicePool/);
   assert.match(nativeSource, /criAtomExVoicePool_AllocateAdxVoicePool/);
   assert.match(nativeSource, /voicePoolConfig\.player_config\.streaming_flag\s*=\s*CRI_FALSE/);
