@@ -653,7 +653,6 @@ public final class PocketNativeBridge {
                  "paused".equals(existingStatus) || "completed".equals(existingStatus))) {
                 existing.put("ok", true);
                 existing.put("message", "This build already has a download. Pocket has restored its current progress.");
-                startPocketUpdateProgressService();
                 return existing.toString();
             }
 
@@ -666,8 +665,10 @@ public final class PocketNativeBridge {
             request.setMimeType("application/vnd.android.package-archive");
             request.setTitle("Merzkava Pocket · Build #" + buildNumber);
             request.setDescription("Downloading " + fileName);
-            // Pocket owns the branded progress notification; keep the system DownloadManager notice hidden.
-            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_HIDDEN);
+            // The app cannot use VISIBILITY_HIDDEN: Android reserves DOWNLOAD_WITHOUT_NOTIFICATION.
+            // Let DownloadManager show its device-level progress notification; Settings keeps the
+            // in-app build details, progress state and SHA-verified Install action.
+            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE);
             request.setDestinationInExternalFilesDir(activity, Environment.DIRECTORY_DOWNLOADS, fileName);
             request.setAllowedOverMetered(true);
             request.setAllowedOverRoaming(false);
@@ -681,7 +682,7 @@ public final class PocketNativeBridge {
                 clearPocketUpdateDownloadState();
                 return new JSONObject().put("ok", false).put("message", "Pocket could not save the new build download state.").toString();
             }
-            startPocketUpdateProgressService();
+            clearPocketUpdateAvailableNotification();
             return new JSONObject().put("ok", true).put("downloadId", id).put("buildNumber", buildNumber)
                 .put("status", "queued").put("progress", 0).put("bytesDownloaded", 0).put("totalBytes", 0)
                 .put("message", "Pocket Build #" + buildNumber + " download has started.").toString();
@@ -919,13 +920,12 @@ public final class PocketNativeBridge {
         else activity.startService(intent);
     }
 
-    private void startPocketUpdateProgressService() {
+    private void clearPocketUpdateAvailableNotification() {
         try {
-            Intent intent = new Intent(activity, PocketUpdateProgressService.class);
-            if (Build.VERSION.SDK_INT >= 26) activity.startForegroundService(intent);
-            else activity.startService(intent);
+            NotificationManager manager = (NotificationManager) activity.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (manager != null) manager.cancel(UPDATE_NOTIFICATION_ID);
         } catch (Exception error) {
-            android.util.Log.w("PocketUpdate", "Could not start the branded update progress notification.", error);
+            android.util.Log.w("PocketUpdate", "Could not clear the already-used update-available notification.", error);
         }
     }
 
