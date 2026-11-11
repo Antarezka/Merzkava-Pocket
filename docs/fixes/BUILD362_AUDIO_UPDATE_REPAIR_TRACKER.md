@@ -94,9 +94,15 @@ Change in this branch (native init only; assets, runtime, UI, updater unchanged)
 - Call `criAtom_ApplyHardwareProperties_ANDROID` with the application Context (new `nativeInit(Context)` parameter), then set start buffering 200 and buffering 400 before `criAtomEx_Initialize_ANDROID`.
 - Logcat line `Android output tuning: hardwareProperties=... startBuffering=...ms buffering=...ms` records what was applied.
 
+Confirmed from the SDK's own header text (printed in the Build 380 log, step "Print CRI Android buffering and thread-model documentation"):
+
+- Both buffering functions take milliseconds, and both must run before initialization.
+- SDK defaults are about 50 ms start buffering (3 server ticks) and about 66 ms decode buffer (4 server ticks) at a 60 fps server frequency. The header says these small amounts can cause noise on some Android handsets and that raising them can fix it. Larger values add playback-start latency.
+- `criAtom_ApplyHardwareProperties_ANDROID` applies the device's output sample rate so the OpenSL ES layer runs at the handset's own rate, which reduces playback load. It returns CRI_FALSE on low API levels and then the defaults stay in effect.
+
 Open points that must be confirmed rather than assumed:
 
-- The 200 / 400 values are a deliberate first step, not SDK-documented numbers. The build log now prints the SDK's own documentation for both functions (step "Print CRI Android buffering and thread-model documentation"); read the units and default there and adjust if they differ.
+- The 200 / 400 ms values are Pocket's own first step (about 4x and 6x the SDK defaults), not SDK-recommended numbers. If the stylus drop or the first note of a record feels late, lower them; if distortion remains, raise them before moving to the PCM arm.
 - Unity-plugin figures (133 / 100) are not transferable to the Native SDK and were not used.
 - Device listening on the target phone is still the only real acceptance test. If the sound is still distorted with this change, the next elimination arm is the existing `fix/toolster-adx-pcm-decode-2026-11-11` branch (decode ADX to PCM16 in Java and play through the CRI Wave pool), which bypasses CRI's ADX decoder entirely.
 
