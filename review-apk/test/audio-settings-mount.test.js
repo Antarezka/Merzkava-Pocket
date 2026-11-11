@@ -430,7 +430,8 @@ test("Packaged CRI ADX conversion resets audio timestamps and validates the enco
   assert.match(buildWorkflowSource, /-af "aresample=\$\{target_rate\},asetpts=N\/SR\/TB" -ar "\$target_rate"/);
   assert.match(buildWorkflowSource, /ffmpeg -y -xerror -hide_banner -loglevel error/);
   assert.match(buildWorkflowSource, /ffmpeg -y -hide_banner -v error[\s\S]*?-f null -/);
-  assert.match(buildWorkflowSource, /sample_rate.*48000/);
+  assert.match(buildWorkflowSource, /for supported_rate in 48000 44100 32000 24000 22050 16000 12000 11025 8000/);
+  assert.match(buildWorkflowSource, /test "\$output_rate" = "\$target_rate"/);
 });
 
 test("Original Settings updater remains mounted and Download calls the validated native updater", () => {
