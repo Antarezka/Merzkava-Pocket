@@ -649,7 +649,7 @@ test("Turntable render loop suspends only in bubble mode and resumes at its reta
 test("Legacy source audio is excluded from the web distribution and final APK", () => {
   assert.ok(buildWorkflowSource.includes('rm -rf "$DIST/audio"'));
   assert.ok(buildWorkflowSource.includes("find \"$DIST\" -type f"));
-  assert.ok(buildWorkflowSource.includes("test \"$ADX_COUNT\" -eq 7"));
+  assert.ok(buildWorkflowSource.includes("test \"$ADX_COUNT\" -eq 14"));
   assert.ok(buildWorkflowSource.includes("Legacy source audio is still present in the app distribution."));
   assert.ok(buildWorkflowSource.includes("Legacy OGG/MP3/WAV or other source audio was found inside the APK."));
   assert.ok(buildWorkflowSource.includes('unzip -Z1 "$APK"'));
