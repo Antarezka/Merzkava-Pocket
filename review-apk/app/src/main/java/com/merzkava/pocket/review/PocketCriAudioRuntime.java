@@ -722,6 +722,194 @@ public final class PocketCriAudioRuntime {
         });
     }
 
+    private String resolveTrackTitle(String id, File file) {
+        if (id != null && id.startsWith("custom:")) {
+            String customId = id.substring("custom:".length());
+            try {
+                String json = activity.getSharedPreferences("merzkava-pocket-access", Context.MODE_PRIVATE)
+                    .getString("pocket_custom_music_library_v1", "[]");
+                org.json.JSONArray tracks = new org.json.JSONArray(json);
+                for (int i = 0; i < tracks.length(); i++) {
+                    org.json.JSONObject item = tracks.optJSONObject(i);
+                    if (item != null && customId.equalsIgnoreCase(item.optString("id", ""))) {
+                        String title = item.optString("title", "").trim();
+                        if (!title.isEmpty()) return title;
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+        switch (id == null ? "" : id) {
+            case "happy": return "Happy-1a";
+            case "chill": return "chill-1a";
+            case "retroatrical1": return "Retroatrical-1";
+            case "retroatrical2": return "Retroatrical-2";
+            case "officialtheme1": return "Merzkava Official Theme - 1";
+            case "officialtheme2": return "Merzkava Official Theme - 2";
+            case "officialtheme3": return "Merzkava Official Theme - 3";
+            case "officialtheme4": return "Merzkava Official Theme - 4";
+            case "officialtheme5": return "Merzkava Official Theme - 5";
+            case "officialtheme6": return "Merzkava Official Theme - 6";
+            case "officialtheme7": return "Merzkava Official Theme - 7";
+            default: return file == null ? "Pocket Record" : file.getName();
+        }
+    }
+
+    private void createMediaSession() {
+        if (mediaSession != null) return;
+        mediaNotificationManager = (NotificationManager) activity.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (Build.VERSION.SDK_INT >= 26 && mediaNotificationManager != null) {
+            NotificationChannel channel = new NotificationChannel(
+                MEDIA_CHANNEL_ID, "Pocket Music", NotificationManager.IMPORTANCE_LOW);
+            channel.setDescription("Controls the same vinyl player shown in Pocket Settings.");
+            channel.setShowBadge(false);
+            channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+            mediaNotificationManager.createNotificationChannel(channel);
+        }
+        mediaSession = new MediaSession(activity, "Merzkava Pocket Vinyl");
+        mediaSession.setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS |
+            MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS);
+        mediaSession.setCallback(new MediaSession.Callback() {
+            @Override public void onPlay() { sendMediaCommand("play"); }
+            @Override public void onPause() { sendMediaCommand("pause"); }
+            @Override public void onSkipToNext() { sendMediaCommand("next"); }
+            @Override public void onSkipToPrevious() { sendMediaCommand("previous"); }
+            @Override public boolean onMediaButtonEvent(Intent intent) {
+                KeyEvent event = intent == null ? null : intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT);
+                if (event == null || event.getAction() != KeyEvent.ACTION_DOWN) return false;
+                dispatchMediaKey(event.getKeyCode());
+                return true;
+            }
+        });
+        Intent launch = activity.getPackageManager().getLaunchIntentForPackage(activity.getPackageName());
+        if (launch != null) {
+            PendingIntent content = PendingIntent.getActivity(activity, MEDIA_NOTIFICATION_ID,
+                launch, PendingIntent.FLAG_UPDATE_CURRENT |
+                    (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0));
+            mediaSession.setSessionActivity(content);
+        }
+        activeMediaRuntime = this;
+    }
+
+    public static void dispatchMediaCommand(Context context, String command) {
+        PocketCriAudioRuntime runtime = activeMediaRuntime;
+        if (runtime != null && !runtime.disposed) runtime.sendMediaCommand(command);
+    }
+
+    private static void dispatchMediaKey(int keyCode) {
+        PocketCriAudioRuntime runtime = activeMediaRuntime;
+        if (runtime == null || runtime.disposed) return;
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_MEDIA_PLAY:
+                runtime.sendMediaCommand("play"); break;
+            case KeyEvent.KEYCODE_MEDIA_PAUSE:
+                runtime.sendMediaCommand("pause"); break;
+            case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
+                runtime.sendMediaCommand("toggle"); break;
+            case KeyEvent.KEYCODE_MEDIA_NEXT:
+                runtime.sendMediaCommand("next"); break;
+            case KeyEvent.KEYCODE_MEDIA_PREVIOUS:
+                runtime.sendMediaCommand("previous"); break;
+            default: break;
+        }
+    }
+
+    private void sendMediaCommand(String command) {
+        WebView target = webView;
+        if (target == null || command == null) return;
+        String script = "window.PocketNativeCallbacks?.mediaControl?.(" +
+            JSONObject.quote(command) + ",0);";
+        target.post(() -> {
+            if (webView == target && !disposed) target.evaluateJavascript(script, null);
+        });
+    }
+
+    private PendingIntent mediaActionIntent(String command, int requestCode) {
+        Intent intent = new Intent(activity, PocketMediaActionReceiver.class);
+        intent.setAction(PocketMediaActionReceiver.ACTION_COMMAND);
+        intent.putExtra(PocketMediaActionReceiver.EXTRA_COMMAND, command);
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT |
+            (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
+        return PendingIntent.getBroadcast(activity, requestCode, intent, flags);
+    }
+
+    private long currentMediaPositionMs() {
+        long duration = currentMusicDurationMs;
+        if (duration <= 0L || !initialized || disposed) return 0L;
+        long elapsed = nativeGetTime(CHANNEL_MUSIC);
+        if (elapsed < 0L) return Math.min(mediaPositionBaseMs, duration);
+        return Math.max(0L, (mediaPositionBaseMs + elapsed) % duration);
+    }
+
+    private void updateMediaNotification() {
+        if (disposed || mediaSession == null || mediaNotificationManager == null) return;
+        boolean active = "playing".equals(mediaPlaybackStatus) ||
+            "paused".equals(mediaPlaybackStatus) || "preparing".equals(mediaPlaybackStatus) ||
+            "error".equals(mediaPlaybackStatus);
+        if (!active || currentTrackTitle.isEmpty()) {
+            mediaSession.setActive(false);
+            mediaSession.setPlaybackState(new PlaybackState.Builder()
+                .setActions(PlaybackState.ACTION_PLAY | PlaybackState.ACTION_PLAY_PAUSE)
+                .setState(PlaybackState.STATE_STOPPED, 0L, 0f).build());
+            mediaNotificationManager.cancel(MEDIA_NOTIFICATION_ID);
+            return;
+        }
+
+        long duration = currentMusicDurationMs;
+        long position = currentMediaPositionMs();
+        MediaMetadata metadata = new MediaMetadata.Builder()
+            .putString(MediaMetadata.METADATA_KEY_TITLE, currentTrackTitle)
+            .putString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE, currentTrackTitle)
+            .putString(MediaMetadata.METADATA_KEY_ARTIST, "MERZKAVA POCKET")
+            .putString(MediaMetadata.METADATA_KEY_ALBUM, "VINYL LIBRARY")
+            .putLong(MediaMetadata.METADATA_KEY_DURATION, duration)
+            .build();
+        mediaSession.setMetadata(metadata);
+
+        long actions = PlaybackState.ACTION_PLAY | PlaybackState.ACTION_PAUSE |
+            PlaybackState.ACTION_PLAY_PAUSE | PlaybackState.ACTION_SKIP_TO_NEXT |
+            PlaybackState.ACTION_SKIP_TO_PREVIOUS;
+        int state = "playing".equals(mediaPlaybackStatus) ? PlaybackState.STATE_PLAYING :
+            "paused".equals(mediaPlaybackStatus) ? PlaybackState.STATE_PAUSED :
+            "error".equals(mediaPlaybackStatus) ? PlaybackState.STATE_ERROR :
+            PlaybackState.STATE_BUFFERING;
+        mediaSession.setPlaybackState(new PlaybackState.Builder()
+            .setActions(actions)
+            .setState(state, position, state == PlaybackState.STATE_PLAYING ? 1f : 0f,
+                SystemClock.elapsedRealtime())
+            .build());
+        mediaSession.setActive(true);
+
+        if (Build.VERSION.SDK_INT >= 33 &&
+            activity.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        Notification.Builder builder = Build.VERSION.SDK_INT >= 26
+            ? new Notification.Builder(activity, MEDIA_CHANNEL_ID)
+            : new Notification.Builder(activity);
+        Notification.MediaStyle style = new Notification.MediaStyle()
+            .setMediaSession(mediaSession.getSessionToken())
+            .setShowActionsInCompactView(0, 1, 2);
+        int playIcon = state == PlaybackState.STATE_PLAYING
+            ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play;
+        String playLabel = state == PlaybackState.STATE_PLAYING ? "Pause" : "Play";
+        builder.setSmallIcon(R.drawable.ic_notification_tv)
+            .setContentTitle(currentTrackTitle)
+            .setContentText("Merzkava Pocket · Vinyl Library")
+            .setCategory(Notification.CATEGORY_TRANSPORT)
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setOnlyAlertOnce(true)
+            .setOngoing(state == PlaybackState.STATE_PLAYING || state == PlaybackState.STATE_BUFFERING)
+            .setShowWhen(false)
+            .setStyle(style)
+            .addAction(android.R.drawable.ic_media_previous, "Previous",
+                mediaActionIntent("previous", MEDIA_NOTIFICATION_ID + 1))
+            .addAction(playIcon, playLabel,
+                mediaActionIntent(state == PlaybackState.STATE_PLAYING ? "pause" : "play", MEDIA_NOTIFICATION_ID + 2))
+            .addAction(android.R.drawable.ic_media_next, "Next",
+                mediaActionIntent("next", MEDIA_NOTIFICATION_ID + 3));
+        mediaNotificationManager.notify(MEDIA_NOTIFICATION_ID, builder.build());
+    }
+
     private void markChannelActive(int channel, boolean active) {
         if (channel == CHANNEL_MUSIC) musicStreamActive = active;
         else if (channel == CHANNEL_VINYL_CRACKLE) ambienceStreamActive = active;
@@ -931,6 +1119,11 @@ public final class PocketCriAudioRuntime {
                         publish(CHANNEL_NAMES[channel], stateForStatus(channel, status), "", generation);
                     }
                 }
+                long now = SystemClock.elapsedRealtime();
+                if (now - lastMediaNotificationUpdateAt >= 900L) {
+                    lastMediaNotificationUpdateAt = now;
+                    mainHandler.post(this::updateMediaNotification);
+                }
                 if (!active) {
                     mainHandler.post(() -> {
                         synchronized (PocketCriAudioRuntime.this) {
@@ -1037,6 +1230,10 @@ public final class PocketCriAudioRuntime {
     }
 
     private void publish(String channel, String state, String error, long generation) {
+        if ("music".equals(channel) && !"cycle".equals(state)) {
+            mediaPlaybackStatus = state == null ? "idle" : state;
+            mainHandler.post(this::updateMediaNotification);
+        }
         WebView target = webView;
         if (target == null || !target.isAttachedToWindow()) return;
         final String js = "window.PocketNativeCallbacks?.audioState?.(" +
@@ -1085,6 +1282,18 @@ public final class PocketCriAudioRuntime {
         for (int channel = 0; channel < fadeGenerations.length; channel++) cancelChannelFade(channel);
         mainHandler.removeCallbacks(pollStatus);
         polling = false;
+        if (activeMediaRuntime == this) activeMediaRuntime = null;
+        if (mediaSession != null) {
+            try {
+                mediaSession.setActive(false);
+                mediaSession.setCallback(null);
+                mediaSession.release();
+            } catch (Exception ignored) {}
+            mediaSession = null;
+        }
+        if (mediaNotificationManager != null) {
+            try { mediaNotificationManager.cancel(MEDIA_NOTIFICATION_ID); } catch (Exception ignored) {}
+        }
         pcmDecoder.shutdownNow();
         abandonMusicFocus();
         try {
