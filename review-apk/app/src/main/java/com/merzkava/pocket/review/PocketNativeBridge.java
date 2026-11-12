@@ -832,6 +832,7 @@ public final class PocketNativeBridge {
                 .putString(PREF_UPDATE_URL, address)
                 .putInt(PREF_UPDATE_BUILD_NUMBER, buildNumber)
                 .remove(PocketUpdateStorage.PREF_SAVED_URI)
+                .remove(PocketUpdateStorage.PREF_STATUS_MESSAGE)
                 .putString(PocketUpdateStorage.PREF_STATUS, "queued").commit()) {
                 manager.remove(id);
                 clearPocketUpdateDownloadState();
@@ -956,10 +957,10 @@ public final class PocketNativeBridge {
                     if (staging == null) {
                         result.put("status", "missing").put("progress", 0).put("bytesDownloaded", 0).put("totalBytes", 0)
                             .put("message", "The completed APK is no longer available. Download it again.");
-                    } else if ("save_failed".equals(savedState)) {
-                        result.put("status", "save_failed").put("progress", 100)
+                    } else if ("save_failed".equals(savedState) || "failed".equals(savedState)) {
+                        result.put("status", savedState).put("progress", 100)
                             .put("bytesDownloaded", downloaded).put("totalBytes", total)
-                            .put("message", savedMessage.isEmpty() ? "Pocket could not save the verified APK. Retry the save." : savedMessage);
+                            .put("message", savedMessage.isEmpty() ? "Pocket could not save the verified APK. Check the folder and retry." : savedMessage);
                     } else if (!selectedFolderAvailable) {
                         result.put("status", "folder_unavailable").put("progress", 100)
                             .put("bytesDownloaded", downloaded).put("totalBytes", total)

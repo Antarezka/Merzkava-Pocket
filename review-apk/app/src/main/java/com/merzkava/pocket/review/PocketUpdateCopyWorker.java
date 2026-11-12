@@ -74,7 +74,8 @@ public final class PocketUpdateCopyWorker extends Worker {
                 ? "Pocket could not save the APK to the selected folder." : error.getMessage();
             String status = message.contains("Choose or reselect the Pocket update folder")
                 ? "folder_unavailable"
-                : message.contains("failed its SHA-256 integrity check") ? "failed" : "save_failed";
+                : (message.contains("failed its SHA-256 integrity check") ||
+                   message.contains("disappeared before it could be saved")) ? "failed" : "save_failed";
             getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                 .putString(PocketUpdateStorage.PREF_STATUS, status)
                 .putString(PocketUpdateStorage.PREF_STATUS_MESSAGE, message)

@@ -221,6 +221,8 @@ function refreshPocketUpdatePanel(downloadState=null) {
   const folderSelected=storage.updateFolderSelected===true;
   const folderPath=String(storage.updateDownloadPath||"Choose a folder for Pocket updates");
   set("[data-update-storage-path]","UPDATE FOLDER · "+folderPath);
+  const folderChoose=q("[data-update-folder-choose]");
+  if(folderChoose)folderChoose.textContent=folderSelected?"CHANGE FOLDER":"CHOOSE FOLDER";
 
   const expectedDownloadBuild=latest?.buildNumber>0?(hasUpdate?availableBuild:currentBuild):0;
   let state=downloadState;
@@ -252,7 +254,7 @@ function refreshPocketUpdatePanel(downloadState=null) {
   const install=q("[data-update-install]");if(install){install.hidden=!completed||!hasUpdate;install.disabled=!completed||!hasUpdate;}
   const removeFile=q("[data-update-file-remove]");
   if(removeFile){
-    const hasManagedFile=["completed","queued","downloading","paused","copying","save_failed"].includes(state.status);
+    const hasManagedFile=["completed","queued","downloading","paused","copying","save_failed","failed"].includes(state.status);
     removeFile.hidden=!hasManagedFile;
     removeFile.textContent=busy?"CANCEL / REMOVE":"REMOVE APK";
   }

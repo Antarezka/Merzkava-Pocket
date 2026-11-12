@@ -41,6 +41,8 @@ test("DownloadManager is only the resumable staging download; final APK is copie
   assert.match(storage, /expectedSha256\.equalsIgnoreCase\(actual\.toString\(\)\)/);
   assert.match(copyWorker, /PocketUpdateStorage\.PREF_SAVED_URI/);
   assert.match(copyWorker, /downloads\.remove\(downloadId\)/);
+  assert.match(copyWorker, /ExistingWorkPolicy\.KEEP/);
+  assert.match(copyWorker, /extends Worker/);
   assert.doesNotMatch(bridge, /startPocketUpdateProgressService\(/);
   assert.doesNotMatch(manifest, /\.PocketUpdateProgressService/);
 });
