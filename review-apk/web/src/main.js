@@ -108,6 +108,10 @@ window.PocketNativeCallbacks = {
     audioDirector.updateNativeState(channel, state, error, generation);
     syncAudioUI();
   },
+  mediaControl(command, value) {
+    audioDirector.handleMediaControl(command, value);
+    syncAudioUI();
+  },
   updateCheck(id, ok, updateJson, error) {
     const callback = callbacks.get(id);
     if (!callback) return;

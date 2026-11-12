@@ -381,6 +381,36 @@ export function createPocketAudioDirector({
     return startPlayback();
   }
 
+  function mediaPlay() {
+    if (isPlaying() || isStarting()) return true;
+    return startPlayback();
+  }
+
+  function mediaPause() {
+    if (needleDown || isPlaying() || isStarting()) return toggleNeedle();
+    return true;
+  }
+
+  function selectRelativeTrack(direction) {
+    const tracks = getTracks();
+    if (tracks.length < 2) return false;
+    const current = tracks.findIndex(track => track.id === selectedTrack);
+    const index = current < 0 ? 0 : current;
+    const next = (index + direction + tracks.length) % tracks.length;
+    return selectTrack(tracks[next].id);
+  }
+
+  function handleMediaControl(command) {
+    switch (String(command || "").toLowerCase()) {
+      case "play": return mediaPlay();
+      case "pause": return mediaPause();
+      case "toggle": return toggleNeedle();
+      case "previous": return selectRelativeTrack(-1);
+      case "next": return selectRelativeTrack(1);
+      default: return false;
+    }
+  }
+
   function playEffect(name) {
     const effect = String(name || "").trim().toLowerCase();
     if (!["stylus-drop","record-placement","door-chime","door-rattle"].includes(effect)) return false;
@@ -446,6 +476,7 @@ export function createPocketAudioDirector({
     startPlayback,
     startStartupSequence,
     toggleNeedle,
+    handleMediaControl,
     playEffect,
     setMusicVolume,
     setAmbienceVolume,
