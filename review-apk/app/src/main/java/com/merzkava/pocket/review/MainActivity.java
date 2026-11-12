@@ -80,7 +80,10 @@ public final class MainActivity extends Activity {
         try {
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
             intent.addCategory(Intent.CATEGORY_OPENABLE);
-            intent.setType("audio/*");
+            // Some Android document providers label CRI ADX as application/octet-stream,
+            // so include it explicitly instead of hiding valid .adx records from the picker.
+            intent.setType("*/*");
+            intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"audio/*", "application/octet-stream", "application/x-adx"});
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             startActivityForResult(intent, REQUEST_POCKET_AUDIO_PICKER);
             return true;
