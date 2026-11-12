@@ -503,7 +503,8 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeShutdown(JNIEnv* env
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativePlayFile(
         JNIEnv* env, jclass, jint channel, jstring pathValue, jint format,
-        jint numChannels, jint samplingRate, jfloat volume, jfloat fadeMultiplier, jboolean loop) {
+        jint numChannels, jint samplingRate, jlong startTimeMs,
+        jfloat volume, jfloat fadeMultiplier, jboolean loop) {
     if (!validChannel(channel) || pathValue == nullptr ||
         (format != kFormatAdx && format != kFormatWave) ||
         numChannels < 1 || numChannels > 2 || samplingRate < 8000 || samplingRate > 192000) {
@@ -557,6 +558,7 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativePlayFile(
     criAtomExPlayer_SetFormat(player, format == kFormatAdx ? CRIATOMEX_FORMAT_ADX : CRIATOMEX_FORMAT_WAVE);
     criAtomExPlayer_SetNumChannels(player, numChannels);
     criAtomExPlayer_SetSamplingRate(player, samplingRate);
+    if (startTimeMs > 0) criAtomExPlayer_SetStartTime(player, static_cast<CriSint64>(startTimeMs));
     const float clampedVolume = volume < 0.0f ? 0.0f : (volume > 1.0f ? 1.0f : volume);
     const float clampedFade = fadeMultiplier < 0.0f ? 0.0f : (fadeMultiplier > 1.0f ? 1.0f : fadeMultiplier);
     criAtomExPlayer_SetVolume(player, clampedVolume);
@@ -666,4 +668,13 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeGetStatus(JNIEnv*, j
     const CriAtomExPlayerStatus status = criAtomExPlayer_GetStatus(gPlayers[channel]);
     if (status == CRIATOMEXPLAYER_STATUS_ERROR) gLoopEnabled[channel] = false;
     return static_cast<jint>(status);
+}
+
+extern "C" JNIEXPORT jlong JNICALL
+Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeGetTime(JNIEnv*, jclass, jint channel) {
+    if (!validChannel(channel)) return -1;
+    std::lock_guard<std::mutex> lock(gMutex);
+    if (!gInitialized || gPlayers[channel] == nullptr) return -1;
+    const CriSint64 time = criAtomExPlayer_GetTime(gPlayers[channel]);
+    return static_cast<jlong>(time);
 }
