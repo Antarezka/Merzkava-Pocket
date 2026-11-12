@@ -199,6 +199,46 @@ public final class PocketCriAudioRuntime {
         }
     }
 
+    /**
+     * Warm the stylus one-shot while the record-placement cue is playing. The
+     * PCM cache is shared with the normal CRI file path, so the later contact
+     * sound can start without waiting for a cold ADX conversion.
+     */
+    private void warmBuiltInAdx(String id) {
+        if (disposed) return;
+        String asset = BUILT_IN.get(id);
+        if (asset == null) return;
+        File source = new File(new File(activity.getFilesDir(), "cri-audio"), asset);
+        if (!source.isFile()) return;
+        try {
+            pcmDecoder.execute(() -> {
+                if (disposed) return;
+                try {
+                    File wav = ensureDecodedPcmCache(source);
+                    readAudioMetadata(wav, FORMAT_WAVE);
+                    Log.d(TAG, "Prewarmed CRI PCM effect: " + id);
+                } catch (Exception error) {
+                    Log.w(TAG, "Could not prewarm CRI PCM effect: " + id, error);
+                }
+            });
+        } catch (RuntimeException error) {
+            Log.w(TAG, "Could not schedule CRI PCM effect prewarm: " + id, error);
+        }
+    }
+
+    /**
+     * Run the contact cue from the native runtime instead of a WebView timer.
+     * It therefore remains synchronized when the same WebView is in the mini
+     * window or hidden behind the floating bubble.
+     */
+    private void scheduleStylusContact(long musicGeneration, long transition) {
+        mainHandler.postDelayed(() -> {
+            if (disposed || musicGeneration != generations[CHANNEL_MUSIC].get() ||
+                transition != pauseTransition.get() || pauseRequested || musicPaused) return;
+            playEffect("stylus-drop");
+        }, 620L);
+    }
+
     private File ensureDecodedPcmCache(File source) throws IOException {
         File directory = new File(activity.getFilesDir(), "cri-audio-pcm");
         if (!directory.isDirectory() && !directory.mkdirs()) {
@@ -408,6 +448,10 @@ public final class PocketCriAudioRuntime {
             return false;
         }
 
+        // Queue the stylus cache ahead of a cold BGM decode. This is especially
+        // useful when play is requested from a mini window or while the bubble
+        // is already active, where WebView timers may be throttled.
+        warmBuiltInAdx("stylus-drop");
         requestMusicFocus();
         pausedByFocusLoss = false;
         final boolean keepPaused = pauseRequested || musicPaused;
@@ -456,10 +500,12 @@ public final class PocketCriAudioRuntime {
                             publish("music", "paused", "");
                         });
                     } else {
+                        // Schedule the stylus contact on Android's main handler,
+                        // not a WebView timer, so mini-window/bubble transitions do
+                        // not desynchronize the physical cue from the CRI playback.
+                        scheduleStylusContact(generation, pauseTransition.get());
                         // Keep the record silent while the motor reaches speed and
-                        // the tonearm travels down. The WebView's tonearm transition
-                        // and stylus-drop cue use the same start edge; only after that
-                        // short mechanical lead-in does CRI fade the music into the mix.
+                        // the tonearm travels down; fade in only after contact.
                         mainHandler.postDelayed(() -> {
                             if (disposed || generation != generations[CHANNEL_MUSIC].get() ||
                                 pauseRequested || musicPaused) return;
@@ -544,6 +590,7 @@ public final class PocketCriAudioRuntime {
                 publish(CHANNEL_NAMES[channel], "error", "ADX decode failed: " + message);
             }
         });
+        if ("record-placement".equals(key)) warmBuiltInAdx("stylus-drop");
         return true;
     }
 
@@ -662,9 +709,10 @@ public final class PocketCriAudioRuntime {
             if (ambienceStreamActive) nativePause(CHANNEL_VINYL_CRACKLE, false);
             publish("music", "playing", "");
             startPolling();
-            // A resume is another physical stylus-lowering operation. Keep BGM
-            // muted during the tonearm travel, then use the same smooth fade-in
-            // as a fresh play request.
+            // A resume is another physical stylus-lowering operation.
+            scheduleStylusContact(generations[CHANNEL_MUSIC].get(), transition);
+            // Keep BGM muted during the tonearm travel, then use the same smooth
+            // fade-in as a fresh play request.
             mainHandler.postDelayed(() -> {
                 if (disposed || transition != pauseTransition.get() || pauseRequested || musicPaused) return;
                 fadeChannelTo(CHANNEL_MUSIC, 1f, 760L, null);
