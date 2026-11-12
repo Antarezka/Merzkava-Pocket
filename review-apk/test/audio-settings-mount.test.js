@@ -436,7 +436,7 @@ test("Startup fallback waits for actual CRI playback; stylus contact is timed by
   assert.equal(timers.size, 0, "WebView timers are not used to trigger stylus contact");
   director.updateNativeState("stylus", "playing");
   assert.equal(director.getState().needleDown, true, "tonearm follows the native stylus SFX channel");
-  assert.doesNotMatch(deckSource, /scheduleStylusDrop|clearStylusDropTimeout|setTimeoutFn\(\(\) =>[\s\S]*?stylus-drop/);
+  assert.doesNotMatch(deckSource, /setTimeoutFn\(\(\) => \{\s*[^}]*playEffect\(["']stylus-drop["']\)/, "WebView timers must never schedule the stylus one-shot");
   assert.match(runtimeSource, /scheduleStylusContact\(generation, pauseTransition\.get\(\)\)/);
   assert.match(runtimeSource, /playEffect\("stylus-drop"\)/);
   assert.match(runtimeSource, /\}, 620L\)/);
@@ -569,7 +569,9 @@ test("Changing the selected record while paused keeps the stylus lifted until th
   assert.equal(calls.at(-1)[1], false);
   assert.equal(director.getState().needleDown, false, "tonearm waits for the resumed CRI PLAYING state");
   director.updateNativeState("music", "playing");
-  assert.equal(director.getState().needleDown, true);
+  assert.equal(director.getState().needleDown, false, "resume starts the motor before stylus contact");
+  director.updateNativeState("stylus", "playing");
+  assert.equal(director.getState().needleDown, true, "tonearm lowers on native CRI stylus contact");
   director.stop();
 });
 
@@ -654,7 +656,7 @@ test("Legacy source audio is excluded from the web distribution and final APK", 
 });
 
 test("Bundled CRI ADX assets are copied directly and header-validated without per-build transcoding", () => {
-  assert.ok(buildWorkflowSource.includes("Bundle pre-converted CRI ADX assets without a conversion bridge"));
+  assert.ok(buildWorkflowSource.includes("Bundle Pocket CRI ADX music, official themes and effects"));
   assert.ok(buildWorkflowSource.includes('Happy-1a_dragdropdo.adx'));
   assert.ok(buildWorkflowSource.includes('chill-1a_dragdropdo.adx'));
   assert.ok(buildWorkflowSource.includes('Retroatrical-a1_dragdropdo.adx'));
@@ -665,7 +667,7 @@ test("Bundled CRI ADX assets are copied directly and header-validated without pe
   assert.match(buildWorkflowSource, /data\[4\] != 3/);
   assert.match(buildWorkflowSource, /data\[7\]/);
   assert.match(buildWorkflowSource, /data\[8:12\]/);
-  assert.match(buildWorkflowSource, /Expected exactly the seven supplied ADX assets/i);
+  assert.match(buildWorkflowSource, /Expected exactly fourteen CRI ADX assets/i);
   assert.doesNotMatch(buildWorkflowSource, /ffmpeg|adpcm_adx|apt-get install -y ffmpeg/i);
 });
 
