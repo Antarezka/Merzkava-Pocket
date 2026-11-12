@@ -20,7 +20,6 @@ export function createPocketAudioDirector({
   onChange = () => {},
   onPlaybackCycle = () => {},
   startupEffectTimeoutMs = 6000,
-  stylusDropDelayMs = 680,
   setTimeoutFn = globalThis.setTimeout,
   clearTimeoutFn = globalThis.clearTimeout
 } = {}) {
@@ -40,7 +39,6 @@ export function createPocketAudioDirector({
   let startupNeedleRequested = false;
   let startupTimeout = null;
   let startupRecordStarted = false;
-  let stylusDropTimeout = null;
   let custom = [];
 
   const normalizeCustomTracks = values => (Array.isArray(values) ? values : [])
@@ -85,27 +83,11 @@ export function createPocketAudioDirector({
     }
   }
 
-  function clearStylusDropTimeout() {
-    if (stylusDropTimeout !== null) {
-      clearTimeoutFn(stylusDropTimeout);
-      stylusDropTimeout = null;
-    }
-  }
-
-  function scheduleStylusDrop() {
-    clearStylusDropTimeout();
-    stylusDropTimeout = setTimeoutFn(() => {
-      stylusDropTimeout = null;
-      if (isPlaying() && needleDown) playEffect("stylus-drop");
-    }, Math.max(0, Number(stylusDropDelayMs) || 0));
-  }
-
   function fail(message) {
     nativeStatus = "error";
     nativeError = String(message || "CRI audio could not complete the request.");
     needleDown = false;
     motorRunning = false;
-    clearStylusDropTimeout();
     if (startupSequence !== "idle" && startupSequence !== "complete") {
       startupSequence = "error";
       startupWaitingForRecord = false;
@@ -228,7 +210,6 @@ export function createPocketAudioDirector({
       return;
     }
 
-    const previousMusicStatus = nativeStatus;
     nativeStatus = next;
     nativeError = String(nextError || "");
     if (next === "ended") {
@@ -253,7 +234,6 @@ export function createPocketAudioDirector({
     } else if (next === "playing") {
       needleDown = true;
       motorRunning = true;
-      if (previousMusicStatus !== "playing") scheduleStylusDrop();
       if (startupSequence === "music") startupSequence = "complete";
       ensureAmbienceForPlayingMusic();
     }
