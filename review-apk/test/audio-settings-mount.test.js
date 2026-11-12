@@ -7,6 +7,7 @@ const buildWorkflowSource = readFileSync(new URL("../../.github/workflows/pocket
 const audioVisualSource = readFileSync(new URL("../web/src/audio-player.js", import.meta.url), "utf8");
 const deckSource = readFileSync(new URL("../web/src/pocket-audio-director.js", import.meta.url), "utf8");
 const runtimeSource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java", import.meta.url), "utf8");
+const adxDecoderSource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketAdxDecoder.java", import.meta.url), "utf8");
 const bridgeSource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketNativeBridge.java", import.meta.url), "utf8");
 const workerSource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketUpdateWorker.java", import.meta.url), "utf8");
 const nativeSource = readFileSync(new URL("../app/src/main/cpp/cri_audio_jni.cpp", import.meta.url), "utf8");
@@ -142,14 +143,34 @@ test("CRI has separate, simultaneous channels for music, crackle, stylus and rec
   assert.match(nativeSource, /kChannelCount\s*=\s*6/);
 });
 
-test("Bundled ADX is retained in memory and loops through CRI's seamless data callback", () => {
-  assert.match(nativeSource, /loadAdxMemoryAsset\(const std::string& path\)/);
-  assert.match(nativeSource, /criAtomExPlayer_SetData\(player, memoryAdx->data\(\), static_cast<CriSint32>\(memoryAdx->size\(\)\)\)/);
-  assert.match(nativeSource, /criAtomExPlayer_SetDataRequestCallback\([\s\S]*?repeatPreviousAdx/);
-  assert.match(nativeSource, /criAtomPlayer_SetPreviousDataAgain\(player\)/);
-  assert.match(nativeSource, /gMemoryAdxAssets\.clear\(\)/);
-  assert.match(nativeSource, /gLoopEnabled\[channel\] = false/);
-  assert.match(nativeSource, /gLoopCycleCounts\[channel\]\.fetch_add/);
+test("Bundled CRI ADX is decoded to canonical PCM16 WAV before CRI playback", () => {
+  assert.match(runtimeSource, /PocketAdxDecoder\.decodeToWav\(source, wav\)/);
+  assert.match(runtimeSource, /prepareBuiltInAdx/);
+  assert.match(runtimeSource, /FORMAT_WAVE\s*=\s*2/);
+  assert.match(runtimeSource, /cri-audio-pcm/);
+  assert.match(runtimeSource, /beginMusicPlayback\(wav, FORMAT_WAVE/);
+  assert.match(adxDecoderSource, /BLOCK_BYTES\s*=\s*18/);
+  assert.match(adxDecoderSource, /BLOCK_SAMPLES\s*=\s*32/);
+  assert.match(adxDecoderSource, /calculateCoefficients/);
+  assert.match(adxDecoderSource, /writeWavHeader/);
+  assert.match(adxDecoderSource, /0x08/);
+  assert.match(nativeSource, /criAtomExPlayer_SetFile\(player, nullptr, path\.c_str\(\)\)/);
+  assert.match(nativeSource, /CRIATOMEX_FORMAT_WAVE/);
+  assert.doesNotMatch(nativeSource, /kFormatWaveMemory|gMemoryWaveAssets|gRetiredMemoryWaveAssets/);
+});
+
+test("Decoded PCM WAV and imported PCM WAV share six CRI streaming voices", () => {
+  assert.match(nativeSource, /wavePoolConfig\.num_voices\s*=\s*kChannelCount/);
+  assert.match(nativeSource, /wavePoolConfig\.player_config\.streaming_flag\s*=\s*CRI_TRUE/);
+  assert.match(nativeSource, /criAtomExVoicePool_AllocateWaveVoicePool\(&wavePoolConfig/);
+  assert.match(nativeSource, /wavePoolConfig\.player_config\.max_channels\s*=\s*2/);
+  assert.match(nativeSource, /wavePoolConfig\.player_config\.max_sampling_rate\s*=\s*192000/);
+  assert.match(nativeSource, /kWaveMaxStreams\s*=\s*kChannelCount/);
+  assert.match(nativeSource, /kCustomWaveMaxBitrate\s*=\s*192000\s*\*\s*2\s*\*\s*16/);
+  assert.match(nativeSource, /kBuiltInWaveMaxBitrate\s*=\s*48000\s*\*\s*2\s*\*\s*16/);
+  assert.match(nativeSource, /kWaveMaxBitrate\s*=\s*kCustomWaveMaxBitrate\s*\+\s*\(kChannelCount\s*-\s*1\)\s*\*\s*kBuiltInWaveMaxBitrate/);
+  assert.match(nativeSource, /dbasConfig\.max_streams\s*=\s*kWaveMaxStreams/);
+  assert.match(nativeSource, /dbasConfig\.max_bps\s*=\s*kWaveMaxBitrate/);
 });
 
 test("CRI streaming initialization creates and destroys D-BAS before pools", () => {
@@ -160,14 +181,14 @@ test("CRI streaming initialization creates and destroys D-BAS before pools", () 
   assert.match(nativeSource, /criAtomDbas_SetDefaultConfig\(&dbasConfig\)/);
   assert.match(nativeSource, /dbasConfig\.max_streams\s*=\s*kWaveMaxStreams/);
   assert.match(nativeSource, /dbasConfig\.max_bps\s*=\s*kWaveMaxBitrate/);
-  assert.match(nativeSource, /kWaveMaxBitrate\s*=\s*192000\s*\*\s*2\s*\*\s*16/);
+  assert.match(nativeSource, /kWaveMaxBitrate\s*=\s*kCustomWaveMaxBitrate/);
   assert.match(nativeSource, /criAtomDbas_CalculateWorkSize\(&dbasConfig\)/);
   assert.match(nativeSource, /CRIATOMDBAS_ILLEGAL_ID/);
   assert.ok(destroyDbas > adxPool, "D-BAS is destroyed after the voice pools");
   assert.match(nativeSource, /std::free\(gDbasWork\)/);
 });
 
-test("Bundled ADX uses a memory voice pool while imported Wave remains streamed", () => {
+test("Legacy ADX memory playback remains available alongside decoded-WAV streaming", () => {
   assert.match(nativeSource, /criAtomExVoicePool_CalculateWorkSizeForAdxVoicePool/);
   assert.match(nativeSource, /criAtomExVoicePool_AllocateAdxVoicePool/);
   assert.match(nativeSource, /voicePoolConfig\.player_config\.streaming_flag\s*=\s*CRI_FALSE/);
@@ -233,17 +254,6 @@ test("The turntable motor eases up to LP speed and brakes smoothly", async () =>
   motion.dispose();
 });
 
-test("Continuous file loops use a native monitor while CRI owns its MULTI server thread", () => {
-  const monitor = nativeSource.indexOf("gLoopMonitorThread = std::thread");
-  const loopCheck = nativeSource.indexOf("CRIATOMEXPLAYER_STATUS_PLAYEND", monitor);
-  const uiStatus = nativeSource.indexOf("Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeGetStatus");
-  assert.ok(monitor >= 0 && loopCheck > monitor && uiStatus > loopCheck);
-  assert.match(nativeSource, /CRI default configuration uses the MULTI thread model/);
-  assert.doesNotMatch(nativeSource, /criAtomEx_ExecuteMain\s*\(/);
-  assert.ok(nativeSource.includes("++gLoopCycleCounts[channel]"));
-  assert.match(runtimeSource, /nativeTakeLoopCycles\(channel\)/);
-});
-
 test("CRI Android output is tuned and the thread model is pinned before AtomEx initializes", () => {
   // Build 379 elimination: the SDK's Android default is MULTI_WITH_SONICSYNC and Pocket never set
   // the buffering times that cri_le_atom_android.h documents as a source of device noise.
@@ -262,17 +272,24 @@ test("CRI Android output is tuned and the thread model is pinned before AtomEx i
   const steady = Number(/kAndroidBufferingMs\s*=\s*(\d+)/.exec(nativeSource)?.[1]);
   assert.ok(start >= 100 && steady >= start, "steady buffering must not be shorter than the start buffering");
   assert.ok(steady <= 1000, "buffering must stay bounded so fades and stylus changes still feel immediate");
-  // Build 381: the SDK header requires the AAudio switch before library initialization and falls
-  // back to OpenSL ES by itself, so it lives inside the helper that already runs before Initialize.
-  const aaudio = nativeSource.indexOf("criAtom_EnableAAudio_ANDROID(CRI_TRUE)");
-  const helperStart = nativeSource.indexOf("void applyAndroidOutputTuning(");
-  assert.ok(aaudio > helperStart && helperStart >= 0 && aaudio < init,
-    "AAudio must be requested inside the pre-initialization output tuning");
+  // Build 381 requested AAudio and the distortion did not change; the PCM arm returns to the SDK default API.
+  assert.doesNotMatch(nativeSource, /criAtom_EnableAAudio_ANDROID\s*\(/);
   assert.match(nativeSource, /nativeInit\(JNIEnv\* env, jclass, jobject context\)/);
   assert.match(nativeSource, /releaseAndroidContext\(env\);[\s\S]*?gMemoryAdxAssets\.clear\(\)/);
   assert.match(runtimeSource, /private static native boolean nativeInit\(Context context\)/);
   assert.match(runtimeSource, /nativeInit\(activity\.getApplicationContext\(\)\)/);
   assert.doesNotMatch(nativeSource, /criAtomEx_ExecuteMain\s*\(/, "CRI's MULTI server thread must remain the only scheduler");
+});
+
+test("Continuous file loops use a native monitor while CRI owns its MULTI server thread", () => {
+  const monitor = nativeSource.indexOf("gLoopMonitorThread = std::thread");
+  const loopCheck = nativeSource.indexOf("CRIATOMEXPLAYER_STATUS_PLAYEND", monitor);
+  const uiStatus = nativeSource.indexOf("Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeGetStatus");
+  assert.ok(monitor >= 0 && loopCheck > monitor && uiStatus > loopCheck);
+  assert.match(nativeSource, /CRI default configuration uses the MULTI thread model/);
+  assert.doesNotMatch(nativeSource, /criAtomEx_ExecuteMain\s*\(/);
+  assert.ok(nativeSource.includes("++gLoopCycleCounts[channel]"));
+  assert.match(runtimeSource, /nativeTakeLoopCycles\(channel\)/);
 });
 
 test("Vinyl labels rotate on CRI playback-cycle callbacks, track changes and seasons", () => {
@@ -529,16 +546,4 @@ test("Floating window transitions reuse the same CRI runtime and do not pause pl
   assert.doesNotMatch(floatingSource, /criStopMusic|criPauseMusic|PocketCriAudioRuntime/,
     "window mode changes must not issue playback stop or pause commands");
   assert.match(source, /activeTurntableMotion\?\.setRenderEnabled\(!bubbleVisualSuspended\)/);
-});
-
-test("Bundled ADX voice pool preserves CRI default renderer and exact built-in format limits", () => {
-  assert.ok(nativeSource.includes("criAtomExVoicePool_SetDefaultConfigForAdxVoicePool(&voicePoolConfig)"));
-  assert.ok(nativeSource.includes("voicePoolConfig.player_config.max_channels = 2"));
-  assert.ok(nativeSource.includes("voicePoolConfig.player_config.max_sampling_rate = 48000"));
-  assert.ok(nativeSource.includes("voicePoolConfig.player_config.streaming_flag = CRI_FALSE"));
-  assert.ok(!nativeSource.includes("voicePoolConfig.player_config.sound_renderer_type ="),
-    "Pocket must preserve CRI's platform-default renderer instead of forcing a per-voice output path");
-  const defaults = nativeSource.indexOf("criAtomExVoicePool_SetDefaultConfigForAdxVoicePool(&voicePoolConfig)");
-  const allocate = nativeSource.indexOf("criAtomExVoicePool_AllocateAdxVoicePool");
-  assert.ok(defaults >= 0 && defaults < allocate, "CRI default ADX player configuration must be applied before voice-pool allocation");
 });

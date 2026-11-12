@@ -22,17 +22,20 @@ constexpr const char* kTag = "PocketCriAudio";
 constexpr int kChannelCount = 6;
 constexpr int kFormatAdx = 1;
 constexpr int kFormatWave = 2;
-constexpr CriSint32 kWaveMaxStreams = 1;
-// Imported PCM16 WAV is accepted up to 192 kHz stereo: 192000 * 2 * 16.
-constexpr CriSint32 kWaveMaxBitrate = 192000 * 2 * 16;
+// Pocket supports six simultaneous decoded-WAV channels. Bundled tracks are
+// capped at 48 kHz stereo; the single user-imported music stream can reach
+// 192 kHz stereo while five built-in voices remain active.
+constexpr CriSint32 kWaveMaxStreams = kChannelCount;
+constexpr CriSint32 kCustomWaveMaxBitrate = 192000 * 2 * 16;
+constexpr CriSint32 kBuiltInWaveMaxBitrate = 48000 * 2 * 16;
+constexpr CriSint32 kWaveMaxBitrate =
+    kCustomWaveMaxBitrate + (kChannelCount - 1) * kBuiltInWaveMaxBitrate;
 constexpr size_t kMaxMemoryAdxAssetBytes = 32u * 1024u * 1024u;
 constexpr size_t kMaxMemoryAdxCacheBytes = 128u * 1024u * 1024u;
 // Android output tuning (CRI ADX LE SDK 2.31.01, cri_le_atom_android.h). The SDK
 // documents that on some Android handsets a small playback-start buffering time
-// or a small sound-decode buffer produces audible noise. Pocket never set either
-// value, so every handset ran on the SDK defaults while a heavy WebView competes
-// for the CPU. Both values are milliseconds (CRI Atom buffering-time convention);
-// the steady buffer is kept larger than the start buffer.
+// or a small sound-decode buffer produces audible noise. Both values are
+// milliseconds; the steady buffer is kept larger than the start buffer.
 constexpr CriSint32 kAndroidStartBufferingMs = 200;
 constexpr CriSint32 kAndroidBufferingMs = 400;
 
@@ -74,7 +77,7 @@ size_t gMemoryAdxCacheBytes = 0;
 
 bool validChannel(jint channel);
 
-void repeatPreviousAdx(void* obj, CriAtomExPlaybackId, CriAtomPlayerHn player) {
+void repeatPreviousMemoryData(void* obj, CriAtomExPlaybackId, CriAtomPlayerHn player) {
     if (obj == nullptr || player == nullptr) return;
     const int channel = *static_cast<const int*>(obj);
     if (!validChannel(channel)) return;
@@ -130,6 +133,8 @@ std::shared_ptr<std::vector<CriUint8>> loadAdxMemoryAsset(const std::string& pat
     return data;
 }
 
+
+
 bool validChannel(jint channel) {
     return channel >= 0 && channel < kChannelCount;
 }
@@ -140,6 +145,8 @@ jstring makeError(JNIEnv* env, const char* message) {
 
 // Must run before criAtomEx_Initialize_ANDROID: the native sound renderer reads
 // the device output properties and the buffering times while it is created.
+// Output API selection stays on the SDK default (OpenSL ES); the Build 381
+// AAudio request did not change the distortion and is not part of this build.
 void applyAndroidOutputTuning(JNIEnv* env, jobject context) {
     CriBool hardwareApplied = CRI_FALSE;
     JavaVM* javaVm = nullptr;
@@ -154,14 +161,8 @@ void applyAndroidOutputTuning(JNIEnv* env, jobject context) {
     }
     criAtom_SetSoundStartBufferingTime_ANDROID(kAndroidStartBufferingMs);
     criAtom_SetSoundBufferingTime_ANDROID(kAndroidBufferingMs);
-    // Build 381 elimination arm. The decoded ADX data is clean in an ordinary
-    // player on the target handset, so the remaining difference is the output
-    // path. The SDK header documents criAtom_EnableAAudio_ANDROID as: use AAudio
-    // on Android 8+, automatically falling back to OpenSL ES where AAudio is
-    // unavailable, and it must be called before library initialization.
-    criAtom_EnableAAudio_ANDROID(CRI_TRUE);
     __android_log_print(ANDROID_LOG_INFO, kTag,
-        "Android output tuning: hardwareProperties=%s startBuffering=%dms buffering=%dms aaudio=requested",
+        "Android output tuning: hardwareProperties=%s startBuffering=%dms buffering=%dms",
         hardwareApplied == CRI_TRUE ? "applied" : "not-applied",
         static_cast<int>(kAndroidStartBufferingMs), static_cast<int>(kAndroidBufferingMs));
 }
@@ -191,11 +192,9 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
     criAtomEx_SetDefaultConfig_ANDROID(&config);
     // cri_le_atom_android.h: the Android default helper selects
     // CRIATOMEX_THREAD_MODEL_MULTI_WITH_SONICSYNC, not plain MULTI as earlier
-    // Pocket notes assumed. cri_le_atom_ex.h documents SONICSYNC as behaving like
-    // MULTI only under certain conditions, so which behavior a handset gets was
-    // never pinned down. Select plain MULTI explicitly (the model Pocket's
-    // architecture already assumes) to remove that unverified variable: CRI's own
-    // server thread stays the sole scheduler and Pocket never calls ExecuteMain.
+    // Pocket notes assumed. Select plain MULTI explicitly (the model Pocket's
+    // architecture already assumes) so CRI's own server thread stays the sole
+    // scheduler and Pocket never calls ExecuteMain.
     config.atom_ex.thread_model = CRIATOMEX_THREAD_MODEL_MULTI;
 
     const CriSint32 workSize = criAtomEx_CalculateWorkSize_ANDROID(&config);
@@ -213,11 +212,10 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
     criAtomEx_Initialize_ANDROID(&config, gAtomWork, workSize);
     gInitialized = true;
 
-    // D-BAS manages the imported PCM-WAV streaming buffer. Create it before
-    // the streaming Wave voice pool; bundled ADX is kept in memory.
+    // Built-in ADX tracks are decoded to PCM16 WAV before playback. CRI streams
+    // those WAV files, plus the user's imported WAV, through the same six-voice
+    // Wave pool. D-BAS is sized for five built-in voices plus one 192 kHz import.
     criAtomDbas_SetDefaultConfig(&dbasConfig);
-    // Bundled ADX is played from retained memory buffers, not streamed from
-    // storage. D-BAS is reserved for the single imported PCM-WAV voice.
     dbasConfig.max_streams = kWaveMaxStreams;
     dbasConfig.max_bps = kWaveMaxBitrate;
     dbasWorkSize = criAtomDbas_CalculateWorkSize(&dbasConfig);
@@ -238,20 +236,11 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
         goto fail;
     }
 
-    // All bundled ADX tracks and effects are resident in memory. They do not
-    // consume D-BAS streams and do not depend on storage reads during playback.
+    // Keep a small legacy ADX memory pool for any direct-format compatibility
+    // calls. The active built-in record path uses decoded PCM16 WAV instead.
     criAtomExVoicePool_SetDefaultConfigForAdxVoicePool(&voicePoolConfig);
     voicePoolConfig.num_voices = kChannelCount;
-    // The seven bundled records are stereo ADX at 44.1 kHz. Keep the pool
-    // bounded to Pocket's supported built-in format while allowing 48 kHz
-    // ADX assets in future releases.
-    voicePoolConfig.player_config.max_channels = 2;
-    voicePoolConfig.player_config.max_sampling_rate = 48000;
     voicePoolConfig.player_config.streaming_flag = CRI_FALSE;
-    // Preserve CRI's Android default renderer selection. The SDK's default
-    // ADX-player configuration uses CRIATOM_SOUND_RENDERER_DEFAULT; forcing
-    // NATIVE bypasses that selection and sends each voice to the platform
-    // renderer directly. The Wave pool also retains the SDK default.
     adxPoolWorkSize = criAtomExVoicePool_CalculateWorkSizeForAdxVoicePool(&voicePoolConfig);
     if (adxPoolWorkSize < 0) {
         __android_log_print(ANDROID_LOG_ERROR, kTag, "Could not calculate CRI ADX voice-pool work size: %d", adxPoolWorkSize);
@@ -271,10 +260,12 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
         goto fail;
     }
 
-    // Imported user tracks are decoded to PCM16 WAV, not ADX. They need their
-    // own streaming Wave voice pool; an ADX pool cannot render WAV streams.
+    // Bundled ADX is decoded to PCM16 WAV first. Both built-in tracks and
+    // user-imported WAV files use CRI's Wave streaming pool and D-BAS.
+    // Six voices let BGM, vinyl ambience and effects overlap without a second
+    // decoder, mixer or playback engine.
     criAtomExVoicePool_SetDefaultConfigForWaveVoicePool(&wavePoolConfig);
-    wavePoolConfig.num_voices = 1;
+    wavePoolConfig.num_voices = kChannelCount;
     wavePoolConfig.player_config.streaming_flag = CRI_TRUE;
     wavePoolConfig.player_config.max_channels = 2;
     wavePoolConfig.player_config.max_sampling_rate = 192000;
@@ -293,7 +284,7 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
     gWaveVoicePool = criAtomExVoicePool_AllocateWaveVoicePool(&wavePoolConfig, gWaveVoicePoolWork, wavePoolWorkSize);
     if (gWaveVoicePool == nullptr) {
         __android_log_print(ANDROID_LOG_ERROR, kTag,
-            "CRI could not allocate the imported-WAV streaming voice pool");
+            "CRI could not allocate the six-voice decoded-WAV streaming voice pool");
         goto fail;
     }
 
@@ -362,8 +353,9 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
                 std::lock_guard<std::mutex> monitorLock(gMutex);
                 if (gInitialized) {
                     for (int channel = 0; channel < kChannelCount; ++channel) {
-                        if (!gLoopEnabled[channel] || gPlayers[channel] == nullptr) continue;
-                        if (criAtomExPlayer_GetStatus(gPlayers[channel]) != CRIATOMEXPLAYER_STATUS_PLAYEND) continue;
+                        if (gPlayers[channel] == nullptr) continue;
+                        const CriAtomExPlayerStatus channelStatus = criAtomExPlayer_GetStatus(gPlayers[channel]);
+                        if (!gLoopEnabled[channel] || channelStatus != CRIATOMEXPLAYER_STATUS_PLAYEND) continue;
                         const CriAtomExPlaybackId restarted = criAtomExPlayer_Start(gPlayers[channel]);
                         if (restarted != CRIATOMEX_INVALID_PLAYBACK_ID) {
                             gPlaybackIds[channel] = restarted;
@@ -384,7 +376,7 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativeInit(JNIEnv* env, jc
     });
 
     __android_log_print(ANDROID_LOG_INFO, kTag,
-        "CRI ADX LE initialized: six memory-capable ADX players, one streaming WAV voice, D-BAS streams=%d max_bps=%d; CRI MULTI server owns audio processing",
+        "CRI initialized: six CRI Wave streaming voices for decoded ADX PCM and imported WAV, D-BAS streams=%d total max_bps=%d; CRI MULTI server owns audio processing",
         kWaveMaxStreams, kWaveMaxBitrate);
     return JNI_TRUE;
 
@@ -560,6 +552,7 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativePlayFile(
     }
     std::lock_guard<std::mutex> lock(gMutex);
     if (!gInitialized || gPlayers[channel] == nullptr) return JNI_FALSE;
+
     CriAtomExPlayerHn player = gPlayers[channel];
     criAtomExPlayer_SetFormat(player, format == kFormatAdx ? CRIATOMEX_FORMAT_ADX : CRIATOMEX_FORMAT_WAVE);
     criAtomExPlayer_SetNumChannels(player, numChannels);
@@ -575,15 +568,15 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativePlayFile(
     }
 
     if (memoryAdx) {
-        // Register before SetData/Start. The callback repeats the same ADX
-        // buffer seamlessly without a PLAYEND -> Start gap or file read.
+        // Legacy direct-ADX playback remains available for compatibility.
+        // Current bundled tracks are decoded to PCM WAV and use SetFile below.
         criAtomExPlayer_SetDataRequestCallback(
-            player, loop == JNI_TRUE ? repeatPreviousAdx : nullptr,
+            player, loop == JNI_TRUE ? repeatPreviousMemoryData : nullptr,
             loop == JNI_TRUE ? &gLoopCallbackChannels[channel] : nullptr);
         criAtomExPlayer_SetData(player, memoryAdx->data(), static_cast<CriSint32>(memoryAdx->size()));
-        gLoopEnabled[channel] = false; // ADX looping is callback-owned, not monitor-thread-owned.
+        gLoopEnabled[channel] = false;
     } else {
-        // Imported WAV is the sole streaming format in Pocket.
+        // Toolster-style PCM16 WAV output is streamed by CRI's Wave voice pool.
         criAtomExPlayer_SetDataRequestCallback(player, nullptr, nullptr);
         criAtomExPlayer_SetFile(player, nullptr, path.c_str());
         gLoopEnabled[channel] = loop == JNI_TRUE;
@@ -601,8 +594,9 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativePlayFile(
     criAtomExPlayer_Update(player, gPlaybackIds[channel]);
     __android_log_print(ANDROID_LOG_INFO, kTag,
         "CRI playback started: channel=%d format=%d mode=%s channels=%d rate=%d fade=%.3f loop=%d bytes=%zu path=%s",
-        channel, format, memoryAdx ? "memory" : "stream", numChannels, samplingRate,
-        clampedFade, loop == JNI_TRUE ? 1 : 0, memoryAdx ? memoryAdx->size() : 0u, path.c_str());
+        channel, format, memoryAdx ? "adx-memory" : "wave-file-stream",
+        numChannels, samplingRate, clampedFade, loop == JNI_TRUE ? 1 : 0,
+        memoryAdx ? memoryAdx->size() : 0u, path.c_str());
     return JNI_TRUE;
 }
 

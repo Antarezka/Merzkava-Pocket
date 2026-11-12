@@ -146,6 +146,20 @@ Logcat marker: `Android output tuning: ... aaudio=requested`.
 
 If still noisy on the device, the next arm is the existing `fix/toolster-adx-pcm-decode-2026-11-11` branch (CRI Wave pool with PCM decoded in Java), which separates CRI's ADX decoder from the ASR and output path. An import of the original OGG through Pocket's importer is the zero-build equivalent of that test.
 
+### Build 382: PCM arm (CRI Wave pool) after Build 381 stayed distorted
+
+Build 381 (AAudio requested) is still distorted on the device, so AAudio is eliminated and removed again (the SDK default OpenSL ES path is restored; Build 380 buffering 200/400 ms, MULTI pin and hardware properties are kept).
+
+New evidence while preparing this arm: ffmpeg's ADX decoder and the standard CRI decoder disagree. The standard decoder (vgmstream, the independent `gamedac` reference, and `PocketAdxDecoder`) reads the stored block scale as `(word & 0x1fff) + 1`; ffmpeg uses the raw word. On `chill-1a` the two decodes differ by up to 592 LSB (mean 52). Against the source OGG the standard decode is slightly better (27.8 dB SNR) than ffmpeg's (25.7 dB), so the shipped files follow the standard and the codec is still ordinary. It also means the listening test files made with ffmpeg were not a CRI decode; that test showed the data is acceptable, not that CRI's own decoder is clean.
+
+Single variable changed in this build: built-in ADX is decoded to PCM16 WAV on the device by `PocketAdxDecoder` (bit-identical to the independent `gamedac` decoder, checked in CI by `adx-reference-compare.mjs`), cached under `files/cri-audio-pcm/`, and streamed through CRI's Wave voice pool (six voices, six D-BAS streams). CRI remains the only playback engine; only CRI's ADX decoder is bypassed. Ported from branch `fix/toolster-adx-pcm-decode-2026-11-11`.
+
+Known cost of this arm: WAV loops restart through the 16 ms monitor on PLAYEND, so a short gap at the loop point is expected (ADX loops were seamless through the data-request callback); decoded cache is about 38 MB per BGM track.
+
+Reading the result:
+- Clean: CRI's ADX decode path was the cause; decide between keeping PCM (cache size, loop gap) or re-authoring assets.
+- Still distorted: CRI's ADX decoder, the data and AAudio/OpenSL ES choice are all eliminated; what remains is ASR mixing/resampling and the handset's low-latency output path.
+
 ## CRI facts found in Build 362
 
 - One native `PocketCriAudioRuntime` owns playback; six dedicated players: MUSIC, vinyl crackle/ambience, stylus, record placement, door chime, door rattle.
