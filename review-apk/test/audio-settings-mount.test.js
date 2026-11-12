@@ -422,7 +422,7 @@ test("Startup fallback waits for actual CRI playback; stylus contact is timed by
   director.updateNativeState("music", "playing");
   assert.equal(director.getState().needleDown, true);
   assert.equal(timers.size, 0, "WebView timers are not used to trigger stylus contact");
-  assert.doesNotMatch(deckSource, /scheduleStylusDrop|setTimeoutFn\(\(\) =>[\s\S]*?stylus-drop/);
+  assert.doesNotMatch(deckSource, /scheduleStylusDrop|clearStylusDropTimeout|setTimeoutFn\(\(\) =>[\s\S]*?stylus-drop/);
   assert.match(runtimeSource, /scheduleStylusContact\(generation, pauseTransition\.get\(\)\)/);
   assert.match(runtimeSource, /playEffect\("stylus-drop"\)/);
   assert.match(runtimeSource, /\}, 620L\)/);
