@@ -31,6 +31,9 @@ const audioDirector = createPocketAudioDirector({
     if (vinylDesigns.getState().mode === "auto") vinylDesigns.rotateRandom("track-end");
   }
 });
+// Begin the sequential, low-priority boot cache pass before login/splash completes.
+// It does not start audio or alter the CRI renderer; startup playback queues behind it.
+try { native?.criPrewarmMusicLibrary?.(audioDirector.getState().track); } catch {}
 window.addEventListener("pocket:audio-effect", event => {
   const effect = String(event.detail?.effect || "").trim().toLowerCase();
   audioDirector.playEffect(effect);
@@ -132,7 +135,21 @@ window.PocketNativeCallbacks = {
 let latestPocketUpdate = null;
 let pocketUpdateCheckBusy = false;
 let pocketUpdateStartupCheckStarted = false;
+let pocketOldBuildCleanupBusy = false;
 
+window.addEventListener("pocket:update-cleanup-started", () => {
+  pocketOldBuildCleanupBusy = true;
+  refreshPocketUpdatePanel();
+});
+window.addEventListener("pocket:update-cleanup-complete", event => {
+  pocketOldBuildCleanupBusy = false;
+  refreshPocketUpdatePanel();
+  const status = root.querySelector("[data-update-status]");
+  if (status) {
+    status.textContent = String(event.detail?.message || "OLD BUILD CLEANUP FINISHED");
+    status.dataset.tone = event.detail?.ok === true ? "current" : "warning";
+  }
+});
 
 function nativePocketAppInfo() {
   try { const value=JSON.parse(native?.getPocketAppInfo?.()||"{}");return value&&typeof value==="object"?value:{}; }
@@ -258,13 +275,15 @@ function refreshPocketUpdatePanel(downloadState=null) {
     removeFile.hidden=!hasManagedFile;
     removeFile.textContent=busy?"CANCEL / REMOVE":"REMOVE APK";
   }
+  const cleanOld=q("[data-update-clean-old-builds]");
+  if(cleanOld){cleanOld.hidden=!(currentBuild>0);cleanOld.disabled=pocketOldBuildCleanupBusy;cleanOld.textContent=pocketOldBuildCleanupBusy?"CLEANING OLD BUILDS…":"CLEAN OLD BUILDS";}
   const folderOpen=q("[data-update-folder-open]");if(folderOpen)folderOpen.hidden=!folderSelected;
   const check=q("[data-update-check]");if(check){check.disabled=pocketUpdateCheckBusy;check.textContent=pocketUpdateCheckBusy?"CHECKING…":"CHECK AGAIN";}
 }
 function mountPocketUpdateSettings() {
   const panel=root.querySelector("[data-update-section]");if(!panel)return()=>{};
   const checkButton=panel.querySelector("[data-update-check]"),downloadButton=panel.querySelector("[data-update-download]"),installButton=panel.querySelector("[data-update-install]");
-  const chooseFolderButton=panel.querySelector("[data-update-folder-choose]"),openFolderButton=panel.querySelector("[data-update-folder-open]"),removeFileButton=panel.querySelector("[data-update-file-remove]");
+  const chooseFolderButton=panel.querySelector("[data-update-folder-choose]"),openFolderButton=panel.querySelector("[data-update-folder-open]"),removeFileButton=panel.querySelector("[data-update-file-remove]"),cleanOldBuildsButton=panel.querySelector("[data-update-clean-old-builds]");
   let disposed=false,pollTimer=null;
   const refresh=()=>{
     if(disposed)return;
@@ -335,15 +354,16 @@ function mountPocketUpdateSettings() {
     refresh();
   };
   const onFileChanged=()=>refresh();
+  const cleanOldBuilds=()=>{native?.confirmCleanOldPocketBuilds?.();};
   checkButton?.addEventListener("click",check);downloadButton?.addEventListener("click",download);installButton?.addEventListener("click",install);
-  chooseFolderButton?.addEventListener("click",chooseFolder);openFolderButton?.addEventListener("click",openFolder);removeFileButton?.addEventListener("click",removeFile);
+  chooseFolderButton?.addEventListener("click",chooseFolder);openFolderButton?.addEventListener("click",openFolder);removeFileButton?.addEventListener("click",removeFile);cleanOldBuildsButton?.addEventListener("click",cleanOldBuilds);
   window.addEventListener("pocket:update-folder-changed",onFolderChanged);
   window.addEventListener("pocket:update-file-changed",onFileChanged);
   refresh();if(!latestPocketUpdate&&nativeReady())void checkPocketUpdates(false);
   return()=>{
     disposed=true;
     checkButton?.removeEventListener("click",check);downloadButton?.removeEventListener("click",download);installButton?.removeEventListener("click",install);
-    chooseFolderButton?.removeEventListener("click",chooseFolder);openFolderButton?.removeEventListener("click",openFolder);removeFileButton?.removeEventListener("click",removeFile);
+    chooseFolderButton?.removeEventListener("click",chooseFolder);openFolderButton?.removeEventListener("click",openFolder);removeFileButton?.removeEventListener("click",removeFile);cleanOldBuildsButton?.removeEventListener("click",cleanOldBuilds);
     window.removeEventListener("pocket:update-folder-changed",onFolderChanged);window.removeEventListener("pocket:update-file-changed",onFileChanged);
     if(pollTimer!==null)window.clearInterval(pollTimer);
   };
@@ -1847,6 +1867,7 @@ function renderPage(destination, transitionDuration=420) {
             <button type="button" data-update-folder-choose>CHOOSE FOLDER</button>
             <button type="button" data-update-folder-open hidden>OPEN IN FILE MANAGER</button>
             <button type="button" data-update-file-remove hidden>REMOVE APK</button>
+            <button type="button" data-update-clean-old-builds hidden>CLEAN OLD BUILDS</button>
           </div>
         </section>
         <section class="update-download-area" data-update-download-area hidden>

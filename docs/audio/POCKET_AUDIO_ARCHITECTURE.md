@@ -32,6 +32,14 @@ The Settings **Add Music** picker accepts ordinary Android-supported audio forma
 
 ## End-to-end startup and turntable state rules
 
+### Boot-time audio cache preparation
+
+- After the WebView creates the Audio Director, it asks the already initialized native runtime to warm the selected record first, followed by every bundled BGM/effect and every UUID-named imported ADX/WAV already in the local music shelf.
+- This is a one-shot, low-priority task on the existing serialized PCM decoder worker. ADX sources are decoded into the same validated private PCM16 WAV cache used by playback; existing imported WAVs are metadata-checked. The opening 512 KiB of each playable WAV is read in bounded chunks to warm the initial streaming window in the operating-system file cache, without retaining a second in-memory copy; CRI streams the remainder normally.
+- The initial startup playback request is queued on that same worker. It therefore waits for the boot warm-up pass to finish, then follows the normal startup sequence below. No audio starts during login or before the authenticated splash completes.
+- The warm-up does not allocate extra CRI voices, add another playback engine, alter the six-channel/D-BAS configuration, change Android output-buffer tuning, or execute alongside an audible track. Failed or newly imported files still fall back to the normal per-track preparation path.
+- This removes repeated ADX decoding and reduces cold file I/O during later track changes. CRI still has to attach and start the selected stream on the MUSIC player, so a short native PREP edge may remain; eliminating that edge for all records would require holding additional CRI stream/voice resources concurrently and is not enabled in this configuration.
+
 ### Startup after the authenticated splash
 
 1. The initial boot mark/login flow does not start audio.

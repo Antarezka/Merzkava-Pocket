@@ -18,19 +18,25 @@ import android.media.session.PlaybackState;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.Process;
 import android.os.SystemClock;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.webkit.WebView;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
@@ -55,6 +61,7 @@ public final class PocketCriAudioRuntime {
     private static final int CHANNEL_DOOR_RATTLE = 5;
     private static final int FORMAT_ADX = 1;
     private static final int FORMAT_WAVE = 2;
+    private static final int BOOT_STREAM_HEAD_BYTES = 512 * 1024;
 
     private static final Map<String, String> BUILT_IN = new HashMap<>();
     static {
@@ -147,6 +154,7 @@ public final class PocketCriAudioRuntime {
     private volatile boolean pausedByFocusLoss;
     private volatile boolean musicPaused;
     private volatile boolean pauseRequested;
+    private boolean musicLibraryPrewarmScheduled;
     private volatile int masterVolume = 100;
     private volatile int musicVolume = 68;
     private volatile int ambienceVolume = 34;
@@ -202,6 +210,131 @@ public final class PocketCriAudioRuntime {
     private interface AudioPrepared {
         void onReady(File file, AudioMetadata metadata);
         void onError(String message, Exception cause);
+    }
+
+    /**
+     * Start a one-shot boot warm-up before the splash can request playback.
+     * It uses the existing serialized PCM worker, so no extra decoder competes
+     * with CRI while a record is audible. The playback request is queued behind
+     * this task and starts automatically when the boot cache pass is complete.
+     */
+    public boolean prewarmMusicLibrary(String selectedTrackId) {
+        synchronized (this) {
+            if (disposed || !initialized) return false;
+            if (musicLibraryPrewarmScheduled) return true;
+            musicLibraryPrewarmScheduled = true;
+        }
+        try {
+            pcmDecoder.execute(() -> {
+                final int previousPriority;
+                try {
+                    previousPriority = Process.getThreadPriority(Process.myTid());
+                    Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
+                } catch (Exception ignored) {
+                    // Boot warm-up is best-effort and must never affect CRI initialization.
+                    runMusicLibraryPrewarm(selectedTrackId);
+                    return;
+                }
+                try {
+                    runMusicLibraryPrewarm(selectedTrackId);
+                } finally {
+                    try { Process.setThreadPriority(previousPriority); } catch (Exception ignored) {}
+                }
+            });
+            return true;
+        } catch (RuntimeException error) {
+            synchronized (this) { musicLibraryPrewarmScheduled = false; }
+            Log.w(TAG, "Could not schedule the boot music-library warm-up.", error);
+            return false;
+        }
+    }
+
+    private void runMusicLibraryPrewarm(String selectedTrackId) {
+        final long startedAt = SystemClock.elapsedRealtime();
+        final List<File> sources = new ArrayList<>();
+        final Set<String> seen = new HashSet<>();
+        addMusicPrewarmSource(sources, seen, selectedTrackId);
+        final String[] builtInOrder = {
+            "happy", "chill", "retroatrical1", "retroatrical2",
+            "officialtheme1", "officialtheme2", "officialtheme3", "officialtheme4",
+            "officialtheme5", "officialtheme6", "officialtheme7",
+            "vinyl-crackle", "stylus-drop", "record-placement", "door-chime", "door-rattle"
+        };
+        for (String id : builtInOrder) addMusicPrewarmSource(sources, seen, id);
+
+        File musicDirectory = new File(activity.getFilesDir(), "music");
+        File[] imported = musicDirectory.listFiles();
+        if (imported != null) {
+            for (File file : imported) {
+                String name = file.getName().toLowerCase(java.util.Locale.ROOT);
+                if (file.isFile() && name.matches("[a-f0-9-]{36}\\.(adx|wav)")) {
+                    addMusicPrewarmFile(sources, seen, file);
+                }
+            }
+        }
+
+        int ready = 0;
+        int failed = 0;
+        long cacheBytes = 0L;
+        for (File source : sources) {
+            if (disposed) return;
+            try {
+                String lower = source.getName().toLowerCase(java.util.Locale.ROOT);
+                File playable = lower.endsWith(".adx")
+                    ? ensureDecodedPcmCache(source) : source;
+                AudioMetadata metadata = readAudioMetadata(playable, FORMAT_WAVE);
+                cacheBytes += warmFileCache(playable);
+                ready++;
+                Log.d(TAG, "Boot-warmed music source: " + source.getName() +
+                    " (" + metadata.sampleRate + " Hz, " + metadata.channels + " ch)");
+            } catch (Exception error) {
+                failed++;
+                Log.w(TAG, "Boot warm-up skipped " + source.getName() + "; normal playback will retry.", error);
+            }
+        }
+        Log.i(TAG, "Boot music warm-up finished: " + ready + "/" + sources.size() +
+            " ready, " + failed + " skipped, " + cacheBytes + " bytes read in " +
+            (SystemClock.elapsedRealtime() - startedAt) + " ms. CRI playback settings unchanged.");
+    }
+
+    private void addMusicPrewarmSource(List<File> sources, Set<String> seen, String trackId) {
+        if (trackId == null || trackId.trim().isEmpty()) return;
+        String id = trackId.trim().toLowerCase(java.util.Locale.ROOT);
+        File source = null;
+        if (id.startsWith("custom:")) {
+            String customId = id.substring("custom:".length());
+            if (!customId.matches("[a-f0-9-]{36}")) return;
+            File directory = new File(activity.getFilesDir(), "music");
+            File adx = new File(directory, customId + ".adx");
+            File wav = new File(directory, customId + ".wav");
+            source = adx.isFile() ? adx : wav;
+        } else {
+            String asset = BUILT_IN.get(id);
+            if (asset != null) source = new File(new File(activity.getFilesDir(), "cri-audio"), asset);
+        }
+        if (source != null) addMusicPrewarmFile(sources, seen, source);
+    }
+
+    private static void addMusicPrewarmFile(List<File> sources, Set<String> seen, File source) {
+        if (source == null || !source.isFile()) return;
+        String path = source.getAbsolutePath();
+        if (seen.add(path)) sources.add(source);
+    }
+
+    /** Warm only the opening stream window; CRI continues streaming the rest from disk. */
+    private static long warmFileCache(File file) throws IOException {
+        long warmed = 0L;
+        try (InputStream input = new FileInputStream(file)) {
+            byte[] buffer = new byte[64 * 1024];
+            while (warmed < BOOT_STREAM_HEAD_BYTES) {
+                int wanted = (int)Math.min(buffer.length, BOOT_STREAM_HEAD_BYTES - warmed);
+                int count = input.read(buffer, 0, wanted);
+                if (count < 0) break;
+                if (count == 0) continue;
+                warmed += count;
+            }
+        }
+        return warmed;
     }
 
     /**

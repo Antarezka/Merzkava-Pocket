@@ -126,6 +126,10 @@ public final class PocketNativeBridge {
         return criAudio.playTrack(trackId);
     }
 
+    @JavascriptInterface public boolean criPrewarmMusicLibrary(String selectedTrackId) {
+        return criAudio.prewarmMusicLibrary(selectedTrackId);
+    }
+
     @JavascriptInterface public boolean criPlayAmbience() {
         return criAudio.playAmbience();
     }
@@ -574,6 +578,54 @@ public final class PocketNativeBridge {
             })
             .show());
         return true;
+    }
+
+    @JavascriptInterface public boolean confirmCleanOldPocketBuilds() {
+        activity.runOnUiThread(() -> new AlertDialog.Builder(activity)
+            .setTitle("Clean old Pocket build files?")
+            .setMessage("This removes only Pocket installer APK files with build numbers at or below the build currently installed on this device. Newer downloaded builds are kept. The installed Pocket app, player profiles, settings, music and game data are not removed.")
+            .setNegativeButton("CANCEL", (dialog, which) -> dialog.dismiss())
+            .setPositiveButton("CLEAN OLD BUILDS", (dialog, which) -> startPocketOldBuildCleanup())
+            .show());
+        return true;
+    }
+
+    private void startPocketOldBuildCleanup() {
+        dispatchPocketOldBuildCleanupStarted();
+        Thread worker = new Thread(() -> {
+            try {
+                int installedBuild = PocketUpdateInstalledReceiver.cleanupInstalledOrOlder(activity);
+                dispatchPocketOldBuildCleanupFinished(true, installedBuild,
+                    "Cleanup scan finished for Build #" + installedBuild + " and older. Newer Pocket builds and the installed app were kept.");
+            } catch (Exception error) {
+                String message = error.getMessage() == null
+                    ? "Pocket could not finish cleaning the old build files." : error.getMessage();
+                dispatchPocketOldBuildCleanupFinished(false, 0, message);
+            }
+        }, "Pocket-Old-Build-Cleanup");
+        worker.setDaemon(true);
+        worker.start();
+    }
+
+    private void dispatchPocketOldBuildCleanupStarted() {
+        WebView target = webView;
+        if (target == null) return;
+        target.post(() -> target.evaluateJavascript(
+            "window.dispatchEvent(new Event('pocket:update-cleanup-started'));", null));
+    }
+
+    private void dispatchPocketOldBuildCleanupFinished(boolean ok, int buildNumber, String message) {
+        WebView target = webView;
+        if (target == null) return;
+        JSONObject detail = new JSONObject();
+        try {
+            detail.put("ok", ok);
+            detail.put("buildNumber", buildNumber);
+            detail.put("message", message == null ? "" : message);
+        } catch (Exception ignored) {}
+        String payload = detail.toString();
+        target.post(() -> target.evaluateJavascript(
+            "window.dispatchEvent(new CustomEvent('pocket:update-cleanup-complete',{detail:" + payload + "}));", null));
     }
 
     private void removeCurrentPocketUpdateApk() {

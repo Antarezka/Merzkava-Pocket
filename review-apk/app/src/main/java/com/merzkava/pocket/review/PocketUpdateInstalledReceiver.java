@@ -39,9 +39,7 @@ public final class PocketUpdateInstalledReceiver extends BroadcastReceiver {
         final PendingResult pending=goAsync();
         Thread worker=new Thread(()->{
             try{
-                int installedBuild=getInstalledBuildNumber(context);
-                if(installedBuild<=0)throw new IllegalStateException("Installed Pocket build could not be verified.");
-                removePocketApksAtOrBelow(context,installedBuild);
+                int installedBuild=cleanupInstalledOrOlder(context);
                 PocketInstalledBuildRecord.update(context,"Android confirmed package replacement");
                 NotificationManager manager=(NotificationManager)context.getSystemService(Context.NOTIFICATION_SERVICE);
                 if(manager!=null)manager.cancel(UPDATE_NOTIFICATION_ID);
@@ -57,6 +55,14 @@ public final class PocketUpdateInstalledReceiver extends BroadcastReceiver {
         android.content.pm.PackageInfo info=context.getPackageManager().getPackageInfo(context.getPackageName(),0);
         long version=Build.VERSION.SDK_INT>=28?info.getLongVersionCode():info.versionCode;
         return (int)Math.max(0L,version-VERSION_CODE_OFFSET);
+    }
+
+    public static int cleanupInstalledOrOlder(Context context) throws Exception {
+        if (context == null) throw new IllegalArgumentException("Pocket context is unavailable.");
+        int installedBuild = getInstalledBuildNumber(context);
+        if (installedBuild <= 0) throw new IllegalStateException("Installed Pocket build could not be verified.");
+        removePocketApksAtOrBelow(context, installedBuild);
+        return installedBuild;
     }
 
     private static void removePocketApksAtOrBelow(Context context,int installedBuild){

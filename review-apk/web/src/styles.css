@@ -2909,9 +2909,12 @@ body.bubble-render-paused *::after {
 .update-folder-actions button[data-update-folder-choose]{border-color:color-mix(in srgb,var(--gold) 65%,var(--line));color:var(--paper)}
 .update-folder-actions button[data-update-folder-open]{border-color:color-mix(in srgb,var(--lime) 50%,var(--line))}
 .update-folder-actions button[data-update-file-remove]{grid-column:1/-1;border-color:#ad6b5e70;color:#ba8277}
+.update-folder-actions button[data-update-clean-old-builds]{grid-column:1/-1;border-color:color-mix(in srgb,var(--gold) 58%,var(--line));color:var(--gold)}
+.update-folder-actions button[data-update-clean-old-builds]:disabled{opacity:.45}
 .update-folder-actions button[hidden]{display:none}
 :root[data-theme="light"] .update-folder-actions button{background:#f4f0e6;color:#52604f}
 :root[data-theme="light"] .update-folder-actions button[data-update-file-remove]{color:#a45f55}
+:root[data-theme="light"] .update-folder-actions button[data-update-clean-old-builds]{color:#78613d}
 .update-download-area{display:grid;gap:8px;margin-top:13px;padding:10px;border:1px solid color-mix(in srgb,var(--gold) 50%,var(--line));background:color-mix(in srgb,var(--gold) 6%,var(--surface))}
 .update-download-bar{height:7px}.update-download-bar>i{background:linear-gradient(90deg,var(--gold),var(--lime))}
 .update-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:13px}

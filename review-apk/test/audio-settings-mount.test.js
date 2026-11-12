@@ -768,3 +768,16 @@ test("Turntable hard-stop cancels queued frames during a record load", async () 
   assert.equal(motion.getState().running,false);
   motion.dispose();
 });
+
+
+test("Boot warms the music library before splash-triggered playback without changing CRI output tuning", () => {
+  assert.ok(source.includes("native?.criPrewarmMusicLibrary?.(audioDirector.getState().track)"));
+  assert.ok(runtimeSource.includes("public boolean prewarmMusicLibrary(String selectedTrackId)"));
+  assert.ok(runtimeSource.includes("runMusicLibraryPrewarm"));
+  assert.ok(runtimeSource.includes("ensureDecodedPcmCache(source)"));
+  assert.ok(runtimeSource.includes("warmFileCache(playable)"));
+  assert.ok(runtimeSource.includes("BOOT_STREAM_HEAD_BYTES = 512 * 1024"));
+  assert.ok(source.includes("audioDirector.startStartupSequence()"));
+  assert.ok(nativeSource.includes("kAndroidStartBufferingMs = 200"));
+  assert.ok(nativeSource.includes("kAndroidBufferingMs = 400"));
+});

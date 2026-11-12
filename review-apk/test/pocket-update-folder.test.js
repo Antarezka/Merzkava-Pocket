@@ -68,3 +68,15 @@ test("APK cleanup touches only Pocket updater filenames, never unrelated folder 
   assert.match(installedReceiver, /PocketUpdateStorage\.removePocketApksAtOrBelow/);
   assert.match(storage, /if \(build > 0 && build != keepBuildNumber\)/);
 });
+
+
+test("Manual old-build cleanup uses the installed build boundary and keeps newer Pocket APKs", () => {
+  assert.ok(bridge.includes("confirmCleanOldPocketBuilds"));
+  assert.ok(bridge.includes("PocketUpdateInstalledReceiver.cleanupInstalledOrOlder(activity)"));
+  assert.ok(installedReceiver.includes("public static int cleanupInstalledOrOlder(Context context)"));
+  assert.ok(installedReceiver.includes("removePocketApksAtOrBelow(context, installedBuild)"));
+  assert.ok(installedReceiver.includes("build<=installedBuild"));
+  assert.ok(main.includes("data-update-clean-old-builds"));
+  assert.ok(main.includes("pocket:update-cleanup-started"));
+  assert.ok(main.includes("pocket:update-cleanup-complete"));
+});
