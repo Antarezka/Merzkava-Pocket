@@ -441,6 +441,32 @@ test("Startup fallback waits for actual CRI playback; stylus contact is timed by
   director.stop();
 });
 
+test("A late stylus-contact callback cannot lower the tonearm after pause", async () => {
+  const { createPocketAudioDirector } = await import("../web/src/pocket-audio-director.js?late-stylus-pause-test");
+  const director = createPocketAudioDirector({
+    native: {
+      criPlayTrack() { return true; },
+      criPlayEffect() { return true; },
+      criPlayAmbience() { return true; },
+      criSetVolume() {},
+      criPauseMusic() { return true; },
+      criStopMusic() {}
+    }
+  });
+  director.startPlayback();
+  director.updateNativeState("music", "playing");
+  assert.equal(director.getState().motorRunning, true);
+  assert.equal(director.getState().needleDown, false);
+
+  director.toggleNeedle();
+  director.updateNativeState("music", "paused");
+  assert.equal(director.getState().needleDown, false);
+  director.updateNativeState("stylus", "playing");
+  assert.equal(director.getState().needleDown, false, "a stale contact event must not put the needle back on the record");
+  assert.equal(director.getState().motorRunning, true, "pause lifts the needle without forcing the platter motor off");
+  director.stop();
+});
+
 test("Record-placement SFX fires after the record finishes travelling to the platter", () => {
   assert.match(source, /animateRecordToPlatter\(button,\s*\(\)\s*=>\s*audioDirector\.playEffect\("record-placement"\)\)/);
   assert.match(source, /duration:\s*760/);
