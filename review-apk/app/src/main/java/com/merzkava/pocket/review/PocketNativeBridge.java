@@ -801,10 +801,10 @@ public final class PocketNativeBridge {
                 return existing.toString();
             }
             if (existing.optInt("buildNumber", 0) == buildNumber && "save_failed".equals(existingStatus)) {
+                long existingId = existing.optLong("downloadId", prefs().getLong(PREF_UPDATE_DOWNLOAD_ID, -1L));
                 prefs().edit().putString(PocketUpdateStorage.PREF_STATUS, "copying")
                     .remove(PocketUpdateStorage.PREF_STATUS_MESSAGE).apply();
-                PocketUpdateCopyWorker.schedule(activity,
-                    existing.optLong("downloadId", prefs().getLong(PREF_UPDATE_DOWNLOAD_ID, -1L)), buildNumber);
+                PocketUpdateCopyWorker.schedule(activity, existingId, buildNumber);
                 existing.put("ok", true).put("status", "copying")
                     .put("message", "Retrying the verified APK save into your selected folder.");
                 return existing.toString();
