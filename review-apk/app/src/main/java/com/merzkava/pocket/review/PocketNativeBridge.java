@@ -865,6 +865,28 @@ public final class PocketNativeBridge {
         Uri selectedDirectory = PocketUpdateStorage.savedDirectoryUri(activity);
         boolean selectedFolderAvailable = PocketUpdateStorage.directoryAvailable(activity, selectedDirectory);
 
+        // Reconcile build identity and installed build before trusting a saved APK URI.
+        if (targetBuild > 0 && expectedBuildNumber > 0 && targetBuild != expectedBuildNumber) {
+            clearPocketUpdateDownloadState();
+            id = -1L;
+            targetBuild = 0;
+            savedUri = null;
+        }
+        if (targetBuild > 0) {
+            try {
+                int installedBuild = getInstalledPocketBuildNumber();
+                if (targetBuild <= installedBuild) {
+                    clearPocketUpdateDownloadState();
+                    removePocketApkFilesExcept(-1);
+                    id = -1L;
+                    targetBuild = 0;
+                    savedUri = null;
+                }
+            } catch (Exception error) {
+                android.util.Log.w("PocketUpdate", "Could not compare downloaded and installed Pocket build numbers.", error);
+            }
+        }
+
         if (savedUri != null) {
             if (!selectedFolderAvailable) {
                 try {
@@ -889,25 +911,6 @@ public final class PocketNativeBridge {
             preferences.edit().remove(PocketUpdateStorage.PREF_SAVED_URI)
                 .putString(PocketUpdateStorage.PREF_STATUS, "missing").apply();
             savedUri = null;
-        }
-
-        if (targetBuild > 0 && expectedBuildNumber > 0 && targetBuild != expectedBuildNumber) {
-            clearPocketUpdateDownloadState();
-            id = -1L;
-            targetBuild = 0;
-        }
-        if (targetBuild > 0) {
-            try {
-                int installedBuild = getInstalledPocketBuildNumber();
-                if (targetBuild <= installedBuild) {
-                    clearPocketUpdateDownloadState();
-                    removePocketApkFilesExcept(-1);
-                    id = -1L;
-                    targetBuild = 0;
-                }
-            } catch (Exception error) {
-                android.util.Log.w("PocketUpdate", "Could not compare downloaded and installed Pocket build numbers.", error);
-            }
         }
 
         try {
