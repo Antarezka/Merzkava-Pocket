@@ -18,7 +18,6 @@
     <receiver android:name=".PocketUpdateInstalledReceiver" android:enabled="true" android:exported="false">
       <intent-filter><action android:name="android.intent.action.MY_PACKAGE_REPLACED" /></intent-filter>
     </receiver>
-    <service android:name=".PocketUpdateProgressService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="dataSync" />
     <service android:name=".PocketFloatingService" android:exported="false" android:stopWithTask="false" android:foregroundServiceType="specialUse">
       <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-controlled floating access shortcut and mini-window for Merzkava Pocket." />
     </service>

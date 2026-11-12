@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 const activity = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/MainActivity.java", import.meta.url), "utf8");
 const bridge = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketNativeBridge.java", import.meta.url), "utf8");
 const storage = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketUpdateStorage.java", import.meta.url), "utf8");
-const service = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketUpdateProgressService.java", import.meta.url), "utf8");
+const copyWorker = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketUpdateCopyWorker.java", import.meta.url), "utf8");
 const installedReceiver = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketUpdateInstalledReceiver.java", import.meta.url), "utf8");
 const main = readFileSync(new URL("../web/src/main.js", import.meta.url), "utf8");
 const manifest = readFileSync(new URL("../app/src/main/AndroidManifest.xml", import.meta.url), "utf8");
@@ -35,12 +35,14 @@ test("The updater exposes the selected path and asks before opening a file manag
 
 test("DownloadManager is only the resumable staging download; final APK is copied and SHA-verified in the selected folder", () => {
   assert.match(bridge, /request\.setDestinationInExternalFilesDir\(activity, Environment\.DIRECTORY_DOWNLOADS, fileName\)/);
-  assert.match(service, /PocketUpdateStorage\.copyAndVerify\(\s*this, staging, folder, fileName, sha256\)/);
+  assert.match(copyWorker, /PocketUpdateStorage\.copyAndVerify\(\s*context, staging, folder, fileName, sha256\)/);
   assert.match(storage, /DocumentsContract\.createDocument\(/);
   assert.match(storage, /MessageDigest\.getInstance\("SHA-256"\)/);
   assert.match(storage, /expectedSha256\.equalsIgnoreCase\(actual\.toString\(\)\)/);
-  assert.match(service, /PocketUpdateStorage\.PREF_SAVED_URI/);
-  assert.match(service, /downloads\.remove\(downloadId\)/);
+  assert.match(copyWorker, /PocketUpdateStorage\.PREF_SAVED_URI/);
+  assert.match(copyWorker, /downloads\.remove\(downloadId\)/);
+  assert.doesNotMatch(bridge, /startPocketUpdateProgressService\(/);
+  assert.doesNotMatch(manifest, /\.PocketUpdateProgressService/);
 });
 
 test("Deleting or moving the final APK invalidates completed status and the Settings panel keeps checking it", () => {

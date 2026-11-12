@@ -530,23 +530,14 @@ public final class PocketNativeBridge {
                 throw new IOException("Pocket could not save the selected update folder.");
             }
             long downloadId = preferences.getLong(PREF_UPDATE_DOWNLOAD_ID, -1L);
-            if (downloadId >= 0L) startPocketUpdateProgressService();
+            int buildNumber = preferences.getInt(PREF_UPDATE_BUILD_NUMBER, 0);
+            if (downloadId >= 0L) PocketUpdateCopyWorker.schedule(activity, downloadId, buildNumber);
             return new JSONObject().put("ok", true).put("path", label).toString();
         } catch (Exception error) {
             try {
                 return new JSONObject().put("ok", false).put("message",
                     error.getMessage() == null ? "Pocket could not access that folder." : error.getMessage()).toString();
             } catch (Exception ignored) { return "{}"; }
-        }
-    }
-
-    private void startPocketUpdateProgressService() {
-        try {
-            Intent service = new Intent(activity, PocketUpdateProgressService.class);
-            if (Build.VERSION.SDK_INT >= 26) activity.startForegroundService(service);
-            else activity.startService(service);
-        } catch (Exception error) {
-            android.util.Log.w("PocketUpdate", "Could not start the update copy/progress monitor.", error);
         }
     }
 
@@ -811,7 +802,8 @@ public final class PocketNativeBridge {
             if (existing.optInt("buildNumber", 0) == buildNumber && "save_failed".equals(existingStatus)) {
                 prefs().edit().putString(PocketUpdateStorage.PREF_STATUS, "copying")
                     .remove(PocketUpdateStorage.PREF_STATUS_MESSAGE).apply();
-                startPocketUpdateProgressService();
+                PocketUpdateCopyWorker.schedule(activity,
+                    existing.optLong("downloadId", prefs().getLong(PREF_UPDATE_DOWNLOAD_ID, -1L)), buildNumber);
                 existing.put("ok", true).put("status", "copying")
                     .put("message", "Retrying the verified APK save into your selected folder.");
                 return existing.toString();
@@ -846,7 +838,6 @@ public final class PocketNativeBridge {
                 return new JSONObject().put("ok", false).put("message", "Pocket could not save the new build download state.").toString();
             }
             clearPocketUpdateAvailableNotification();
-            startPocketUpdateProgressService();
             return new JSONObject().put("ok", true).put("downloadId", id).put("buildNumber", buildNumber)
                 .put("status", "queued").put("progress", 0).put("bytesDownloaded", 0).put("totalBytes", 0)
                 .put("message", "Pocket Build #" + buildNumber + " download has started.").toString();
@@ -980,10 +971,10 @@ public final class PocketNativeBridge {
                         result.put("status", "copying").put("progress", 100)
                             .put("bytesDownloaded", downloaded).put("totalBytes", total)
                             .put("message", "Saving the verified APK to your selected folder…");
-                        if (!"copying".equals(savedState) || !PocketUpdateProgressService.isCopyWorkerRunning()) {
+                        if (!"copying".equals(savedState) || !PocketUpdateCopyWorker.isRunning(id)) {
                             preferences.edit().putString(PocketUpdateStorage.PREF_STATUS, "copying")
                                 .remove(PocketUpdateStorage.PREF_STATUS_MESSAGE).apply();
-                            startPocketUpdateProgressService();
+                            PocketUpdateCopyWorker.schedule(activity, id, targetBuild);
                         }
                     }
                 } else {
