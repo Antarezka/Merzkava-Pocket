@@ -317,7 +317,7 @@ test("Selecting a record keeps its sleeve-to-platter flight as a visual-only tra
   assert.notEqual(end, -1);
   const placement = source.slice(start, end);
   assert.match(placement, /className\s*=\s*"audio-record-flight"/);
-  assert.match(placement, /duration:\s*680/);
+  assert.match(placement, /duration:\s*760/);
   assert.match(placement, /onComplete/);
   assert.match(cssSource, /\.audio-record-flight\s*\{/);
   assert.match(source, /audioDirector\.playEffect\("record-placement"\)/);
@@ -452,6 +452,7 @@ test("A user stylus request during startup is queued after record placement, not
   director.startStartupSequence();
   director.toggleNeedle();
   assert.equal(director.getState().needleDown, false);
+  director.updateNativeState("record", "playing");
   director.updateNativeState("record", "ended");
   assert.deepEqual(calls, [
     ["effect", "record-placement"],
@@ -473,7 +474,7 @@ test("Selecting another record lifts the tonearm during CRI PREP and lowers it o
       criPlayEffect(id) { calls.push(["effect", id]); return true; },
       criPlayAmbience() { calls.push(["ambience"]); return true; },
       criSetVolume() {},
-      criPauseMusic() { return true; },
+      criPauseMusic(paused) { calls.push(["pause", paused]); return true; },
       criStopMusic() { return true; }
     }
   });
