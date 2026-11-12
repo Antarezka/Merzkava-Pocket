@@ -734,7 +734,7 @@ test("Seven Merzkava Official Theme ADX tracks are listed as protected built-in 
   for (let number = 1; number <= 7; number++) {
     const id = "officialtheme" + number;
     const filename = "merzkava-official-theme-" + number + ".adx";
-    assert.match(deckSource, new RegExp('id:"' + id + '".*title:"Merzkava Official Theme - ' + number + '".*extension:"ADX"'));
+    assert.match(deckSource, new RegExp('id:"' + id + '".*title:"Merzkava Official Theme - ' + number + '".*extension:"ADX".*official:true'));
     assert.ok(runtimeSource.includes('BUILT_IN.put("' + id + '", "' + filename + '")'));
     assert.match(buildWorkflowSource, new RegExp('Merzkava Official Theme - \\$\\{number\\}\\.adx'));
     assert.ok(filename.endsWith(".adx"));
