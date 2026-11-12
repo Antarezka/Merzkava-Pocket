@@ -2953,3 +2953,20 @@ body.bubble-render-paused *::after {
 /* Keep the Pocket Update panel compact on narrow displays without an in-app toast. */
 @media(max-width:360px){.update-section{padding:12px 11px}.update-build-cell>strong{font-size:20px}.update-actions{gap:5px}.update-actions button{padding-inline:5px;font-size:6px}}
 @media(prefers-reduced-motion:reduce){.update-storage-bar>i,.update-download-bar>i{transition:none}}
+
+/* Turntable operation: the motor waits for CRI readiness; the stylus remains
+   parked until playback really begins, then settles onto the groove. */
+.audio-player.is-starting .turntable-needle{
+  transform:rotate(0deg);
+  filter:opacity(.9);
+}
+.audio-player.is-starting .needle-tip{transform:translateY(0)}
+.audio-player.is-needle-down .turntable-needle{
+  transition:transform .82s cubic-bezier(.22,.61,.36,1),filter .45s ease;
+}
+.audio-player.is-needle-down .needle-tip{
+  transition:transform .58s cubic-bezier(.22,.61,.36,1);
+}
+.audio-player.is-playing .turntable-status-light{
+  box-shadow:0 0 8px #b7c77a,0 0 15px #b7c77a55;
+}
