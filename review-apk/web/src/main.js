@@ -355,7 +355,7 @@ function audioRecordMarkup(track, index) {
     <div class="audio-record-row">
       <button type="button" class="audio-record${custom ? " is-custom-record" : ""}" data-audio-record="${escapeHtml(track.id)}" aria-pressed="false">
         <span class="record-sleeve"><i class="sleeve-vinyl"></i><b>${String(index + 1).padStart(2,"0")}</b></span>
-        <span class="record-copy"><strong>${escapeHtml(track.title)}</strong><small>${custom ? "YOUR MUSIC · " + escapeHtml((track.extension || "AUDIO").toUpperCase()) : "CRI ADX · POCKET BGM"}</small></span>
+        <span class="record-copy"><strong>${escapeHtml(track.title)}</strong><small>${custom ? "YOUR RECORD · " + escapeHtml((track.extension || "AUDIO").toUpperCase()) : track.official ? "MERZKAVA OFFICIAL · ADX" : "POCKET ORIGINAL · ADX"}</small></span>
         <span class="record-state" aria-hidden="true">✓</span>
       </button>
       ${custom
@@ -386,8 +386,8 @@ function showAudioImportNotice(message, success = false) {
     : (overlay.dataset.noticeAction === "remove-failed" ? "Could not remove record" : "This file is not supported");
   if (kicker) kicker.textContent = success
     ? (overlay.dataset.noticeAction === "removed" ? "REMOVED FROM YOUR RACK" : "ADDED TO YOUR RECORD RACK")
-    : (overlay.dataset.noticeAction === "remove-failed" ? "RECORD RACK · NOT CHANGED" : "A SMALL FORMAT CHECK");
-  if (copy) copy.textContent = String(message || (success ? "Your music has joined the library." : "Choose an audio format supported by Pocket."));
+    : (overlay.dataset.noticeAction === "remove-failed" ? "RECORD RACK · NOT CHANGED" : "RECORD RACK · FILE CHECK");
+  if (copy) copy.textContent = String(message || (success ? "Your music has joined the library." : "Choose an audio file Pocket can prepare for the record deck."));
   overlay.hidden = false;
   overlay.setAttribute("aria-hidden","false");
   const panel = overlay.querySelector(".audio-import-card");
@@ -1671,19 +1671,19 @@ function renderPage(destination, transitionDuration=420) {
             <div class="audio-rack-heading">
               <span>RECORD RACK</span>
               <div class="audio-rack-tools">
-                <small>SELECT A RECORD TO PLACE IT</small>
+                <small>YOUR RECORD COLLECTION</small>
                 <button type="button" class="audio-edit-toggle" data-audio-edit-list aria-pressed="false">EDIT LIST</button>
               </div>
             </div>
             <div class="audio-record-list" data-audio-record-list aria-label="Music library"></div>
-            <p class="audio-rack-note">Choose a record to replace the music; the stylus controls play and pause.</p>
+            <p class="audio-rack-note">Choose a record to load it onto the platter. Lower the stylus to play; lift it to pause.</p>
             <div class="audio-import-tools">
               <button type="button" class="audio-add-button" data-audio-add>
                 <span class="audio-package-icon" aria-hidden="true"><i></i><b></b><em></em></span>
-                <span><strong>ADD MUSIC</strong><small>CHOOSE FROM YOUR DEVICE</small></span>
+                <span><strong>ADD A PERSONAL RECORD</strong><small>CHOOSE FROM THIS DEVICE</small></span>
                 <b aria-hidden="true">↗</b>
               </button>
-              <p class="audio-format-note">OGG, MP3, M4A, AAC, FLAC, WAV and other device-decodable audio are converted to private PCM WAV before entering CRI. Source limit: 64 MB. Saved inside Pocket.</p>
+              <p class="audio-format-note">Add your own soundtrack to the rack. ADX, OGG, MP3, M4A, AAC, FLAC and WAV are supported. Pocket prepares each track for the record deck and keeps it in your private rack on this device. Up to 64 MB per track.</p>
             </div>
           </section>
           <section class="vinyl-style-drawer" data-vinyl-drawer>
@@ -1711,7 +1711,7 @@ function renderPage(destination, transitionDuration=420) {
             <p class="audio-import-kicker" data-audio-import-kicker>RECORD ARCHIVE</p>
             <h3 id="audio-import-title" data-audio-import-title>Record added</h3>
             <p class="audio-import-message" data-audio-import-message></p>
-            <small class="audio-import-footnote">SUPPORTED AUDIO · ANDROID DECODER → PCM WAV → CRI · MAX 64 MB</small>
+            <small class="audio-import-footnote">PERSONAL MUSIC · PRIVATE POCKET RACK · MAX 64 MB</small>
             <div class="audio-import-actions">
               <button type="button" class="audio-import-confirm" data-audio-import-confirm hidden>REMOVE RECORD</button>
               <button type="button" class="audio-import-close" data-audio-import-close>RETURN TO AUDIO</button>
