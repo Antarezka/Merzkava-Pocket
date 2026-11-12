@@ -34,6 +34,7 @@ public final class MainActivity extends Activity {
     public static final String EXTRA_UPDATE_SHA256 = "pocket_update_sha256";
     public static final String EXTRA_UPDATE_BUILD = "pocket_update_build";
     private static final int REQUEST_POCKET_AUDIO_PICKER = 7402;
+    private static final int REQUEST_POCKET_UPDATE_FOLDER = 7410;
     private WebView webView;
     private PocketNativeBridge nativeBridge;
     private PocketFloatingWindow floatingWindow;
@@ -76,6 +77,36 @@ public final class MainActivity extends Activity {
         }
     }
 
+    public boolean openPocketUpdateFolderPicker() {
+        try {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION |
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION |
+                Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION |
+                Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
+            Uri current = PocketUpdateStorage.savedTreeUri(this);
+            if (current != null && Build.VERSION.SDK_INT >= 26) {
+                intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, current);
+            }
+            startActivityForResult(intent, REQUEST_POCKET_UPDATE_FOLDER);
+            return true;
+        } catch (Exception error) {
+            Log.e("PocketUpdate", "Could not open the update folder picker", error);
+            dispatchUpdateFolderChange("{\\"ok\\":false,\\"message\\":\\"The Android folder picker could not be opened.\\"}");
+            return false;
+        }
+    }
+
+    private void dispatchUpdateFolderChange(String resultJson) {
+        WebView current = webView;
+        if (current == null) return;
+        String detail = resultJson == null ? "{}" : resultJson;
+        current.post(() -> current.evaluateJavascript(
+            "window.dispatchEvent(new CustomEvent('pocket:update-folder-changed',{detail:" + detail + "}));",
+            null
+        ));
+    }
+
     public boolean openPocketAudioPicker() {
         try {
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
@@ -98,6 +129,20 @@ public final class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_POCKET_UPDATE_FOLDER) {
+            String folderResult;
+            if (resultCode != RESULT_OK || data == null || data.getData() == null) {
+                folderResult = "{\\"ok\\":false,\\"cancelled\\":true,\\"message\\":\\"Folder selection cancelled.\\"}";
+            } else if (nativeBridge != null) {
+                int granted = data.getFlags() &
+                    (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                folderResult = nativeBridge.setPocketUpdateFolder(data.getData(), granted);
+            } else {
+                folderResult = "{\\"ok\\":false,\\"message\\":\\"The Pocket updater is unavailable.\\"}";
+            }
+            dispatchUpdateFolderChange(folderResult);
+            return;
+        }
         if (requestCode != REQUEST_POCKET_AUDIO_PICKER) return;
         String result;
         if (resultCode != RESULT_OK || data == null || data.getData() == null) {
