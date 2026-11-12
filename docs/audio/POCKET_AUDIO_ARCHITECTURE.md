@@ -42,12 +42,12 @@ The Settings **Add Music** picker accepts ordinary Android-supported audio forma
 
 ### Startup after the authenticated splash
 
-1. The initial boot mark/login flow does not start audio.
-2. After the authenticated Pocket splash animation completes, the Director requests the one-shot `record-placement` SFX.
-3. The Director waits for the native CRI `record` channel to report `ended`. A bounded six-second fallback prevents a missing completion callback from leaving startup silent forever.
-4. The Director then requests the selected BGM. CRI starts the music channel at a zero Tween multiplier and fades it up.
-5. Only after native CRI reports BGM as `playing` does the Director request the independent vinyl-crackle ambience loop.
-6. The turntable presents the stylus-down / motor-start transition while the startup music request is active. If playback fails, the Director clears the stylus-down state and reports the CRI error.
+1. The initial boot mark/login flow does not start audible playback. The boot cache warm-up runs separately in the background.
+2. After the authenticated Pocket splash animation completes, the Director requests the currently selected BGM. The request waits behind the boot cache pass when that pass is still running.
+3. CRI starts MUSIC at a zero Tween multiplier and fades it up. Only after native CRI reports BGM as `playing` does the Director request the one-shot `record-placement` SFX.
+4. Native playback readiness starts the platter motor and arms the stylus-contact cue. Once CRI confirms stylus contact, the Director lowers the stylus and requests the independent vinyl-crackle ambience loop.
+5. The Director waits for the native CRI `record` channel to report `ended` before marking the startup sequence complete. A bounded six-second fallback after the cue starts prevents a missing completion callback from leaving startup in a pending state.
+6. If BGM playback fails, the Director clears the stylus-down state and reports the CRI error. The BGM continues looping as the single current record; startup does not advance a playlist.
 
 ### Opening Settings > Audio
 
@@ -102,7 +102,7 @@ References: [Unity Audio Mixer (Japanese)](https://docs.unity3d.com/ja/current/M
 - All audible playback requests terminate in the same native CRI runtime.
 - MUSIC and AMBIENCE use independent CRI player channels.
 - BGM replacement touches MUSIC only.
-- Startup waits for the record-placement CRI cue (or a bounded fallback) before requesting BGM.
+- The selected BGM is requested only after the authenticated splash; the record-placement cue is requested only after native BGM readiness, and its completion wait is bounded.
 - Ambience starts only after confirmed native BGM playback.
 - Track replacement does not restart the ambience player.
 - Stylus lift fades and pauses BGM plus ambience; no dedicated stylus-lift SFX is currently bundled.
