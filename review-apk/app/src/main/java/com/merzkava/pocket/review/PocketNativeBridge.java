@@ -180,8 +180,14 @@ public final class PocketNativeBridge {
                 return audioImportResult(false, "Pocket could not update the music rack.", false);
             }
             criAudio.stopMusic();
-            File wav = new File(new File(activity.getFilesDir(), "music"), id.toLowerCase(Locale.ROOT) + ".wav");
+            File musicDirectory = new File(activity.getFilesDir(), "music");
+            String trackId = id.toLowerCase(Locale.ROOT);
+            File wav = new File(musicDirectory, trackId + ".wav");
+            File adx = new File(musicDirectory, trackId + ".adx");
             if (wav.isFile()) wav.delete();
+            if (adx.isFile()) adx.delete();
+            File decodedAdx = new File(new File(activity.getFilesDir(), "cri-audio-pcm"), trackId + ".adx.wav");
+            if (decodedAdx.isFile()) decodedAdx.delete();
             return new JSONObject()
                 .put("ok", true)
                 .put("cancelled", false)
@@ -206,12 +212,18 @@ public final class PocketNativeBridge {
             if (!directory.isDirectory() && !directory.mkdirs()) {
                 return audioImportResult(false, "Pocket could not prepare its private music shelf.", false);
             }
-            temporary = File.createTempFile("cri-import-", ".wav", directory);
-            PocketAudioImporter.Result decoded = PocketAudioImporter.decodeToWav(activity, uri, temporary);
+
+            String displayName = PocketAudioImporter.queryDisplayName(activity, uri);
+            boolean adxSource = displayName.toLowerCase(Locale.ROOT).endsWith(".adx");
+            temporary = File.createTempFile("cri-import-", adxSource ? ".adx" : ".wav", directory);
+            PocketAudioImporter.Result decoded = adxSource
+                ? PocketAudioImporter.copyAdxSource(activity, uri, temporary)
+                : PocketAudioImporter.decodeToWav(activity, uri, temporary);
             if (!decoded.ok) return audioImportResult(false, decoded.message, false);
 
             String id = java.util.UUID.randomUUID().toString();
-            File stored = new File(directory, id + ".wav");
+            String storedExtension = adxSource ? ".adx" : ".wav";
+            File stored = new File(directory, id + storedExtension);
             if (!temporary.renameTo(stored)) {
                 try (InputStream input = new java.io.FileInputStream(temporary);
                      FileOutputStream output = new FileOutputStream(stored)) {
@@ -220,9 +232,10 @@ public final class PocketNativeBridge {
                     while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
                     output.getFD().sync();
                 }
-                if (!stored.isFile() || stored.length() < 44) {
+                long minimumLength = adxSource ? 32L : 44L;
+                if (!stored.isFile() || stored.length() < minimumLength) {
                     stored.delete();
-                    throw new IOException("Pocket could not save the decoded record.");
+                    throw new IOException("Pocket could not save the imported record.");
                 }
             }
             temporary = null;
@@ -233,22 +246,25 @@ public final class PocketNativeBridge {
             entry.put("id", id);
             entry.put("title", decoded.title);
             entry.put("extension", decoded.sourceExtension);
-            entry.put("mimeType", "audio/wav");
-            entry.put("playbackType", "CRI_WAVE");
+            entry.put("mimeType", adxSource ? "application/octet-stream" : "audio/wav");
+            entry.put("playbackType", adxSource ? "CRI_ADX" : "CRI_WAVE");
             tracks.put(entry);
             if (!prefs().edit().putString(PREF_CUSTOM_MUSIC_LIBRARY, tracks.toString()).commit()) {
                 stored.delete();
                 return audioImportResult(false, "Pocket could not update the music rack. Please try again.", false);
             }
+            String successMessage = adxSource
+                ? decoded.message
+                : decoded.message;
             return new JSONObject()
                 .put("ok", true)
                 .put("cancelled", false)
-                .put("message", decoded.message)
+                .put("message", successMessage)
                 .put("tracks", tracks)
                 .toString();
         } catch (Exception error) {
-            return audioImportResult(false, "The selected audio could not be converted for CRI playback: " +
-                (error.getMessage() == null ? "unknown decoder error." : error.getMessage()), false);
+            return audioImportResult(false, "The selected audio could not be prepared for CRI playback: " +
+                (error.getMessage() == null ? "unknown audio error." : error.getMessage()), false);
         } finally {
             if (temporary != null && temporary.exists()) temporary.delete();
         }
