@@ -35,8 +35,8 @@ export function createPocketAudioDirector({
   let motorRunning = false;
   let startupSequence = "idle";
   let startupWaitingForRecord = false;
-  let startupWaitingForStylus = false;
   let startupNeedleRequested = false;
+  let stylusContactPending = false;
   let startupTimeout = null;
   let startupRecordStarted = false;
   let custom = [];
@@ -91,7 +91,7 @@ export function createPocketAudioDirector({
     if (startupSequence !== "idle" && startupSequence !== "complete") {
       startupSequence = "error";
       startupWaitingForRecord = false;
-      startupWaitingForStylus = false;
+      stylusContactPending = false;
       clearStartupTimeout();
     }
     notify();
@@ -132,11 +132,11 @@ export function createPocketAudioDirector({
   function startStartupBgm() {
     clearStartupTimeout();
     startupWaitingForRecord = false;
-    startupWaitingForStylus = false;
     startupSequence = "music";
     startupNeedleRequested = false;
     needleDown = false;
     motorRunning = false;
+    stylusContactPending = false;
     notify();
     const accepted = requestTrackStart();
     if (!accepted) startupSequence = "error";
@@ -154,19 +154,6 @@ export function createPocketAudioDirector({
     startupRecordStarted = false;
     clearStartupTimeout();
     startStartupBgm();
-  }
-
-  function finishStartupStylus() {
-    if (!startupWaitingForStylus) return;
-    startupWaitingForStylus = false;
-    if (startupNeedleRequested) {
-      startStartupBgm();
-    } else {
-      startupSequence = "cancelled";
-      needleDown = false;
-      motorRunning = false;
-      notify();
-    }
   }
 
   function updateNativeState(channel, nextStatus, nextError = "") {
@@ -188,8 +175,10 @@ export function createPocketAudioDirector({
     }
 
     if (channel === "stylus") {
-      if (startupWaitingForStylus && ["ended","error","idle"].includes(next)) {
-        finishStartupStylus();
+      if (stylusContactPending && (next === "playing" || next === "error")) {
+        stylusContactPending = false;
+        if (isPlaying() && motorRunning) needleDown = true;
+        notify();
       }
       return;
     }
@@ -213,23 +202,30 @@ export function createPocketAudioDirector({
     nativeError = String(nextError || "");
     if (next === "ended") {
       needleDown = false;
+      motorRunning = false;
+      stylusContactPending = false;
       onPlaybackCycle();
     } else if (next === "error") {
       if (!nativeError) nativeError = "CRI playback failed.";
       needleDown = false;
       motorRunning = false;
+      stylusContactPending = false;
       ambienceRequested = false;
       native?.criStopMusic?.();
       if (startupSequence === "music") startupSequence = "error";
     } else if (next === "idle") {
       needleDown = false;
       motorRunning = false;
+      stylusContactPending = false;
       ambienceRequested = false;
     } else if (next === "paused") {
       needleDown = false;
     } else if (next === "playing") {
-      needleDown = true;
+      // Spin up the platter first. The arm stays raised until native CRI
+      // confirms the stylus-contact one-shot has actually begun playing.
+      needleDown = false;
       motorRunning = true;
+      stylusContactPending = true;
       if (startupSequence === "music") startupSequence = "complete";
       ensureAmbienceForPlayingMusic();
     }
@@ -248,7 +244,7 @@ export function createPocketAudioDirector({
     writeStored("mp-audio-track", selectedTrack);
     nativeError = "";
 
-    const startupEffectInFlight = startupWaitingForRecord || startupWaitingForStylus;
+    const startupEffectInFlight = startupWaitingForRecord;
     const replaceActivePlayback = !startupEffectInFlight && (wasPlaying || isPaused());
 
     if (replaceActivePlayback) {
@@ -256,6 +252,7 @@ export function createPocketAudioDirector({
       // already paused with the stylus lifted. The new side remains paused.
       needleDown = false;
       motorRunning = false;
+      stylusContactPending = false;
       if (!isPaused()) {
         const paused = native?.criPauseMusic?.(true) === true;
         if (!paused) {
@@ -314,15 +311,9 @@ export function createPocketAudioDirector({
       notify();
       return true;
     }
-    if (startupWaitingForStylus) {
-      startupNeedleRequested = !startupNeedleRequested;
-      needleDown = startupNeedleRequested;
-      notify();
-      return true;
-    }
-
     if (needleDown || isPlaying() || isStarting()) {
       needleDown = false;
+      stylusContactPending = false;
       notify();
       if (typeof native?.criPauseMusic !== "function") {
         needleDown = true;
@@ -406,10 +397,10 @@ export function createPocketAudioDirector({
       clearStartupTimeout();
       startupWaitingForRecord = false;
       startupRecordStarted = false;
-      startupWaitingForStylus = false;
       startupSequence = "cancelled";
       needleDown = false;
       motorRunning = false;
+      stylusContactPending = false;
       ambienceRequested = false;
       native?.criStopMusic?.();
       notify();
