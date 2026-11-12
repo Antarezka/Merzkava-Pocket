@@ -3,13 +3,13 @@ const BUILT_IN_TRACKS = Object.freeze([
   { id:"chill", title:"chill-1a", extension:"ADX", custom:false },
   { id:"retroatrical1", title:"Retroatrical-1", extension:"ADX", custom:false },
   { id:"retroatrical2", title:"Retroatrical-2", extension:"ADX", custom:false },
-  { id:"officialtheme1", title:"Merzkava Official Theme - 1", extension:"ADX", custom:false },
-  { id:"officialtheme2", title:"Merzkava Official Theme - 2", extension:"ADX", custom:false },
-  { id:"officialtheme3", title:"Merzkava Official Theme - 3", extension:"ADX", custom:false },
-  { id:"officialtheme4", title:"Merzkava Official Theme - 4", extension:"ADX", custom:false },
-  { id:"officialtheme5", title:"Merzkava Official Theme - 5", extension:"ADX", custom:false },
-  { id:"officialtheme6", title:"Merzkava Official Theme - 6", extension:"ADX", custom:false },
-  { id:"officialtheme7", title:"Merzkava Official Theme - 7", extension:"ADX", custom:false }
+  { id:"officialtheme1", title:"Merzkava Official Theme - 1", extension:"ADX", custom:false, official:true },
+  { id:"officialtheme2", title:"Merzkava Official Theme - 2", extension:"ADX", custom:false, official:true },
+  { id:"officialtheme3", title:"Merzkava Official Theme - 3", extension:"ADX", custom:false, official:true },
+  { id:"officialtheme4", title:"Merzkava Official Theme - 4", extension:"ADX", custom:false, official:true },
+  { id:"officialtheme5", title:"Merzkava Official Theme - 5", extension:"ADX", custom:false, official:true },
+  { id:"officialtheme6", title:"Merzkava Official Theme - 6", extension:"ADX", custom:false, official:true },
+  { id:"officialtheme7", title:"Merzkava Official Theme - 7", extension:"ADX", custom:false, official:true }
 ]);
 
 const clampVolume = value => Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
