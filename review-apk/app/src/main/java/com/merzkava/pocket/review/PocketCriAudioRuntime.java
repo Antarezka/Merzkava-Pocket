@@ -96,7 +96,7 @@ public final class PocketCriAudioRuntime {
 
     private static native boolean nativeInit(Context context);
     private static native void nativeShutdown();
-    private static native boolean nativePlayFile(int channel, String absolutePath, int format, int numChannels, int samplingRate, float volume, float fadeMultiplier, boolean loop);
+    private static native boolean nativePlayFile(int channel, String absolutePath, int format, int numChannels, int samplingRate, long startTimeMs, float volume, float fadeMultiplier, boolean loop);
     private static native void nativeFadeVolume(int channel, int durationMs, float volume);
     private static native void nativeStop(int channel);
     private static native void nativePause(int channel, boolean paused);
