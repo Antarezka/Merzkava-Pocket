@@ -742,7 +742,10 @@ test("Seven Merzkava Official Theme ADX tracks are listed as protected built-in 
   assert.match(buildWorkflowSource, /local target_name="merzkava-official-theme-\$\{number\}\.adx"/);
   assert.match(buildWorkflowSource, /range\(1, 8\)/);
   assert.match(source, /audioDirector\.getTracks\(\)/);
-  assert.match(source, /CRI ADX · POCKET BGM/);
+  assert.match(source, /POCKET ORIGINAL · ADX/);
+  assert.match(source, /MERZKAVA OFFICIAL · ADX/);
+  assert.match(source, /ADD A PERSONAL RECORD/);
+  assert.match(source, /ADX stays in its original format/);
   assert.match(buildWorkflowSource, /test "\$ADX_COUNT" -eq 14/);
 });
 
