@@ -26,6 +26,7 @@ public final class PocketUpdateStorage {
     public static final String PREF_DIRECTORY_LABEL = "pocket_update_directory_label_v1";
     public static final String PREF_SAVED_URI = "pocket_update_saved_uri_v1";
     public static final String PREF_STATUS = "pocket_update_file_status_v1";
+    public static final String PREF_STATUS_MESSAGE = "pocket_update_file_status_message_v1";
     public static final String FOLDER_NAME = "Merzkava Pocket";
     public static final String APK_MIME = "application/vnd.android.package-archive";
     private static final Pattern APK_NAME = Pattern.compile(

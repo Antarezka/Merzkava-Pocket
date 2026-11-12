@@ -100,7 +100,9 @@ public final class PocketUpdateProgressService extends Service {
                 Uri folder = PocketUpdateStorage.savedDirectoryUri(this);
                 if (!PocketUpdateStorage.directoryAvailable(this, folder)) {
                     getSharedPreferences(PREFS, MODE_PRIVATE).edit()
-                        .putString(PocketUpdateStorage.PREF_STATUS, "folder_unavailable").apply();
+                        .putString(PocketUpdateStorage.PREF_STATUS, "folder_unavailable")
+                        .putString(PocketUpdateStorage.PREF_STATUS_MESSAGE,
+                            "Choose or reselect the Pocket update folder in Settings.").apply();
                     finishNotification("Choose or reselect the Pocket update folder in Settings.", 100, false, true);
                     return;
                 }
@@ -144,7 +146,8 @@ public final class PocketUpdateProgressService extends Service {
                 Uri saved = PocketUpdateStorage.copyAndVerify(
                     this, staging, folder, fileName, sha256);
                 if (!prefs.edit().putString(PocketUpdateStorage.PREF_SAVED_URI, saved.toString())
-                    .putString(PocketUpdateStorage.PREF_STATUS, "completed").commit()) {
+                    .putString(PocketUpdateStorage.PREF_STATUS, "completed")
+                    .remove(PocketUpdateStorage.PREF_STATUS_MESSAGE).commit()) {
                     PocketUpdateStorage.delete(this, saved);
                     throw new IOException("Pocket could not save the verified APK record.");
                 }
@@ -154,9 +157,12 @@ public final class PocketUpdateProgressService extends Service {
                 finishNotification("DOWNLOAD COMPLETE · SAVED IN YOUR FOLDER", 100, true, false);
             } catch (Exception error) {
                 Log.w(TAG, "Could not save the verified APK to the selected Pocket folder.", error);
-                prefs.edit().putString(PocketUpdateStorage.PREF_STATUS, "save_failed").apply();
+                String message = error.getMessage() == null
+                    ? "Choose an available folder and try again." : error.getMessage();
+                prefs.edit().putString(PocketUpdateStorage.PREF_STATUS, "save_failed")
+                    .putString(PocketUpdateStorage.PREF_STATUS_MESSAGE, message).apply();
                 finishNotification("Pocket could not save the update", percent, false, true,
-                    error.getMessage() == null ? "Choose an available folder and try again." : error.getMessage(), false);
+                    message, false);
             } finally {
                 copying = false;
             }
