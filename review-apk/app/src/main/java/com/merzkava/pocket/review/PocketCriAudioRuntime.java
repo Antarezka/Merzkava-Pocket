@@ -1122,7 +1122,7 @@ public final class PocketCriAudioRuntime {
                 long now = SystemClock.elapsedRealtime();
                 if (now - lastMediaNotificationUpdateAt >= 900L) {
                     lastMediaNotificationUpdateAt = now;
-                    mainHandler.post(this::updateMediaNotification);
+                    mainHandler.post(PocketCriAudioRuntime.this::updateMediaNotification);
                 }
                 if (!active) {
                     mainHandler.post(() -> {
