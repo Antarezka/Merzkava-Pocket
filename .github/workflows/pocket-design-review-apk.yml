@@ -1,7 +1,7 @@
 name: Merzkava Pocket Android APK
 on:
   push:
-    branches: [main, feat/daily-login-pixel-scene-frame11-mainline, fix/daily-login-japanese-shop-depth-2026-11-08, feat/claude-modular-appearance-expansion-2026-11-08, recovery/claude-full-updates-on-build-146-2026-11-09, feat/settings-vinyl-player-2026-11-09, fix/build196-vinyl-ambience-loader-2026-11-09, feat/role-based-profile-databased-toolbar-2026-11-09, fix/build239-manual-audio-floating-fox-splash, feat/pocket-audio-architecture-2026-11-11, fix/build362-audio-update-2026-11-11, fix/preserve-source-audio-rate-2026-11-11, fix/settings-updater-downloadmanager-build375-2026-11-11, fix/pocket-cri-native-renderer-2026-11-11, fix/build378-cri-default-renderer-2026-11-11, fix/build379-cri-distortion-2026-11-11]
+    branches: [main, feat/daily-login-pixel-scene-frame11-mainline, fix/daily-login-japanese-shop-depth-2026-11-08, feat/claude-modular-appearance-expansion-2026-11-08, recovery/claude-full-updates-on-build-146-2026-11-09, feat/settings-vinyl-player-2026-11-09, fix/build196-vinyl-ambience-loader-2026-11-09, feat/role-based-profile-databased-toolbar-2026-11-09, fix/build239-manual-audio-floating-fox-splash, feat/pocket-audio-architecture-2026-11-11, fix/build362-audio-update-2026-11-11, fix/preserve-source-audio-rate-2026-11-11, fix/settings-updater-downloadmanager-build375-2026-11-11, fix/pocket-cri-native-renderer-2026-11-11, fix/build378-cri-default-renderer-2026-11-11, fix/build379-cri-distortion-2026-11-11, fix/audio-director-startup-sync-2026-11-12]
     paths:
       - "review-apk/**"
       - "docs/game/**"
@@ -110,12 +110,13 @@ jobs:
       - name: Install web dependencies
         working-directory: review-apk
         run: npm install
-      - name: Bundle pre-converted CRI ADX assets without a conversion bridge
+      - name: Bundle Pocket CRI ADX music, official themes and effects
         shell: bash
         run: |
           set -euo pipefail
           CRI_AUDIO_DIR="review-apk/web/public/cri-audio"
           mkdir -p "$CRI_AUDIO_DIR"
+          git fetch --no-tags origin main:refs/remotes/origin/main
 
           copy_adx() {
             local source_name="$1"
@@ -125,6 +126,14 @@ jobs:
             echo "Bundled ${target_name} directly from ${source_name}"
           }
 
+          copy_official_theme() {
+            local number="$1"
+            local target_name="merzkava-official-theme-${number}.adx"
+            git show "origin/main:Merzkava Official Theme - ${number}.adx" > "$CRI_AUDIO_DIR/${target_name}"
+            test -s "$CRI_AUDIO_DIR/${target_name}"
+            echo "Bundled creator-owned official theme ${number} as ${target_name}"
+          }
+
           copy_adx "Happy-1a_dragdropdo.adx" "Happy-1a.adx"
           copy_adx "chill-1a_dragdropdo.adx" "chill-1a.adx"
           copy_adx "Retroatrical-a1_dragdropdo.adx" "Retroatrical-1.adx"
@@ -132,6 +141,10 @@ jobs:
           copy_adx "needle drop+vinyls crackle_dragdropdo.adx" "needle-drop.adx"
           copy_adx "organic vinyl record crackle_dragdropdo.adx" "vinyl-surface-noise.adx"
           copy_adx "record placement_dragdropdo.adx" "record-placement.adx"
+
+          for number in 1 2 3 4 5 6 7; do
+            copy_official_theme "$number"
+          done
 
           python3 - "$CRI_AUDIO_DIR" <<'PY'
           from pathlib import Path
@@ -146,12 +159,12 @@ jobs:
               "needle-drop.adx",
               "vinyl-surface-noise.adx",
               "record-placement.adx",
+              *(f"merzkava-official-theme-{number}.adx" for number in range(1, 8)),
           }
-          supported_rates = {48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000}
           actual = {path.name for path in audio_dir.glob("*.adx")}
           if actual != expected:
               raise SystemExit(
-                  f"Expected exactly the seven supplied ADX assets; found {sorted(actual)}"
+                  f"Expected exactly fourteen CRI ADX assets; found {sorted(actual)}"
               )
 
           for name in sorted(expected):
@@ -166,7 +179,7 @@ jobs:
               sample_rate = int.from_bytes(data[8:12], "big")
               if channels not in (1, 2):
                   raise SystemExit(f"{name}: Pocket requires mono/stereo; got {channels} channels")
-              if sample_rate not in supported_rates:
+              if sample_rate < 8000 or sample_rate > 192000:
                   raise SystemExit(f"{name}: unsupported ADX sample rate {sample_rate} Hz")
               print(
                   f"{name}: CRI ADX encoding={data[4]}, "
@@ -273,7 +286,7 @@ jobs:
           fi
 
           ADX_COUNT="$(find "$CRI_AUDIO" -maxdepth 1 -type f -name '*.adx' | wc -l)"
-          test "$ADX_COUNT" -eq 7
+          test "$ADX_COUNT" -eq 14
           OUTSIDE_ADX="$(find "$DIST" -type f -name '*.adx' ! -path "$CRI_AUDIO/*" -print)"
           if [[ -n "$OUTSIDE_ADX" ]]; then
             printf '%s\n' "$OUTSIDE_ADX"
@@ -350,11 +363,14 @@ jobs:
           unzip -l "$APK" | grep -F "lib/arm64-v8a/libcri_ware_android_le.so"
           unzip -l "$APK" | grep -F "lib/armeabi-v7a/libcri_ware_android_LE.so"
           unzip -l "$APK" | grep -F "lib/arm64-v8a/libpocket_cri_audio.so"
-          for asset in Happy-1a.adx chill-1a.adx Retroatrical-1.adx Retroatrical-2.adx needle-drop.adx record-placement.adx vinyl-surface-noise.adx; do
+          for asset in Happy-1a.adx chill-1a.adx Retroatrical-1.adx Retroatrical-2.adx needle-drop.adx record-placement.adx vinyl-surface-noise.adx \
+            merzkava-official-theme-1.adx merzkava-official-theme-2.adx merzkava-official-theme-3.adx \
+            merzkava-official-theme-4.adx merzkava-official-theme-5.adx merzkava-official-theme-6.adx \
+            merzkava-official-theme-7.adx; do
             unzip -l "$APK" | grep -F "assets/cri-audio/$asset"
           done
           ADX_COUNT="$(unzip -Z1 "$APK" | grep -Ec '^assets/cri-audio/[^/]+\.adx$' || true)"
-          test "$ADX_COUNT" -eq 7
+          test "$ADX_COUNT" -eq 14
           LEGACY_AUDIO="$(unzip -Z1 "$APK" | grep -Ei '\.(ogg|mp3|wav|m4a|aac|flac|opus|wma|aiff)$' || true)"
           if [[ -n "$LEGACY_AUDIO" ]]; then
             printf '%s\n' "$LEGACY_AUDIO"
