@@ -262,6 +262,12 @@ test("CRI Android output is tuned and the thread model is pinned before AtomEx i
   const steady = Number(/kAndroidBufferingMs\s*=\s*(\d+)/.exec(nativeSource)?.[1]);
   assert.ok(start >= 100 && steady >= start, "steady buffering must not be shorter than the start buffering");
   assert.ok(steady <= 1000, "buffering must stay bounded so fades and stylus changes still feel immediate");
+  // Build 381: the SDK header requires the AAudio switch before library initialization and falls
+  // back to OpenSL ES by itself, so it lives inside the helper that already runs before Initialize.
+  const aaudio = nativeSource.indexOf("criAtom_EnableAAudio_ANDROID(CRI_TRUE)");
+  const helperStart = nativeSource.indexOf("void applyAndroidOutputTuning(");
+  assert.ok(aaudio > helperStart && helperStart >= 0 && aaudio < init,
+    "AAudio must be requested inside the pre-initialization output tuning");
   assert.match(nativeSource, /nativeInit\(JNIEnv\* env, jclass, jobject context\)/);
   assert.match(nativeSource, /releaseAndroidContext\(env\);[\s\S]*?gMemoryAdxAssets\.clear\(\)/);
   assert.match(runtimeSource, /private static native boolean nativeInit\(Context context\)/);

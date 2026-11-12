@@ -136,6 +136,16 @@ Conclusion: no documentation-confirmed engine misconfiguration remains. The one 
 
 If the data is the cause, ADX cannot be fixed by engine settings. Options then: PCM or higher-bitrate assets through the existing CRI Wave voice pool (APK size and memory cost) or CRI's HCA codec (needs CRI's encoder, not available in CI).
 
+### Build 381: AAudio elimination arm
+
+Listening test result from the user: the decoded-ADX excerpt of `chill-1a` plays clean in an ordinary music player on the target phone. The shipped ADX data and the codec are therefore eliminated as the cause of the noise.
+
+Remaining differences between that clean playback and Pocket: CRI's ADX decode, ASR mixing and the Android output API. Single variable changed in this build: `criAtom_EnableAAudio_ANDROID(CRI_TRUE)` before `criAtomEx_Initialize_ANDROID`. SDK header text: uses AAudio on Android 8 or newer, switches to OpenSL ES automatically where AAudio is unavailable, must be called before library initialization. Buffering 200/400 ms and the MULTI pin from Build 380 are kept unchanged.
+
+Logcat marker: `Android output tuning: ... aaudio=requested`.
+
+If still noisy on the device, the next arm is the existing `fix/toolster-adx-pcm-decode-2026-11-11` branch (CRI Wave pool with PCM decoded in Java), which separates CRI's ADX decoder from the ASR and output path. An import of the original OGG through Pocket's importer is the zero-build equivalent of that test.
+
 ## CRI facts found in Build 362
 
 - One native `PocketCriAudioRuntime` owns playback; six dedicated players: MUSIC, vinyl crackle/ambience, stylus, record placement, door chime, door rattle.

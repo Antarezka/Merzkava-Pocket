@@ -154,8 +154,14 @@ void applyAndroidOutputTuning(JNIEnv* env, jobject context) {
     }
     criAtom_SetSoundStartBufferingTime_ANDROID(kAndroidStartBufferingMs);
     criAtom_SetSoundBufferingTime_ANDROID(kAndroidBufferingMs);
+    // Build 381 elimination arm. The decoded ADX data is clean in an ordinary
+    // player on the target handset, so the remaining difference is the output
+    // path. The SDK header documents criAtom_EnableAAudio_ANDROID as: use AAudio
+    // on Android 8+, automatically falling back to OpenSL ES where AAudio is
+    // unavailable, and it must be called before library initialization.
+    criAtom_EnableAAudio_ANDROID(CRI_TRUE);
     __android_log_print(ANDROID_LOG_INFO, kTag,
-        "Android output tuning: hardwareProperties=%s startBuffering=%dms buffering=%dms",
+        "Android output tuning: hardwareProperties=%s startBuffering=%dms buffering=%dms aaudio=requested",
         hardwareApplied == CRI_TRUE ? "applied" : "not-applied",
         static_cast<int>(kAndroidStartBufferingMs), static_cast<int>(kAndroidBufferingMs));
 }
