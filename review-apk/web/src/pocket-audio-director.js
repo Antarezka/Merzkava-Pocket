@@ -257,21 +257,34 @@ export function createPocketAudioDirector({
     if (!track || selectedTrack === track.id) return false;
 
     const previousTrack = selectedTrack;
+    const previousNeedleDown = needleDown;
+    const wasPlaying = needleDown || isPlaying() || isStarting();
     selectedTrack = track.id;
     writeStored("mp-audio-track", selectedTrack);
     nativeError = "";
 
     const startupEffectInFlight = startupWaitingForRecord || startupWaitingForStylus;
-    const replaceActivePlayback = !startupEffectInFlight &&
-      (needleDown || isPlaying() || isStarting() || isPaused());
+    const replaceActivePlayback = !startupEffectInFlight && (wasPlaying || isPaused());
 
     if (replaceActivePlayback && !isPaused()) {
+      // A real record change lifts the stylus and fades the old side out.
+      // The selected side is loaded paused; the user lowers the tonearm again.
       needleDown = false;
       clearStylusDropTimeout();
+      const paused = native?.criPauseMusic?.(true) === true;
+      if (!paused) {
+        selectedTrack = previousTrack;
+        writeStored("mp-audio-track", selectedTrack);
+        needleDown = previousNeedleDown;
+        notify();
+        return false;
+      }
     }
     if (replaceActivePlayback && !requestTrackStart()) {
       selectedTrack = previousTrack;
       writeStored("mp-audio-track", selectedTrack);
+      if (wasPlaying) native?.criPauseMusic?.(false);
+      needleDown = previousNeedleDown;
       notify();
       return false;
     }
