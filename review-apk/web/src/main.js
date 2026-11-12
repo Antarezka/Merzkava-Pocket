@@ -626,7 +626,7 @@ function mountAudioSettings() {
     editListMode = !!enabled;
     recordList?.classList.toggle("is-editing",editListMode);
     editListButton?.setAttribute("aria-pressed",String(editListMode));
-    if (editListButton) editListButton.textContent = editListMode ? "DONE" : "EDIT LIST";
+    if (editListButton) editListButton.textContent = editListMode ? "DONE" : "EDIT RACK";
   };
   editListButton?.addEventListener("click",() => setEditListMode(!editListMode));
 
@@ -1672,7 +1672,7 @@ function renderPage(destination, transitionDuration=420) {
               <span>RECORD RACK</span>
               <div class="audio-rack-tools">
                 <small>YOUR RECORD COLLECTION</small>
-                <button type="button" class="audio-edit-toggle" data-audio-edit-list aria-pressed="false">EDIT LIST</button>
+                <button type="button" class="audio-edit-toggle" data-audio-edit-list aria-pressed="false">EDIT RACK</button>
               </div>
             </div>
             <div class="audio-record-list" data-audio-record-list aria-label="Music library"></div>
@@ -1683,7 +1683,7 @@ function renderPage(destination, transitionDuration=420) {
                 <span><strong>ADD A PERSONAL RECORD</strong><small>CHOOSE FROM THIS DEVICE</small></span>
                 <b aria-hidden="true">↗</b>
               </button>
-              <p class="audio-format-note">Add your own soundtrack to the rack. ADX, OGG, MP3, M4A, AAC, FLAC and WAV are supported. Pocket prepares each track for the record deck and keeps it in your private rack on this device. Up to 64 MB per track.</p>
+              <p class="audio-format-note">Add ADX or another audio file your device can open (OGG, MP3, M4A, AAC, FLAC or WAV). ADX stays in its original format; other tracks are prepared for the Pocket deck. Your records stay in this private rack on this device. Up to 64 MB each.</p>
             </div>
           </section>
           <section class="vinyl-style-drawer" data-vinyl-drawer>
