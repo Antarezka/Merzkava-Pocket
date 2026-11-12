@@ -4,6 +4,7 @@
 #include <cri_le_atom_android.h>
 #include <cri_le_atom_ex.h>
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <chrono>
