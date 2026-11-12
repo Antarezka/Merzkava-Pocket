@@ -973,8 +973,7 @@ public final class PocketCriAudioRuntime {
         final AudioMetadata metadata = currentMusicMetadata;
         final long duration = currentMusicDurationMs;
         if (file == null || !file.isFile() || metadata == null || duration <= 0L ||
-            (!"playing".equals(mediaPlaybackStatus) && !"paused".equals(mediaPlaybackStatus) &&
-             !"preparing".equals(mediaPlaybackStatus))) return false;
+            (!"playing".equals(mediaPlaybackStatus) && !"paused".equals(mediaPlaybackStatus))) return false;
 
         final long current = currentMediaPositionMs();
         final long target = Math.max(0L, Math.min(duration - 1L, current + offsetMs));

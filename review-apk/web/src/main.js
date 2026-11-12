@@ -243,7 +243,7 @@ function refreshPocketUpdatePanel(downloadState=null) {
   const busy=["queued","downloading","paused","copying"].includes(state.status);
   if(download){
     download.hidden=!hasUpdate||completed;
-    download.disabled=!hasUpdate||busy||!latest?.apkUrl;
+    download.disabled=!hasUpdate||busy||state.status==="folder_unavailable"||!latest?.apkUrl;
     download.textContent=state.status==="save_failed"?"RETRY SAVE":
       state.status==="missing"?"DOWNLOAD AGAIN":
       state.status==="folder_unavailable"?"CHOOSE FOLDER FIRST":

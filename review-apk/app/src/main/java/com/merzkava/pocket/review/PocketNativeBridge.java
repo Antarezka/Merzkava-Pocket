@@ -510,6 +510,10 @@ public final class PocketNativeBridge {
                 (oldTree == null || !oldTree.equals(treeUri))) {
                 throw new IOException("Remove or install the current downloaded APK before changing its folder.");
             }
+            if (oldTree != null && !oldTree.equals(treeUri) &&
+                "copying".equals(preferences.getString(PocketUpdateStorage.PREF_STATUS, ""))) {
+                throw new IOException("Pocket is saving the verified APK. Change the folder after saving finishes.");
+            }
             int persistedFlags = grantFlags &
                 (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
             if ((persistedFlags & Intent.FLAG_GRANT_WRITE_URI_PERMISSION) == 0) {
@@ -739,7 +743,8 @@ public final class PocketNativeBridge {
         }
         preferences.edit().remove(PREF_UPDATE_DOWNLOAD_ID).remove(PREF_UPDATE_SHA256)
             .remove(PREF_UPDATE_FILE_NAME).remove(PREF_UPDATE_BUILD_NUMBER).remove(PREF_UPDATE_URL)
-            .remove(PocketUpdateStorage.PREF_SAVED_URI).remove(PocketUpdateStorage.PREF_STATUS).commit();
+            .remove(PocketUpdateStorage.PREF_SAVED_URI).remove(PocketUpdateStorage.PREF_STATUS)
+            .remove(PocketUpdateStorage.PREF_STATUS_MESSAGE).commit();
     }
 
     private void removePocketApkFilesExcept(int keepBuildNumber) {
@@ -975,11 +980,11 @@ public final class PocketNativeBridge {
                         result.put("status", "copying").put("progress", 100)
                             .put("bytesDownloaded", downloaded).put("totalBytes", total)
                             .put("message", "Saving the verified APK to your selected folder…");
-                        if (!"copying".equals(savedState)) {
+                        if (!"copying".equals(savedState) || !PocketUpdateProgressService.isCopyWorkerRunning()) {
                             preferences.edit().putString(PocketUpdateStorage.PREF_STATUS, "copying")
                                 .remove(PocketUpdateStorage.PREF_STATUS_MESSAGE).apply();
+                            startPocketUpdateProgressService();
                         }
-                        startPocketUpdateProgressService();
                     }
                 } else {
                     result.put("status", "unknown").put("progress", progress)

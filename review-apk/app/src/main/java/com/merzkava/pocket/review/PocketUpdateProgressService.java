@@ -38,7 +38,9 @@ public final class PocketUpdateProgressService extends Service {
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable poll = this::pollDownload;
-    private volatile boolean copying;
+    private static volatile boolean copying;
+
+    public static boolean isCopyWorkerRunning() { return copying; }
 
     @Override public void onCreate() {
         super.onCreate();
