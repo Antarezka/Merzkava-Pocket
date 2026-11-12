@@ -206,7 +206,7 @@ public final class MainActivity extends Activity {
             String path = uri.getPath();
             if (path == null || path.isEmpty() || "/".equals(path)) path = "/index.html";
             path = path.replaceFirst("^/+", "");
-            if (path.contains("..") || path.contains("\") || path.startsWith(".")) {
+            if (path.contains("..") || path.contains("\\") || path.startsWith(".")) {
                 return new WebResourceResponse("text/plain", "UTF-8", 400, "Invalid asset path", headers(), null);
             }
             try {
