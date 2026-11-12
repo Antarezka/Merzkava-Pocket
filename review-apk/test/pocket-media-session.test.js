@@ -23,7 +23,7 @@ test("Android media controls operate the exact Settings vinyl player", () => {
   assert.match(runtimeSource, /Back 10 seconds/);
   assert.match(runtimeSource, /Forward 10 seconds/);
   assert.match(runtimeSource, /seekMusicRelative\(long offsetMs\)/);
-  assert.match(nativeSource, /criAtomExPlayer_SetStartTime\\(player, static_cast<CriSint64>\\(std::max<jlong>\\(0, startTimeMs\\)\\)\\)/);
+  assert.ok(nativeSource.includes("criAtomExPlayer_SetStartTime(player, static_cast<CriSint64>(std::max<jlong>(0, startTimeMs)))"));
   assert.match(runtimeSource, /Notification\.MediaStyle/);
   assert.match(runtimeSource, /METADATA_KEY_DURATION, duration/);
   assert.match(runtimeSource, /ACTION_SKIP_TO_NEXT/);
