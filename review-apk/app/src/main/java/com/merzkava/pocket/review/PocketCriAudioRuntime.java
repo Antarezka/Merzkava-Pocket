@@ -174,7 +174,7 @@ public final class PocketCriAudioRuntime {
     }
 
     /**
-     * Decode bundled ADX to a cached PCM16 WAV on a worker thread. The WAV
+     * Decode bundled or user-imported ADX to a cached PCM16 WAV on a worker thread. The WAV
      * keeps the source rate/channel layout; CRI remains the only playback engine.
      */
     private void prepareAdxForCri(File source, int channel, long generation, AudioPrepared callback) {
@@ -195,7 +195,7 @@ public final class PocketCriAudioRuntime {
                 } catch (Exception error) {
                     mainHandler.post(() -> {
                         if (disposed || generation != generations[channel].get()) return;
-                        Log.e(TAG, "Could not decode bundled CRI ADX to PCM WAV", error);
+                        Log.e(TAG, "Could not decode CRI ADX to PCM WAV", error);
                         callback.onError(safeMessage(error), error);
                     });
                 }
