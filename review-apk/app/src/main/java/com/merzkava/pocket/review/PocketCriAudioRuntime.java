@@ -456,8 +456,18 @@ public final class PocketCriAudioRuntime {
                             publish("music", "paused", "");
                         });
                     } else {
-                        fadeChannelTo(CHANNEL_MUSIC, 1f, 240L, null);
-                        if (ambienceStreamActive) fadeChannelTo(CHANNEL_VINYL_CRACKLE, 1f, 240L, null);
+                        // Keep the record silent while the motor reaches speed and
+                        // the tonearm travels down. The WebView's tonearm transition
+                        // and stylus-drop cue use the same start edge; only after that
+                        // short mechanical lead-in does CRI fade the music into the mix.
+                        mainHandler.postDelayed(() -> {
+                            if (disposed || generation != generations[CHANNEL_MUSIC].get() ||
+                                pauseRequested || musicPaused) return;
+                            fadeChannelTo(CHANNEL_MUSIC, 1f, 760L, null);
+                        }, 820L);
+                        if (ambienceStreamActive) {
+                            fadeChannelTo(CHANNEL_VINYL_CRACKLE, 1f, 280L, null);
+                        }
                     }
                 });
         };
