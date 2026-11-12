@@ -42,7 +42,7 @@ test("Audio UI controls are presentation and user-intent adapters only", () => {
 
 test("Turntable motion follows real CRI playback/preparing status and the stylus position", () => {
   assert.match(source, /audioDirector\.updateNativeState\(channel, state, error\)/);
-  assert.match(source, /activeTurntableMotion\?\.setPlaying\(state\.needleDown && state\.isPlaying && !reducedMotion\(\)\)/);
+  assert.match(source, /activeTurntableMotion\?\.setPlaying\(state\.motorRunning && !reducedMotion\(\)\)/);
   assert.match(source, /player\.classList\.toggle\("is-playing", state\.isPlaying\)/);
   assert.match(source, /player\.classList\.toggle\("is-paused", state\.isPaused\)/);
 });
@@ -219,12 +219,12 @@ test("CRI Tween owns fades; the Java runtime does not simulate a 20ms volume ram
 });
 
 test("CRI playback state drives visual-only disc, motor and stylus motion", () => {
-  assert.match(source, /activeTurntableMotion\?\.setPlaying\(state\.needleDown/);
+  assert.match(source, /activeTurntableMotion\?\.setPlaying\(state\.motorRunning/);
   assert.match(source, /player\.classList\.toggle\("is-needle-down", state\.needleDown\)/);
   assert.match(source, /player\.classList\.toggle\("is-playing", state\.isPlaying\)/);
   assert.match(source, /player\.classList\.toggle\("is-paused", state\.isPaused\)/);
   assert.match(source, /player\.classList\.toggle\("is-needle-down", state\.needleDown\)/);
-  assert.match(source, /activeTurntableMotion\?\.setPlaying\(state\.needleDown/);
+  assert.match(source, /activeTurntableMotion\?\.setPlaying\(state\.motorRunning/);
   assert.match(audioVisualSource, /targetSpeed = playing \? 200 : 0/);
   assert.match(audioVisualSource, /requestFrame\(tick\)/);
   assert.match(cssSource, /\.audio-player\.is-needle-down \.turntable-needle/);
@@ -521,6 +521,36 @@ test("Changing the selected record while paused keeps the stylus lifted until th
   assert.equal(director.getState().needleDown, false, "tonearm waits for the resumed CRI PLAYING state");
   director.updateNativeState("music", "playing");
   assert.equal(director.getState().needleDown, true);
+  director.stop();
+});
+
+test("The platter motor keeps spinning on pause but stops for a record change", async () => {
+  const { createPocketAudioDirector } = await import("../web/src/pocket-audio-director.js?motor-lifecycle-test");
+  const director = createPocketAudioDirector({
+    native: {
+      criPlayTrack() { return true; },
+      criPlayEffect() { return true; },
+      criPlayAmbience() { return true; },
+      criSetVolume() {},
+      criPauseMusic() { return true; },
+      criStopMusic() {}
+    }
+  });
+  director.startPlayback();
+  director.updateNativeState("music", "playing");
+  assert.equal(director.getState().motorRunning, true);
+
+  director.toggleNeedle();
+  director.updateNativeState("music", "paused");
+  assert.equal(director.getState().needleDown, false);
+  assert.equal(director.getState().motorRunning, true, "lifting the stylus must not stop the platter motor");
+
+  director.selectTrack("chill");
+  assert.equal(director.getState().motorRunning, false, "changing sides stops the platter while the new record is installed");
+  director.updateNativeState("music", "paused");
+  director.toggleNeedle();
+  director.updateNativeState("music", "playing");
+  assert.equal(director.getState().motorRunning, true, "lowering the stylus starts the new side and spins the platter again");
   director.stop();
 });
 
