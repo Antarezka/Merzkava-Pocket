@@ -1281,7 +1281,7 @@ public final class PocketCriAudioRuntime {
     private void publish(String channel, String state, String error, long generation) {
         if ("music".equals(channel) && !"cycle".equals(state)) {
             mediaPlaybackStatus = state == null ? "idle" : state;
-            mainHandler.post(this::updateMediaNotification);
+            mainHandler.post(PocketCriAudioRuntime.this::updateMediaNotification);
         }
         WebView target = webView;
         if (target == null || !target.isAttachedToWindow()) return;
