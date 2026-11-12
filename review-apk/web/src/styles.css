@@ -1491,6 +1491,12 @@
 .audio-player.is-needle-down .needle-tip{transform:translateY(2px)}
 .audio-player.is-playing .vinyl-disc{filter:brightness(1.06)}
 .audio-player.is-starting .vinyl-disc{filter:brightness(1.025)}
+.audio-player.is-loading .turntable-status-light{
+  width:8px;height:8px;border:1px solid #d6c8a5;border-top-color:transparent;
+  background:transparent;box-shadow:none;animation:audioDeckLoading .72s linear infinite;
+}
+@keyframes audioDeckLoading{to{transform:rotate(360deg)}}
+.audio-player.is-loading .turntable-needle{pointer-events:none}
 .audio-player.is-paused .vinyl-disc{filter:brightness(.98)}
 .audio-player.is-paused .turntable-status-light{background:#858a82;box-shadow:0 0 0 2px #858a822b}
 .vinyl-disc{transition:filter .45s ease;will-change:transform;backface-visibility:hidden}

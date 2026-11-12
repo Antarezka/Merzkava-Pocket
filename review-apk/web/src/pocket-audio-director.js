@@ -47,6 +47,8 @@ export function createPocketAudioDirector({
   let startupTimeout = null;
   let startupRecordStarted = false;
   let custom = [];
+  let pausePending = false;
+  const channelGenerations = new Map();
 
   const normalizeCustomTracks = values => (Array.isArray(values) ? values : [])
     .filter(item => item && /^[a-f0-9-]{36}$/i.test(String(item.id || "")))
@@ -71,6 +73,8 @@ export function createPocketAudioDirector({
     isPlaying:isPlaying(),
     isStarting:isStarting(),
     isPaused:isPaused(),
+    isLoading:isStarting(),
+    pausePending,
     needleDown,
     motorRunning,
     status:nativeStatus,
@@ -93,6 +97,7 @@ export function createPocketAudioDirector({
   function fail(message) {
     nativeStatus = "error";
     nativeError = String(message || "CRI audio could not complete the request.");
+    pausePending = false;
     needleDown = false;
     motorRunning = false;
     if (startupSequence !== "idle" && startupSequence !== "complete") {
@@ -110,6 +115,13 @@ export function createPocketAudioDirector({
       return fail("The native CRI audio runtime is unavailable.");
     }
     nativeError = "";
+    nativeStatus = "preparing";
+    needleDown = false;
+    motorRunning = false;
+    stylusContactPending = false;
+    ambienceRequested = false;
+    ambienceStatus = "idle";
+    notify();
     const accepted = native.criPlayTrack(selectedTrack) === true;
     return accepted ? true : fail("CRI could not prepare the selected record.");
   }
@@ -153,19 +165,23 @@ export function createPocketAudioDirector({
 
   function finishStartupRecord(status) {
     if (!startupWaitingForRecord) return;
-    // A native IDLE poll can arrive while the ADX is still decoding. It is not
-    // proof that the one-shot cue has finished; only END after PLAYING advances.
-    if (status === "idle" && !startupRecordStarted) return;
-    if (status === "ended" && !startupRecordStarted) return;
+    if ((status === "idle" || status === "ended") && !startupRecordStarted) return;
     startupWaitingForRecord = false;
     startupRecordStarted = false;
     clearStartupTimeout();
-    startStartupBgm();
+    startupSequence = status === "error" ? "error" : "complete";
+    notify();
   }
 
-  function updateNativeState(channel, nextStatus, nextError = "") {
+  function updateNativeState(channel, nextStatus, nextError = "", generation = null) {
     const next = String(nextStatus || "idle").toLowerCase();
-
+    if (generation !== null && generation !== undefined) {
+      const token = Number(generation);
+      if (!Number.isSafeInteger(token) || token < 0) return;
+      const last = channelGenerations.get(channel);
+      if (last !== undefined && token < last) return;
+      channelGenerations.set(channel, token);
+    }
     if (channel === "record") {
       if (!startupWaitingForRecord) return;
       if (next === "playing") {
@@ -175,16 +191,13 @@ export function createPocketAudioDirector({
             if (startupWaitingForRecord) finishStartupRecord("timeout");
           }, Math.max(1000, Number(startupEffectTimeoutMs) || 6000));
         }
-      } else if (next === "ended" || next === "error") {
-        finishStartupRecord(next);
-      }
+      } else if (next === "ended" || next === "error") finishStartupRecord(next);
       return;
     }
-
     if (channel === "stylus") {
       if (stylusContactPending && (next === "playing" || next === "error")) {
         stylusContactPending = false;
-        if (isPlaying() && motorRunning) {
+        if (next === "playing" && isPlaying() && motorRunning && !pausePending) {
           needleDown = true;
           ensureAmbienceForPlayingMusic();
         }
@@ -192,7 +205,6 @@ export function createPocketAudioDirector({
       }
       return;
     }
-
     if (channel === "vinyl-crackle") {
       ambienceStatus = next;
       if (next === "preparing" || next === "playing" || next === "paused") ambienceRequested = true;
@@ -201,43 +213,59 @@ export function createPocketAudioDirector({
       notify();
       return;
     }
-
     if (channel !== "music") return;
-    if (next === "cycle") {
-      onPlaybackCycle();
-      return;
-    }
+    if (next === "cycle") { onPlaybackCycle(); return; }
 
     nativeStatus = next;
     nativeError = String(nextError || "");
-    if (next === "ended") {
+    if (next === "preparing") {
       needleDown = false;
       motorRunning = false;
       stylusContactPending = false;
+      ambienceRequested = false;
+      ambienceStatus = "idle";
+    } else if (next === "ended") {
+      pausePending = false;
+      needleDown = false;
+      motorRunning = false;
+      stylusContactPending = false;
+      ambienceRequested = false;
       onPlaybackCycle();
     } else if (next === "error") {
       if (!nativeError) nativeError = "CRI playback failed.";
+      pausePending = false;
       needleDown = false;
       motorRunning = false;
       stylusContactPending = false;
       ambienceRequested = false;
       native?.criStopMusic?.();
-      if (startupSequence === "music") startupSequence = "error";
+      startupWaitingForRecord = false;
+      clearStartupTimeout();
+      if (startupSequence !== "idle") startupSequence = "error";
     } else if (next === "idle") {
+      pausePending = false;
       needleDown = false;
       motorRunning = false;
       stylusContactPending = false;
       ambienceRequested = false;
     } else if (next === "paused") {
+      pausePending = true;
       needleDown = false;
       stylusContactPending = false;
     } else if (next === "playing") {
-      // Spin up the platter first. The arm stays raised until native CRI
-      // confirms the stylus-contact one-shot has actually begun playing.
+      pausePending = false;
       needleDown = false;
       motorRunning = true;
       stylusContactPending = true;
-      if (startupSequence === "music") startupSequence = "complete";
+      if (startupSequence === "music") {
+        startupSequence = "record-placement";
+        startupWaitingForRecord = true;
+        startupRecordStarted = false;
+        if (!playEffect("record-placement")) {
+          startupWaitingForRecord = false;
+          startupSequence = "complete";
+        }
+      }
     }
     notify();
   }
@@ -245,68 +273,81 @@ export function createPocketAudioDirector({
   function selectTrack(id) {
     const track = getTracks().find(item => item.id === id);
     if (!track || selectedTrack === track.id) return false;
-
     const previousTrack = selectedTrack;
     const previousNeedleDown = needleDown;
     const previousMotorRunning = motorRunning;
-    const wasPlaying = needleDown || isPlaying() || isStarting();
+    const previousStatus = nativeStatus;
+    const previousPausePending = pausePending;
+    const wasPaused = isPaused();
+    const wasPlaying = needleDown || isPlaying() || isStarting() || motorRunning;
     selectedTrack = track.id;
     writeStored("mp-audio-track", selectedTrack);
     nativeError = "";
-
-    const startupEffectInFlight = startupWaitingForRecord;
-    const replaceActivePlayback = !startupEffectInFlight && (wasPlaying || isPaused());
-
+    startupWaitingForRecord = false;
+    startupRecordStarted = false;
+    clearStartupTimeout();
+    startupSequence = "idle";
+    const replaceActivePlayback = wasPlaying || wasPaused;
     if (replaceActivePlayback) {
-      // A real record change stops the platter even when the old side was
-      // already paused with the stylus lifted. The new side remains paused.
+      pausePending = true;
       needleDown = false;
       motorRunning = false;
       stylusContactPending = false;
-      if (!isPaused()) {
+      ambienceRequested = false;
+      ambienceStatus = "idle";
+      if (!wasPaused) {
         const paused = native?.criPauseMusic?.(true) === true;
         if (!paused) {
           selectedTrack = previousTrack;
           writeStored("mp-audio-track", selectedTrack);
+          nativeStatus = previousStatus;
+          pausePending = previousPausePending;
           needleDown = previousNeedleDown;
           motorRunning = previousMotorRunning;
           notify();
           return false;
         }
       }
-    }
-    if (replaceActivePlayback && !requestTrackStart()) {
-      selectedTrack = previousTrack;
-      writeStored("mp-audio-track", selectedTrack);
-      if (wasPlaying) native?.criPauseMusic?.(false);
-      needleDown = previousNeedleDown;
-      motorRunning = previousMotorRunning;
-      notify();
-      return false;
-    }
-    notify();
+      if (!requestTrackStart()) {
+        selectedTrack = previousTrack;
+        writeStored("mp-audio-track", selectedTrack);
+        nativeStatus = "error";
+        pausePending = previousPausePending;
+        needleDown = false;
+        motorRunning = false;
+        stylusContactPending = false;
+        notify();
+        return false;
+      }
+    } else notify();
     return true;
   }
 
   function startPlayback() {
     if ((needleDown && (isPlaying() || isStarting())) || (isStarting() && !needleDown)) return true;
-
     needleDown = false;
-    notify();
-
+    stylusContactPending = false;
     if (isPaused()) {
       if (typeof native?.criPauseMusic !== "function") {
         needleDown = false;
         return fail("CRI pause control is unavailable.");
       }
+      pausePending = false;
+      nativeStatus = "preparing";
+      motorRunning = false;
+      notify();
       const resumed = native.criPauseMusic(false) === true;
       if (!resumed) {
+        pausePending = true;
         needleDown = false;
         return fail("CRI could not resume the selected record.");
       }
       return true;
     }
-
+    pausePending = false;
+    nativeStatus = "preparing";
+    motorRunning = false;
+    notify();
     const accepted = requestTrackStart();
     if (!accepted) {
       needleDown = false;
@@ -322,6 +363,7 @@ export function createPocketAudioDirector({
       return true;
     }
     if (needleDown || isPlaying() || isStarting()) {
+      pausePending = true;
       needleDown = false;
       stylusContactPending = false;
       notify();
@@ -342,24 +384,29 @@ export function createPocketAudioDirector({
   function playEffect(name) {
     const effect = String(name || "").trim().toLowerCase();
     if (!["stylus-drop","record-placement","door-chime","door-rattle"].includes(effect)) return false;
+    if ((effect === "stylus-drop" || effect === "record-placement") &&
+        (!isPlaying() || !motorRunning || pausePending)) return false;
     return native?.criPlayEffect?.(effect) === true;
   }
 
   function startStartupSequence() {
     if (startupSequence !== "idle") return false;
-    startupSequence = "record-placement";
-    startupWaitingForRecord = true;
+    startupSequence = "music";
+    startupWaitingForRecord = false;
     startupNeedleRequested = false;
-    notify();
-
     startupRecordStarted = false;
-    const accepted = playEffect("record-placement");
+    pausePending = false;
+    needleDown = false;
+    motorRunning = false;
+    stylusContactPending = false;
+    notify();
+    // BGM is prepared first; mechanical cues unlock only on native PLAYING.
+    const accepted = requestTrackStart();
     if (!accepted) {
-      startupWaitingForRecord = false;
-      startStartupBgm();
+      startupSequence = "error";
+      notify();
+      return false;
     }
-    // The timeout is armed only after CRI reports PLAYING. PCM cache creation
-    // and decode time therefore cannot skip the physical record-placement cue.
     return true;
   }
 

@@ -116,6 +116,9 @@ public final class PocketCriAudioRuntime {
     private volatile boolean polling;
     private volatile boolean musicStreamActive;
     private volatile boolean ambienceStreamActive;
+    private volatile boolean musicPlaybackReady;
+    private volatile boolean musicRequestPreparing;
+    private volatile boolean musicStartIssued;
     private volatile boolean pausedByFocusLoss;
     private volatile boolean musicPaused;
     private volatile boolean pauseRequested;
@@ -236,12 +239,14 @@ public final class PocketCriAudioRuntime {
     /**
      * Run the contact cue from the native runtime instead of a WebView timer.
      * It therefore remains synchronized when the same WebView is in the mini
-     * window or hidden behind the floating bubble.
+     * window or hidden behind the floating bubble. It is armed only after the
+     * current native generation has been observed in PLAYING state.
      */
     private void scheduleStylusContact(long musicGeneration, long transition) {
         mainHandler.postDelayed(() -> {
             if (disposed || musicGeneration != generations[CHANNEL_MUSIC].get() ||
-                transition != pauseTransition.get() || pauseRequested || musicPaused) return;
+                transition != pauseTransition.get() || pauseRequested || musicPaused ||
+                !musicPlaybackReady) return;
             playEffect("stylus-drop");
         }, 620L);
     }
@@ -463,33 +468,67 @@ public final class PocketCriAudioRuntime {
             return false;
         }
 
-        // Queue the stylus cache ahead of a cold BGM decode. This is especially
-        // useful when play is requested from a mini window or while the bubble
-        // is already active, where WebView timers may be throttled.
+        // Treat every selection as a fresh CRI transaction. Cancel old fades,
+        // SFX and decode callbacks, then stop the previous side before preparing
+        // the selected record so the previous song cannot remain audible.
         warmBuiltInAdx("stylus-drop");
         requestMusicFocus();
         pausedByFocusLoss = false;
         final boolean keepPaused = pauseRequested || musicPaused;
         final long generation = generations[CHANNEL_MUSIC].incrementAndGet();
-        publish("music", "preparing", "");
-
+        final long ambienceGeneration = generations[CHANNEL_VINYL_CRACKLE].incrementAndGet();
+        final long stylusGeneration = generations[CHANNEL_STYLUS].incrementAndGet();
+        final long recordGeneration = generations[CHANNEL_RECORD].incrementAndGet();
+        pauseTransition.incrementAndGet();
+        musicPlaybackReady = false;
+        musicRequestPreparing = true;
+        musicStartIssued = false;
+        musicPaused = keepPaused;
+        pauseRequested = keepPaused;
+        cancelChannelFade(CHANNEL_MUSIC);
+        cancelChannelFade(CHANNEL_VINYL_CRACKLE);
+        cancelChannelFade(CHANNEL_STYLUS);
+        cancelChannelFade(CHANNEL_RECORD);
+        publish("music", "preparing", "", generation);
+        commands.execute(() -> {
+            if (disposed || generation != generations[CHANNEL_MUSIC].get()) return;
+            nativeStop(CHANNEL_MUSIC);
+            nativeStop(CHANNEL_VINYL_CRACKLE);
+            nativeStop(CHANNEL_STYLUS);
+            nativeStop(CHANNEL_RECORD);
+            markChannelActive(CHANNEL_MUSIC, false);
+            markChannelActive(CHANNEL_VINYL_CRACKLE, false);
+            lastStatuses[CHANNEL_MUSIC] = 0;
+            lastStatuses[CHANNEL_VINYL_CRACKLE] = 0;
+            lastStatuses[CHANNEL_STYLUS] = 0;
+            lastStatuses[CHANNEL_RECORD] = 0;
+            publish("vinyl-crackle", "idle", "", ambienceGeneration);
+            publish("stylus", "idle", "", stylusGeneration);
+            publish("record", "idle", "", recordGeneration);
+        });
         if (pcmWave) {
             final AudioMetadata metadata;
             try {
                 metadata = readAudioMetadata(file, FORMAT_WAVE);
             } catch (Exception error) {
+                musicRequestPreparing = false;
                 Log.e(TAG, "Could not read selected PCM WAV metadata", error);
-                publish("music", "error", safeMessage(error));
+                publish("music", "error", safeMessage(error), generation);
                 return false;
             }
             beginMusicPlayback(file, FORMAT_WAVE, metadata, generation, keepPaused);
         } else {
             prepareAdxForCri(file, CHANNEL_MUSIC, generation, new AudioPrepared() {
                 @Override public void onReady(File wav, AudioMetadata metadata) {
+                    if (disposed || generation != generations[CHANNEL_MUSIC].get()) return;
                     beginMusicPlayback(wav, FORMAT_WAVE, metadata, generation, keepPaused);
                 }
                 @Override public void onError(String message, Exception cause) {
-                    publish("music", "error", "ADX decode failed: " + message);
+                    if (disposed || generation != generations[CHANNEL_MUSIC].get()) return;
+                    musicRequestPreparing = false;
+                    musicStartIssued = false;
+                    musicPlaybackReady = false;
+                    publish("music", "error", "ADX decode failed: " + message, generation);
                 }
             });
         }
@@ -498,51 +537,28 @@ public final class PocketCriAudioRuntime {
 
     private void beginMusicPlayback(
             File file, int format, AudioMetadata metadata, long generation, boolean keepPaused) {
-        Runnable startSelectedTrack = () -> {
-            if (disposed || generation != generations[CHANNEL_MUSIC].get()) return;
-            startFileAtVolume(CHANNEL_MUSIC, file, format, metadata,
-                effectiveChannelVolume(CHANNEL_MUSIC), 0f, true, generation,
-                () -> {
-                    // Re-read pause intent when CRI confirms Start(). A user may
-                    // tap the stylus during PREP, after this file request was queued.
-                    if (keepPaused || pauseRequested || musicPaused) {
-                        commands.execute(() -> {
-                            if (disposed || generation != generations[CHANNEL_MUSIC].get()) return;
-                            nativePause(CHANNEL_MUSIC, true);
-                            nativePause(CHANNEL_VINYL_CRACKLE, true);
-                            musicPaused = true;
-                            pauseRequested = true;
-                            publish("music", "paused", "");
-                        });
-                    } else {
-                        // Schedule the stylus contact on Android's main handler,
-                        // not a WebView timer, so mini-window/bubble transitions do
-                        // not desynchronize the physical cue from the CRI playback.
-                        scheduleStylusContact(generation, pauseTransition.get());
-                        // Keep the record silent while the motor reaches speed and
-                        // the tonearm travels down; fade in only after contact.
-                        mainHandler.postDelayed(() -> {
-                            if (disposed || generation != generations[CHANNEL_MUSIC].get() ||
-                                pauseRequested || musicPaused) return;
-                            fadeChannelTo(CHANNEL_MUSIC, 1f, 760L, null);
-                        }, 820L);
-                        if (ambienceStreamActive) {
-                            fadeChannelTo(CHANNEL_VINYL_CRACKLE, 1f, 280L, null);
-                        }
-                    }
-                });
-        };
-        // Fade out only BGM, then replace it. Vinyl ambience remains independent.
-        if (musicStreamActive) {
-            fadeChannelTo(CHANNEL_MUSIC, 0f, 170L, null);
-            mainHandler.postDelayed(startSelectedTrack, 185L);
-        } else {
-            startSelectedTrack.run();
-        }
-    }
+        if (disposed || generation != generations[CHANNEL_MUSIC].get()) return;
+        startFileAtVolume(CHANNEL_MUSIC, file, format, metadata,
+            effectiveChannelVolume(CHANNEL_MUSIC), 0f, true, generation,
+            () -> {
+                if (disposed || generation != generations[CHANNEL_MUSIC].get()) return;
+                if (keepPaused || pauseRequested || musicPaused) {
+                    commands.execute(() -> {
+                        if (disposed || generation != generations[CHANNEL_MUSIC].get()) return;
+                        nativePause(CHANNEL_MUSIC, true);
+                        nativePause(CHANNEL_VINYL_CRACKLE, true);
+                        musicPaused = true;
+                        pauseRequested = true;
+                        musicPlaybackReady = false;
+                        publish("music", "paused", "", generation);
+                    });
+                }
+                // The native PLAYING edge owns motor, stylus and BGM fade timing.
+            });
+  }
 
     public boolean playAmbience() {
-        if (!initialize()) return false;
+        if (!initialize() || !musicPlaybackReady || pauseRequested || musicPaused) return false;
         File file = new File(new File(activity.getFilesDir(), "cri-audio"), BUILT_IN.get("vinyl-crackle"));
         if (!file.isFile()) {
             publish("vinyl-crackle", "error", "Vinyl surface noise is missing.");
@@ -571,6 +587,7 @@ public final class PocketCriAudioRuntime {
     public boolean playEffect(String effectId) {
         if (!initialize()) return false;
         String key = effectId == null ? "" : effectId.trim().toLowerCase(java.util.Locale.ROOT);
+        if (("stylus-drop".equals(key) || "record-placement".equals(key)) && !musicPlaybackReady) return false;
         int channel;
         String asset;
         if ("stylus-drop".equals(key)) {
@@ -637,10 +654,16 @@ public final class PocketCriAudioRuntime {
             boolean started = nativePlayFile(channel, file.getAbsolutePath(), format, metadata.channels, metadata.sampleRate, safeMasterVolume, safeFadeMultiplier, loop);
             if (!started) {
                 markChannelActive(channel, false);
-                publish(CHANNEL_NAMES[channel], "error", "CRI could not start this audio stream.");
+                if (channel == CHANNEL_MUSIC) {
+                    musicRequestPreparing = false;
+                    musicStartIssued = false;
+                    musicPlaybackReady = false;
+                }
+                publish(CHANNEL_NAMES[channel], "error", "CRI could not start this audio stream.", generation);
                 return;
             }
             markChannelActive(channel, true);
+            if (channel == CHANNEL_MUSIC) musicStartIssued = true;
             lastStatuses[channel] = -1;
             startPolling();
             if (onStarted != null && !disposed && generation == generations[channel].get()) onStarted.run();
@@ -698,9 +721,9 @@ public final class PocketCriAudioRuntime {
         final long transition = pauseTransition.incrementAndGet();
         if (paused) {
             pauseRequested = true;
+            musicPlaybackReady = false;
             fadeChannelTo(CHANNEL_MUSIC, 0f, 170L, null);
             fadeChannelTo(CHANNEL_VINYL_CRACKLE, 0f, 170L, null);
-            // Pause after the fade window independently of volume-slider events.
             mainHandler.postDelayed(() -> {
                 if (disposed || transition != pauseTransition.get()) return;
                 commands.execute(() -> {
@@ -708,7 +731,8 @@ public final class PocketCriAudioRuntime {
                     nativePause(CHANNEL_MUSIC, true);
                     nativePause(CHANNEL_VINYL_CRACKLE, true);
                     musicPaused = true;
-                    publish("music", "paused", "");
+                    musicPlaybackReady = false;
+                    publish("music", "paused", "", generations[CHANNEL_MUSIC].get());
                 });
             }, 185L);
             return;
@@ -716,23 +740,13 @@ public final class PocketCriAudioRuntime {
         pauseRequested = false;
         musicPaused = false;
         pausedByFocusLoss = false;
-        // The Audio Director requests the ambience bed after native BGM reports PLAYING.
-        // This engine only resumes CRI players that were already requested.
+        musicPlaybackReady = false;
         commands.execute(() -> {
             if (disposed || transition != pauseTransition.get()) return;
             nativePause(CHANNEL_MUSIC, false);
             if (ambienceStreamActive) nativePause(CHANNEL_VINYL_CRACKLE, false);
-            publish("music", "playing", "");
+            lastStatuses[CHANNEL_MUSIC] = -1;
             startPolling();
-            // A resume is another physical stylus-lowering operation.
-            scheduleStylusContact(generations[CHANNEL_MUSIC].get(), transition);
-            // Keep BGM muted during the tonearm travel, then use the same smooth
-            // fade-in as a fresh play request.
-            mainHandler.postDelayed(() -> {
-                if (disposed || transition != pauseTransition.get() || pauseRequested || musicPaused) return;
-                fadeChannelTo(CHANNEL_MUSIC, 1f, 760L, null);
-                if (ambienceStreamActive) fadeChannelTo(CHANNEL_VINYL_CRACKLE, 1f, 280L, null);
-            }, 820L);
         });
     }
 
@@ -740,23 +754,38 @@ public final class PocketCriAudioRuntime {
         if (!initialized || disposed) return;
         pauseRequested = false;
         musicPaused = false;
+        musicPlaybackReady = false;
+        musicRequestPreparing = false;
+        musicStartIssued = false;
         final long transition = pauseTransition.incrementAndGet();
         final long musicGeneration = generations[CHANNEL_MUSIC].incrementAndGet();
         final long ambienceGeneration = generations[CHANNEL_VINYL_CRACKLE].incrementAndGet();
+        final long stylusGeneration = generations[CHANNEL_STYLUS].incrementAndGet();
+        final long recordGeneration = generations[CHANNEL_RECORD].incrementAndGet();
         fadeChannelTo(CHANNEL_MUSIC, 0f, 150L, null);
         fadeChannelTo(CHANNEL_VINYL_CRACKLE, 0f, 150L, null);
-        // Stop is not coupled to fade callbacks: changing a slider cannot strand a channel.
+        cancelChannelFade(CHANNEL_STYLUS);
+        cancelChannelFade(CHANNEL_RECORD);
         mainHandler.postDelayed(() -> commands.execute(() -> {
             if (disposed || transition != pauseTransition.get() ||
                 musicGeneration != generations[CHANNEL_MUSIC].get() ||
-                ambienceGeneration != generations[CHANNEL_VINYL_CRACKLE].get()) return;
+                ambienceGeneration != generations[CHANNEL_VINYL_CRACKLE].get() ||
+                stylusGeneration != generations[CHANNEL_STYLUS].get() ||
+                recordGeneration != generations[CHANNEL_RECORD].get()) return;
             nativeStop(CHANNEL_MUSIC);
             nativeStop(CHANNEL_VINYL_CRACKLE);
+            nativeStop(CHANNEL_STYLUS);
+            nativeStop(CHANNEL_RECORD);
             lastStatuses[CHANNEL_MUSIC] = 0;
             lastStatuses[CHANNEL_VINYL_CRACKLE] = 0;
+            lastStatuses[CHANNEL_STYLUS] = 0;
+            lastStatuses[CHANNEL_RECORD] = 0;
             markChannelActive(CHANNEL_MUSIC, false);
             markChannelActive(CHANNEL_VINYL_CRACKLE, false);
-            publish("music", "idle", "");
+            publish("music", "idle", "", musicGeneration);
+            publish("vinyl-crackle", "idle", "", ambienceGeneration);
+            publish("stylus", "idle", "", stylusGeneration);
+            publish("record", "idle", "", recordGeneration);
             abandonMusicFocus();
         }), 170L);
     }
@@ -812,30 +841,42 @@ public final class PocketCriAudioRuntime {
 
     private final Runnable pollStatus = new Runnable() {
         @Override public void run() {
-            if (disposed || !initialized) {
-                polling = false;
-                return;
-            }
+            if (disposed || !initialized) { polling = false; return; }
             commands.execute(() -> {
                 if (disposed) return;
                 boolean active = false;
                 for (int channel : CHANNELS) {
+                    final long generation = generations[channel].get();
                     int status = nativeGetStatus(channel);
+                    if (generation != generations[channel].get()) continue;
+                    // Mask any old player's state until this generation has actually started.
+                    if (channel == CHANNEL_MUSIC && musicRequestPreparing) {
+                        if (!musicStartIssued || status == 0 || status == 1) status = 1;
+                        else if (status == 2 || status == 3 || status == 4) musicRequestPreparing = false;
+                    }
                     if (status == 1 || status == 2) active = true;
+                    if (channel == CHANNEL_MUSIC && musicRequestPreparing) active = true;
                     if (channel == CHANNEL_MUSIC || channel == CHANNEL_VINYL_CRACKLE) {
                         markChannelActive(channel, status == 1 || status == 2);
                     }
+                    if (channel == CHANNEL_MUSIC) musicPlaybackReady = status == 2 && !pauseRequested && !musicPaused;
                     int completedLoops = nativeTakeLoopCycles(channel);
                     if (channel == CHANNEL_MUSIC && completedLoops > 0) {
-                        publish("music", "cycle", "");
-                        // The decoder briefly enters PREP while the next loop
-                        // is loaded. Keep the turntable animation in PLAYING so
-                        // the disc and stylus do not visibly stutter at a loop.
+                        publish("music", "cycle", "", generation);
                         if (status == 1 && lastStatuses[channel] == 2) status = 2;
+                    }
+                    final int previousStatus = lastStatuses[channel];
+                    if (channel == CHANNEL_MUSIC && status == 2 && previousStatus != 2 && musicPlaybackReady) {
+                        scheduleStylusContact(generation, pauseTransition.get());
+                        mainHandler.postDelayed(() -> {
+                            if (disposed || generation != generations[CHANNEL_MUSIC].get() ||
+                                !musicPlaybackReady || pauseRequested || musicPaused) return;
+                            fadeChannelTo(CHANNEL_MUSIC, 1f, 760L, null);
+                        }, 820L);
                     }
                     if (status != lastStatuses[channel]) {
                         lastStatuses[channel] = status;
-                        publish(CHANNEL_NAMES[channel], stateForStatus(channel, status), "");
+                        publish(CHANNEL_NAMES[channel], stateForStatus(channel, status), "", generation);
                     }
                 }
                 if (!active) {
@@ -844,12 +885,9 @@ public final class PocketCriAudioRuntime {
                             polling = false;
                             mainHandler.removeCallbacks(pollStatus);
                         }
-                        // A new play request may have entered the command queue while
-                        // this poll was observing the previous channel state. Recheck
-                        // after clearing the poll flag so PREP cannot be stranded.
                         commands.execute(() -> {
                             if (disposed) return;
-                            boolean activeAgain = false;
+                            boolean activeAgain = musicRequestPreparing;
                             for (int channel : CHANNELS) {
                                 int status = nativeGetStatus(channel);
                                 if (status == 1 || status == 2) activeAgain = true;
@@ -935,13 +973,28 @@ public final class PocketCriAudioRuntime {
         }
     }
 
+    private int channelIndex(String channel) {
+        for (int index = 0; index < CHANNEL_NAMES.length; index++) if (CHANNEL_NAMES[index].equals(channel)) return index;
+        return -1;
+    }
+
     private void publish(String channel, String state, String error) {
+        int index = channelIndex(channel);
+        long generation = index >= 0 ? generations[index].get() : 0L;
+        publish(channel, state, error, generation);
+    }
+
+    private void publish(String channel, String state, String error, long generation) {
         WebView target = webView;
-        if (target == null || target.isAttachedToWindow() == false) return;
+        if (target == null || !target.isAttachedToWindow()) return;
         final String js = "window.PocketNativeCallbacks?.audioState?.(" +
-            JSONObject.quote(channel) + "," + JSONObject.quote(state) + "," + JSONObject.quote(error == null ? "" : error) + ");";
+            JSONObject.quote(channel) + "," + JSONObject.quote(state) + "," +
+            JSONObject.quote(error == null ? "" : error) + "," + generation + ");";
         target.post(() -> {
-            if (webView == target && !disposed) target.evaluateJavascript(js, null);
+            int index = channelIndex(channel);
+            if (webView == target && !disposed && (index < 0 || generation == generations[index].get())) {
+                target.evaluateJavascript(js, null);
+            }
         });
     }
 

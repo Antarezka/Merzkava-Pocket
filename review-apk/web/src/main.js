@@ -21,6 +21,7 @@ function readNativeMusicLibrary() {
 }
 let activeTurntableMotion = null;
 let activeRecordFlight = null;
+let pendingRecordPlacement = "";
 const vinylDesigns = createVinylDesignController({ onChange: syncAudioUI });
 const audioDirector = createPocketAudioDirector({
   native,
@@ -103,8 +104,8 @@ window.PocketNativeCallbacks = {
       callback.reject(new Error("The verified player registry response was malformed."));
     }
   },
-  audioState(channel, state, error) {
-    audioDirector.updateNativeState(channel, state, error);
+  audioState(channel, state, error, generation) {
+    audioDirector.updateNativeState(channel, state, error, generation);
     syncAudioUI();
   },
   updateCheck(id, ok, updateJson, error) {
@@ -412,17 +413,48 @@ function syncAudioUI() {
   const state = audioDirector.getState();
   const labelState = vinylDesigns.getState();
   renderAudioRecordList();
-  activeTurntableMotion?.setPlaying(state.motorRunning && !reducedMotion());
+  const deckLocked = state.isLoading || state.status === "idle" || state.status === "error";
+  activeTurntableMotion?.setPlaying(state.motorRunning && !reducedMotion(), { hardStop:deckLocked });
+  if (deckLocked) cancelActiveRecordFlight();
+  if (state.status === "playing" && state.isPlaying && pendingRecordPlacement === state.track) {
+    const readyTrack = pendingRecordPlacement;
+    const recordButton = [...root.querySelectorAll("[data-audio-record]")]
+      .find(button => button.dataset.audioRecord === readyTrack);
+    if (recordButton) {
+      pendingRecordPlacement = "";
+      animateRecordToPlatter(recordButton, () => {
+        const current = audioDirector.getState();
+        if (current.track === readyTrack && current.status === "playing" &&
+            current.isPlaying && !current.pausePending) audioDirector.playEffect("record-placement");
+      });
+    }
+  }
   player.classList.toggle("is-needle-down", state.needleDown);
   player.classList.toggle("is-playing", state.isPlaying);
   player.classList.toggle("is-starting", state.isStarting);
+  player.classList.toggle("is-loading", state.isLoading);
   player.classList.toggle("is-paused", state.isPaused);
   const trackTitle = player.querySelector("[data-track-title]");
   const status = player.querySelector("[data-audio-status]");
   const needle = player.querySelector("[data-audio-needle]");
   const currentLabel = player.querySelector("[data-vinyl-label]");
   if (trackTitle) trackTitle.textContent = state.title;
-  if (status) status.textContent = state.error || state.ambienceStatus === "error" ? "CRI AUDIO · NEEDS ATTENTION" : state.isPlaying && !state.needleDown ? "MOTOR SPIN-UP · STYLUS RAISED" : state.isPlaying ? "PLAYING · CRI AUDIO" : state.isStarting ? "MOTOR PREPARING · NEEDLE LIFTED" : state.isPaused ? "PAUSED · NEEDLE LIFTED" : "NEEDLE LIFTED · READY";
+  if (status) {
+    status.textContent = state.error || state.ambienceStatus === "error"
+      ? "CRI AUDIO · NEEDS ATTENTION"
+      : state.isLoading
+        ? "LOADING SELECTED RECORD · DECK LOCKED"
+        : state.startupSequence === "record-placement"
+          ? "AUDIO READY · RECORD PLACEMENT"
+          : state.isPlaying && !state.needleDown
+            ? "MOTOR SPIN-UP · STYLUS RAISED"
+            : state.isPlaying
+              ? "PLAYING · CRI AUDIO"
+              : state.isPaused
+                ? "PAUSED · NEEDLE LIFTED"
+                : "NEEDLE LIFTED · READY";
+    status.setAttribute("aria-busy", String(state.isLoading));
+  }
   if (needle) {
     needle.setAttribute("aria-label", state.needleDown ? "Lift the stylus and pause music" : state.isPlaying ? "Stop the motor before stylus contact" : state.isStarting ? "Cancel pending playback" : "Lower the stylus and play music");
     needle.setAttribute("aria-pressed", String(state.isPlaying || state.isStarting || state.isPaused));
@@ -464,53 +496,59 @@ function syncAudioUI() {
   if (effectsOutput) effectsOutput.textContent = state.effectsVolume + "%";
 }
 
+function cancelActiveRecordFlight() {
+  if (!activeRecordFlight) return;
+  activeRecordFlight.animation.pause();
+  activeRecordFlight.element.remove();
+  activeRecordFlight = null;
+}
+
 function animateRecordToPlatter(button, onLanded = () => {}) {
-  if (activeRecordFlight) {
-    activeRecordFlight.animation.pause();
-    activeRecordFlight.element.remove();
-    activeRecordFlight = null;
-  }
-  const sleeve = button.querySelector(".record-sleeve");
+  cancelActiveRecordFlight();
+  const readyState = audioDirector.getState();
+  if (!readyState.isPlaying || readyState.status !== "playing" || readyState.pausePending) return false;
+  const expectedTrack = button?.dataset?.audioRecord || readyState.track;
+  const stillCurrent = () => {
+    const current = audioDirector.getState();
+    return current.track === expectedTrack && current.status === "playing" &&
+      current.isPlaying && !current.pausePending;
+  };
+  const sleeve = button?.querySelector(".record-sleeve");
   const platter = root.querySelector(".turntable-platter");
   if (!sleeve || !platter || reducedMotion()) {
-    onLanded();
-    return;
+    if (stillCurrent()) onLanded();
+    return true;
   }
   const from = sleeve.getBoundingClientRect();
   const to = platter.getBoundingClientRect();
   if (!from.width || !from.height || !to.width || !to.height) {
-    onLanded();
-    return;
+    if (stillCurrent()) onLanded();
+    return true;
   }
-
   const diameter = Math.min(to.width * 0.82, to.height * 0.82);
   const flight = document.createElement("span");
   flight.className = "audio-record-flight";
   flight.setAttribute("aria-hidden", "true");
   Object.assign(flight.style, {
-    left: (from.left + (from.width - diameter) / 2) + "px",
-    top: (from.top + (from.height - diameter) / 2) + "px",
-    width: diameter + "px",
-    height: diameter + "px",
-    opacity: "0.98"
+    left:(from.left+(from.width-diameter)/2)+"px",
+    top:(from.top+(from.height-diameter)/2)+"px",
+    width:diameter+"px",height:diameter+"px",opacity:"0.98"
   });
   document.body.append(flight);
   const animation = animate(flight, {
-    left: (to.left + (to.width - diameter) / 2) + "px",
-    top: (to.top + (to.height - diameter) / 2) + "px",
-    rotate: ["0deg", "270deg"],
-    translateY: [0, -7, 0],
-    scale: [0.94, 1, 0.98],
-    opacity: [0.98, 0.92],
-    duration: 760,
-    ease: "inOutCubic",
-    onComplete: () => {
+    left:(to.left+(to.width-diameter)/2)+"px",
+    top:(to.top+(to.height-diameter)/2)+"px",
+    rotate:["0deg","270deg"],
+    translateY:[0,-7,0],scale:[0.94,1,0.98],opacity:[0.98,0.92],
+    duration:760,ease:"inOutCubic",
+    onComplete:() => {
       flight.remove();
       if (activeRecordFlight?.element === flight) activeRecordFlight = null;
-      onLanded();
+      if (stillCurrent()) onLanded();
     }
   });
-  activeRecordFlight = { element: flight, animation };
+  activeRecordFlight = {element:flight,animation};
+  return true;
 }
 
 function mountAudioSettings() {
@@ -661,12 +699,13 @@ function mountAudioSettings() {
     }
     const button = event.target?.closest?.("[data-audio-record]");
     if (!button || !recordList.contains(button) || editListMode) return;
-    const changed = audioDirector.selectTrack(button.dataset.audioRecord);
+    const trackId = button.dataset.audioRecord;
+    const changed = audioDirector.selectTrack(trackId);
     if (!changed) return;
+    pendingRecordPlacement = trackId;
     if (vinylDesigns.getState().mode === "auto") vinylDesigns.rotateRandom("track-change");
-    // Let the record finish its lift, travel and seating motion before the
-    // placement click. The SFX should describe the physical contact, not the tap.
-    animateRecordToPlatter(button, () => audioDirector.playEffect("record-placement"));
+    // Keep the sleeve parked until the selected CRI stream reports PLAYING.
+    syncAudioUI();
   });
   importOverlay?.querySelector("[data-audio-import-close]")?.addEventListener("click",hideImportOverlay);
   importOverlay?.querySelector("[data-audio-import-confirm]")?.addEventListener("click",() => {
@@ -713,11 +752,7 @@ function mountAudioSettings() {
   return () => {
     turntableMotion.dispose();
     if (activeTurntableMotion === turntableMotion) activeTurntableMotion = null;
-    if (activeRecordFlight) {
-      activeRecordFlight.animation.pause();
-      activeRecordFlight.element.remove();
-      activeRecordFlight = null;
-    }
+    cancelActiveRecordFlight();
   };
 }
 
@@ -1660,7 +1695,7 @@ function renderPage(destination, transitionDuration=420) {
               <span class="turntable-speed">33⅓ RPM</span>
               <span class="turntable-status-light"></span>
             </div>
-            <div class="audio-current-track"><span>SELECTED RECORD</span><strong data-track-title>Happy-1a</strong><small data-audio-status>NEEDLE LIFTED · READY</small></div>
+            <div class="audio-current-track"><span>SELECTED RECORD</span><strong data-track-title>Happy-1a</strong><small data-audio-status aria-live="polite" aria-busy="false">NEEDLE LIFTED · READY</small></div>
             <div class="audio-volume-controls">
               <label><span>MUSIC VOLUME</span><output data-music-volume-value>68%</output><input data-music-volume type="range" min="0" max="100" step="1" value="68" aria-label="Music volume"></label>
               <label><span>VINYL AMBIENCE</span><output data-ambience-volume-value>34%</output><input data-ambience-volume type="range" min="0" max="100" step="1" value="34" aria-label="Vinyl ambience volume"></label>

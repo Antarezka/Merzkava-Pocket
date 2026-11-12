@@ -40,12 +40,19 @@ export function createTurntableMotion({
     frameId = requestFrame(tick);
   };
 
-  function setPlaying(playing) {
+  function setPlaying(playing, options = {}) {
     if (disposed) return;
     targetSpeed = playing ? 200 : 0;
+    if (options?.hardStop === true) {
+      if (frameId !== null) cancelFrame(frameId);
+      frameId = null;
+      speed = 0;
+      targetSpeed = 0;
+      lastTime = null;
+      if (renderEnabled) onFrame(angle, 0);
+      return;
+    }
     if (!renderEnabled && !playing) {
-      // If playback pauses while hidden in bubble mode, remember the stopped
-      // state instead of replaying a stale spin when Pocket is restored.
       speed = 0;
       lastTime = null;
       return;
