@@ -554,7 +554,8 @@ public final class PocketNativeBridge {
             Intent view = new Intent(Intent.ACTION_VIEW);
             view.setDataAndType(directory, DocumentsContract.Document.MIME_TYPE_DIR);
             view.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-            activity.startActivity(Intent.createChooser(view, "Choose a file manager"));
+            activity.runOnUiThread(() ->
+                activity.startActivity(Intent.createChooser(view, "Choose a file manager")));
             return true;
         } catch (Exception error) {
             android.util.Log.w("PocketUpdate", "No compatible file manager could open the selected Pocket folder.", error);

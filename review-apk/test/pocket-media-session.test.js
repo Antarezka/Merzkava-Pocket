@@ -15,7 +15,15 @@ test("Android media controls operate the exact Settings vinyl player", () => {
   assert.match(directorSource, /case "pause": return mediaPause\(\)/);
   assert.match(directorSource, /case "previous": return selectRelativeTrack\(-1\)/);
   assert.match(directorSource, /case "next": return selectRelativeTrack\(1\)/);
+  assert.match(directorSource, /case "rewind": return native\?\.criSeekMusicRelative\?\.\(-10000\)/);
+  assert.match(directorSource, /case "forward": return native\?\.criSeekMusicRelative\?\.\(10000\)/);
   assert.match(runtimeSource, /new MediaSession\(activity, "Merzkava Pocket Vinyl"\)/);
+  assert.match(runtimeSource, /onRewind\(\) \{ sendMediaCommand\("rewind"\); \}/);
+  assert.match(runtimeSource, /onFastForward\(\) \{ sendMediaCommand\("forward"\); \}/);
+  assert.match(runtimeSource, /Back 10 seconds/);
+  assert.match(runtimeSource, /Forward 10 seconds/);
+  assert.match(runtimeSource, /seekMusicRelative\(long offsetMs\)/);
+  assert.match(nativeSource, /criAtomExPlayer_SetStartTime\(player, static_cast<CriSint64>\(startTimeMs\)\)/);
   assert.match(runtimeSource, /Notification\.MediaStyle/);
   assert.match(runtimeSource, /METADATA_KEY_DURATION, duration/);
   assert.match(runtimeSource, /ACTION_SKIP_TO_NEXT/);
