@@ -407,6 +407,8 @@ export function createPocketAudioDirector({
       case "toggle": return toggleNeedle();
       case "previous": return selectRelativeTrack(-1);
       case "next": return selectRelativeTrack(1);
+      case "rewind": return native?.criSeekMusicRelative?.(-10000) === true;
+      case "forward": return native?.criSeekMusicRelative?.(10000) === true;
       default: return false;
     }
   }

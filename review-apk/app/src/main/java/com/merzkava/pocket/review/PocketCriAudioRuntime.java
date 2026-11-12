@@ -773,6 +773,8 @@ public final class PocketCriAudioRuntime {
             @Override public void onPause() { sendMediaCommand("pause"); }
             @Override public void onSkipToNext() { sendMediaCommand("next"); }
             @Override public void onSkipToPrevious() { sendMediaCommand("previous"); }
+            @Override public void onRewind() { sendMediaCommand("rewind"); }
+            @Override public void onFastForward() { sendMediaCommand("forward"); }
             @Override public boolean onMediaButtonEvent(Intent intent) {
                 KeyEvent event = intent == null ? null : intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT);
                 if (event == null || event.getAction() != KeyEvent.ACTION_DOWN) return false;
@@ -809,6 +811,10 @@ public final class PocketCriAudioRuntime {
                 runtime.sendMediaCommand("next"); break;
             case KeyEvent.KEYCODE_MEDIA_PREVIOUS:
                 runtime.sendMediaCommand("previous"); break;
+            case KeyEvent.KEYCODE_MEDIA_REWIND:
+                runtime.sendMediaCommand("rewind"); break;
+            case KeyEvent.KEYCODE_MEDIA_FAST_FORWARD:
+                runtime.sendMediaCommand("forward"); break;
             default: break;
         }
     }
@@ -867,7 +873,8 @@ public final class PocketCriAudioRuntime {
 
         long actions = PlaybackState.ACTION_PLAY | PlaybackState.ACTION_PAUSE |
             PlaybackState.ACTION_PLAY_PAUSE | PlaybackState.ACTION_SKIP_TO_NEXT |
-            PlaybackState.ACTION_SKIP_TO_PREVIOUS;
+            PlaybackState.ACTION_SKIP_TO_PREVIOUS | PlaybackState.ACTION_REWIND |
+            PlaybackState.ACTION_FAST_FORWARD;
         int state = "playing".equals(mediaPlaybackStatus) ? PlaybackState.STATE_PLAYING :
             "paused".equals(mediaPlaybackStatus) ? PlaybackState.STATE_PAUSED :
             "error".equals(mediaPlaybackStatus) ? PlaybackState.STATE_ERROR :
@@ -888,7 +895,7 @@ public final class PocketCriAudioRuntime {
             : new Notification.Builder(activity);
         Notification.MediaStyle style = new Notification.MediaStyle()
             .setMediaSession(mediaSession.getSessionToken())
-            .setShowActionsInCompactView(0, 1, 2);
+            .setShowActionsInCompactView(0, 2, 4);
         int playIcon = state == PlaybackState.STATE_PLAYING
             ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play;
         String playLabel = state == PlaybackState.STATE_PLAYING ? "Pause" : "Play";
@@ -901,12 +908,16 @@ public final class PocketCriAudioRuntime {
             .setOngoing(state == PlaybackState.STATE_PLAYING || state == PlaybackState.STATE_BUFFERING)
             .setShowWhen(false)
             .setStyle(style)
-            .addAction(android.R.drawable.ic_media_previous, "Previous",
+            .addAction(android.R.drawable.ic_media_previous, "Previous track",
                 mediaActionIntent("previous", MEDIA_NOTIFICATION_ID + 1))
+            .addAction(android.R.drawable.ic_media_rew, "Back 10 seconds",
+                mediaActionIntent("rewind", MEDIA_NOTIFICATION_ID + 2))
             .addAction(playIcon, playLabel,
-                mediaActionIntent(state == PlaybackState.STATE_PLAYING ? "pause" : "play", MEDIA_NOTIFICATION_ID + 2))
-            .addAction(android.R.drawable.ic_media_next, "Next",
-                mediaActionIntent("next", MEDIA_NOTIFICATION_ID + 3));
+                mediaActionIntent(state == PlaybackState.STATE_PLAYING ? "pause" : "play", MEDIA_NOTIFICATION_ID + 3))
+            .addAction(android.R.drawable.ic_media_ff, "Forward 10 seconds",
+                mediaActionIntent("forward", MEDIA_NOTIFICATION_ID + 4))
+            .addAction(android.R.drawable.ic_media_next, "Next track",
+                mediaActionIntent("next", MEDIA_NOTIFICATION_ID + 5));
         mediaNotificationManager.notify(MEDIA_NOTIFICATION_ID, builder.build());
     }
 
@@ -954,6 +965,45 @@ public final class PocketCriAudioRuntime {
             }
             Log.w(TAG, "Could not queue CRI Tween fade for " + CHANNEL_NAMES[channel], error);
         }
+    }
+
+    public boolean seekMusicRelative(long offsetMs) {
+        if (!initialized || disposed || offsetMs == 0L) return false;
+        final File file = currentMusicFile;
+        final AudioMetadata metadata = currentMusicMetadata;
+        final long duration = currentMusicDurationMs;
+        if (file == null || !file.isFile() || metadata == null || duration <= 0L ||
+            (!"playing".equals(mediaPlaybackStatus) && !"paused".equals(mediaPlaybackStatus) &&
+             !"preparing".equals(mediaPlaybackStatus))) return false;
+
+        final long current = currentMediaPositionMs();
+        final long target = Math.max(0L, Math.min(duration - 1L, current + offsetMs));
+        final boolean keepPaused = pauseRequested || musicPaused || "paused".equals(mediaPlaybackStatus);
+        final long generation = generations[CHANNEL_MUSIC].incrementAndGet();
+        pauseTransition.incrementAndGet();
+        mediaPositionBaseMs = target;
+        musicPlaybackReady = false;
+        musicRequestPreparing = true;
+        musicStartIssued = false;
+        musicPaused = keepPaused;
+        pauseRequested = keepPaused;
+        cancelChannelFade(CHANNEL_MUSIC);
+        publish("music", "preparing", "", generation);
+        startFileAtVolume(CHANNEL_MUSIC, file, FORMAT_WAVE, metadata,
+            effectiveChannelVolume(CHANNEL_MUSIC), 0f, true, target, generation, () -> {
+                if (disposed || generation != generations[CHANNEL_MUSIC].get()) return;
+                if (keepPaused || pauseRequested || musicPaused) {
+                    commands.execute(() -> {
+                        if (disposed || generation != generations[CHANNEL_MUSIC].get()) return;
+                        nativePause(CHANNEL_MUSIC, true);
+                        musicPaused = true;
+                        pauseRequested = true;
+                        musicPlaybackReady = false;
+                        publish("music", "paused", "", generation);
+                    });
+                }
+            });
+        return true;
     }
 
     public void pauseMusic(boolean paused) {

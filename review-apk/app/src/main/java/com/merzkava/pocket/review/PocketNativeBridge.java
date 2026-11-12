@@ -139,6 +139,10 @@ public final class PocketNativeBridge {
         return true;
     }
 
+    @JavascriptInterface public boolean criSeekMusicRelative(long offsetMs) {
+        return criAudio.seekMusicRelative(offsetMs);
+    }
+
     @JavascriptInterface public boolean criStopMusic() {
         criAudio.stopMusic();
         return true;
