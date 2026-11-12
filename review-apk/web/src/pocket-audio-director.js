@@ -266,6 +266,7 @@ export function createPocketAudioDirector({
 
     const previousTrack = selectedTrack;
     const previousNeedleDown = needleDown;
+    const previousMotorRunning = motorRunning;
     const wasPlaying = needleDown || isPlaying() || isStarting();
     selectedTrack = track.id;
     writeStored("mp-audio-track", selectedTrack);
@@ -274,20 +275,22 @@ export function createPocketAudioDirector({
     const startupEffectInFlight = startupWaitingForRecord || startupWaitingForStylus;
     const replaceActivePlayback = !startupEffectInFlight && (wasPlaying || isPaused());
 
-    if (replaceActivePlayback && !isPaused()) {
-      // A real record change lifts the stylus and fades the old side out.
-      // The selected side is loaded paused; the user lowers the tonearm again.
+    if (replaceActivePlayback) {
+      // A real record change stops the platter even when the old side was
+      // already paused with the stylus lifted. The new side remains paused.
       needleDown = false;
       motorRunning = false;
       clearStylusDropTimeout();
-      const paused = native?.criPauseMusic?.(true) === true;
-      if (!paused) {
-        selectedTrack = previousTrack;
-        writeStored("mp-audio-track", selectedTrack);
-        needleDown = previousNeedleDown;
-        motorRunning = previousNeedleDown || isPlaying() || isPaused();
-        notify();
-        return false;
+      if (!isPaused()) {
+        const paused = native?.criPauseMusic?.(true) === true;
+        if (!paused) {
+          selectedTrack = previousTrack;
+          writeStored("mp-audio-track", selectedTrack);
+          needleDown = previousNeedleDown;
+          motorRunning = previousMotorRunning;
+          notify();
+          return false;
+        }
       }
     }
     if (replaceActivePlayback && !requestTrackStart()) {
@@ -295,7 +298,7 @@ export function createPocketAudioDirector({
       writeStored("mp-audio-track", selectedTrack);
       if (wasPlaying) native?.criPauseMusic?.(false);
       needleDown = previousNeedleDown;
-      motorRunning = previousNeedleDown || isPlaying() || isPaused();
+      motorRunning = previousMotorRunning;
       notify();
       return false;
     }
