@@ -735,8 +735,10 @@ test("Seven Merzkava Official Theme ADX tracks are listed as protected built-in 
     assert.match(deckSource, new RegExp('id:"' + id + '".*title:"Merzkava Official Theme - ' + number + '".*extension:"ADX"'));
     assert.ok(runtimeSource.includes('BUILT_IN.put("' + id + '", "' + filename + '")'));
     assert.match(buildWorkflowSource, new RegExp('Merzkava Official Theme - \\$\\{number\\}\\.adx'));
-    assert.match(buildWorkflowSource, new RegExp(filename.replaceAll(".", "\\\\.")));
+    assert.ok(filename.endsWith(".adx"));
   }
+  assert.match(buildWorkflowSource, /local target_name="merzkava-official-theme-\$\{number\}\.adx"/);
+  assert.match(buildWorkflowSource, /range\(1, 8\)/);
   assert.match(source, /audioDirector\.getTracks\(\)/);
   assert.match(source, /CRI ADX · POCKET BGM/);
   assert.match(buildWorkflowSource, /test "\$ADX_COUNT" -eq 14/);
