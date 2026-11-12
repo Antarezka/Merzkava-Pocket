@@ -38,6 +38,7 @@ public final class PocketUpdateProgressService extends Service {
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable poll = this::pollDownload;
+    private volatile boolean copying;
 
     @Override public void onCreate() {
         super.onCreate();
@@ -86,12 +87,24 @@ public final class PocketUpdateProgressService extends Service {
                 Math.round(downloaded * 100.0 / total))) : 0;
 
             if (status == DownloadManager.STATUS_SUCCESSFUL) {
-                Uri apk = downloads.getUriForDownloadedFile(downloadId);
-                if (apk == null) {
-                    finishNotification("The downloaded Pocket APK could not be opened.", percent, false, true);
-                } else {
-                    finishNotification("DOWNLOAD COMPLETE · READY TO VERIFY", 100, true, false);
+                Uri saved = PocketUpdateStorage.savedApkUri(this);
+                if (saved != null && PocketUpdateStorage.exists(this, saved)) {
+                    finishNotification("DOWNLOAD COMPLETE · SAVED IN YOUR FOLDER", 100, true, false);
+                    return;
                 }
+                Uri staging = downloads.getUriForDownloadedFile(downloadId);
+                if (staging == null) {
+                    finishNotification("The temporary Pocket APK is no longer available. Download again.", 0, false, true);
+                    return;
+                }
+                Uri folder = PocketUpdateStorage.savedDirectoryUri(this);
+                if (!PocketUpdateStorage.directoryAvailable(this, folder)) {
+                    getSharedPreferences(PREFS, MODE_PRIVATE).edit()
+                        .putString(PocketUpdateStorage.PREF_STATUS, "folder_unavailable").apply();
+                    finishNotification("Choose or reselect the Pocket update folder in Settings.", 100, false, true);
+                    return;
+                }
+                copyVerifiedApk(downloads, downloadId, staging, build, percent, downloaded, total);
                 return;
             }
             if (status == DownloadManager.STATUS_FAILED) {
@@ -110,6 +123,46 @@ public final class PocketUpdateProgressService extends Service {
             Log.w(TAG, "Could not refresh updater notification progress.", error);
             handler.postDelayed(poll, 1500L);
         }
+    }
+
+    private void copyVerifiedApk(DownloadManager downloads, long downloadId, Uri staging,
+            int build, int percent, long downloaded, long total) {
+        if (copying) return;
+        copying = true;
+        SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        prefs.edit().putString(PocketUpdateStorage.PREF_STATUS, "copying").apply();
+        finishNotification("Saving Pocket update", 100, false, false,
+            "VERIFYING · SAVING TO YOUR MERZKAVA POCKET FOLDER", true);
+        Thread worker = new Thread(() -> {
+            try {
+                String fileName = prefs.getString(PREF_FILE_NAME, "");
+                String sha256 = prefs.getString(PREF_SHA256, "");
+                Uri folder = PocketUpdateStorage.savedDirectoryUri(this);
+                if (!PocketUpdateStorage.directoryAvailable(this, folder)) {
+                    throw new IOException("The selected folder permission is no longer available. Choose it again in Settings.");
+                }
+                Uri saved = PocketUpdateStorage.copyAndVerify(
+                    this, staging, folder, fileName, sha256);
+                if (!prefs.edit().putString(PocketUpdateStorage.PREF_SAVED_URI, saved.toString())
+                    .putString(PocketUpdateStorage.PREF_STATUS, "completed").commit()) {
+                    PocketUpdateStorage.delete(this, saved);
+                    throw new IOException("Pocket could not save the verified APK record.");
+                }
+                PocketUpdateStorage.removePocketApks(this, folder, build);
+                try { downloads.remove(downloadId); } catch (Exception ignored) {}
+                prefs.edit().remove(PREF_DOWNLOAD_ID).apply();
+                finishNotification("DOWNLOAD COMPLETE · SAVED IN YOUR FOLDER", 100, true, false);
+            } catch (Exception error) {
+                Log.w(TAG, "Could not save the verified APK to the selected Pocket folder.", error);
+                prefs.edit().putString(PocketUpdateStorage.PREF_STATUS, "save_failed").apply();
+                finishNotification("Pocket could not save the update", percent, false, true,
+                    error.getMessage() == null ? "Choose an available folder and try again." : error.getMessage(), false);
+            } finally {
+                copying = false;
+            }
+        }, "Pocket-Update-Save-Verified-APK");
+        worker.setDaemon(true);
+        worker.start();
     }
 
     private void finishNotification(String summary, int percent, boolean completed, boolean failed) {
@@ -148,7 +201,7 @@ public final class PocketUpdateProgressService extends Service {
         setNotificationView(expanded, background, foreground, muted, accent, build, version,
             title, summary, percent, ongoing, actionLabel, actionName);
         expanded.setTextViewText(R.id.pocket_update_notification_notes,
-            "Pocket keeps the verified APK inside its app-specific Download folder. Installation checks the SHA-256 hash before Android opens the installer.");
+            "Pocket saves the verified APK inside the Merzkava Pocket subfolder you selected. Installation checks the SHA-256 hash before Android opens the installer.");
 
         Intent launch = getPackageManager().getLaunchIntentForPackage(getPackageName());
         PendingIntent open = null;
