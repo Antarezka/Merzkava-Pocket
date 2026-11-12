@@ -422,9 +422,9 @@ function syncAudioUI() {
   const needle = player.querySelector("[data-audio-needle]");
   const currentLabel = player.querySelector("[data-vinyl-label]");
   if (trackTitle) trackTitle.textContent = state.title;
-  if (status) status.textContent = state.error || state.ambienceStatus === "error" ? "CRI AUDIO · NEEDS ATTENTION" : state.isPlaying ? "PLAYING · CRI AUDIO" : state.isStarting ? "MOTOR PREPARING · NEEDLE LIFTED" : state.isPaused ? "PAUSED · NEEDLE LIFTED" : "NEEDLE LIFTED · READY";
+  if (status) status.textContent = state.error || state.ambienceStatus === "error" ? "CRI AUDIO · NEEDS ATTENTION" : state.isPlaying && !state.needleDown ? "MOTOR SPIN-UP · STYLUS RAISED" : state.isPlaying ? "PLAYING · CRI AUDIO" : state.isStarting ? "MOTOR PREPARING · NEEDLE LIFTED" : state.isPaused ? "PAUSED · NEEDLE LIFTED" : "NEEDLE LIFTED · READY";
   if (needle) {
-    needle.setAttribute("aria-label", state.isPlaying || state.needleDown ? "Lift the stylus and pause music" : state.isStarting ? "Cancel pending playback" : "Lower the stylus and play music");
+    needle.setAttribute("aria-label", state.needleDown ? "Lift the stylus and pause music" : state.isPlaying ? "Stop the motor before stylus contact" : state.isStarting ? "Cancel pending playback" : "Lower the stylus and play music");
     needle.setAttribute("aria-pressed", String(state.isPlaying || state.isStarting || state.isPaused));
     needle.classList.toggle("is-paused", state.isPaused);
   }
