@@ -220,6 +220,7 @@ export function createPocketAudioDirector({
       ambienceRequested = false;
     } else if (next === "paused") {
       needleDown = false;
+      stylusContactPending = false;
     } else if (next === "playing") {
       // Spin up the platter first. The arm stays raised until native CRI
       // confirms the stylus-contact one-shot has actually begun playing.
