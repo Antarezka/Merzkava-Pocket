@@ -37,6 +37,7 @@ jobs:
           node --check web/src/pocket-audio-director.js
           node --check test/audio-settings-mount.test.js
           node --check test/pocket-media-session.test.js
+          node --check test/pocket-update-folder.test.js
       - name: Run Pocket unit and source-contract tests
         working-directory: review-apk
         run: npm test
