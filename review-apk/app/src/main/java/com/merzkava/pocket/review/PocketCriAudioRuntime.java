@@ -48,6 +48,13 @@ public final class PocketCriAudioRuntime {
         BUILT_IN.put("chill", "chill-1a.adx");
         BUILT_IN.put("retroatrical1", "Retroatrical-1.adx");
         BUILT_IN.put("retroatrical2", "Retroatrical-2.adx");
+        BUILT_IN.put("officialtheme1", "merzkava-official-theme-1.adx");
+        BUILT_IN.put("officialtheme2", "merzkava-official-theme-2.adx");
+        BUILT_IN.put("officialtheme3", "merzkava-official-theme-3.adx");
+        BUILT_IN.put("officialtheme4", "merzkava-official-theme-4.adx");
+        BUILT_IN.put("officialtheme5", "merzkava-official-theme-5.adx");
+        BUILT_IN.put("officialtheme6", "merzkava-official-theme-6.adx");
+        BUILT_IN.put("officialtheme7", "merzkava-official-theme-7.adx");
         BUILT_IN.put("vinyl-crackle", "vinyl-surface-noise.adx");
         BUILT_IN.put("stylus-drop", "needle-drop.adx");
         BUILT_IN.put("record-placement", "record-placement.adx");
@@ -170,7 +177,7 @@ public final class PocketCriAudioRuntime {
      * Decode bundled ADX to a cached PCM16 WAV on a worker thread. The WAV
      * keeps the source rate/channel layout; CRI remains the only playback engine.
      */
-    private void prepareBuiltInAdx(File source, int channel, long generation, AudioPrepared callback) {
+    private void prepareAdxForCri(File source, int channel, long generation, AudioPrepared callback) {
         try {
             pcmDecoder.execute(() -> {
                 try {
@@ -431,17 +438,25 @@ public final class PocketCriAudioRuntime {
         if (!initialize()) return false;
         final String id = trackId == null ? "" : trackId.trim().toLowerCase(java.util.Locale.ROOT);
         final File file;
-        final boolean custom;
+        final boolean pcmWave;
         if (id.startsWith("custom:")) {
             String customId = id.substring("custom:".length());
             if (!customId.matches("[a-f0-9-]{36}")) return false;
-            file = new File(new File(activity.getFilesDir(), "music"), customId + ".wav");
-            custom = true;
+            File musicDirectory = new File(activity.getFilesDir(), "music");
+            File adxSource = new File(musicDirectory, customId + ".adx");
+            if (adxSource.isFile()) {
+                file = adxSource;
+                pcmWave = false;
+            } else {
+                file = new File(musicDirectory, customId + ".wav");
+                pcmWave = true;
+            }
         } else {
             String asset = BUILT_IN.get(id);
-            if (asset == null || id.equals("vinyl-crackle") || id.equals("stylus-drop") || id.equals("record-placement")) return false;
+            if (asset == null || id.equals("vinyl-crackle") || id.equals("stylus-drop") ||
+                id.equals("record-placement") || id.equals("door-chime") || id.equals("door-rattle")) return false;
             file = new File(new File(activity.getFilesDir(), "cri-audio"), asset);
-            custom = false;
+            pcmWave = false;
         }
         if (!file.isFile() || file.length() < 32) {
             publish("music", "error", "The selected record is not available on this device.");
@@ -458,7 +473,7 @@ public final class PocketCriAudioRuntime {
         final long generation = generations[CHANNEL_MUSIC].incrementAndGet();
         publish("music", "preparing", "");
 
-        if (custom) {
+        if (pcmWave) {
             final AudioMetadata metadata;
             try {
                 metadata = readAudioMetadata(file, FORMAT_WAVE);
@@ -469,7 +484,7 @@ public final class PocketCriAudioRuntime {
             }
             beginMusicPlayback(file, FORMAT_WAVE, metadata, generation, keepPaused);
         } else {
-            prepareBuiltInAdx(file, CHANNEL_MUSIC, generation, new AudioPrepared() {
+            prepareAdxForCri(file, CHANNEL_MUSIC, generation, new AudioPrepared() {
                 @Override public void onReady(File wav, AudioMetadata metadata) {
                     beginMusicPlayback(wav, FORMAT_WAVE, metadata, generation, keepPaused);
                 }
@@ -540,7 +555,7 @@ public final class PocketCriAudioRuntime {
         }
         final long generation = generations[CHANNEL_VINYL_CRACKLE].incrementAndGet();
         publish("vinyl-crackle", "preparing", "");
-        prepareBuiltInAdx(file, CHANNEL_VINYL_CRACKLE, generation, new AudioPrepared() {
+        prepareAdxForCri(file, CHANNEL_VINYL_CRACKLE, generation, new AudioPrepared() {
             @Override public void onReady(File wav, AudioMetadata metadata) {
                 startFileAtVolume(CHANNEL_VINYL_CRACKLE, wav, FORMAT_WAVE, metadata,
                     effectiveChannelVolume(CHANNEL_VINYL_CRACKLE), 0f, true, generation,
@@ -581,7 +596,7 @@ public final class PocketCriAudioRuntime {
         final long generation = generations[channel].incrementAndGet();
         cancelChannelFade(channel);
         publish(CHANNEL_NAMES[channel], "preparing", "");
-        prepareBuiltInAdx(file, channel, generation, new AudioPrepared() {
+        prepareAdxForCri(file, channel, generation, new AudioPrepared() {
             @Override public void onReady(File wav, AudioMetadata metadata) {
                 enqueuePlay(channel, wav, FORMAT_WAVE, metadata,
                     effectiveChannelVolume(channel), false, "preparing");
