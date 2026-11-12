@@ -412,7 +412,7 @@ function syncAudioUI() {
   const state = audioDirector.getState();
   const labelState = vinylDesigns.getState();
   renderAudioRecordList();
-  activeTurntableMotion?.setPlaying(state.needleDown && (state.isPlaying || state.isStarting) && !reducedMotion());
+  activeTurntableMotion?.setPlaying(state.needleDown && state.isPlaying && !reducedMotion());
   player.classList.toggle("is-needle-down", state.needleDown);
   player.classList.toggle("is-playing", state.isPlaying);
   player.classList.toggle("is-starting", state.isStarting);
@@ -422,9 +422,9 @@ function syncAudioUI() {
   const needle = player.querySelector("[data-audio-needle]");
   const currentLabel = player.querySelector("[data-vinyl-label]");
   if (trackTitle) trackTitle.textContent = state.title;
-  if (status) status.textContent = state.error || state.ambienceStatus === "error" ? "CRI AUDIO · NEEDS ATTENTION" : state.isPlaying ? "PLAYING · CRI AUDIO" : state.isStarting ? "STYLUS CONTACT · PREPARING" : state.isPaused ? "PAUSED · STYLUS LIFTED" : "NEEDLE LIFTED · READY";
+  if (status) status.textContent = state.error || state.ambienceStatus === "error" ? "CRI AUDIO · NEEDS ATTENTION" : state.isPlaying ? "PLAYING · CRI AUDIO" : state.isStarting ? "MOTOR PREPARING · NEEDLE LIFTED" : state.isPaused ? "PAUSED · NEEDLE LIFTED" : "NEEDLE LIFTED · READY";
   if (needle) {
-    needle.setAttribute("aria-label", state.isPlaying || state.isStarting ? "Lift the stylus and pause music" : "Lower the stylus and play music");
+    needle.setAttribute("aria-label", state.isPlaying || state.needleDown ? "Lift the stylus and pause music" : state.isStarting ? "Cancel pending playback" : "Lower the stylus and play music");
     needle.setAttribute("aria-pressed", String(state.isPlaying || state.isStarting || state.isPaused));
     needle.classList.toggle("is-paused", state.isPaused);
   }
@@ -464,7 +464,7 @@ function syncAudioUI() {
   if (effectsOutput) effectsOutput.textContent = state.effectsVolume + "%";
 }
 
-function animateRecordToPlatter(button) {
+function animateRecordToPlatter(button, onLanded = () => {}) {
   if (activeRecordFlight) {
     activeRecordFlight.animation.pause();
     activeRecordFlight.element.remove();
@@ -472,10 +472,16 @@ function animateRecordToPlatter(button) {
   }
   const sleeve = button.querySelector(".record-sleeve");
   const platter = root.querySelector(".turntable-platter");
-  if (!sleeve || !platter || reducedMotion()) return;
+  if (!sleeve || !platter || reducedMotion()) {
+    onLanded();
+    return;
+  }
   const from = sleeve.getBoundingClientRect();
   const to = platter.getBoundingClientRect();
-  if (!from.width || !from.height || !to.width || !to.height) return;
+  if (!from.width || !from.height || !to.width || !to.height) {
+    onLanded();
+    return;
+  }
 
   const diameter = Math.min(to.width * 0.82, to.height * 0.82);
   const flight = document.createElement("span");
@@ -492,13 +498,16 @@ function animateRecordToPlatter(button) {
   const animation = animate(flight, {
     left: (to.left + (to.width - diameter) / 2) + "px",
     top: (to.top + (to.height - diameter) / 2) + "px",
-    rotate: "270deg",
+    rotate: ["0deg", "270deg"],
+    translateY: [0, -7, 0],
+    scale: [0.94, 1, 0.98],
     opacity: [0.98, 0.92],
-    duration: 680,
+    duration: 760,
     ease: "inOutCubic",
     onComplete: () => {
       flight.remove();
       if (activeRecordFlight?.element === flight) activeRecordFlight = null;
+      onLanded();
     }
   });
   activeRecordFlight = { element: flight, animation };
@@ -655,8 +664,9 @@ function mountAudioSettings() {
     const changed = audioDirector.selectTrack(button.dataset.audioRecord);
     if (!changed) return;
     if (vinylDesigns.getState().mode === "auto") vinylDesigns.rotateRandom("track-change");
-    audioDirector.playEffect("record-placement");
-    animateRecordToPlatter(button);
+    // Let the record finish its lift, travel and seating motion before the
+    // placement click. The SFX should describe the physical contact, not the tap.
+    animateRecordToPlatter(button, () => audioDirector.playEffect("record-placement"));
   });
   importOverlay?.querySelector("[data-audio-import-close]")?.addEventListener("click",hideImportOverlay);
   importOverlay?.querySelector("[data-audio-import-confirm]")?.addEventListener("click",() => {
