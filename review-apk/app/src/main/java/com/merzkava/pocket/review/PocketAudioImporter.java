@@ -13,6 +13,8 @@ import android.provider.OpenableColumns;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -37,6 +39,56 @@ final class PocketAudioImporter {
     }
 
     private PocketAudioImporter() {}
+
+    /**
+     * Keep user-supplied CRI ADX intact. It is decoded by PocketAdxDecoder on
+     * first playback and then streamed by the same native CRI music player as
+     * bundled BGM; Android MediaCodec is deliberately not involved.
+     */
+    static Result copyAdxSource(Context context, Uri uri, File temporaryAdx) {
+        String displayName = queryDisplayName(context, uri);
+        if (displayName.isEmpty()) displayName = "Untitled record.adx";
+        String extension = extensionOf(displayName);
+        String title = titleOf(displayName);
+        if (!"adx".equals(extension)) {
+            return new Result(false, title, extension, "Choose a CRI ADX music file.");
+        }
+        try (InputStream input = context.getContentResolver().openInputStream(uri);
+             FileOutputStream output = new FileOutputStream(temporaryAdx)) {
+            if (input == null) throw new IOException("The selected ADX file could not be opened.");
+            byte[] buffer = new byte[32 * 1024];
+            long copied = 0L;
+            int count;
+            while ((count = input.read(buffer)) != -1) {
+                copied += count;
+                if (copied > MAX_SOURCE_BYTES) {
+                    throw new IllegalArgumentException("Source audio exceeds Pocket's 64 MB limit.");
+                }
+                output.write(buffer, 0, count);
+            }
+            output.getFD().sync();
+        } catch (Exception error) {
+            if (temporaryAdx.exists()) temporaryAdx.delete();
+            String message = error.getMessage();
+            return new Result(false, title, extension, message == null
+                ? "Pocket could not copy the selected ADX file." : message);
+        }
+
+        try {
+            PocketAdxDecoder.Metadata metadata = PocketAdxDecoder.inspect(temporaryAdx);
+            if (metadata.channels < 1 || metadata.channels > 2 ||
+                metadata.sampleRate < 8000 || metadata.sampleRate > 192000) {
+                throw new IOException("Pocket supports mono or stereo ADX between 8 and 192 kHz.");
+            }
+            return new Result(true, title, "ADX",
+                title + " has been added as a native CRI ADX record.");
+        } catch (Exception error) {
+            if (temporaryAdx.exists()) temporaryAdx.delete();
+            String message = error.getMessage();
+            return new Result(false, title, extension, message == null
+                ? "The selected file is not a supported CRI ADX stream." : message);
+        }
+    }
 
     static Result decodeToWav(Context context, Uri uri, File temporaryWav) {
         MediaExtractor extractor = new MediaExtractor();
