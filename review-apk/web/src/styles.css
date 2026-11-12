@@ -2903,6 +2903,15 @@ body.bubble-render-paused *::after {
 .update-storage-bar>i,.update-download-bar>i{position:relative;display:block;width:0;height:100%;background:linear-gradient(90deg,#879d6c,var(--lime),#d5d7a0);box-shadow:0 0 10px color-mix(in srgb,var(--lime) 42%,transparent);transition:width .35s ease}
 .update-storage-bar>b{position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 calc(10% - 1px),color-mix(in srgb,var(--paper) 20%,transparent) calc(10% - 1px) 10%);pointer-events:none}
 .update-storage-block>p,.update-download-area>small{margin:0;color:var(--muted);font:9px/1.5 Georgia,serif}
+.update-storage-block>.update-storage-path{font:7px/1.45 var(--ui);letter-spacing:.025em;overflow-wrap:anywhere;word-break:break-word;opacity:.86}
+.update-folder-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:2px}
+.update-folder-actions button{min-width:0;min-height:31px;padding:5px 7px;border:1px solid var(--line);background:color-mix(in srgb,var(--surface2) 80%,transparent);color:var(--muted);font-size:6px;font-weight:700;letter-spacing:.08em;overflow-wrap:anywhere}
+.update-folder-actions button[data-update-folder-choose]{border-color:color-mix(in srgb,var(--gold) 65%,var(--line));color:var(--paper)}
+.update-folder-actions button[data-update-folder-open]{border-color:color-mix(in srgb,var(--lime) 50%,var(--line))}
+.update-folder-actions button[data-update-file-remove]{grid-column:1/-1;border-color:#ad6b5e70;color:#ba8277}
+.update-folder-actions button[hidden]{display:none}
+:root[data-theme="light"] .update-folder-actions button{background:#f4f0e6;color:#52604f}
+:root[data-theme="light"] .update-folder-actions button[data-update-file-remove]{color:#a45f55}
 .update-download-area{display:grid;gap:8px;margin-top:13px;padding:10px;border:1px solid color-mix(in srgb,var(--gold) 50%,var(--line));background:color-mix(in srgb,var(--gold) 6%,var(--surface))}
 .update-download-bar{height:7px}.update-download-bar>i{background:linear-gradient(90deg,var(--gold),var(--lime))}
 .update-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:13px}

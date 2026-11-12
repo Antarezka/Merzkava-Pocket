@@ -218,6 +218,9 @@ function refreshPocketUpdatePanel(downloadState=null) {
   const storageBar=q("[data-update-storage-bar]");if(storageBar)storageBar.setAttribute("aria-valuenow",String(freePercent));
   set("[data-update-storage-value]",total>0?freePercent+"% FREE":"UNAVAILABLE");
   set("[data-update-storage-meta]",total>0?formatPocketBytes(available)+" free of "+formatPocketBytes(total)+" internal storage":"Internal storage information is unavailable on this device.");
+  const folderSelected=storage.updateFolderSelected===true;
+  const folderPath=String(storage.updateDownloadPath||"Choose a folder for Pocket updates");
+  set("[data-update-storage-path]","UPDATE FOLDER · "+folderPath);
 
   const expectedDownloadBuild=latest?.buildNumber>0?(hasUpdate?availableBuild:currentBuild):0;
   let state=downloadState;
@@ -229,34 +232,52 @@ function refreshPocketUpdatePanel(downloadState=null) {
   if(expectedDownloadBuild>0&&stateBuild>0&&stateBuild!==expectedDownloadBuild){
     state={status:"idle",buildNumber:expectedDownloadBuild,progress:0,bytesDownloaded:0,totalBytes:0};
   }
-  const running=["queued","downloading","paused"].includes(state.status),completed=state.status==="completed";
+  const running=["queued","downloading","paused","copying"].includes(state.status),completed=state.status==="completed";
   const area=q("[data-update-download-area]");if(area)area.hidden=!hasUpdate||(!running&&!completed&&!state.message);
   const fill=q("[data-update-progress-fill]");if(fill)fill.style.width=(Number(state.progress)||0)+"%";
   set("[data-update-progress-value]",(Number(state.progress)||0)+"%");
-  set("[data-update-progress-meta]",completed?"DOWNLOAD COMPLETE · APK IN POCKET STORAGE":running?
-    formatPocketBytes(state.bytesDownloaded)+(state.totalBytes>0?" / "+formatPocketBytes(state.totalBytes):"")+" · "+state.status.toUpperCase():(state.message||""));
+  set("[data-update-progress-meta]",completed?"DOWNLOAD COMPLETE · VERIFIED APK SAVED IN YOUR FOLDER":
+    state.status==="copying"?"VERIFYING APK · SAVING TO YOUR SELECTED FOLDER…":
+    running?formatPocketBytes(state.bytesDownloaded)+(state.totalBytes>0?" / "+formatPocketBytes(state.totalBytes):"")+" · "+state.status.toUpperCase():(state.message||""));
   const download=q("[data-update-download]");
-  if(download){download.hidden=!hasUpdate||completed;download.disabled=!hasUpdate||running||!latest?.apkUrl;download.textContent=running?"DOWNLOADING…":"DOWNLOAD UPDATE";}
+  const busy=["queued","downloading","paused","copying"].includes(state.status);
+  if(download){
+    download.hidden=!hasUpdate||completed;
+    download.disabled=!hasUpdate||busy||!latest?.apkUrl;
+    download.textContent=state.status==="save_failed"?"RETRY SAVE":
+      state.status==="missing"?"DOWNLOAD AGAIN":
+      state.status==="folder_unavailable"?"CHOOSE FOLDER FIRST":
+      busy?"DOWNLOADING…":"DOWNLOAD UPDATE";
+  }
   const install=q("[data-update-install]");if(install){install.hidden=!completed||!hasUpdate;install.disabled=!completed||!hasUpdate;}
+  const removeFile=q("[data-update-file-remove]");
+  if(removeFile){
+    const hasManagedFile=["completed","queued","downloading","paused","copying","save_failed"].includes(state.status);
+    removeFile.hidden=!hasManagedFile;
+    removeFile.textContent=busy?"CANCEL / REMOVE":"REMOVE APK";
+  }
+  const folderOpen=q("[data-update-folder-open]");if(folderOpen)folderOpen.hidden=!folderSelected;
   const check=q("[data-update-check]");if(check){check.disabled=pocketUpdateCheckBusy;check.textContent=pocketUpdateCheckBusy?"CHECKING…":"CHECK AGAIN";}
 }
 function mountPocketUpdateSettings() {
   const panel=root.querySelector("[data-update-section]");if(!panel)return()=>{};
   const checkButton=panel.querySelector("[data-update-check]"),downloadButton=panel.querySelector("[data-update-download]"),installButton=panel.querySelector("[data-update-install]");
+  const chooseFolderButton=panel.querySelector("[data-update-folder-choose]"),openFolderButton=panel.querySelector("[data-update-folder-open]"),removeFileButton=panel.querySelector("[data-update-file-remove]");
   let disposed=false,pollTimer=null;
   const refresh=()=>{
     if(disposed)return;
     const expectedBuild=Number(latestPocketUpdate?.buildNumber)||0;
     let state={};try{state=JSON.parse(native?.getPocketUpdateDownloadState?.(expectedBuild)||"{}");}catch{}
     refreshPocketUpdatePanel(state);
-    if(["queued","downloading","paused"].includes(state.status)){
+    const watched=["queued","downloading","paused","copying","completed"];
+    if(watched.includes(state.status)){
       if(pollTimer===null)pollTimer=window.setInterval(()=>{
         if(disposed)return;
         const expectedBuild=Number(latestPocketUpdate?.buildNumber)||0;
         let next={};try{next=JSON.parse(native?.getPocketUpdateDownloadState?.(expectedBuild)||"{}");}catch{}
         refreshPocketUpdatePanel(next);
-        if(!["queued","downloading","paused"].includes(next.status)&&pollTimer!==null){window.clearInterval(pollTimer);pollTimer=null;}
-      },850);
+        if(!watched.includes(next.status)&&pollTimer!==null){window.clearInterval(pollTimer);pollTimer=null;}
+      },state.status==="completed"?1800:850);
     }else if(pollTimer!==null){window.clearInterval(pollTimer);pollTimer=null;}
   };
   const check=async()=>{if(checkButton){checkButton.disabled=true;checkButton.textContent="CHECKING…";}await checkPocketUpdates(false);refresh();};
@@ -289,9 +310,41 @@ function mountPocketUpdateSettings() {
     const status=panel.querySelector("[data-update-status]");
     if(status){status.textContent=result.message||(result.ok?"OPENING ANDROID INSTALLER":"INSTALLATION NEEDS ATTENTION");status.dataset.tone=result.ok?"available":"warning";}
   };
+  const chooseFolder=()=>{
+    if(typeof native?.choosePocketUpdateFolder!=="function")return;
+    if(chooseFolderButton){chooseFolderButton.disabled=true;chooseFolderButton.textContent="OPENING FOLDER PICKER…";}
+    const started=native.choosePocketUpdateFolder()===true;
+    if(!started&&chooseFolderButton){chooseFolderButton.disabled=false;chooseFolderButton.textContent="CHOOSE FOLDER";}
+  };
+  const openFolder=()=>{
+    const opened=native?.openPocketUpdateFolder?.()===true;
+    if(!opened){
+      const status=panel.querySelector("[data-update-status]");
+      if(status){status.textContent="NO COMPATIBLE FILE MANAGER COULD OPEN THIS FOLDER";status.dataset.tone="warning";}
+    }
+  };
+  const removeFile=()=>{native?.confirmRemovePocketUpdateApk?.();};
+  const onFolderChanged=event=>{
+    if(chooseFolderButton){chooseFolderButton.disabled=false;chooseFolderButton.textContent="CHANGE FOLDER";}
+    if(event.detail?.message&&!event.detail?.ok&&!event.detail?.cancelled){
+      const status=panel.querySelector("[data-update-status]");
+      if(status){status.textContent=String(event.detail.message);status.dataset.tone="warning";}
+    }
+    refresh();
+  };
+  const onFileChanged=()=>refresh();
   checkButton?.addEventListener("click",check);downloadButton?.addEventListener("click",download);installButton?.addEventListener("click",install);
+  chooseFolderButton?.addEventListener("click",chooseFolder);openFolderButton?.addEventListener("click",openFolder);removeFileButton?.addEventListener("click",removeFile);
+  window.addEventListener("pocket:update-folder-changed",onFolderChanged);
+  window.addEventListener("pocket:update-file-changed",onFileChanged);
   refresh();if(!latestPocketUpdate&&nativeReady())void checkPocketUpdates(false);
-  return()=>{disposed=true;checkButton?.removeEventListener("click",check);downloadButton?.removeEventListener("click",download);installButton?.removeEventListener("click",install);if(pollTimer!==null)window.clearInterval(pollTimer);};
+  return()=>{
+    disposed=true;
+    checkButton?.removeEventListener("click",check);downloadButton?.removeEventListener("click",download);installButton?.removeEventListener("click",install);
+    chooseFolderButton?.removeEventListener("click",chooseFolder);openFolderButton?.removeEventListener("click",openFolder);removeFileButton?.removeEventListener("click",removeFile);
+    window.removeEventListener("pocket:update-folder-changed",onFolderChanged);window.removeEventListener("pocket:update-file-changed",onFileChanged);
+    if(pollTimer!==null)window.clearInterval(pollTimer);
+  };
 }
 
 function readTheme() {
@@ -1787,6 +1840,12 @@ function renderPage(destination, transitionDuration=420) {
           <div class="update-storage-head"><strong data-update-storage-value>—</strong><span>FREE SPACE</span></div>
           <div class="update-storage-bar" data-update-storage-bar role="progressbar" aria-label="Remaining internal device storage" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i data-update-storage-fill></i><b aria-hidden="true"></b></div>
           <p data-update-storage-meta>Reading internal device storage…</p>
+          <p class="update-storage-path" data-update-storage-path>UPDATE FOLDER · NOT SELECTED</p>
+          <div class="update-folder-actions">
+            <button type="button" data-update-folder-choose>CHOOSE FOLDER</button>
+            <button type="button" data-update-folder-open hidden>OPEN IN FILE MANAGER</button>
+            <button type="button" data-update-file-remove hidden>REMOVE APK</button>
+          </div>
         </section>
         <section class="update-download-area" data-update-download-area hidden>
           <div class="update-subheading"><span>DOWNLOAD PROGRESS</span><strong data-update-progress-value>0%</strong></div>
