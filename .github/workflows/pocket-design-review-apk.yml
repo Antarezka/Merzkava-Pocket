@@ -266,7 +266,7 @@ jobs:
       - name: Build Pocket web shell
         working-directory: review-apk
         run: npm run build
-      - name: Remove source audio from web distribution and keep only seven bundled ADX files
+      - name: Remove source audio from web distribution and retain fourteen CRI ADX files
         shell: bash
         run: |
           set -euo pipefail
@@ -274,7 +274,7 @@ jobs:
           CRI_AUDIO="$DIST/cri-audio"
 
           # Source OGG/MP3/WAV files remain in the repository for editing only.
-          # CRI playback uses the seven pre-converted ADX assets.
+          # CRI playback uses fourteen bundled ADX assets: original tracks, official themes and effects.
           rm -rf "$DIST/audio"
           find "$DIST" -type f -iregex '.*\.\(ogg\|mp3\|wav\|m4a\|aac\|flac\|opus\|wma\|aiff\)' -delete
 
@@ -293,7 +293,7 @@ jobs:
             echo "::error::ADX files must be bundled only under assets/cri-audio."
             exit 1
           fi
-          echo "Verified: exactly seven CRI ADX files retained; no legacy audio sources are packaged."
+          echo "Verified: fourteen CRI ADX files retained; no legacy audio sources are packaged."
 
       - name: Render CSS launcher icon with Takumi
         working-directory: review-apk
