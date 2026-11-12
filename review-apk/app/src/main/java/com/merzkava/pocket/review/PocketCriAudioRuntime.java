@@ -660,10 +660,16 @@ public final class PocketCriAudioRuntime {
             if (disposed || transition != pauseTransition.get()) return;
             nativePause(CHANNEL_MUSIC, false);
             if (ambienceStreamActive) nativePause(CHANNEL_VINYL_CRACKLE, false);
-            fadeChannelTo(CHANNEL_MUSIC, 1f, 230L, null);
-            if (ambienceStreamActive) fadeChannelTo(CHANNEL_VINYL_CRACKLE, 1f, 280L, null);
             publish("music", "playing", "");
             startPolling();
+            // A resume is another physical stylus-lowering operation. Keep BGM
+            // muted during the tonearm travel, then use the same smooth fade-in
+            // as a fresh play request.
+            mainHandler.postDelayed(() -> {
+                if (disposed || transition != pauseTransition.get() || pauseRequested || musicPaused) return;
+                fadeChannelTo(CHANNEL_MUSIC, 1f, 760L, null);
+                if (ambienceStreamActive) fadeChannelTo(CHANNEL_VINYL_CRACKLE, 1f, 280L, null);
+            }, 820L);
         });
     }
 
