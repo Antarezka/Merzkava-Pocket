@@ -137,7 +137,6 @@ export function createPocketAudioDirector({
     startupNeedleRequested = false;
     needleDown = false;
     motorRunning = false;
-    clearStylusDropTimeout();
     notify();
     const accepted = requestTrackStart();
     if (!accepted) startupSequence = "error";
@@ -219,18 +218,15 @@ export function createPocketAudioDirector({
       if (!nativeError) nativeError = "CRI playback failed.";
       needleDown = false;
       motorRunning = false;
-      clearStylusDropTimeout();
       ambienceRequested = false;
       native?.criStopMusic?.();
       if (startupSequence === "music") startupSequence = "error";
     } else if (next === "idle") {
       needleDown = false;
       motorRunning = false;
-      clearStylusDropTimeout();
       ambienceRequested = false;
     } else if (next === "paused") {
       needleDown = false;
-      clearStylusDropTimeout();
     } else if (next === "playing") {
       needleDown = true;
       motorRunning = true;
@@ -260,7 +256,6 @@ export function createPocketAudioDirector({
       // already paused with the stylus lifted. The new side remains paused.
       needleDown = false;
       motorRunning = false;
-      clearStylusDropTimeout();
       if (!isPaused()) {
         const paused = native?.criPauseMusic?.(true) === true;
         if (!paused) {
@@ -290,7 +285,6 @@ export function createPocketAudioDirector({
     if ((needleDown && (isPlaying() || isStarting())) || (isStarting() && !needleDown)) return true;
 
     needleDown = false;
-    clearStylusDropTimeout();
     notify();
 
     if (isPaused()) {
@@ -329,7 +323,6 @@ export function createPocketAudioDirector({
 
     if (needleDown || isPlaying() || isStarting()) {
       needleDown = false;
-      clearStylusDropTimeout();
       notify();
       if (typeof native?.criPauseMusic !== "function") {
         needleDown = true;
@@ -411,7 +404,6 @@ export function createPocketAudioDirector({
     setEffectsVolume,
     stop() {
       clearStartupTimeout();
-      clearStylusDropTimeout();
       startupWaitingForRecord = false;
       startupRecordStarted = false;
       startupWaitingForStylus = false;
