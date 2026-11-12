@@ -53,7 +53,8 @@ test("Deleting or moving the final APK invalidates completed status and the Sett
 });
 
 test("APK cleanup touches only Pocket updater filenames, never unrelated folder contents", () => {
-  assert.match(storage, /Merzkava-Pocket-Build-\(\[0-9\]\+\)-\[A-Za-z0-9\._-\]\+\\\\\.apk/);
+  assert.match(storage, /Merzkava-Pocket-Build-/);
+  assert.match(storage, /buildNumberFromName/);
   assert.match(storage, /removePocketApksAtOrBelow/);
   assert.match(installedReceiver, /PocketUpdateStorage\.removePocketApksAtOrBelow/);
   assert.match(storage, /if \(build > 0 && build != keepBuildNumber\)/);

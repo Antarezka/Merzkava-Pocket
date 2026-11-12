@@ -93,7 +93,7 @@ public final class MainActivity extends Activity {
             return true;
         } catch (Exception error) {
             Log.e("PocketUpdate", "Could not open the update folder picker", error);
-            dispatchUpdateFolderChange("{\\"ok\\":false,\\"message\\":\\"The Android folder picker could not be opened.\\"}");
+            dispatchUpdateFolderChange("{\"ok\":false,\"message\":\"The Android folder picker could not be opened.\"}");
             return false;
         }
     }
@@ -133,13 +133,13 @@ public final class MainActivity extends Activity {
         if (requestCode == REQUEST_POCKET_UPDATE_FOLDER) {
             String folderResult;
             if (resultCode != RESULT_OK || data == null || data.getData() == null) {
-                folderResult = "{\\"ok\\":false,\\"cancelled\\":true,\\"message\\":\\"Folder selection cancelled.\\"}";
+                folderResult = "{\"ok\":false,\"cancelled\":true,\"message\":\"Folder selection cancelled.\"}";
             } else if (nativeBridge != null) {
                 int granted = data.getFlags() &
                     (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
                 folderResult = nativeBridge.setPocketUpdateFolder(data.getData(), granted);
             } else {
-                folderResult = "{\\"ok\\":false,\\"message\\":\\"The Pocket updater is unavailable.\\"}";
+                folderResult = "{\"ok\":false,\"message\":\"The Pocket updater is unavailable.\"}";
             }
             dispatchUpdateFolderChange(folderResult);
             return;
@@ -206,7 +206,7 @@ public final class MainActivity extends Activity {
             String path = uri.getPath();
             if (path == null || path.isEmpty() || "/".equals(path)) path = "/index.html";
             path = path.replaceFirst("^/+", "");
-            if (path.contains("..") || path.contains("\\") || path.startsWith(".")) {
+            if (path.contains("..") || path.contains("\") || path.startsWith(".")) {
                 return new WebResourceResponse("text/plain", "UTF-8", 400, "Invalid asset path", headers(), null);
             }
             try {

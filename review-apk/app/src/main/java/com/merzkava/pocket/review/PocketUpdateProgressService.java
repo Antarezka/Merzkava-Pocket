@@ -21,6 +21,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.RemoteViews;
 
+import java.io.IOException;
 import java.util.Locale;
 
 public final class PocketUpdateProgressService extends Service {
