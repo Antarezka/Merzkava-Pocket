@@ -7,6 +7,7 @@ const bridge = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/re
 const storage = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketUpdateStorage.java", import.meta.url), "utf8");
 const copyWorker = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketUpdateCopyWorker.java", import.meta.url), "utf8");
 const installedReceiver = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketUpdateInstalledReceiver.java", import.meta.url), "utf8");
+const downloadReceiver = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketUpdateDownloadReceiver.java", import.meta.url), "utf8");
 const main = readFileSync(new URL("../web/src/main.js", import.meta.url), "utf8");
 const manifest = readFileSync(new URL("../app/src/main/AndroidManifest.xml", import.meta.url), "utf8");
 
@@ -44,6 +45,9 @@ test("DownloadManager is only the resumable staging download; final APK is copie
   assert.match(copyWorker, /ExistingWorkPolicy\.KEEP/);
   assert.match(copyWorker, /extends Worker/);
   assert.match(bridge, /"save_failed"\.equals\(existingStatus\)[\s\S]*?PocketUpdateCopyWorker\.schedule\(activity, existingId, buildNumber\)/);
+  assert.match(manifest, /\.PocketUpdateDownloadReceiver/);
+  assert.match(downloadReceiver, /ACTION_DOWNLOAD_COMPLETE/);
+  assert.match(downloadReceiver, /PocketUpdateCopyWorker\.schedule\(context, completedId, buildNumber\)/);
   assert.doesNotMatch(bridge, /startPocketUpdateProgressService\(/);
   assert.doesNotMatch(manifest, /\.PocketUpdateProgressService/);
 });

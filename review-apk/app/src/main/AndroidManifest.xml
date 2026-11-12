@@ -15,6 +15,9 @@
       <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
     </activity>
     <receiver android:name=".PocketMediaActionReceiver" android:enabled="true" android:exported="false" />
+    <receiver android:name=".PocketUpdateDownloadReceiver" android:enabled="true" android:exported="false">
+      <intent-filter><action android:name="android.intent.action.DOWNLOAD_COMPLETE" /></intent-filter>
+    </receiver>
     <receiver android:name=".PocketUpdateInstalledReceiver" android:enabled="true" android:exported="false">
       <intent-filter><action android:name="android.intent.action.MY_PACKAGE_REPLACED" /></intent-filter>
     </receiver>
