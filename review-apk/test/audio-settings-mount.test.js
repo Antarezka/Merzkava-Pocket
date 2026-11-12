@@ -386,14 +386,13 @@ test("Startup waits for the record-placement cue before fading in the selected B
   director.stop();
 });
 
-test("The stylus contact SFX and startup fallback timer follow actual CRI playback states", async () => {
+test("Startup fallback waits for actual CRI playback; stylus contact is timed by native CRI runtime", async () => {
   const { createPocketAudioDirector } = await import("../web/src/pocket-audio-director.js?physical-timing-test");
   const calls = [];
   const timers = new Map();
   let nextTimer = 1;
   const director = createPocketAudioDirector({
     startupEffectTimeoutMs: 6000,
-    stylusDropDelayMs: 680,
     setTimeoutFn(callback, delay) {
       const id = nextTimer++;
       timers.set(id, { callback, delay });
@@ -422,11 +421,12 @@ test("The stylus contact SFX and startup fallback timer follow actual CRI playba
 
   director.updateNativeState("music", "playing");
   assert.equal(director.getState().needleDown, true);
-  assert.deepEqual([...timers.values()].map(timer => timer.delay), [680]);
-  const stylusTimer = [...timers.entries()][0];
-  timers.delete(stylusTimer[0]);
-  stylusTimer[1].callback();
-  assert.deepEqual(calls.at(-1), ["effect", "stylus-drop"]);
+  assert.equal(timers.size, 0, "WebView timers are not used to trigger stylus contact");
+  assert.doesNotMatch(deckSource, /scheduleStylusDrop|setTimeoutFn\(\(\) =>[\s\S]*?stylus-drop/);
+  assert.match(runtimeSource, /scheduleStylusContact\(generation, pauseTransition\.get\(\)\)/);
+  assert.match(runtimeSource, /playEffect\("stylus-drop"\)/);
+  assert.match(runtimeSource, /\}, 620L\)/);
+  assert.match(runtimeSource, /warmBuiltInAdx\("stylus-drop"\)/);
   director.stop();
 });
 
@@ -641,6 +641,22 @@ test("Original Settings updater remains mounted and Download calls the validated
     assert.match(source, /const timeoutId=window\.setTimeout\(\(\)=>controller\.abort\(\),45000\)/);
   assert.match(source, /window\.clearTimeout\(timeoutId\);\s*pocketUpdateCheckBusy=false/);
   assert.match(source, /method !== "checkPocketUpdate"/);
+});
+
+test("Changing render mode never pauses CRI; mini window remains live and bubble only suspends visuals", () => {
+  const start = source.indexOf("function applyFloatingRenderMode(mode)");
+  const end = source.indexOf("window.addEventListener(\"pocket:render-mode\"", start);
+  assert.notEqual(start, -1);
+  assert.notEqual(end, -1);
+  const modeHandler = source.slice(start, end);
+  assert.match(modeHandler, /engine\.pauseOnDocumentHidden = mode !== "window"/);
+  assert.match(modeHandler, /if \(bubbleVisualSuspended\) engine\.pause\(\)/);
+  assert.match(modeHandler, /else engine\.resume\(\)/);
+  assert.match(modeHandler, /activeTurntableMotion\?\.setRenderEnabled\(!bubbleVisualSuspended\)/);
+  assert.doesNotMatch(modeHandler, /audioDirector\.(stop|toggleNeedle)|criPauseMusic|criStopMusic/);
+  assert.match(floatingSource, /contentFrame\.addView\(webView/);
+  assert.match(floatingSource, /activity\.setContentView\(webView\)/);
+  assert.match(floatingSource, /webView\.post\(\(\) -> webView\.evaluateJavascript/);
 });
 
 test("Floating window transitions reuse the same CRI runtime and do not pause playback", () => {
