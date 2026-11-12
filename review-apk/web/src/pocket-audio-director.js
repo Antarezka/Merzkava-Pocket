@@ -19,7 +19,10 @@ export function createPocketAudioDirector({
   customTracks = [],
   onChange = () => {},
   onPlaybackCycle = () => {},
-  startupEffectTimeoutMs = 6000
+  startupEffectTimeoutMs = 6000,
+  stylusDropDelayMs = 680,
+  setTimeoutFn = globalThis.setTimeout,
+  clearTimeoutFn = globalThis.clearTimeout
 } = {}) {
   let selectedTrack = readStored("mp-audio-track", "happy");
   let musicVolume = clampVolume(readStored("mp-audio-music-volume", "68"));
@@ -35,6 +38,8 @@ export function createPocketAudioDirector({
   let startupWaitingForStylus = false;
   let startupNeedleRequested = false;
   let startupTimeout = null;
+  let startupRecordStarted = false;
+  let stylusDropTimeout = null;
   let custom = [];
 
   const normalizeCustomTracks = values => (Array.isArray(values) ? values : [])
@@ -73,15 +78,31 @@ export function createPocketAudioDirector({
 
   function clearStartupTimeout() {
     if (startupTimeout !== null) {
-      clearTimeout(startupTimeout);
+      clearTimeoutFn(startupTimeout);
       startupTimeout = null;
     }
+  }
+
+  function clearStylusDropTimeout() {
+    if (stylusDropTimeout !== null) {
+      clearTimeoutFn(stylusDropTimeout);
+      stylusDropTimeout = null;
+    }
+  }
+
+  function scheduleStylusDrop() {
+    clearStylusDropTimeout();
+    stylusDropTimeout = setTimeoutFn(() => {
+      stylusDropTimeout = null;
+      if (isPlaying() && needleDown) playEffect("stylus-drop");
+    }, Math.max(0, Number(stylusDropDelayMs) || 0));
   }
 
   function fail(message) {
     nativeStatus = "error";
     nativeError = String(message || "CRI audio could not complete the request.");
     needleDown = false;
+    clearStylusDropTimeout();
     if (startupSequence !== "idle" && startupSequence !== "complete") {
       startupSequence = "error";
       startupWaitingForRecord = false;
@@ -129,7 +150,8 @@ export function createPocketAudioDirector({
     startupWaitingForStylus = false;
     startupSequence = "music";
     startupNeedleRequested = false;
-    needleDown = true;
+    needleDown = false;
+    clearStylusDropTimeout();
     notify();
     const accepted = requestTrackStart();
     if (!accepted) startupSequence = "error";
@@ -139,19 +161,13 @@ export function createPocketAudioDirector({
 
   function finishStartupRecord(status) {
     if (!startupWaitingForRecord) return;
+    // A native IDLE poll can arrive while the ADX is still decoding. It is not
+    // proof that the one-shot cue has finished; only END after PLAYING advances.
+    if (status === "idle" && !startupRecordStarted) return;
+    if (status === "ended" && !startupRecordStarted) return;
     startupWaitingForRecord = false;
+    startupRecordStarted = false;
     clearStartupTimeout();
-    if (status === "ended" && startupNeedleRequested) {
-      startupSequence = "stylus-drop";
-      startupWaitingForStylus = true;
-      needleDown = true;
-      notify();
-      if (!playEffect("stylus-drop")) {
-        startupWaitingForStylus = false;
-        startStartupBgm();
-      }
-      return;
-    }
     startStartupBgm();
   }
 
@@ -171,7 +187,15 @@ export function createPocketAudioDirector({
     const next = String(nextStatus || "idle").toLowerCase();
 
     if (channel === "record") {
-      if (startupWaitingForRecord && ["ended","error","idle"].includes(next)) {
+      if (!startupWaitingForRecord) return;
+      if (next === "playing") {
+        startupRecordStarted = true;
+        if (startupTimeout === null) {
+          startupTimeout = setTimeoutFn(() => {
+            if (startupWaitingForRecord) finishStartupRecord("timeout");
+          }, Math.max(1000, Number(startupEffectTimeoutMs) || 6000));
+        }
+      } else if (next === "ended" || next === "error") {
         finishStartupRecord(next);
       }
       return;
@@ -199,6 +223,7 @@ export function createPocketAudioDirector({
       return;
     }
 
+    const previousMusicStatus = nativeStatus;
     nativeStatus = next;
     nativeError = String(nextError || "");
     if (next === "ended") {
@@ -207,16 +232,20 @@ export function createPocketAudioDirector({
     } else if (next === "error") {
       if (!nativeError) nativeError = "CRI playback failed.";
       needleDown = false;
+      clearStylusDropTimeout();
       ambienceRequested = false;
       native?.criStopMusic?.();
       if (startupSequence === "music") startupSequence = "error";
     } else if (next === "idle") {
       needleDown = false;
+      clearStylusDropTimeout();
       ambienceRequested = false;
     } else if (next === "paused") {
       needleDown = false;
+      clearStylusDropTimeout();
     } else if (next === "playing") {
       needleDown = true;
+      if (previousMusicStatus !== "playing") scheduleStylusDrop();
       if (startupSequence === "music") startupSequence = "complete";
       ensureAmbienceForPlayingMusic();
     }
@@ -236,6 +265,10 @@ export function createPocketAudioDirector({
     const replaceActivePlayback = !startupEffectInFlight &&
       (needleDown || isPlaying() || isStarting() || isPaused());
 
+    if (replaceActivePlayback && !isPaused()) {
+      needleDown = false;
+      clearStylusDropTimeout();
+    }
     if (replaceActivePlayback && !requestTrackStart()) {
       selectedTrack = previousTrack;
       writeStored("mp-audio-track", selectedTrack);
@@ -247,11 +280,11 @@ export function createPocketAudioDirector({
   }
 
   function startPlayback() {
-    if (needleDown && (isPlaying() || isStarting())) return true;
+    if ((needleDown && (isPlaying() || isStarting())) || (isStarting() && !needleDown)) return true;
 
-    needleDown = true;
+    needleDown = false;
+    clearStylusDropTimeout();
     notify();
-    playEffect("stylus-drop");
 
     if (isPaused()) {
       if (typeof native?.criPauseMusic !== "function") {
@@ -287,8 +320,9 @@ export function createPocketAudioDirector({
       return true;
     }
 
-    if (needleDown || isPlaying()) {
+    if (needleDown || isPlaying() || isStarting()) {
       needleDown = false;
+      clearStylusDropTimeout();
       notify();
       if (typeof native?.criPauseMusic !== "function") {
         needleDown = true;
@@ -317,18 +351,14 @@ export function createPocketAudioDirector({
     startupNeedleRequested = false;
     notify();
 
+    startupRecordStarted = false;
     const accepted = playEffect("record-placement");
     if (!accepted) {
       startupWaitingForRecord = false;
       startStartupBgm();
-      return true;
     }
-
-    // The one-shot CRI record-placement cue normally signals its own END state.
-    // This guard prevents a broken/missing callback from keeping startup silent forever.
-    startupTimeout = setTimeout(() => {
-      if (startupWaitingForRecord) finishStartupRecord("timeout");
-    }, Math.max(1000, Number(startupEffectTimeoutMs) || 6000));
+    // The timeout is armed only after CRI reports PLAYING. PCM cache creation
+    // and decode time therefore cannot skip the physical record-placement cue.
     return true;
   }
 
@@ -374,7 +404,9 @@ export function createPocketAudioDirector({
     setEffectsVolume,
     stop() {
       clearStartupTimeout();
+      clearStylusDropTimeout();
       startupWaitingForRecord = false;
+      startupRecordStarted = false;
       startupWaitingForStylus = false;
       startupSequence = "cancelled";
       needleDown = false;
