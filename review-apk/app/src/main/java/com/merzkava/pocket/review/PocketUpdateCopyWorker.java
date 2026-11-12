@@ -70,10 +70,16 @@ public final class PocketUpdateCopyWorker extends Worker {
             copyCompletedDownload(getApplicationContext(), downloadId, buildNumber);
             return Result.success();
         } catch (Exception error) {
-            return Result.failure(new Data.Builder()
-                .putString("message", error.getMessage() == null
-                    ? "Pocket could not save the APK to the selected folder." : error.getMessage())
-                .build());
+            String message = error.getMessage() == null
+                ? "Pocket could not save the APK to the selected folder." : error.getMessage();
+            String status = message.contains("Choose or reselect the Pocket update folder")
+                ? "folder_unavailable"
+                : message.contains("failed its SHA-256 integrity check") ? "failed" : "save_failed";
+            getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                .putString(PocketUpdateStorage.PREF_STATUS, status)
+                .putString(PocketUpdateStorage.PREF_STATUS_MESSAGE, message)
+                .apply();
+            return Result.failure(new Data.Builder().putString("message", message).build());
         } finally {
             ACTIVE.remove(downloadId);
         }
