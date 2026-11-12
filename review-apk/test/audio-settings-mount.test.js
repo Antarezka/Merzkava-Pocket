@@ -42,7 +42,7 @@ test("Audio UI controls are presentation and user-intent adapters only", () => {
 
 test("Turntable motion follows real CRI playback/preparing status and the stylus position", () => {
   assert.match(source, /audioDirector\.updateNativeState\(channel, state, error\)/);
-  assert.match(source, /activeTurntableMotion\?\.setPlaying\(state\.needleDown && \(state\.isPlaying \|\| state\.isStarting\) && !reducedMotion\(\)\)/);
+  assert.match(source, /activeTurntableMotion\?\.setPlaying\(state\.needleDown && state\.isPlaying && !reducedMotion\(\)\)/);
   assert.match(source, /player\.classList\.toggle\("is-playing", state\.isPlaying\)/);
   assert.match(source, /player\.classList\.toggle\("is-paused", state\.isPaused\)/);
 });
@@ -92,23 +92,26 @@ test("Selecting a record while idle only selects it; active playback changes use
   assert.equal(calls.length, 1, "BGM must wait while the CRI record-placement cue is playing");
   deck.updateNativeState("record", "ended");
   assert.deepEqual(calls[1], ["play", "chill"], "BGM starts after the record-placement cue ends");
-  assert.equal(deck.getState().needleDown, true);
+  assert.equal(deck.getState().needleDown, false, "the tonearm stays parked while the BGM file is prepared");
   deck.updateNativeState("music", "playing");
+  assert.equal(deck.getState().needleDown, true, "the tonearm lowers only after CRI confirms playback");
   assert.deepEqual(calls[2], ["ambience"], "Director starts crackle only after CRI confirms BGM playback");
   assert.equal(deck.selectTrack("retroatrical1"), true);
   assert.deepEqual(calls[3], ["play", "retroatrical1"], "BGM replacement leaves ambience running");
   deck.updateNativeState("music", "paused");
   deck.toggleNeedle();
-  assert.deepEqual(calls.slice(4, 6), [["effect", "stylus-drop"], ["pause", false]]);
+  assert.deepEqual(calls[4], ["pause", false], "resuming raises the playback request but waits for CRI PLAYING before lowering the stylus");
+  assert.equal(deck.getState().needleDown, false);
   deck.updateNativeState("music", "playing");
+  assert.equal(deck.getState().needleDown, true);
   deck.toggleNeedle();
-  assert.deepEqual(calls[6], ["pause", true]);
+  assert.deepEqual(calls[5], ["pause", true]);
   deck.setMusicVolume(52);
   deck.setEffectsVolume(41);
   deck.setAmbienceVolume(28);
   deck.playEffect("record-placement");
   deck.stop();
-  assert.deepEqual(calls.slice(7), [
+  assert.deepEqual(calls.slice(6), [
     ["volume", "music", 52],
     ["volume", "effects", 41],
     ["volume", "ambience", 28],
@@ -205,6 +208,10 @@ test("CRI Tween owns fades; the Java runtime does not simulate a 20ms volume ram
   assert.match(nativeSource, /criAtomExTween_MoveTo/);
   assert.match(nativeSource, /criAtomExPlayer_Update/);
   assert.match(runtimeSource, /nativeFadeVolume\(channel, duration, end\)/);
+  assert.match(runtimeSource, /postDelayed\(\(\) -> \{[\s\S]*?fadeChannelTo\(CHANNEL_MUSIC, 1f, 760L, null\)/);
+  assert.match(runtimeSource, /\}, 820L\)/, "BGM fade-in waits for the tonearm contact lead-in");
+  assert.match(runtimeSource, /fadeChannelTo\(CHANNEL_MUSIC, 0f, 170L, null\)/, "pause fades BGM out");
+  assert.match(runtimeSource, /fadeChannelTo\(CHANNEL_MUSIC, 0f, 150L, null\)/, "stop fades BGM out");
   assert.doesNotMatch(runtimeSource, /FADE_FRAME_MS|SystemClock\.uptimeMillis/);
 });
 
@@ -359,14 +366,21 @@ test("Startup waits for the record-placement cue before fading in the selected B
   assert.deepEqual(calls, [["effect", "record-placement"]]);
   assert.equal(director.getState().startupSequence, "record-placement");
   assert.equal(director.getState().needleDown, false);
+  director.updateNativeState("record", "idle");
+  assert.equal(calls.length, 1, "an IDLE poll during ADX decoding must not skip the placement cue");
+  assert.equal(director.getState().startupSequence, "record-placement");
   director.updateNativeState("record", "playing");
   assert.equal(calls.length, 1, "BGM must not start while the record-placement cue is still playing");
   director.updateNativeState("record", "ended");
   assert.deepEqual(calls[1], ["track", "happy"]);
-  assert.equal(director.getState().needleDown, true);
+  assert.equal(director.getState().needleDown, false);
+  director.updateNativeState("music", "preparing");
+  assert.equal(director.getState().needleDown, false);
   director.updateNativeState("music", "playing");
+  assert.equal(director.getState().needleDown, true);
   assert.deepEqual(calls[2], ["ambience"]);
   assert.equal(director.getState().startupSequence, "complete");
+  director.stop();
 });
 
 test("A user stylus request during startup is queued after record placement, not mixed over it", async () => {
@@ -388,14 +402,16 @@ test("A user stylus request during startup is queued after record placement, not
   director.updateNativeState("record", "ended");
   assert.deepEqual(calls, [
     ["effect", "record-placement"],
-    ["effect", "stylus-drop"]
-  ]);
+    ["track", "happy"]
+  ], "the queued stylus request must not play a contact SFX before CRI starts the music");
+  assert.equal(director.getState().needleDown, false);
+  director.updateNativeState("music", "playing");
   assert.equal(director.getState().needleDown, true);
-  director.updateNativeState("stylus", "ended");
-  assert.deepEqual(calls[2], ["track", "happy"]);
+  assert.equal(calls[2][0], "ambience");
+  director.stop();
 });
 
-test("Selecting another record while playing keeps the needle down through CRI PREP", async () => {
+test("Selecting another record lifts the tonearm during CRI PREP and lowers it only after start", async () => {
   const { createPocketAudioDirector } = await import("../web/src/pocket-audio-director.js?switch-track-state-test");
   const calls = [];
   const director = createPocketAudioDirector({
@@ -413,10 +429,11 @@ test("Selecting another record while playing keeps the needle down through CRI P
   assert.equal(director.getState().needleDown, true);
   assert.equal(director.selectTrack("chill"), true);
   director.updateNativeState("music", "preparing");
-  assert.equal(director.getState().needleDown, true);
+  assert.equal(director.getState().needleDown, false);
   assert.equal(director.getState().isStarting, true);
   director.updateNativeState("music", "playing");
   assert.equal(director.getState().needleDown, true);
+  director.stop();
 });
 
 test("Changing the selected record while paused keeps the stylus lifted until the user lowers it", async () => {
@@ -443,7 +460,10 @@ test("Changing the selected record while paused keeps the stylus lifted until th
   director.toggleNeedle();
   assert.equal(calls.at(-1)[0], "pause");
   assert.equal(calls.at(-1)[1], false);
+  assert.equal(director.getState().needleDown, false, "tonearm waits for the resumed CRI PLAYING state");
+  director.updateNativeState("music", "playing");
   assert.equal(director.getState().needleDown, true);
+  director.stop();
 });
 
 test("Turntable render loop suspends only in bubble mode and resumes at its retained angle", async () => {
