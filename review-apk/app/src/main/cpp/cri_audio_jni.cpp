@@ -558,7 +558,7 @@ Java_com_merzkava_pocket_review_PocketCriAudioRuntime_nativePlayFile(
     criAtomExPlayer_SetFormat(player, format == kFormatAdx ? CRIATOMEX_FORMAT_ADX : CRIATOMEX_FORMAT_WAVE);
     criAtomExPlayer_SetNumChannels(player, numChannels);
     criAtomExPlayer_SetSamplingRate(player, samplingRate);
-    if (startTimeMs > 0) criAtomExPlayer_SetStartTime(player, static_cast<CriSint64>(startTimeMs));
+    criAtomExPlayer_SetStartTime(player, static_cast<CriSint64>(std::max<jlong>(0, startTimeMs)));
     const float clampedVolume = volume < 0.0f ? 0.0f : (volume > 1.0f ? 1.0f : volume);
     const float clampedFade = fadeMultiplier < 0.0f ? 0.0f : (fadeMultiplier > 1.0f ? 1.0f : fadeMultiplier);
     criAtomExPlayer_SetVolume(player, clampedVolume);
