@@ -96,9 +96,10 @@ test("Selecting a record while idle only selects it; active playback changes use
   deck.updateNativeState("music", "playing");
   assert.equal(deck.getState().needleDown, false, "the motor spins up with the tonearm raised");
   assert.equal(deck.getState().motorRunning, true);
-  assert.deepEqual(calls[2], ["ambience"], "Director starts crackle only after CRI confirms BGM playback");
+  assert.equal(calls.length, 2, "vinyl crackle waits for stylus contact");
   deck.updateNativeState("stylus", "playing");
   assert.equal(deck.getState().needleDown, true, "the arm lowers when CRI confirms stylus contact");
+  assert.deepEqual(calls[2], ["ambience"], "vinyl crackle begins with contact on the groove");
   assert.equal(deck.selectTrack("retroatrical1"), true);
   assert.deepEqual(calls.slice(3, 5), [
     ["pause", true],
@@ -387,9 +388,10 @@ test("Startup waits for the record-placement cue before fading in the selected B
   director.updateNativeState("music", "playing");
   assert.equal(director.getState().needleDown, false);
   assert.equal(director.getState().motorRunning, true);
-  assert.deepEqual(calls[2], ["ambience"]);
+  assert.equal(calls.length, 2, "ambience must wait until the stylus reaches the record");
   director.updateNativeState("stylus", "playing");
   assert.equal(director.getState().needleDown, true);
+  assert.deepEqual(calls[2], ["ambience"]);
   assert.equal(director.getState().startupSequence, "complete");
   director.stop();
 });
@@ -498,9 +500,10 @@ test("A user stylus request during startup is queued after record placement, not
   assert.equal(director.getState().needleDown, false);
   director.updateNativeState("music", "playing");
   assert.equal(director.getState().needleDown, false);
-  assert.equal(calls[2][0], "ambience");
+  assert.equal(calls.length, 2);
   director.updateNativeState("stylus", "playing");
   assert.equal(director.getState().needleDown, true);
+  assert.equal(calls[2][0], "ambience");
   director.stop();
 });
 
