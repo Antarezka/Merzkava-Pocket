@@ -94,6 +94,11 @@ public final class PocketUpdateInstalledReceiver extends BroadcastReceiver {
             catch(Exception error){Log.w(TAG,"Could not remove old Pocket DownloadManager entries.",error);}
         }
 
+        Uri selectedDirectory=PocketUpdateStorage.savedDirectoryUri(context);
+        if(selectedDirectory!=null){
+            PocketUpdateStorage.removePocketApksAtOrBelow(context,selectedDirectory,installedBuild);
+        }
+
         File privateDownloads=context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
         if(privateDownloads!=null&&privateDownloads.isDirectory()){
             File[] entries=privateDownloads.listFiles();
@@ -134,9 +139,17 @@ public final class PocketUpdateInstalledReceiver extends BroadcastReceiver {
             File saved=new File(privateDownloads,savedName);
             if(saved.isFile())saved.delete();
         }
+        String savedDocument=prefs.getString(PocketUpdateStorage.PREF_SAVED_URI,"");
+        if(savedDocument!=null&&!savedDocument.isEmpty()&&buildNumberFromName(savedName)>0&&
+            buildNumberFromName(savedName)<=installedBuild){
+            PocketUpdateStorage.delete(context,Uri.parse(savedDocument));
+        }
         if(savedBuild<=installedBuild||savedBuild<0){
             prefs.edit().remove(PREF_DOWNLOAD_ID).remove(PREF_FILE_NAME)
-                .remove(PREF_BUILD_NUMBER).remove(PREF_SHA256).remove(PREF_UPDATE_URL).apply();
+                .remove(PREF_BUILD_NUMBER).remove(PREF_SHA256).remove(PREF_UPDATE_URL)
+                .remove(PocketUpdateStorage.PREF_SAVED_URI)
+                .remove(PocketUpdateStorage.PREF_STATUS)
+                .remove(PocketUpdateStorage.PREF_STATUS_MESSAGE).apply();
         }
         Log.i(TAG,"Removed Pocket APK builds at or below installed build #"+installedBuild);
     }

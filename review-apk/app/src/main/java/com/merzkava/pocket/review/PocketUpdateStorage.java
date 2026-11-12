@@ -231,6 +231,33 @@ public final class PocketUpdateStorage {
         catch (Exception ignored) { return -1; }
     }
 
+    public static void removePocketApksAtOrBelow(Context context, Uri directory, int maximumBuildNumber) {
+        Uri treeUri = savedTreeUri(context);
+        if (treeUri == null || directory == null) return;
+        try {
+            String parentId = DocumentsContract.getDocumentId(directory);
+            Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, parentId);
+            try (Cursor cursor = context.getContentResolver().query(children,
+                    new String[]{DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                        DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                        DocumentsContract.Document.COLUMN_MIME_TYPE}, null, null, null)) {
+                if (cursor == null) return;
+                int idColumn = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID);
+                int nameColumn = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME);
+                int typeColumn = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE);
+                while (cursor.moveToNext()) {
+                    if (!DocumentsContract.Document.MIME_TYPE_DIR.equals(cursor.getString(typeColumn))) {
+                        int build = buildNumberFromName(cursor.getString(nameColumn));
+                        if (build > 0 && build <= maximumBuildNumber) {
+                            Uri file = DocumentsContract.buildDocumentUriUsingTree(treeUri, cursor.getString(idColumn));
+                            delete(context, file);
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+
     public static void removePocketApks(Context context, Uri directory, int keepBuildNumber) {
         Uri treeUri = savedTreeUri(context);
         if (treeUri == null || directory == null) return;
