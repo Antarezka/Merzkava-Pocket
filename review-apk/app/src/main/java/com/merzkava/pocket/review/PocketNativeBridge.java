@@ -792,10 +792,19 @@ public final class PocketNativeBridge {
             String existingStatus = existing.optString("status", "idle");
             if (existing.optInt("buildNumber", 0) == buildNumber &&
                 ("queued".equals(existingStatus) || "downloading".equals(existingStatus) ||
-                 "paused".equals(existingStatus) || "completed".equals(existingStatus))) {
+                 "paused".equals(existingStatus) || "copying".equals(existingStatus) ||
+                 "completed".equals(existingStatus) || "folder_unavailable".equals(existingStatus))) {
                 existing.put("ok", true);
                 existing.put("message", "This build already has a download. Pocket has restored its current progress.");
                 clearPocketUpdateAvailableNotification();
+                return existing.toString();
+            }
+            if (existing.optInt("buildNumber", 0) == buildNumber && "save_failed".equals(existingStatus)) {
+                prefs().edit().putString(PocketUpdateStorage.PREF_STATUS, "copying")
+                    .remove(PocketUpdateStorage.PREF_STATUS_MESSAGE).apply();
+                startPocketUpdateProgressService();
+                existing.put("ok", true).put("status", "copying")
+                    .put("message", "Retrying the verified APK save into your selected folder.");
                 return existing.toString();
             }
 
@@ -942,17 +951,30 @@ public final class PocketNativeBridge {
                             " download failed (code " + reason + "). Check storage and connection.");
                 } else if (status == DownloadManager.STATUS_SUCCESSFUL) {
                     Uri staging = manager.getUriForDownloadedFile(id);
+                    String savedState = preferences.getString(PocketUpdateStorage.PREF_STATUS, "");
+                    String savedMessage = preferences.getString(PocketUpdateStorage.PREF_STATUS_MESSAGE, "");
                     if (staging == null) {
                         result.put("status", "missing").put("progress", 0).put("bytesDownloaded", 0).put("totalBytes", 0)
                             .put("message", "The completed APK is no longer available. Download it again.");
+                    } else if ("save_failed".equals(savedState)) {
+                        result.put("status", "save_failed").put("progress", 100)
+                            .put("bytesDownloaded", downloaded).put("totalBytes", total)
+                            .put("message", savedMessage.isEmpty() ? "Pocket could not save the verified APK. Retry the save." : savedMessage);
                     } else if (!selectedFolderAvailable) {
                         result.put("status", "folder_unavailable").put("progress", 100)
                             .put("bytesDownloaded", downloaded).put("totalBytes", total)
                             .put("message", "Choose or reselect the folder where Pocket should save the APK.");
+                        preferences.edit().putString(PocketUpdateStorage.PREF_STATUS, "folder_unavailable")
+                            .putString(PocketUpdateStorage.PREF_STATUS_MESSAGE,
+                                "Choose or reselect the folder where Pocket should save the APK.").apply();
                     } else {
                         result.put("status", "copying").put("progress", 100)
                             .put("bytesDownloaded", downloaded).put("totalBytes", total)
                             .put("message", "Saving the verified APK to your selected folder…");
+                        if (!"copying".equals(savedState)) {
+                            preferences.edit().putString(PocketUpdateStorage.PREF_STATUS, "copying")
+                                .remove(PocketUpdateStorage.PREF_STATUS_MESSAGE).apply();
+                        }
                         startPocketUpdateProgressService();
                     }
                 } else {
