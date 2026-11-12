@@ -24,6 +24,12 @@ The Android target uses CRI's MULTI thread model. CRI owns the periodic server p
 
 Settings exposes independent Music, Vinyl Ambience, and Sound Effects levels. Sound Effects currently controls the MECHANICAL, UI, and SFX channels. Each effect channel has one CRI player, so a retrigger on that same channel replaces its prior instance; separate channels remain concurrent.
 
+## Official and user-imported BGM
+
+The Settings record rack includes the four original Pocket BGM tracks plus seven creator-owned **Merzkava Official Theme** ADX tracks. The Android build fetches those seven source files from the repository's root-level `main` assets and places normalized filenames under `assets/cri-audio/`; the APK contains them only in that CRI asset directory.
+
+The Settings **Add Music** picker accepts ordinary Android-supported audio formats and CRI ADX. Ordinary formats continue to be decoded to PCM16 WAV at import. ADX is copied intact into Pocket's private music shelf, validated with `PocketAdxDecoder.inspect`, and decoded by the same `PocketAdxDecoder` PCM-cache path at playback. Both routes reach the same native CRI MUSIC player, CRI Tween fade-in/fade-out, and the same volume control. No Android MediaCodec or WebView audio playback is used for ADX.
+
 ## End-to-end startup and turntable state rules
 
 ### Startup after the authenticated splash
