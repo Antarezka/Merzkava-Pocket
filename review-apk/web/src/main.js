@@ -412,7 +412,7 @@ function syncAudioUI() {
   const state = audioDirector.getState();
   const labelState = vinylDesigns.getState();
   renderAudioRecordList();
-  activeTurntableMotion?.setPlaying(state.needleDown && state.isPlaying && !reducedMotion());
+  activeTurntableMotion?.setPlaying(state.motorRunning && !reducedMotion());
   player.classList.toggle("is-needle-down", state.needleDown);
   player.classList.toggle("is-playing", state.isPlaying);
   player.classList.toggle("is-starting", state.isStarting);
