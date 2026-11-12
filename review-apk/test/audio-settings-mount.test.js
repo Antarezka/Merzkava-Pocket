@@ -94,8 +94,11 @@ test("Selecting a record while idle only selects it; active playback changes use
   assert.deepEqual(calls[1], ["play", "chill"], "BGM starts after the record-placement cue ends");
   assert.equal(deck.getState().needleDown, false, "the tonearm stays parked while the BGM file is prepared");
   deck.updateNativeState("music", "playing");
-  assert.equal(deck.getState().needleDown, true, "the tonearm lowers only after CRI confirms playback");
+  assert.equal(deck.getState().needleDown, false, "the motor spins up with the tonearm raised");
+  assert.equal(deck.getState().motorRunning, true);
   assert.deepEqual(calls[2], ["ambience"], "Director starts crackle only after CRI confirms BGM playback");
+  deck.updateNativeState("stylus", "playing");
+  assert.equal(deck.getState().needleDown, true, "the arm lowers when CRI confirms stylus contact");
   assert.equal(deck.selectTrack("retroatrical1"), true);
   assert.deepEqual(calls.slice(3, 5), [
     ["pause", true],
@@ -106,6 +109,8 @@ test("Selecting a record while idle only selects it; active playback changes use
   assert.deepEqual(calls[5], ["pause", false], "resuming raises the playback request but waits for CRI PLAYING before lowering the stylus");
   assert.equal(deck.getState().needleDown, false);
   deck.updateNativeState("music", "playing");
+  assert.equal(deck.getState().needleDown, false);
+  deck.updateNativeState("stylus", "playing");
   assert.equal(deck.getState().needleDown, true);
   deck.toggleNeedle();
   assert.deepEqual(calls[6], ["pause", true]);
@@ -380,8 +385,11 @@ test("Startup waits for the record-placement cue before fading in the selected B
   director.updateNativeState("music", "preparing");
   assert.equal(director.getState().needleDown, false);
   director.updateNativeState("music", "playing");
-  assert.equal(director.getState().needleDown, true);
+  assert.equal(director.getState().needleDown, false);
+  assert.equal(director.getState().motorRunning, true);
   assert.deepEqual(calls[2], ["ambience"]);
+  director.updateNativeState("stylus", "playing");
+  assert.equal(director.getState().needleDown, true);
   assert.equal(director.getState().startupSequence, "complete");
   director.stop();
 });
@@ -420,8 +428,11 @@ test("Startup fallback waits for actual CRI playback; stylus contact is timed by
   assert.deepEqual(calls[1], ["track", "happy"]);
 
   director.updateNativeState("music", "playing");
-  assert.equal(director.getState().needleDown, true);
+  assert.equal(director.getState().needleDown, false);
+  assert.equal(director.getState().motorRunning, true);
   assert.equal(timers.size, 0, "WebView timers are not used to trigger stylus contact");
+  director.updateNativeState("stylus", "playing");
+  assert.equal(director.getState().needleDown, true, "tonearm follows the native stylus SFX channel");
   assert.doesNotMatch(deckSource, /scheduleStylusDrop|clearStylusDropTimeout|setTimeoutFn\(\(\) =>[\s\S]*?stylus-drop/);
   assert.match(runtimeSource, /scheduleStylusContact\(generation, pauseTransition\.get\(\)\)/);
   assert.match(runtimeSource, /playEffect\("stylus-drop"\)/);
@@ -460,8 +471,10 @@ test("A user stylus request during startup is queued after record placement, not
   ], "the queued stylus request must not play a contact SFX before CRI starts the music");
   assert.equal(director.getState().needleDown, false);
   director.updateNativeState("music", "playing");
-  assert.equal(director.getState().needleDown, true);
+  assert.equal(director.getState().needleDown, false);
   assert.equal(calls[2][0], "ambience");
+  director.updateNativeState("stylus", "playing");
+  assert.equal(director.getState().needleDown, true);
   director.stop();
 });
 
@@ -480,6 +493,8 @@ test("Selecting another record lifts the tonearm during CRI PREP and lowers it o
   });
   director.startPlayback();
   director.updateNativeState("music", "playing");
+  assert.equal(director.getState().needleDown, false);
+  director.updateNativeState("stylus", "playing");
   assert.equal(director.getState().needleDown, true);
   assert.equal(director.selectTrack("chill"), true);
   assert.deepEqual(calls.slice(-2), [["pause", true], ["track", "chill"]]);
@@ -490,6 +505,8 @@ test("Selecting another record lifts the tonearm during CRI PREP and lowers it o
   assert.equal(director.getState().needleDown, false);
   director.toggleNeedle();
   director.updateNativeState("music", "playing");
+  assert.equal(director.getState().needleDown, false);
+  director.updateNativeState("stylus", "playing");
   assert.equal(director.getState().needleDown, true);
   director.stop();
 });
@@ -509,6 +526,8 @@ test("Changing the selected record while paused keeps the stylus lifted until th
   });
   director.startPlayback();
   director.updateNativeState("music", "playing");
+  assert.equal(director.getState().needleDown, false);
+  director.updateNativeState("stylus", "playing");
   director.toggleNeedle();
   director.updateNativeState("music", "paused");
   assert.equal(director.getState().needleDown, false);
@@ -539,6 +558,9 @@ test("The platter motor keeps spinning on pause but stops for a record change", 
   director.startPlayback();
   director.updateNativeState("music", "playing");
   assert.equal(director.getState().motorRunning, true);
+  assert.equal(director.getState().needleDown, false);
+  director.updateNativeState("stylus", "playing");
+  assert.equal(director.getState().needleDown, true);
 
   director.toggleNeedle();
   director.updateNativeState("music", "paused");
@@ -550,7 +572,10 @@ test("The platter motor keeps spinning on pause but stops for a record change", 
   director.updateNativeState("music", "paused");
   director.toggleNeedle();
   director.updateNativeState("music", "playing");
-  assert.equal(director.getState().motorRunning, true, "lowering the stylus starts the new side and spins the platter again");
+  assert.equal(director.getState().motorRunning, true, "the new side's platter spins up first");
+  assert.equal(director.getState().needleDown, false);
+  director.updateNativeState("stylus", "playing");
+  assert.equal(director.getState().needleDown, true, "native stylus contact lowers the tonearm");
   director.stop();
 });
 
