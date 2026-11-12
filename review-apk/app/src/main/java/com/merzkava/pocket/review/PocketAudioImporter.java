@@ -82,7 +82,7 @@ final class PocketAudioImporter {
                 throw new IOException("Pocket supports mono or stereo ADX between 8 and 192 kHz.");
             }
             return new Result(true, title, "ADX",
-                title + " has been added as a native CRI ADX record.");
+                title + " has joined your Pocket record rack.");
         } catch (Exception error) {
             if (temporaryAdx.exists()) temporaryAdx.delete();
             String message = error.getMessage();
@@ -231,7 +231,7 @@ final class PocketAudioImporter {
             }
             writeWavHeader(wav, sampleRate, channels, pcmBytes);
             wav.getFD().sync();
-            return new Result(true, title, extension, title + " has been decoded and added to the CRI record rack.");
+            return new Result(true, title, extension, title + " has joined your Pocket record rack.");
         } catch (Exception error) {
             if (temporaryWav.exists()) temporaryWav.delete();
             String message = error.getMessage();
