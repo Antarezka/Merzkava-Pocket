@@ -97,21 +97,24 @@ test("Selecting a record while idle only selects it; active playback changes use
   assert.equal(deck.getState().needleDown, true, "the tonearm lowers only after CRI confirms playback");
   assert.deepEqual(calls[2], ["ambience"], "Director starts crackle only after CRI confirms BGM playback");
   assert.equal(deck.selectTrack("retroatrical1"), true);
-  assert.deepEqual(calls[3], ["play", "retroatrical1"], "BGM replacement leaves ambience running");
+  assert.deepEqual(calls.slice(3, 5), [
+    ["pause", true],
+    ["play", "retroatrical1"]
+  ], "a new side lifts the tonearm, fades out the old side and loads the selected side paused");
   deck.updateNativeState("music", "paused");
   deck.toggleNeedle();
-  assert.deepEqual(calls[4], ["pause", false], "resuming raises the playback request but waits for CRI PLAYING before lowering the stylus");
+  assert.deepEqual(calls[5], ["pause", false], "resuming raises the playback request but waits for CRI PLAYING before lowering the stylus");
   assert.equal(deck.getState().needleDown, false);
   deck.updateNativeState("music", "playing");
   assert.equal(deck.getState().needleDown, true);
   deck.toggleNeedle();
-  assert.deepEqual(calls[5], ["pause", true]);
+  assert.deepEqual(calls[6], ["pause", true]);
   deck.setMusicVolume(52);
   deck.setEffectsVolume(41);
   deck.setAmbienceVolume(28);
   deck.playEffect("record-placement");
   deck.stop();
-  assert.deepEqual(calls.slice(6), [
+  assert.deepEqual(calls.slice(7), [
     ["volume", "music", 52],
     ["volume", "effects", 41],
     ["volume", "ambience", 28],
@@ -383,6 +386,56 @@ test("Startup waits for the record-placement cue before fading in the selected B
   director.stop();
 });
 
+test("The stylus contact SFX and startup fallback timer follow actual CRI playback states", async () => {
+  const { createPocketAudioDirector } = await import("../web/src/pocket-audio-director.js?physical-timing-test");
+  const calls = [];
+  const timers = new Map();
+  let nextTimer = 1;
+  const director = createPocketAudioDirector({
+    startupEffectTimeoutMs: 6000,
+    stylusDropDelayMs: 680,
+    setTimeoutFn(callback, delay) {
+      const id = nextTimer++;
+      timers.set(id, { callback, delay });
+      return id;
+    },
+    clearTimeoutFn(id) { timers.delete(id); },
+    native: {
+      criPlayEffect(id) { calls.push(["effect", id]); return true; },
+      criPlayTrack(id) { calls.push(["track", id]); return true; },
+      criPlayAmbience() { calls.push(["ambience"]); return true; },
+      criSetVolume() {},
+      criPauseMusic() { return true; },
+      criStopMusic() {}
+    }
+  });
+
+  director.startStartupSequence();
+  assert.equal(timers.size, 0, "PCM decode time must not consume the SFX fallback window");
+  director.updateNativeState("record", "idle");
+  assert.equal(timers.size, 0, "an early IDLE poll must not advance startup");
+  director.updateNativeState("record", "playing");
+  assert.deepEqual([...timers.values()].map(timer => timer.delay), [6000]);
+  director.updateNativeState("record", "ended");
+  assert.equal(timers.size, 0, "the completed record-placement cue clears its fallback timer");
+  assert.deepEqual(calls[1], ["track", "happy"]);
+
+  director.updateNativeState("music", "playing");
+  assert.equal(director.getState().needleDown, true);
+  assert.deepEqual([...timers.values()].map(timer => timer.delay), [680]);
+  const stylusTimer = [...timers.entries()][0];
+  timers.delete(stylusTimer[0]);
+  stylusTimer[1].callback();
+  assert.deepEqual(calls.at(-1), ["effect", "stylus-drop"]);
+  director.stop();
+});
+
+test("Record-placement SFX fires after the record finishes travelling to the platter", () => {
+  assert.match(source, /animateRecordToPlatter\(button,\s*\(\)\s*=>\s*audioDirector\.playEffect\("record-placement"\)\)/);
+  assert.match(source, /duration:\s*760/);
+  assert.match(source, /translateY:\s*\[0,\s*-7,\s*0\]/);
+});
+
 test("A user stylus request during startup is queued after record placement, not mixed over it", async () => {
   const { createPocketAudioDirector } = await import("../web/src/pocket-audio-director.js?startup-needle-test");
   const calls = [];
@@ -428,9 +481,13 @@ test("Selecting another record lifts the tonearm during CRI PREP and lowers it o
   director.updateNativeState("music", "playing");
   assert.equal(director.getState().needleDown, true);
   assert.equal(director.selectTrack("chill"), true);
+  assert.deepEqual(calls.slice(-2), [["pause", true], ["track", "chill"]]);
   director.updateNativeState("music", "preparing");
   assert.equal(director.getState().needleDown, false);
   assert.equal(director.getState().isStarting, true);
+  director.updateNativeState("music", "paused");
+  assert.equal(director.getState().needleDown, false);
+  director.toggleNeedle();
   director.updateNativeState("music", "playing");
   assert.equal(director.getState().needleDown, true);
   director.stop();
