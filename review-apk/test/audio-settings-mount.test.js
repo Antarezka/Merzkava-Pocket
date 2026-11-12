@@ -7,6 +7,7 @@ const buildWorkflowSource = readFileSync(new URL("../../.github/workflows/pocket
 const audioVisualSource = readFileSync(new URL("../web/src/audio-player.js", import.meta.url), "utf8");
 const deckSource = readFileSync(new URL("../web/src/pocket-audio-director.js", import.meta.url), "utf8");
 const runtimeSource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketCriAudioRuntime.java", import.meta.url), "utf8");
+const importerSource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketAudioImporter.java", import.meta.url), "utf8");
 const adxDecoderSource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketAdxDecoder.java", import.meta.url), "utf8");
 const bridgeSource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketNativeBridge.java", import.meta.url), "utf8");
 const workerSource = readFileSync(new URL("../app/src/main/java/com/merzkava/pocket/review/PocketUpdateWorker.java", import.meta.url), "utf8");
@@ -157,7 +158,7 @@ test("CRI has separate, simultaneous channels for music, crackle, stylus and rec
 
 test("Bundled CRI ADX is decoded to canonical PCM16 WAV before CRI playback", () => {
   assert.match(runtimeSource, /PocketAdxDecoder\.decodeToWav\(source, wav\)/);
-  assert.match(runtimeSource, /prepareBuiltInAdx/);
+  assert.match(runtimeSource, /prepareAdxForCri/);
   assert.match(runtimeSource, /FORMAT_WAVE\s*=\s*2/);
   assert.match(runtimeSource, /cri-audio-pcm/);
   assert.match(runtimeSource, /beginMusicPlayback\(wav, FORMAT_WAVE/);
@@ -724,4 +725,32 @@ test("Floating window transitions reuse the same CRI runtime and do not pause pl
   assert.doesNotMatch(floatingSource, /criStopMusic|criPauseMusic|PocketCriAudioRuntime/,
     "window mode changes must not issue playback stop or pause commands");
   assert.match(source, /activeTurntableMotion\?\.setRenderEnabled\(!bubbleVisualSuspended\)/);
+});
+
+
+test("Seven Merzkava Official Theme ADX tracks are listed as protected built-in BGM", () => {
+  for (let number = 1; number <= 7; number++) {
+    const id = "officialtheme" + number;
+    const filename = "merzkava-official-theme-" + number + ".adx";
+    assert.match(deckSource, new RegExp('id:"' + id + '".*title:"Merzkava Official Theme - ' + number + '".*extension:"ADX"'));
+    assert.ok(runtimeSource.includes('BUILT_IN.put("' + id + '", "' + filename + '")'));
+    assert.match(buildWorkflowSource, new RegExp('Merzkava Official Theme - \\$\\{number\\}\\.adx'));
+    assert.match(buildWorkflowSource, new RegExp(filename.replaceAll(".", "\\\\.")));
+  }
+  assert.match(source, /audioDirector\.getTracks\(\)/);
+  assert.match(source, /CRI ADX · POCKET BGM/);
+  assert.match(buildWorkflowSource, /test "\$ADX_COUNT" -eq 14/);
+});
+
+test("Settings music picker imports ADX directly and reuses the native CRI ADX decoder", () => {
+  assert.match(activitySource, /intent\.setType\("\*\/\*"\)/);
+  assert.match(activitySource, /application\/octet-stream/);
+  assert.match(importerSource, /static Result copyAdxSource\(/);
+  assert.match(importerSource, /PocketAdxDecoder\.inspect\(temporaryAdx\)/);
+  assert.match(bridgeSource, /PocketAudioImporter\.copyAdxSource\(activity, uri, temporary\)/);
+  assert.match(bridgeSource, /playbackType", adxSource \? "CRI_ADX" : "CRI_WAVE"/);
+  assert.match(runtimeSource, /new File\(musicDirectory, customId \+ "\.adx"\)/);
+  assert.match(runtimeSource, /prepareAdxForCri\(file, CHANNEL_MUSIC/);
+  assert.match(runtimeSource, /PocketAdxDecoder\.decodeToWav\(source, wav\)/);
+  assert.match(bridgeSource, /trackId \+ "\.adx"/);
 });
