@@ -253,13 +253,10 @@ public final class PocketNativeBridge {
                 stored.delete();
                 return audioImportResult(false, "Pocket could not update the music rack. Please try again.", false);
             }
-            String successMessage = adxSource
-                ? decoded.message
-                : decoded.message;
             return new JSONObject()
                 .put("ok", true)
                 .put("cancelled", false)
-                .put("message", successMessage)
+                .put("message", decoded.message)
                 .put("tracks", tracks)
                 .toString();
         } catch (Exception error) {
