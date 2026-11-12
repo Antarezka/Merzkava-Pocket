@@ -177,7 +177,10 @@ export function createPocketAudioDirector({
     if (channel === "stylus") {
       if (stylusContactPending && (next === "playing" || next === "error")) {
         stylusContactPending = false;
-        if (isPlaying() && motorRunning) needleDown = true;
+        if (isPlaying() && motorRunning) {
+          needleDown = true;
+          ensureAmbienceForPlayingMusic();
+        }
         notify();
       }
       return;
@@ -228,7 +231,6 @@ export function createPocketAudioDirector({
       motorRunning = true;
       stylusContactPending = true;
       if (startupSequence === "music") startupSequence = "complete";
-      ensureAmbienceForPlayingMusic();
     }
     notify();
   }
