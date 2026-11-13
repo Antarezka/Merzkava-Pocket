@@ -1,0 +1,76 @@
+{
+ "size": [
+  384,
+  512
+ ],
+ "anchor": [
+  192,
+  504
+ ],
+ "roles": [
+  "outline",
+  "line_soft",
+  "skin_deep",
+  "skin_shade",
+  "skin_base",
+  "skin_light"
+ ],
+ "default_palette": [
+  [
+   59,
+   44,
+   54
+  ],
+  [
+   107,
+   82,
+   82
+  ],
+  [
+   201,
+   156,
+   148
+  ],
+  [
+   227,
+   187,
+   175
+  ],
+  [
+   246,
+   223,
+   206
+  ],
+  [
+   252,
+   238,
+   226
+  ]
+ ],
+ "directions": {
+  "S": {
+   "mirror": false
+  },
+  "N": {
+   "mirror": false
+  },
+  "E": {
+   "mirror": false
+  },
+  "SE": {
+   "mirror": false
+  },
+  "NE": {
+   "mirror": false
+  },
+  "W": {
+   "mirror": true
+  },
+  "SW": {
+   "mirror": true
+  },
+  "NW": {
+   "mirror": true
+  }
+ }
+}

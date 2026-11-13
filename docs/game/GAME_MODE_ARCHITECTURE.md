@@ -134,3 +134,12 @@ Storyline, combat, Spirit Rings / Awakening runtime, travel to other maps, multi
 ## 7. Character base (supplied reference)
 
 The procedural, code-drawn character was discarded. The base is the chibi mannequin from the supplied modular sheet (front/side/back cut-outs in `review-apk/web/src/game/art/base/`). Heads, eyes, expressions, hair parts, equipment and 8-direction walk frames are to be built as separate layers on top of it, at a quality target of 2x the reference sheet.
+
+## 8. Art pipeline (offline tools, outputs committed)
+
+`tools/art/` holds Python tools (OpenCV + NumPy, no network) that re-trace the supplied reference sheets into crisp, smooth, high-resolution assets. They are not part of the app build; only their PNG/JSON output is committed.
+
+- `crisp.py` — background cut-out and palette-region re-trace (upscale, fixed-role palette, blurred one-hot argmax for smooth vector-like edges).
+- `build_base.py` — builds the 8-direction chibi base (`review-apk/web/src/game/art/base/dir_{N,NE,E,SE,S,SW,W,NW}.png`) plus `dir_*_idx.png` role maps so skin tones can be palette-swapped at runtime, and `manifest.json`. W/SW/NW are mirrors of E/SE/NE. Clipped heads and feet from the reference frames are closed with outlined caps.
+
+Not done yet: walk/idle rig, face parts, hair layers, outfits and world tiles.
