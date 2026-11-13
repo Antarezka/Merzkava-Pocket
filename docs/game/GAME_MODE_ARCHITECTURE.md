@@ -143,3 +143,11 @@ The procedural, code-drawn character was discarded. The base is the chibi manneq
 - `build_base.py` — builds the 8-direction chibi base (`review-apk/web/src/game/art/base/dir_{N,NE,E,SE,S,SW,W,NW}.png`) plus `dir_*_idx.png` role maps so skin tones can be palette-swapped at runtime, and `manifest.json`. W/SW/NW are mirrors of E/SE/NE. Clipped heads and feet from the reference frames are closed with outlined caps.
 
 Not done yet: walk/idle rig, face parts, hair layers, outfits and world tiles.
+
+### 8.1 Modular parts (user-supplied "Ronin" guide sheets)
+
+- `extract_parts.py` + `regions_ronin_guide.json` cut hair heads (4 styles x front/side/back), outer robe (front/back), collars, hakama, red sash into `art/parts/ronin/` and re-trace them smooth with the shared plum-brown outline.
+- `hair_only.py` removes the painted face from a hair head, so the face comes from the base; hair hanging below the chin splits into a back layer (behind the body) and a front layer.
+- `compose_test.py` layers base + hakama + robe + sash + collar + tinted hair for visual checks. Hair is grey in the source and is tinted by luminance (shadow/base/light).
+- Animation standard (from the supplied Ronin sprite sheet): 4-direction idle and walk, sword draw/slash, spell cast (charge and release), hurt, jump, crouch/kneel, sit, meditate, emotes.
+- Known gaps: no 3/4 hair views (SE/SW/NE/NW fall back to front/back/side), residual eyelid lines on some heads, collar scale/placement needs tuning, stair-step edges from the pixel source need stronger smoothing, 5 of the 8 base directions have no matching robe/hakama views yet.

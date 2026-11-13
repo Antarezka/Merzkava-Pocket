@@ -1,0 +1,10 @@
+[
+ {"prefix":"hair_messy","box":[20,105,420,170],"min_area":6000,"k":6},
+ {"prefix":"hair_wavy","box":[470,105,420,170],"min_area":6000,"k":6},
+ {"prefix":"hair_wavy2","box":[20,282,420,160],"min_area":6000,"k":6},
+ {"prefix":"hair_short","box":[470,280,420,150],"min_area":6000,"k":6},
+ {"prefix":"robe","box":[6,780,401,160],"min_area":6000,"k":6},
+ {"prefix":"collar","box":[405,775,300,80],"min_area":1500,"k":4},
+ {"prefix":"hakama","box":[405,900,320,190],"min_area":6000,"k":6},
+ {"prefix":"sash","box":[40,985,320,125],"min_area":4000,"k":6}
+]
