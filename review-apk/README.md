@@ -37,7 +37,7 @@ All runtime formula and timer implementations are governed by the mandatory [Poc
 
 Home/Game navigation now exposes the economy. The isometric world, travel simulation, live location/area discovery, general job wages, Daily Login transactions, global inventory sharing with all other modes, Hunt, Socialize, Sparring, War Zone, Skillbook, Bestiary and Arcanistry gameplay runtime remain separate implementation work. Mandatory design documents are not evidence that those other features are playable.
 
-Anime.js 4.x owns access pacing, the Pocket Transition, screen transitions, Splash, pull-cord and dock choreography. CSS owns surfaces and static/reduced-motion presentation. Augusto PXL remains a build-time visual-art authoring/export pipeline; it is not treated as an animation engine and no generated artwork is fabricated for this shell.
+Anime.js 4.x owns access pacing, the Pocket Transition, screen transitions, Splash, pull-cord and dock choreography. CSS owns surfaces and static/reduced-motion presentation. The Augusto PXL art pipeline and Phaser have been removed. Game Mode uses its own Canvas 2D engine (see docs/game/GAME_MODE_ARCHITECTURE.md) and its own hand-built art.
 
 ## Build
 

@@ -130,3 +130,7 @@ export function buildCatalog({ itemsA, itemsB, facilities, recipes }) -> Catalog
 ## 6. Out of scope for this pass
 
 Storyline, combat, Spirit Rings / Awakening runtime, travel to other maps, multiplayer. Exits only show **COMING SOON**.
+
+## 7. Character base (supplied reference)
+
+The procedural, code-drawn character was discarded. The base is the chibi mannequin from the supplied modular sheet (front/side/back cut-outs in `review-apk/web/src/game/art/base/`). Heads, eyes, expressions, hair parts, equipment and 8-direction walk frames are to be built as separate layers on top of it, at a quality target of 2x the reference sheet.
