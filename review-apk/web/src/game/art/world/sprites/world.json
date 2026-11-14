@@ -1,0 +1,234 @@
+{
+ "objects": {
+  "tree_round": {
+   "w": 419,
+   "h": 628
+  },
+  "tree_dark": {
+   "w": 406,
+   "h": 643
+  },
+  "tree_amber": {
+   "w": 426,
+   "h": 650
+  },
+  "tree_pine": {
+   "w": 369,
+   "h": 655
+  },
+  "tree_willow": {
+   "w": 433,
+   "h": 659
+  },
+  "tree_palm": {
+   "w": 429,
+   "h": 600
+  },
+  "tree_bonsai": {
+   "w": 414,
+   "h": 620
+  },
+  "tree_sakura": {
+   "w": 447,
+   "h": 638
+  },
+  "tree_fruit": {
+   "w": 434,
+   "h": 578
+  },
+  "tree_blossom": {
+   "w": 423,
+   "h": 602
+  },
+  "tree_teal": {
+   "w": 386,
+   "h": 603
+  },
+  "bush_a": {
+   "w": 282,
+   "h": 290
+  },
+  "bush_flower_a": {
+   "w": 270,
+   "h": 298
+  },
+  "bush_b": {
+   "w": 270,
+   "h": 246
+  },
+  "bush_flower_b": {
+   "w": 254,
+   "h": 242
+  },
+  "bush_orange": {
+   "w": 258,
+   "h": 278
+  },
+  "plant_16": {
+   "w": 258,
+   "h": 246
+  },
+  "plant_17": {
+   "w": 263,
+   "h": 253
+  },
+  "plant_18": {
+   "w": 278,
+   "h": 286
+  },
+  "plant_19": {
+   "w": 254,
+   "h": 242
+  },
+  "plant_20": {
+   "w": 264,
+   "h": 250
+  },
+  "plant_21": {
+   "w": 262,
+   "h": 218
+  },
+  "plant_22": {
+   "w": 280,
+   "h": 240
+  },
+  "plant_23": {
+   "w": 262,
+   "h": 198
+  },
+  "plant_24": {
+   "w": 298,
+   "h": 218
+  },
+  "plant_25": {
+   "w": 262,
+   "h": 210
+  },
+  "plant_26": {
+   "w": 250,
+   "h": 174
+  },
+  "plant_27": {
+   "w": 214,
+   "h": 155
+  },
+  "rock_s1": {
+   "w": 258,
+   "h": 238
+  },
+  "rock_s2": {
+   "w": 253,
+   "h": 226
+  },
+  "rock_m1": {
+   "w": 334,
+   "h": 314
+  },
+  "rock_m2": {
+   "w": 358,
+   "h": 331
+  },
+  "rock_cluster": {
+   "w": 326,
+   "h": 266
+  },
+  "rock_big_moss": {
+   "w": 402,
+   "h": 362
+  },
+  "rock_tall": {
+   "w": 414,
+   "h": 386
+  },
+  "stump": {
+   "w": 314,
+   "h": 258
+  },
+  "log_hollow": {
+   "w": 244,
+   "h": 209
+  },
+  "branch_dead": {
+   "w": 247,
+   "h": 256
+  },
+  "pebble_big": {
+   "w": 58,
+   "h": 58
+  },
+  "fence_end": {
+   "w": 222,
+   "h": 228
+  },
+  "log": {
+   "w": 275,
+   "h": 228
+  },
+  "leaf_pile": {
+   "w": 233,
+   "h": 149
+  },
+  "sticks": {
+   "w": 203,
+   "h": 137
+  },
+  "fence_post": {
+   "w": 219,
+   "h": 222
+  },
+  "rock_flat": {
+   "w": 69,
+   "h": 52
+  },
+  "plant_45": {
+   "w": 199,
+   "h": 130
+  },
+  "plant_46": {
+   "w": 202,
+   "h": 134
+  },
+  "plant_47": {
+   "w": 119,
+   "h": 139
+  },
+  "mushroom_red": {
+   "w": 87,
+   "h": 100
+  },
+  "mushroom_brown": {
+   "w": 174,
+   "h": 119
+  },
+  "plant_50": {
+   "w": 203,
+   "h": 168
+  },
+  "plant_51": {
+   "w": 135,
+   "h": 134
+  },
+  "mushroom_big": {
+   "w": 200,
+   "h": 147
+  }
+ },
+ "tree_colourways": [
+  "orange_light",
+  "orange_dark",
+  "peach",
+  "rust",
+  "olive",
+  "gold",
+  "crimson",
+  "plum"
+ ],
+ "tree_shapes": [
+  "tree_round",
+  "tree_dark",
+  "tree_bonsai",
+  "tree_pine",
+  "tree_willow",
+  "tree_blossom"
+ ]
+}
