@@ -1,0 +1,143 @@
+{
+ "set": "ronin_black",
+ "parts": [
+  {
+   "name": "head_front_a",
+   "box": [
+    18,
+    326,
+    130,
+    96
+   ],
+   "kind": "hair",
+   "view": "S"
+  },
+  {
+   "name": "head_front_b",
+   "box": [
+    159,
+    333,
+    131,
+    88
+   ],
+   "kind": "hair",
+   "view": "S"
+  },
+  {
+   "name": "head_front_c",
+   "box": [
+    301,
+    333,
+    131,
+    88
+   ],
+   "kind": "hair",
+   "view": "S"
+  },
+  {
+   "name": "hair_back",
+   "box": [
+    468,
+    309,
+    113,
+    136
+   ],
+   "kind": "hair",
+   "view": "N"
+  },
+  {
+   "name": "hair_side",
+   "box": [
+    597,
+    333,
+    105,
+    111
+   ],
+   "kind": "hair",
+   "view": "E"
+  },
+  {
+   "name": "hair_back2",
+   "box": [
+    714,
+    325,
+    110,
+    120
+   ],
+   "kind": "hair",
+   "view": "N"
+  },
+  {
+   "name": "katana_sheathed",
+   "box": [
+    18,
+    471,
+    258,
+    48
+   ],
+   "kind": "weapon"
+  },
+  {
+   "name": "katana_drawn",
+   "box": [
+    295,
+    471,
+    232,
+    48
+   ],
+   "kind": "weapon"
+  },
+  {
+   "name": "tsuba",
+   "box": [
+    571,
+    446,
+    73,
+    76
+   ],
+   "kind": "prop"
+  },
+  {
+   "name": "grip",
+   "box": [
+    700,
+    452,
+    120,
+    67
+   ],
+   "kind": "prop"
+  },
+  {
+   "name": "jacket",
+   "box": [
+    37,
+    588,
+    140,
+    133
+   ],
+   "kind": "outer",
+   "view": "S"
+  },
+  {
+   "name": "collar",
+   "box": [
+    231,
+    585,
+    102,
+    83
+   ],
+   "kind": "collar"
+  },
+  {
+   "name": "hakama_boots",
+   "box": [
+    391,
+    596,
+    116,
+    125
+   ],
+   "kind": "bottom",
+   "view": "S"
+  }
+ ]
+}

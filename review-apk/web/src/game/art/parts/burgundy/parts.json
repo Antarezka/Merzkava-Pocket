@@ -1,0 +1,705 @@
+{
+ "set": "burgundy",
+ "parts": {
+  "head_front_a": {
+   "file": "head_front_a.png",
+   "w": 604,
+   "h": 359,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.64
+    },
+    {
+     "dl": -0.444
+    },
+    {
+     "dl": -0.28
+    },
+    {
+     "dl": -0.15
+    },
+    {
+     "dl": 0.0
+    }
+   ],
+   "base": "#e2d5cf",
+   "kind": "hair",
+   "view": "S",
+   "has_skin": false,
+   "src": [
+    22,
+    343,
+    128,
+    75
+   ]
+  },
+  "head_front_b": {
+   "file": "head_front_b.png",
+   "w": 604,
+   "h": 354,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.641
+    },
+    {
+     "dl": -0.427
+    },
+    {
+     "dl": -0.273
+    },
+    {
+     "dl": -0.14
+    },
+    {
+     "dl": 0.0
+    }
+   ],
+   "base": "#e3d4cf",
+   "kind": "hair",
+   "view": "S",
+   "has_skin": false,
+   "src": [
+    163,
+    343,
+    129,
+    74
+   ]
+  },
+  "head_front_c": {
+   "file": "head_front_c.png",
+   "w": 604,
+   "h": 324,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.584
+    },
+    {
+     "dl": -0.399
+    },
+    {
+     "dl": -0.246
+    },
+    {
+     "dl": -0.129
+    },
+    {
+     "dl": 0.0
+    }
+   ],
+   "base": "#e5d7d2",
+   "kind": "hair",
+   "view": "S",
+   "has_skin": false,
+   "src": [
+    304,
+    350,
+    128,
+    65
+   ]
+  },
+  "hair_back": {
+   "file": "hair_back.png",
+   "w": 519,
+   "h": 544,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.439
+    },
+    {
+     "dl": -0.249
+    },
+    {
+     "dl": -0.113
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.185
+    }
+   ],
+   "base": "#a8b1be",
+   "kind": "hair",
+   "view": "N",
+   "has_skin": false,
+   "src": [
+    471,
+    330,
+    113,
+    113
+   ]
+  },
+  "hair_side": {
+   "file": "hair_side.png",
+   "w": 499,
+   "h": 569,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.609
+    },
+    {
+     "dl": -0.409
+    },
+    {
+     "dl": -0.248
+    },
+    {
+     "dl": -0.13
+    },
+    {
+     "dl": 0.0
+    }
+   ],
+   "base": "#dfd6d3",
+   "kind": "hair",
+   "view": "E",
+   "has_skin": true,
+   "src": [
+    600,
+    325,
+    104,
+    118
+   ]
+  },
+  "hair_back_bow": {
+   "file": "hair_back_bow.png",
+   "w": 509,
+   "h": 634,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.757
+    },
+    {
+     "dl": -0.529
+    },
+    {
+     "dl": -0.318
+    },
+    {
+     "dl": -0.2
+    },
+    {
+     "dl": 0.0
+    }
+   ],
+   "base": "#f2f5f8",
+   "kind": "hair",
+   "view": "N",
+   "has_skin": false,
+   "src": [
+    718,
+    308,
+    111,
+    135
+   ]
+  },
+  "kosode_0": {
+   "file": "kosode_0.png",
+   "w": 579,
+   "h": 524,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.134
+    },
+    {
+     "dl": -0.088
+    },
+    {
+     "dl": -0.047
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.604
+    }
+   ],
+   "base": "#581a31",
+   "kind": "outer",
+   "view": "S",
+   "has_skin": false,
+   "src": [
+    35,
+    608,
+    122,
+    114
+   ]
+  },
+  "kosode_1": {
+   "file": "kosode_1.png",
+   "w": 269,
+   "h": 524,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.069
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.053
+    },
+    {
+     "dl": 0.727
+    }
+   ],
+   "base": "#380e20",
+   "kind": "outer",
+   "view": "S",
+   "has_skin": false,
+   "src": [
+    157,
+    608,
+    66,
+    114
+   ]
+  },
+  "collar": {
+   "file": "collar.png",
+   "w": 334,
+   "h": 364,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.17
+    },
+    {
+     "dl": -0.07
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.542
+    }
+   ],
+   "base": "#30323e",
+   "kind": "collar",
+   "view": "",
+   "has_skin": false,
+   "src": [
+    234,
+    609,
+    76,
+    82
+   ]
+  },
+  "hakama_front": {
+   "file": "hakama_front.png",
+   "w": 394,
+   "h": 509,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.248
+    },
+    {
+     "dl": -0.156
+    },
+    {
+     "dl": -0.1
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.406
+    }
+   ],
+   "base": "#5e6061",
+   "kind": "bottom",
+   "view": "S",
+   "has_skin": false,
+   "src": [
+    318,
+    611,
+    88,
+    111
+   ]
+  },
+  "hakama_back": {
+   "file": "hakama_back.png",
+   "w": 389,
+   "h": 504,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.242
+    },
+    {
+     "dl": -0.155
+    },
+    {
+     "dl": -0.099
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.372
+    }
+   ],
+   "base": "#5e6062",
+   "kind": "bottom",
+   "view": "N",
+   "has_skin": false,
+   "src": [
+    407,
+    611,
+    87,
+    110
+   ]
+  },
+  "sash": {
+   "file": "sash.png",
+   "w": 344,
+   "h": 144,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.181
+    },
+    {
+     "dl": -0.098
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.496
+    }
+   ],
+   "base": "#5c6165",
+   "kind": "sash",
+   "view": "",
+   "has_skin": false,
+   "src": [
+    508,
+    611,
+    78,
+    38
+   ]
+  },
+  "acc_tassel": {
+   "file": "acc_tassel.png",
+   "w": 174,
+   "h": 294,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.083
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.099
+    },
+    {
+     "dl": 0.284
+    },
+    {
+     "dl": 0.469
+    },
+    {
+     "dl": 0.713
+    }
+   ],
+   "base": "#3a171b",
+   "kind": "acc",
+   "view": "",
+   "has_skin": false,
+   "src": [
+    608,
+    609,
+    44,
+    68
+   ]
+  },
+  "acc_ribbons": {
+   "file": "acc_ribbons.png",
+   "w": 224,
+   "h": 259,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.159
+    },
+    {
+     "dl": -0.069
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.665
+    }
+   ],
+   "base": "#4b2530",
+   "kind": "acc",
+   "view": "",
+   "has_skin": false,
+   "src": [
+    717,
+    453,
+    54,
+    61
+   ]
+  },
+  "zori_a": {
+   "file": "zori_a.png",
+   "w": 169,
+   "h": 224,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.138
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.128
+    },
+    {
+     "dl": 0.33
+    },
+    {
+     "dl": 0.527
+    },
+    {
+     "dl": 0.742
+    }
+   ],
+   "base": "#452628",
+   "kind": "shoes",
+   "view": "",
+   "has_skin": false,
+   "src": [
+    503,
+    672,
+    43,
+    49
+   ]
+  },
+  "zori_b": {
+   "file": "zori_b.png",
+   "w": 169,
+   "h": 224,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.151
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.137
+    },
+    {
+     "dl": 0.34
+    },
+    {
+     "dl": 0.543
+    },
+    {
+     "dl": 0.722
+    }
+   ],
+   "base": "#4a2d2c",
+   "kind": "shoes",
+   "view": "",
+   "has_skin": false,
+   "src": [
+    550,
+    672,
+    43,
+    49
+   ]
+  },
+  "zori_pair": {
+   "file": "zori_pair.png",
+   "w": 154,
+   "h": 189,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.806
+    },
+    {
+     "dl": -0.687
+    },
+    {
+     "dl": -0.485
+    },
+    {
+     "dl": -0.23
+    },
+    {
+     "dl": 0.0
+    }
+   ],
+   "base": "#f7f5f2",
+   "kind": "shoes",
+   "view": "",
+   "has_skin": false,
+   "src": [
+    611,
+    679,
+    79,
+    43
+   ]
+  },
+  "glass_pair": {
+   "file": "glass_pair.png",
+   "w": 189,
+   "h": 329,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.763
+    },
+    {
+     "dl": -0.598
+    },
+    {
+     "dl": -0.36
+    },
+    {
+     "dl": -0.167
+    },
+    {
+     "dl": 0.0
+    }
+   ],
+   "base": "#eae8e9",
+   "kind": "prop",
+   "view": "",
+   "has_skin": false,
+   "src": [
+    336,
+    455,
+    85,
+    66
+   ]
+  },
+  "decanter": {
+   "file": "decanter.png",
+   "w": 329,
+   "h": 389,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.122
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.222
+    },
+    {
+     "dl": 0.438
+    },
+    {
+     "dl": 0.633
+    },
+    {
+     "dl": 0.75
+    }
+   ],
+   "base": "#521b27",
+   "kind": "prop",
+   "view": "",
+   "has_skin": false,
+   "src": [
+    446,
+    438,
+    75,
+    87
+   ]
+  },
+  "stem_glass": {
+   "file": "stem_glass.png",
+   "w": 149,
+   "h": 254,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.65
+    },
+    {
+     "dl": -0.499
+    },
+    {
+     "dl": -0.34
+    },
+    {
+     "dl": -0.167
+    },
+    {
+     "dl": 0.0
+    }
+   ],
+   "base": "#d3d2d2",
+   "kind": "prop",
+   "view": "",
+   "has_skin": false,
+   "src": [
+    597,
+    464,
+    39,
+    59
+   ]
+  }
+ }
+}

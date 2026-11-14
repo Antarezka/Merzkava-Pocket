@@ -1,0 +1,556 @@
+{
+ "set": "miko_white",
+ "parts": {
+  "head_front_0": {
+   "file": "head_front_0.png",
+   "w": 634,
+   "h": 479,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.655
+    },
+    {
+     "dl": -0.438
+    },
+    {
+     "dl": -0.286
+    },
+    {
+     "dl": -0.142
+    },
+    {
+     "dl": 0.0
+    }
+   ],
+   "base": "#f0f2f3",
+   "kind": "hair",
+   "view": "S",
+   "has_skin": false,
+   "src": [
+    10,
+    360,
+    133,
+    105
+   ]
+  },
+  "head_front_1": {
+   "file": "head_front_1.png",
+   "w": 629,
+   "h": 479,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.676
+    },
+    {
+     "dl": -0.455
+    },
+    {
+     "dl": -0.303
+    },
+    {
+     "dl": -0.148
+    },
+    {
+     "dl": 0.0
+    }
+   ],
+   "base": "#eff2f5",
+   "kind": "hair",
+   "view": "S",
+   "has_skin": false,
+   "src": [
+    143,
+    360,
+    138,
+    105
+   ]
+  },
+  "head_front_2": {
+   "file": "head_front_2.png",
+   "w": 634,
+   "h": 479,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.676
+    },
+    {
+     "dl": -0.452
+    },
+    {
+     "dl": -0.301
+    },
+    {
+     "dl": -0.15
+    },
+    {
+     "dl": 0.0
+    }
+   ],
+   "base": "#f0f2f4",
+   "kind": "hair",
+   "view": "S",
+   "has_skin": false,
+   "src": [
+    281,
+    360,
+    139,
+    105
+   ]
+  },
+  "hair_back": {
+   "file": "hair_back.png",
+   "w": 454,
+   "h": 449,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.452
+    },
+    {
+     "dl": -0.26
+    },
+    {
+     "dl": -0.12
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.181
+    }
+   ],
+   "base": "#a5acb8",
+   "kind": "hair",
+   "view": "N",
+   "has_skin": false,
+   "src": [
+    430,
+    380,
+    100,
+    94
+   ]
+  },
+  "hair_side": {
+   "file": "hair_side.png",
+   "w": 444,
+   "h": 479,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.618
+    },
+    {
+     "dl": -0.43
+    },
+    {
+     "dl": -0.259
+    },
+    {
+     "dl": -0.142
+    },
+    {
+     "dl": 0.0
+    }
+   ],
+   "base": "#dcd1cd",
+   "kind": "hair",
+   "view": "E",
+   "has_skin": true,
+   "src": [
+    546,
+    375,
+    96,
+    100
+   ]
+  },
+  "hair_back2": {
+   "file": "hair_back2.png",
+   "w": 449,
+   "h": 449,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.507
+    },
+    {
+     "dl": -0.32
+    },
+    {
+     "dl": -0.127
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.13
+    }
+   ],
+   "base": "#b0b6bf",
+   "kind": "hair",
+   "view": "N",
+   "has_skin": false,
+   "src": [
+    653,
+    380,
+    99,
+    94
+   ]
+  },
+  "trim_diamond": {
+   "file": "trim_diamond.png",
+   "w": 1024,
+   "h": 229,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.384
+    },
+    {
+     "dl": -0.289
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.149
+    }
+   ],
+   "base": "#818184",
+   "kind": "trim",
+   "view": "",
+   "has_skin": false,
+   "src": [
+    51,
+    544,
+    214,
+    55
+   ]
+  },
+  "skirt_detail": {
+   "file": "skirt_detail.png",
+   "w": 524,
+   "h": 344,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.244
+    },
+    {
+     "dl": -0.135
+    },
+    {
+     "dl": -0.07
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.174
+    },
+    {
+     "dl": 0.367
+    }
+   ],
+   "base": "#41454c",
+   "kind": "bottom",
+   "view": "S",
+   "has_skin": false,
+   "src": [
+    297,
+    524,
+    114,
+    78
+   ]
+  },
+  "straps_detail": {
+   "file": "straps_detail.png",
+   "w": 419,
+   "h": 369,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.127
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.1
+    },
+    {
+     "dl": 0.316
+    },
+    {
+     "dl": 0.828
+    }
+   ],
+   "base": "#272831",
+   "kind": "acc",
+   "view": "",
+   "has_skin": false,
+   "src": [
+    417,
+    519,
+    93,
+    83
+   ]
+  },
+  "belt_tie": {
+   "file": "belt_tie.png",
+   "w": 379,
+   "h": 184,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.252
+    },
+    {
+     "dl": -0.167
+    },
+    {
+     "dl": -0.071
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.467
+    }
+   ],
+   "base": "#43444a",
+   "kind": "acc",
+   "view": "",
+   "has_skin": false,
+   "src": [
+    540,
+    528,
+    86,
+    69
+   ]
+  },
+  "charm": {
+   "file": "charm.png",
+   "w": 344,
+   "h": 449,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.419
+    },
+    {
+     "dl": -0.263
+    },
+    {
+     "dl": -0.131
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.262
+    }
+   ],
+   "base": "#b79886",
+   "kind": "acc",
+   "view": "",
+   "has_skin": true,
+   "src": [
+    657,
+    495,
+    78,
+    99
+   ]
+  },
+  "mantle_0": {
+   "file": "mantle_0.png",
+   "w": 554,
+   "h": 554,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.658
+    },
+    {
+     "dl": -0.408
+    },
+    {
+     "dl": -0.166
+    },
+    {
+     "dl": 0.0
+    }
+   ],
+   "base": "#edeef1",
+   "kind": "outer",
+   "view": "S",
+   "has_skin": false,
+   "src": [
+    16,
+    686,
+    117,
+    121
+   ]
+  },
+  "mantle_1": {
+   "file": "mantle_1.png",
+   "w": 554,
+   "h": 559,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.734
+    },
+    {
+     "dl": -0.58
+    },
+    {
+     "dl": -0.367
+    },
+    {
+     "dl": -0.169
+    },
+    {
+     "dl": 0.0
+    }
+   ],
+   "base": "#f0f1f3",
+   "kind": "outer",
+   "view": "S",
+   "has_skin": false,
+   "src": [
+    133,
+    686,
+    120,
+    121
+   ]
+  },
+  "inner_skirt": {
+   "file": "inner_skirt.png",
+   "w": 514,
+   "h": 514,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.251
+    },
+    {
+     "dl": -0.149
+    },
+    {
+     "dl": -0.087
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.483
+    }
+   ],
+   "base": "#41454b",
+   "kind": "bottom",
+   "view": "S",
+   "has_skin": false,
+   "src": [
+    262,
+    692,
+    112,
+    112
+   ]
+  },
+  "shoulder_straps": {
+   "file": "shoulder_straps.png",
+   "w": 429,
+   "h": 509,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.837
+    },
+    {
+     "dl": -0.733
+    },
+    {
+     "dl": 0.0
+    }
+   ],
+   "base": "#fcfcfc",
+   "kind": "acc",
+   "view": "",
+   "has_skin": false,
+   "src": [
+    393,
+    693,
+    95,
+    111
+   ]
+  },
+  "hood_sleeves": {
+   "file": "hood_sleeves.png",
+   "w": 489,
+   "h": 714,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.774
+    },
+    {
+     "dl": -0.641
+    },
+    {
+     "dl": -0.397
+    },
+    {
+     "dl": -0.167
+    },
+    {
+     "dl": 0.0
+    }
+   ],
+   "base": "#eeeff3",
+   "kind": "outer",
+   "view": "S",
+   "has_skin": false,
+   "src": [
+    501,
+    655,
+    102,
+    152
+   ]
+  }
+ }
+}

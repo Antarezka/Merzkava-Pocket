@@ -1,0 +1,145 @@
+{
+ "set": "miko_white",
+ "parts": [
+  {
+   "name": "head_front",
+   "box": [
+    10,
+    360,
+    410,
+    105
+   ],
+   "kind": "hair",
+   "view": "S",
+   "split": 3
+  },
+  {
+   "name": "hair_back",
+   "box": [
+    430,
+    380,
+    100,
+    94
+   ],
+   "kind": "hair",
+   "view": "N"
+  },
+  {
+   "name": "hair_side",
+   "box": [
+    546,
+    375,
+    96,
+    100
+   ],
+   "kind": "hair",
+   "view": "E"
+  },
+  {
+   "name": "hair_back2",
+   "box": [
+    653,
+    380,
+    99,
+    94
+   ],
+   "kind": "hair",
+   "view": "N"
+  },
+  {
+   "name": "trim_diamond",
+   "box": [
+    51,
+    544,
+    214,
+    55
+   ],
+   "kind": "trim"
+  },
+  {
+   "name": "skirt_detail",
+   "box": [
+    297,
+    524,
+    114,
+    78
+   ],
+   "kind": "bottom",
+   "view": "S"
+  },
+  {
+   "name": "straps_detail",
+   "box": [
+    417,
+    519,
+    93,
+    83
+   ],
+   "kind": "acc"
+  },
+  {
+   "name": "belt_tie",
+   "box": [
+    540,
+    528,
+    86,
+    69
+   ],
+   "kind": "acc"
+  },
+  {
+   "name": "charm",
+   "box": [
+    657,
+    495,
+    78,
+    99
+   ],
+   "kind": "acc"
+  },
+  {
+   "name": "mantle",
+   "box": [
+    16,
+    686,
+    237,
+    121
+   ],
+   "kind": "outer",
+   "split": 2,
+   "view": "S"
+  },
+  {
+   "name": "inner_skirt",
+   "box": [
+    262,
+    692,
+    112,
+    112
+   ],
+   "kind": "bottom",
+   "view": "S"
+  },
+  {
+   "name": "shoulder_straps",
+   "box": [
+    393,
+    693,
+    95,
+    111
+   ],
+   "kind": "acc"
+  },
+  {
+   "name": "hood_sleeves",
+   "box": [
+    501,
+    655,
+    102,
+    152
+   ],
+   "kind": "outer",
+   "view": "S"
+  }
+ ]
+}

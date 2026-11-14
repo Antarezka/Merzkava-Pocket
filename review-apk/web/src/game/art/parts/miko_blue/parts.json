@@ -1,0 +1,673 @@
+{
+ "set": "miko_blue",
+ "parts": {
+  "head_front_a": {
+   "file": "head_front_a.png",
+   "w": 619,
+   "h": 514,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.121
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.143
+    },
+    {
+     "dl": 0.321
+    },
+    {
+     "dl": 0.492
+    }
+   ],
+   "base": "#445c86",
+   "kind": "hair",
+   "view": "S",
+   "has_skin": false,
+   "src": [
+    17,
+    310,
+    133,
+    112
+   ]
+  },
+  "head_front_b": {
+   "file": "head_front_b.png",
+   "w": 624,
+   "h": 519,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.117
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.147
+    },
+    {
+     "dl": 0.321
+    },
+    {
+     "dl": 0.482
+    }
+   ],
+   "base": "#445d87",
+   "kind": "hair",
+   "view": "S",
+   "has_skin": false,
+   "src": [
+    159,
+    310,
+    130,
+    112
+   ]
+  },
+  "head_front_c": {
+   "file": "head_front_c.png",
+   "w": 599,
+   "h": 504,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.183
+    },
+    {
+     "dl": -0.093
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.242
+    },
+    {
+     "dl": 0.439
+    }
+   ],
+   "base": "#48618d",
+   "kind": "hair",
+   "view": "S",
+   "has_skin": false,
+   "src": [
+    300,
+    313,
+    129,
+    108
+   ]
+  },
+  "hair_back": {
+   "file": "hair_back.png",
+   "w": 519,
+   "h": 634,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.228
+    },
+    {
+     "dl": -0.088
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.096
+    },
+    {
+     "dl": 0.543
+    }
+   ],
+   "base": "#33456c",
+   "kind": "hair",
+   "view": "N",
+   "has_skin": false,
+   "src": [
+    468,
+    309,
+    113,
+    135
+   ]
+  },
+  "hair_side": {
+   "file": "hair_side.png",
+   "w": 494,
+   "h": 629,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.19
+    },
+    {
+     "dl": -0.1
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.255
+    },
+    {
+     "dl": 0.446
+    }
+   ],
+   "base": "#47638e",
+   "kind": "hair",
+   "view": "E",
+   "has_skin": true,
+   "src": [
+    596,
+    310,
+    108,
+    134
+   ]
+  },
+  "hair_back_bow": {
+   "file": "hair_back_bow.png",
+   "w": 509,
+   "h": 634,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.177
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.114
+    },
+    {
+     "dl": 0.3
+    },
+    {
+     "dl": 0.468
+    },
+    {
+     "dl": 0.648
+    }
+   ],
+   "base": "#324162",
+   "kind": "hair",
+   "view": "N",
+   "has_skin": false,
+   "src": [
+    714,
+    309,
+    110,
+    136
+   ]
+  },
+  "bow": {
+   "file": "bow.png",
+   "w": 1264,
+   "h": 344,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.753
+    },
+    {
+     "dl": -0.611
+    },
+    {
+     "dl": -0.398
+    },
+    {
+     "dl": -0.175
+    },
+    {
+     "dl": 0.0
+    }
+   ],
+   "base": "#fdfdfd",
+   "kind": "weapon",
+   "view": "",
+   "has_skin": true,
+   "src": [
+    17,
+    473,
+    261,
+    73
+   ]
+  },
+  "arrow": {
+   "file": "arrow.png",
+   "w": 1154,
+   "h": 144,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.148
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.172
+    },
+    {
+     "dl": 0.35
+    },
+    {
+     "dl": 0.53
+    }
+   ],
+   "base": "#645651",
+   "kind": "weapon",
+   "view": "",
+   "has_skin": false,
+   "src": [
+    297,
+    471,
+    240,
+    38
+   ]
+  },
+  "feather_charm": {
+   "file": "feather_charm.png",
+   "w": 254,
+   "h": 269,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.662
+    },
+    {
+     "dl": -0.571
+    },
+    {
+     "dl": -0.436
+    },
+    {
+     "dl": 0.0
+    }
+   ],
+   "base": "#d8d4d1",
+   "kind": "acc",
+   "view": "",
+   "has_skin": false,
+   "src": [
+    577,
+    462,
+    55,
+    63
+   ]
+  },
+  "quiver": {
+   "file": "quiver.png",
+   "w": 609,
+   "h": 164,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.195
+    },
+    {
+     "dl": -0.088
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.157
+    },
+    {
+     "dl": 0.422
+    }
+   ],
+   "base": "#675345",
+   "kind": "prop",
+   "view": "",
+   "has_skin": false,
+   "src": [
+    682,
+    470,
+    131,
+    42
+   ]
+  },
+  "kosode": {
+   "file": "kosode.png",
+   "w": 574,
+   "h": 519,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.721
+    },
+    {
+     "dl": -0.55
+    },
+    {
+     "dl": -0.376
+    },
+    {
+     "dl": -0.205
+    },
+    {
+     "dl": 0.0
+    }
+   ],
+   "base": "#ede8e4",
+   "kind": "outer",
+   "view": "S",
+   "has_skin": true,
+   "src": [
+    38,
+    608,
+    115,
+    111
+   ]
+  },
+  "kosode_back_0": {
+   "file": "kosode_back_0.png",
+   "w": 269,
+   "h": 439,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.651
+    },
+    {
+     "dl": -0.452
+    },
+    {
+     "dl": -0.293
+    },
+    {
+     "dl": -0.171
+    },
+    {
+     "dl": 0.0
+    }
+   ],
+   "base": "#e9e4e1",
+   "kind": "outer",
+   "view": "",
+   "has_skin": true,
+   "src": [
+    159,
+    629,
+    58,
+    92
+   ]
+  },
+  "kosode_back_1": {
+   "file": "kosode_back_1.png",
+   "w": 469,
+   "h": 439,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.625
+    },
+    {
+     "dl": -0.38
+    },
+    {
+     "dl": -0.264
+    },
+    {
+     "dl": -0.143
+    },
+    {
+     "dl": 0.0
+    }
+   ],
+   "base": "#ece8e3",
+   "kind": "outer",
+   "view": "",
+   "has_skin": true,
+   "src": [
+    217,
+    629,
+    99,
+    92
+   ]
+  },
+  "hakama_front": {
+   "file": "hakama_front.png",
+   "w": 389,
+   "h": 504,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.153
+    },
+    {
+     "dl": -0.061
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.093
+    },
+    {
+     "dl": 0.608
+    }
+   ],
+   "base": "#751925",
+   "kind": "bottom",
+   "view": "S",
+   "has_skin": false,
+   "src": [
+    316,
+    611,
+    87,
+    110
+   ]
+  },
+  "hakama_back": {
+   "file": "hakama_back.png",
+   "w": 384,
+   "h": 504,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.239
+    },
+    {
+     "dl": -0.138
+    },
+    {
+     "dl": -0.089
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.511
+    }
+   ],
+   "base": "#a52a30",
+   "kind": "bottom",
+   "view": "N",
+   "has_skin": false,
+   "src": [
+    405,
+    611,
+    86,
+    110
+   ]
+  },
+  "sash": {
+   "file": "sash.png",
+   "w": 339,
+   "h": 139,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.239
+    },
+    {
+     "dl": -0.117
+    },
+    {
+     "dl": -0.08
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.502
+    }
+   ],
+   "base": "#9e2c33",
+   "kind": "sash",
+   "view": "",
+   "has_skin": false,
+   "src": [
+    498,
+    611,
+    91,
+    35
+   ]
+  },
+  "big_bow": {
+   "file": "big_bow.png",
+   "w": 409,
+   "h": 334,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.237
+    },
+    {
+     "dl": -0.131
+    },
+    {
+     "dl": -0.076
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.482
+    }
+   ],
+   "base": "#a32b31",
+   "kind": "acc",
+   "view": "",
+   "has_skin": false,
+   "src": [
+    498,
+    650,
+    91,
+    71
+   ]
+  },
+  "acc_tassel": {
+   "file": "acc_tassel.png",
+   "w": 184,
+   "h": 294,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.122
+    },
+    {
+     "dl": 0.0
+    },
+    {
+     "dl": 0.154
+    },
+    {
+     "dl": 0.334
+    },
+    {
+     "dl": 0.498
+    },
+    {
+     "dl": 0.673
+    }
+   ],
+   "base": "#482427",
+   "kind": "acc",
+   "view": "",
+   "has_skin": true,
+   "src": [
+    603,
+    609,
+    46,
+    68
+   ]
+  },
+  "zori_pair": {
+   "file": "zori_pair.png",
+   "w": 154,
+   "h": 189,
+   "levels": [
+    {
+     "ink": true
+    },
+    {
+     "dl": -0.765
+    },
+    {
+     "dl": -0.644
+    },
+    {
+     "dl": -0.426
+    },
+    {
+     "dl": -0.209
+    },
+    {
+     "dl": 0.0
+    }
+   ],
+   "base": "#f2eeea",
+   "kind": "shoes",
+   "view": "",
+   "has_skin": false,
+   "src": [
+    607,
+    678,
+    79,
+    43
+   ]
+  }
+ }
+}
