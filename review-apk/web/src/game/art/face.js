@@ -98,3 +98,23 @@ export function drawFace(x, face, dir, headCx = 191, eyeY = 168) {
   mouth(x, ex.mouth, dir === "E" ? 26 : 0, eyeY + 62);
   x.restore(); x.restore();
 }
+
+/**
+ * Draw the face at measured positions (px in the target canvas).
+ * L = { eyes:[{x,y}], w (eye width px), mouth:{x,y}|null, browY (offset above eye centre px) }
+ */
+export function drawFaceAt(x, face, L) {
+  const shape = EYE_SHAPES[face.eyeShape] || EYE_SHAPES.round, ex = EXPRESSIONS[face.expression] || EXPRESSIONS.neutral;
+  const eyeColor = face.eyeColor || "#6b4a3a", browColor = face.browColor || "#3b2c36", blush = face.blushColor || "#f08a8a", sc = L.w / 40;
+  L.eyes.forEach((e, i) => {
+    const side = L.eyes.length === 1 ? 1 : i === 0 ? -1 : 1;
+    x.save(); x.translate(e.x, e.y); x.scale(sc * (e.sx || 1), sc);
+    const k = ex.eyes, wink = k === "wink" && side === 1;
+    if (k === "arc" || wink) arcEye(x, shape, side, true); else openEye(x, shape, side, eyeColor, k === "open" ? "open" : k);
+    if (ex.wrinkles) { x.strokeStyle = ink(); x.lineWidth = 1.8; for (let j = 0; j < 2; j++) { path(x, (c) => { c.moveTo(side * (24 + j * 3), 8 + j * 6); c.lineTo(side * (34 + j * 3), 10 + j * 6); }); x.stroke(); } }
+    brow(x, browColor, side, ex.brow[side === -1 ? 0 : 1], -shape.h - 6 + (ex.eyes === "wide" ? -6 : 0));
+    if (ex.blush) { x.save(); x.globalAlpha = 0.45 * ex.blush; x.fillStyle = blush; x.beginPath(); x.ellipse(side * 6, 26, 15, 8, 0, 0, Math.PI * 2); x.fill(); x.restore(); }
+    x.restore();
+  });
+  if (L.mouth) { x.save(); x.translate(L.mouth.x, L.mouth.y); x.scale(sc, sc); mouth(x, ex.mouth, 0, 0); x.restore(); }
+}
