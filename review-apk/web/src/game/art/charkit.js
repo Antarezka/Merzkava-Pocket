@@ -98,6 +98,15 @@ export class CharKit {
     }
     cx.putImageData(im, 0, 0); x.drawImage(cv, 0, 0);
   }
+  /** body / head proportions: scale the lower body and the head separately, feet stay on the ground */
+  _shape(src, s) {
+    const { bodySx = 1, bodySy = 1, headSx = 1, headSy = 1 } = s; if (bodySx === 1 && bodySy === 1 && headSx === 1 && headSy === 1) return src;
+    const CUT = 240, FEET = BASE.feetY + 8, out = mk(BASE.w, BASE.h), x = out.getContext("2d"), cx = BASE.cx;
+    const lowH = (BASE.h - CUT) * bodySy, lowTop = FEET - (FEET - CUT) * bodySy;
+    x.drawImage(src, 0, CUT, BASE.w, BASE.h - CUT, cx - cx * bodySx, lowTop, BASE.w * bodySx, lowH);
+    const hh = CUT * headSy, hw = BASE.w * headSx; x.drawImage(src, 0, 0, BASE.w, CUT, cx - cx * headSx, lowTop + 2 - hh, hw, hh);
+    return out;
+  }
   render(spec, dir = "S", { frame = null } = {}) {
     const flip = dir === "W" || dir === "SW" || dir === "NW", d = flip ? { W: "E", SW: "SE", NW: "NE" }[dir] : dir;
     const out = mk(BASE.w, BASE.h), x = out.getContext("2d");
@@ -154,7 +163,8 @@ export class CharKit {
       for (const it of stack[k]) { if (!show(it)) continue; const pl = place(it); draw(it.cv, pl.w, pl.h, pl.cx, pl.top, { sq: pl.sq, dx: it.l.dx, dy: it.l.dy }); }
     }
     x.restore();
-    if (!flip) return out;
-    const f = mk(BASE.w, BASE.h), fx = f.getContext("2d"); fx.translate(BASE.w, 0); fx.scale(-1, 1); fx.drawImage(out, 0, 0); return f;
+    const shaped = spec.shape ? this._shape(out, spec.shape) : out;
+    if (!flip) return shaped;
+    const f = mk(BASE.w, BASE.h), fx = f.getContext("2d"); fx.translate(BASE.w, 0); fx.scale(-1, 1); fx.drawImage(shaped, 0, 0); return f;
   }
 }

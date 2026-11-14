@@ -185,30 +185,17 @@ function roofShape(ctx, x, y, w, h, c1, c2, tiles) {
   const g = ctx.createLinearGradient(x, y, x, y + h); g.addColorStop(0, c1); g.addColorStop(1, c2); ctx.fillStyle = g; ctx.fill(); ink(ctx, 3); ctx.stroke();
   ctx.save(); ctx.clip(); ctx.strokeStyle = "rgba(40,26,30,0.28)"; ctx.lineWidth = 1.6; for (let i = 1; i <= tiles; i++) { const yy = y + h * i / (tiles + 1); ctx.beginPath(); ctx.moveTo(x - 10, yy); ctx.lineTo(x + w + 10, yy); ctx.stroke(); } ctx.restore();
 }
-/** level 1 stilt shack, 2 cottage, 3 courtyard house. Pivot at bottom centre; footprint fc x fr tiles */
+let BUILDING_IMGS = {};
+export const BUILDING_NAMES = ["house_l1", "house_l2", "house_l3"];
+export function setBuildingImages(imgs) { BUILDING_IMGS = imgs || {}; }
+const HOUSE_W = { 1: 560, 2: 640, 3: 540 };
+/** Starter shack (1), upgraded stilt homestead (2), tile-roof courtyard house (3) — traced from the hard-reference building art. Pivot: bottom centre. */
 export function drawHouse(level = 1) {
-  const T64 = 64, fc = 5, fr = 4, w = fc * T64 + 40, h = 330, c = createCanvas(w, h), x = c.getContext("2d");
-  const cx = w / 2; x.save();
-  // soft contact shadow
-  x.fillStyle = "rgba(30,24,40,0.28)"; x.beginPath(); x.ellipse(cx + 12, h - 28, 150, 36, 0, 0, TAU); x.fill();
-  const wall = level >= 2 ? "#c9b08a" : "#9d7a58", roof1 = level >= 3 ? "#9c4c3a" : level >= 2 ? "#a65a40" : "#7a8450", roof2 = level >= 3 ? "#6c3028" : level >= 2 ? "#74392c" : "#566038";
-  const bx = cx - 108, by = h - 150, bw = 216, bh = 94;
-  // stilts + deck
-  for (const px of [bx + 8, bx + 62, bx + 154, bx + 206]) { plank(x, px - 6, by + bh - 4, 12, 46, "#7a5a40", px); ink(x, 2); x.strokeRect(px - 6, by + bh - 4, 12, 46); }
-  plank(x, bx - 14, by + bh - 10, bw + 28, 14, "#a98660", 4); ink(x, 2.4); x.strokeRect(bx - 14, by + bh - 10, bw + 28, 14);
-  // wall
-  plank(x, bx, by, bw, bh, wall, 9); ink(x, 3); x.strokeRect(bx, by, bw, bh);
-  // door + window
-  x.fillStyle = "#4a3326"; x.beginPath(); x.roundRect(cx - 18, by + 26, 36, bh - 26, [18, 18, 0, 0]); x.fill(); ink(x, 2.6); x.stroke();
-  x.fillStyle = "#f2d889"; x.globalAlpha = 0.85; x.fillRect(bx + 22, by + 26, 34, 30); x.globalAlpha = 1; ink(x, 2.4); x.strokeRect(bx + 22, by + 26, 34, 30); x.beginPath(); x.moveTo(bx + 39, by + 26); x.lineTo(bx + 39, by + 56); x.stroke();
-  x.fillStyle = "#f2d889"; x.globalAlpha = 0.8; x.fillRect(bx + bw - 56, by + 26, 34, 30); x.globalAlpha = 1; x.strokeRect(bx + bw - 56, by + 26, 34, 30);
-  // roof
-  roofShape(x, bx - 20, by - 78, bw + 40, 84, roof1, roof2, 4);
-  if (level >= 2) { x.fillStyle = "#5a4034"; x.fillRect(bx + bw - 40, by - 70, 20, 40); ink(x, 2.4); x.strokeRect(bx + bw - 40, by - 70, 20, 40); }
-  // steps + lantern
-  plank(x, cx - 24, by + bh + 4, 48, 10, "#a98660", 3); ink(x, 2); x.strokeRect(cx - 24, by + bh + 4, 48, 10);
-  x.fillStyle = "#e9b04a"; x.beginPath(); x.arc(bx - 4, by + 50, 6, 0, TAU); x.fill(); ink(x, 2); x.stroke();
-  x.restore(); return { canvas: c, w, h, fc, fr };
+  const img = BUILDING_IMGS["house_l" + Math.min(3, Math.max(1, level))];
+  if (!img) { const c = createCanvas(320, 240), x = c.getContext("2d"); x.fillStyle = "#8a6a4a"; x.fillRect(40, 80, 240, 140); return { canvas: c, w: 320, h: 240, fc: 5, fr: 4 }; }
+  const w = HOUSE_W[level] || 520, h = Math.round(img.height * w / img.width), c = createCanvas(w, h), x = c.getContext("2d");
+  x.imageSmoothingQuality = "high"; x.fillStyle = "rgba(30,24,40,0.0)"; x.drawImage(img, 0, 0, w, h);
+  return { canvas: c, w, h, fc: 5, fr: 4 };
 }
 export function facilityFootprint(facility) { const n = `${facility?.name || ""} ${facility?.category || ""}`.toLowerCase(); return /(hall|manor|workshop|mill|forge|kiln|barn|stable)/.test(n) ? { w: 3, h: 2 } : /(shrine|pavilion|greenhouse|house)/.test(n) ? { w: 2, h: 2 } : { w: 1, h: 1 }; }
 /** painted placeholder facility: roof + body in a family colour; pivot bottom centre */

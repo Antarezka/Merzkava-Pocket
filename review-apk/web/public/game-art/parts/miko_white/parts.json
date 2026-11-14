@@ -68,7 +68,7 @@
    ],
    "base": "#eff2f5",
    "kind": "hair",
-   "view": "E",
+   "view": "S",
    "has_skin": false,
    "face": [
     201,
@@ -109,9 +109,14 @@
    ],
    "base": "#f0f2f4",
    "kind": "hair",
-   "view": "N",
+   "view": "S",
    "has_skin": false,
-   "face": null,
+   "face": [
+    200,
+    211,
+    426,
+    403
+   ],
    "src": [
     281,
     360,

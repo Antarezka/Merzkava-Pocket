@@ -11,7 +11,8 @@
    ],
    "kind": "hair",
    "view": "S",
-   "split": 3
+   "split": 3,
+   "sides": false
   },
   {
    "name": "hair_back",

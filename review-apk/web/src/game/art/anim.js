@@ -50,13 +50,18 @@ export function poseSprite(sprite, dir, mode, t) {
   return out;
 }
 
-/** build a full sprite sheet: rows = 8 directions, columns = frames (idle first, then walk). Returns canvas + layout. */
-export function buildSheet(kit, spec, { idleFrames = 4, walkFrames = 8 } = {}) {
-  const dirs = ["S", "SE", "E", "NE", "N", "NW", "W", "SW"], cols = idleFrames + walkFrames, sheet = mk(BASE.w * cols, BASE.h * dirs.length), sx = sheet.getContext("2d");
-  dirs.forEach((d, r) => {
+/**
+ * Sprite sheet for the engine: rows = S, SE, E, NE, N (W/SW/NW are mirrored at draw time), columns = idle frames then walk frames.
+ * `scale` shrinks each cell (memory); default 0.5 -> 192x256 cells.
+ */
+export const SHEET_ROWS = ["S", "SE", "E", "NE", "N"];
+export function buildSheet(kit, spec, { idleFrames = 2, walkFrames = 6, scale = 0.5 } = {}) {
+  const cw = Math.round(BASE.w * scale), ch = Math.round(BASE.h * scale), cols = idleFrames + walkFrames, sheet = mk(cw * cols, ch * SHEET_ROWS.length), sx = sheet.getContext("2d");
+  sx.imageSmoothingQuality = "high";
+  SHEET_ROWS.forEach((d, r) => {
     const spr = kit.render(spec, d);
-    for (let i = 0; i < idleFrames; i++) sx.drawImage(poseSprite(spr, d, "idle", i / idleFrames), i * BASE.w, r * BASE.h);
-    for (let i = 0; i < walkFrames; i++) sx.drawImage(poseSprite(spr, d, "walk", i / walkFrames), (idleFrames + i) * BASE.w, r * BASE.h);
+    for (let i = 0; i < idleFrames; i++) sx.drawImage(poseSprite(spr, d, "idle", i / idleFrames), 0, 0, BASE.w, BASE.h, i * cw, r * ch, cw, ch);
+    for (let i = 0; i < walkFrames; i++) sx.drawImage(poseSprite(spr, d, "walk", i / walkFrames), 0, 0, BASE.w, BASE.h, (idleFrames + i) * cw, r * ch, cw, ch);
   });
-  return { canvas: sheet, frame: [BASE.w, BASE.h], dirs, idleFrames, walkFrames };
+  return { canvas: sheet, cell: [cw, ch], rows: SHEET_ROWS, idleFrames, walkFrames, scale };
 }
