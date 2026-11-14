@@ -29,6 +29,12 @@
    "kind": "hair",
    "view": "S",
    "has_skin": false,
+   "face": [
+    138,
+    342,
+    396,
+    439
+   ],
    "src": [
     20,
     105,
@@ -62,8 +68,14 @@
    ],
    "base": "#babcc1",
    "kind": "hair",
-   "view": "S",
+   "view": "E",
    "has_skin": false,
+   "face": [
+    62,
+    225,
+    217,
+    436
+   ],
    "src": [
     171,
     105,
@@ -97,8 +109,9 @@
    ],
    "base": "#bcbec3",
    "kind": "hair",
-   "view": "S",
+   "view": "N",
    "has_skin": false,
+   "face": null,
    "src": [
     310,
     105,
@@ -134,6 +147,12 @@
    "kind": "hair",
    "view": "S",
    "has_skin": false,
+   "face": [
+    135,
+    338,
+    391,
+    439
+   ],
    "src": [
     470,
     105,
@@ -144,7 +163,7 @@
   "hair_wavy_1": {
    "file": "hair_wavy_1.png",
    "w": 489,
-   "h": 659,
+   "h": 537,
    "levels": [
     {
      "ink": true
@@ -167,8 +186,14 @@
    ],
    "base": "#babcc1",
    "kind": "hair",
-   "view": "S",
+   "view": "E",
    "has_skin": false,
+   "face": [
+    55,
+    264,
+    217,
+    430
+   ],
    "src": [
     595,
     105,
@@ -202,8 +227,9 @@
    ],
    "base": "#babdc2",
    "kind": "hair",
-   "view": "S",
+   "view": "N",
    "has_skin": false,
+   "face": null,
    "src": [
     756,
     105,
@@ -239,6 +265,12 @@
    "kind": "hair",
    "view": "S",
    "has_skin": false,
+   "face": [
+    137,
+    325,
+    397,
+    437
+   ],
    "src": [
     20,
     282,
@@ -272,8 +304,14 @@
    ],
    "base": "#b7b8bd",
    "kind": "hair",
-   "view": "S",
+   "view": "E",
    "has_skin": false,
+   "face": [
+    72,
+    295,
+    227,
+    433
+   ],
    "src": [
     172,
     282,
@@ -307,8 +345,9 @@
    ],
    "base": "#bbbdc2",
    "kind": "hair",
-   "view": "S",
+   "view": "N",
    "has_skin": false,
+   "face": null,
    "src": [
     303,
     282,
@@ -344,6 +383,12 @@
    "kind": "hair",
    "view": "S",
    "has_skin": false,
+   "face": [
+    132,
+    233,
+    395,
+    436
+   ],
    "src": [
     470,
     280,
@@ -377,8 +422,14 @@
    ],
    "base": "#bbbcc1",
    "kind": "hair",
-   "view": "S",
+   "view": "E",
    "has_skin": false,
+   "face": [
+    64,
+    251,
+    229,
+    436
+   ],
    "src": [
     588,
     280,
@@ -412,8 +463,9 @@
    ],
    "base": "#bcbec4",
    "kind": "hair",
-   "view": "S",
+   "view": "N",
    "has_skin": false,
+   "face": null,
    "src": [
     738,
     280,
@@ -446,6 +498,7 @@
    "kind": "outer",
    "view": "S",
    "has_skin": false,
+   "face": null,
    "src": [
     6,
     780,
@@ -475,6 +528,7 @@
    "kind": "outer",
    "view": "S",
    "has_skin": false,
+   "face": null,
    "src": [
     203,
     780,
@@ -507,6 +561,7 @@
    "kind": "collar",
    "view": "",
    "has_skin": false,
+   "face": null,
    "src": [
     405,
     775,
@@ -539,6 +594,7 @@
    "kind": "collar",
    "view": "",
    "has_skin": false,
+   "face": null,
    "src": [
     511,
     775,
@@ -571,6 +627,7 @@
    "kind": "collar",
    "view": "",
    "has_skin": false,
+   "face": null,
    "src": [
     602,
     775,
@@ -603,6 +660,7 @@
    "kind": "bottom",
    "view": "S",
    "has_skin": false,
+   "face": null,
    "src": [
     405,
     900,
@@ -635,6 +693,7 @@
    "kind": "bottom",
    "view": "S",
    "has_skin": false,
+   "face": null,
    "src": [
     548,
     900,
@@ -670,6 +729,7 @@
    "kind": "sash",
    "view": "",
    "has_skin": true,
+   "face": null,
    "src": [
     40,
     985,
@@ -708,6 +768,7 @@
    "kind": "sash",
    "view": "",
    "has_skin": true,
+   "face": null,
    "src": [
     168,
     985,
@@ -746,6 +807,7 @@
    "kind": "weapon",
    "view": "",
    "has_skin": false,
+   "face": null,
    "src": [
     31,
     500,
@@ -781,6 +843,7 @@
    "kind": "weapon",
    "view": "",
    "has_skin": false,
+   "face": null,
    "src": [
     31,
     601,
@@ -816,6 +879,7 @@
    "kind": "weapon",
    "view": "",
    "has_skin": false,
+   "face": null,
    "src": [
     464,
     499,
@@ -848,6 +912,7 @@
    "kind": "weapon",
    "view": "",
    "has_skin": false,
+   "face": null,
    "src": [
     469,
     635,
@@ -883,6 +948,7 @@
    "kind": "prop",
    "view": "",
    "has_skin": false,
+   "face": null,
    "src": [
     712,
     626,

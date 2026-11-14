@@ -72,5 +72,26 @@
   "NW": {
    "mirror": true
   }
- }
+ },
+ "levels": [
+  {
+   "ink": true
+  },
+  {
+   "soft": true
+  },
+  {
+   "dl": -0.202
+  },
+  {
+   "dl": -0.098
+  },
+  {
+   "dl": 0.0
+  },
+  {
+   "dl": 0.051
+  }
+ ],
+ "packed": "dir_<D>_pk.png  R=role idx, G=alpha (opaque PNG, no premultiply loss)"
 }

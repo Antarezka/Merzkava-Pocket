@@ -29,6 +29,12 @@
    "kind": "hair",
    "view": "S",
    "has_skin": false,
+   "face": [
+    157,
+    93,
+    415,
+    313
+   ],
    "src": [
     22,
     343,
@@ -64,6 +70,12 @@
    "kind": "hair",
    "view": "S",
    "has_skin": false,
+   "face": [
+    163,
+    93,
+    417,
+    313
+   ],
    "src": [
     163,
     343,
@@ -99,6 +111,12 @@
    "kind": "hair",
    "view": "S",
    "has_skin": false,
+   "face": [
+    181,
+    109,
+    438,
+    278
+   ],
    "src": [
     304,
     350,
@@ -134,6 +152,7 @@
    "kind": "hair",
    "view": "N",
    "has_skin": false,
+   "face": null,
    "src": [
     471,
     330,
@@ -168,7 +187,13 @@
    "base": "#dfd6d3",
    "kind": "hair",
    "view": "E",
-   "has_skin": true,
+   "has_skin": false,
+   "face": [
+    297,
+    211,
+    425,
+    362
+   ],
    "src": [
     600,
     325,
@@ -204,6 +229,7 @@
    "kind": "hair",
    "view": "N",
    "has_skin": false,
+   "face": null,
    "src": [
     718,
     308,
@@ -239,6 +265,7 @@
    "kind": "outer",
    "view": "S",
    "has_skin": false,
+   "face": null,
    "src": [
     35,
     608,
@@ -271,6 +298,7 @@
    "kind": "outer",
    "view": "S",
    "has_skin": false,
+   "face": null,
    "src": [
     157,
     608,
@@ -303,6 +331,7 @@
    "kind": "collar",
    "view": "",
    "has_skin": false,
+   "face": null,
    "src": [
     234,
     609,
@@ -338,6 +367,7 @@
    "kind": "bottom",
    "view": "S",
    "has_skin": false,
+   "face": null,
    "src": [
     318,
     611,
@@ -373,6 +403,7 @@
    "kind": "bottom",
    "view": "N",
    "has_skin": false,
+   "face": null,
    "src": [
     407,
     611,
@@ -405,6 +436,7 @@
    "kind": "sash",
    "view": "",
    "has_skin": false,
+   "face": null,
    "src": [
     508,
     611,
@@ -443,6 +475,7 @@
    "kind": "acc",
    "view": "",
    "has_skin": false,
+   "face": null,
    "src": [
     608,
     609,
@@ -475,6 +508,7 @@
    "kind": "acc",
    "view": "",
    "has_skin": false,
+   "face": null,
    "src": [
     717,
     453,
@@ -513,6 +547,7 @@
    "kind": "shoes",
    "view": "",
    "has_skin": false,
+   "face": null,
    "src": [
     503,
     672,
@@ -551,6 +586,7 @@
    "kind": "shoes",
    "view": "",
    "has_skin": false,
+   "face": null,
    "src": [
     550,
     672,
@@ -586,6 +622,7 @@
    "kind": "shoes",
    "view": "",
    "has_skin": false,
+   "face": null,
    "src": [
     611,
     679,
@@ -621,6 +658,7 @@
    "kind": "prop",
    "view": "",
    "has_skin": false,
+   "face": null,
    "src": [
     336,
     455,
@@ -659,6 +697,7 @@
    "kind": "prop",
    "view": "",
    "has_skin": false,
+   "face": null,
    "src": [
     446,
     438,
@@ -694,6 +733,7 @@
    "kind": "prop",
    "view": "",
    "has_skin": false,
+   "face": null,
    "src": [
     597,
     464,

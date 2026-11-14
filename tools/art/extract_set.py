@@ -32,14 +32,16 @@ def main(sheet, spec_path, outdir):
         for i, (x, y, w, h) in enumerate(boxes):
             name = p["name"] + (f"_{i}" if p.get("split", 1) > 1 else "")
             if name in spec.get("skip", []): continue
+            view = p.get("view", "")
+            if p.get("split", 1) == 3 and p.get("kind") == "hair" and p.get("sides", True): view = ["S", "E", "N"][i]
             cell = im[max(0, y):y + h, max(0, x):x + w]
             try:
-                idx, a, levels, base, zone = trace_tone(cell, k=p.get("k", 6), sigma=p.get("sigma", 4.0), ink_band=p.get("ink_band", 3.0), strip_face=p.get("strip_face", p.get("kind") == "hair" and p.get("view", "S") == "S"))
+                idx, a, levels, base, zone, hbox = trace_tone(cell, k=p.get("k", 6), sigma=p.get("sigma", 4.0), ink_band=p.get("ink_band", 3.0), zone_mode=("none" if (p.get("kind") == "hair" and view in ("S", "N")) else "hull" if (p.get("kind") == "hair" and view == "E") else "skin"), strip_face=p.get("strip_face", p.get("kind") == "hair" and view in ("S", "E")))
             except Exception as e:
                 print("skip", name, e); continue
             write_part(os.path.join(outdir, name + ".png"), idx, a, zone)
             meta["parts"][name] = {"file": name + ".png", "w": int(idx.shape[1]), "h": int(idx.shape[0]), "levels": levels, "base": base,
-                                   "kind": p.get("kind", "misc"), "view": p.get("view", ""), "has_skin": bool(zone.any()), "src": [int(x), int(y), int(w), int(h)]}
+                                   "kind": p.get("kind", "misc"), "view": view, "has_skin": bool(zone.any()), "face": hbox, "src": [int(x), int(y), int(w), int(h)]}
             tiles.append((name, recolor_preview(idx, a, levels, base, zone=zone)))
     json.dump(meta, open(os.path.join(outdir, "parts.json"), "w"), indent=1)
     cw, ch, cols = 200, 250, 7; rows = (len(tiles) + cols - 1) // cols

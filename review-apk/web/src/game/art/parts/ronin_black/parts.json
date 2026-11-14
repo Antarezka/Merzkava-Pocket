@@ -29,6 +29,12 @@
    "kind": "hair",
    "view": "S",
    "has_skin": false,
+   "face": [
+    175,
+    295,
+    430,
+    409
+   ],
    "src": [
     18,
     326,
@@ -64,6 +70,12 @@
    "kind": "hair",
    "view": "S",
    "has_skin": false,
+   "face": [
+    176,
+    255,
+    430,
+    373
+   ],
    "src": [
     159,
     333,
@@ -99,6 +111,12 @@
    "kind": "hair",
    "view": "S",
    "has_skin": false,
+   "face": [
+    179,
+    242,
+    435,
+    373
+   ],
    "src": [
     301,
     333,
@@ -134,6 +152,7 @@
    "kind": "hair",
    "view": "N",
    "has_skin": false,
+   "face": null,
    "src": [
     468,
     309,
@@ -168,7 +187,13 @@
    "base": "#aca9aa",
    "kind": "hair",
    "view": "E",
-   "has_skin": true,
+   "has_skin": false,
+   "face": [
+    286,
+    133,
+    418,
+    330
+   ],
    "src": [
     597,
     333,
@@ -204,6 +229,7 @@
    "kind": "hair",
    "view": "N",
    "has_skin": false,
+   "face": null,
    "src": [
     714,
     325,
@@ -242,6 +268,7 @@
    "kind": "weapon",
    "view": "",
    "has_skin": false,
+   "face": null,
    "src": [
     18,
     471,
@@ -277,6 +304,7 @@
    "kind": "weapon",
    "view": "",
    "has_skin": true,
+   "face": null,
    "src": [
     295,
     471,
@@ -315,6 +343,7 @@
    "kind": "prop",
    "view": "",
    "has_skin": false,
+   "face": null,
    "src": [
     571,
     446,
@@ -353,6 +382,7 @@
    "kind": "prop",
    "view": "",
    "has_skin": true,
+   "face": null,
    "src": [
     700,
     452,
@@ -388,6 +418,7 @@
    "kind": "outer",
    "view": "S",
    "has_skin": false,
+   "face": null,
    "src": [
     37,
     588,
@@ -423,6 +454,7 @@
    "kind": "collar",
    "view": "",
    "has_skin": false,
+   "face": null,
    "src": [
     231,
     585,
@@ -458,6 +490,7 @@
    "kind": "bottom",
    "view": "S",
    "has_skin": false,
+   "face": null,
    "src": [
     391,
     596,

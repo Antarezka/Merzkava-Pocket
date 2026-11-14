@@ -17,7 +17,7 @@ def lum(bgr):
     return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255.0
 
 
-def trace_tone(cell, scale=5, k=6, sigma=4.0, seed=1, ink_band=3.0, near_white=228, strip_face=False):
+def trace_tone(cell, scale=5, k=6, sigma=4.0, seed=1, ink_band=3.0, near_white=228, strip_face=False, zone_mode='skin'):
     """cell: BGR crop of ONE part. returns idx(HxW uint8), alpha(HxW uint8), levels(list), base_hex"""
     cell = cv2.copyMakeBorder(cell, 6, 6, 6, 6, cv2.BORDER_CONSTANT, value=(255, 255, 255))
     fg = cutout(cell, near_white=near_white, chroma=18)
@@ -77,7 +77,7 @@ def trace_tone(cell, scale=5, k=6, sigma=4.0, seed=1, ink_band=3.0, near_white=2
     hsv = cv2.cvtColor(cl, cv2.COLOR_BGR2HSV)
     skin = ((hsv[:, :, 0] <= 22) | (hsv[:, :, 0] >= 172)) & (hsv[:, :, 1] >= 22) & (hsv[:, :, 1] <= 150) & (hsv[:, :, 2] >= 165) & (a > 127)
     skin = cv2.morphologyEx(skin.astype(np.uint8) * 255, cv2.MORPH_OPEN, np.ones((scale * 2 + 1,) * 2, np.uint8)) > 0
-    zone = skin.astype(np.uint8)
+    zone = skin.astype(np.uint8); hbox = None
     if strip_face:
         S = skin.astype(np.uint8) * 255
         S = cv2.morphologyEx(S, cv2.MORPH_CLOSE, np.ones((scale * 3,) * 2, np.uint8))
@@ -95,6 +95,8 @@ def trace_tone(cell, scale=5, k=6, sigma=4.0, seed=1, ink_band=3.0, near_white=2
             for i2 in range(1, n2):
                 comp = lab2 == i2
                 if not np.any(comp & (inner == 0)): remove |= comp
+            W_ = hx1 - hx0; hbox = (int(hx0), int(hy0), int(hx1), int(hy1))
+            remove[int(hy0 + 0.60 * (hy1 - hy0)):, int(hx0 + 0.10 * W_):int(hx1 - 0.10 * W_)] = True   # whatever hangs under the chin line
             remove = cv2.dilate(remove.astype(np.uint8), np.ones((scale * 2 + 1,) * 2, np.uint8)) > 0
             empty = cv2.dilate((a < 40).astype(np.uint8), np.ones((scale * 6 + 1,) * 2, np.uint8)) > 0
             dark = (cl.astype(int).sum(2) < 260)
@@ -110,7 +112,11 @@ def trace_tone(cell, scale=5, k=6, sigma=4.0, seed=1, ink_band=3.0, near_white=2
     base_hex = "#%02x%02x%02x" % (base[2], base[1], base[0])
     ys, xs = np.where(a > 8)
     sl = (slice(ys.min(), ys.max() + 1), slice(xs.min(), xs.max() + 1))
-    return idx[sl], a[sl], levels, base_hex, zone[sl]
+    if zone_mode == 'none': zone[:] = 0
+    elif zone_mode == 'hull' and hbox:
+        m = np.zeros_like(zone); m[hbox[1]:hbox[3] + 1, hbox[0]:hbox[2] + 1] = 1; zone = zone * m
+    if hbox: hbox = [hbox[0] - int(xs.min()), hbox[1] - int(ys.min()), hbox[2] - int(xs.min()), hbox[3] - int(ys.min())]
+    return idx[sl], a[sl], levels, base_hex, zone[sl], hbox
 
 
 def write_part(path, idx, alpha, zone=None):
