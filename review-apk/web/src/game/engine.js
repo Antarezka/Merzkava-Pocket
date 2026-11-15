@@ -5,7 +5,7 @@ import { drawHouse, drawFacility, drawConstructionSite, drawCart, drawMarker, fa
 import { minuteOfDay } from "./data/clock.js";
 
 const CHAR_H = 118, SPEED = 170;
-const DIR_ROW = { S: [0, false], SE: [1, false], E: [2, false], NE: [3, false], N: [4, false], NW: [3, true], W: [2, true], SW: [1, true] };
+const DIR_ROW = { S: [0, false], SE: [1, false], E: [2, false], NE: [3, false], N: [4, false], NW: [5, false], W: [6, false], SW: [7, false] };   // every direction is its own traced view
 const dirFromVec = (dx, dy) => { const a = Math.atan2(dy, dx), k = (Math.round(a / (Math.PI / 4)) + 8) % 8; return ["E", "SE", "S", "SW", "W", "NW", "N", "NE"][k]; };
 
 export class GameEngine {
@@ -231,9 +231,9 @@ export class GameEngine {
     const a = this.player.action; if (a) { const sx = (this.player.x - cam.x) * z, sy = (this.player.y - 124 - cam.y) * z, k = Math.min(1, a.t / a.dur); c.save(); c.lineWidth = 5; c.strokeStyle = "rgba(20,14,28,0.55)"; c.beginPath(); c.arc(sx, sy, 20, 0, 6.2832); c.stroke(); c.strokeStyle = "#f2d889"; c.beginPath(); c.arc(sx, sy, 20, -1.5708, -1.5708 + 6.2832 * k); c.stroke(); c.fillStyle = "#fff4cf"; c.font = "600 11px system-ui"; c.textAlign = "center"; c.fillText(a.label || "", sx, sy - 28); c.restore(); }
   }
   drawPlayer(c) {
-    const p = this.player, s = p.sheet, [row, mirror] = DIR_ROW[p.dir] || DIR_ROW.S, [cw, ch] = s.cell, sc = CHAR_H / ch;
+    const p = this.player, s = p.sheet, [row, mirror] = DIR_ROW[p.dir] || DIR_ROW.S, [cw, ch] = s.cell, sc = CHAR_H / (ch * 236 / 300);
     let col; if (p.moving) col = s.idleFrames + (Math.floor(p.frame) % s.walkFrames); else if (p.action) col = s.idleFrames + (Math.floor(p.frame * 0.6) % 2 ? 2 : 0) % s.walkFrames * 0; else col = Math.floor(p.frame) % s.idleFrames;
-    const dw = cw * sc, dh = ch * sc, feet = 504 / 512;
+    const dw = cw * sc, dh = ch * sc, feet = s.feet || 0.973;
     c.save(); c.fillStyle = "rgba(30,24,40,0.3)"; c.beginPath(); c.ellipse(p.x, p.y, 22, 8, 0, 0, 6.3); c.fill(); c.translate(p.x, p.y - dh * feet + (p.action ? Math.sin(p.action.t * 12) * 1.5 : 0));
     if (mirror) { c.scale(-1, 1); } c.drawImage(s.canvas, col * cw, row * ch, cw, ch, -dw / 2, 0, dw, dh); c.restore();
   }

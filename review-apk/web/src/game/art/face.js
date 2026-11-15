@@ -107,7 +107,7 @@ export function drawFaceAt(x, face, L) {
   const shape = EYE_SHAPES[face.eyeShape] || EYE_SHAPES.round, ex = EXPRESSIONS[face.expression] || EXPRESSIONS.neutral;
   const eyeColor = face.eyeColor || "#6b4a3a", browColor = face.browColor || "#3b2c36", blush = face.blushColor || "#f08a8a", sc = L.w / 40;
   L.eyes.forEach((e, i) => {
-    const side = L.eyes.length === 1 ? 1 : i === 0 ? -1 : 1;
+    const side = e.side ?? (L.eyes.length === 1 ? 1 : i === 0 ? -1 : 1);
     x.save(); x.translate(e.x, e.y); x.scale(sc * (e.sx || 1), sc);
     const k = ex.eyes, wink = k === "wink" && side === 1;
     if (k === "arc" || wink) arcEye(x, shape, side, true); else openEye(x, shape, side, eyeColor, k === "open" ? "open" : k);

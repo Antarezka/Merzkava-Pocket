@@ -1,0 +1,17 @@
+<!doctype html><meta charset=utf-8><body style="margin:0;background:#c9b88f"><canvas id=c></canvas><script type=module>
+import { ModelKit, DIRS, CELL } from "./src/game/art/models.js";
+const kit = new ModelKit("./public/game-art"); const ids = ["burgundy8","hoodie","nohood","oni","seer","skull"];
+for (const i of ids) await kit.load(i);
+const rows = [
+ {model:"oni", face:{expression:"original"}},
+ {model:"oni", colors:{2:"#d9a441",4:"#2e4a7d",7:"#8fd0ff",1:"#c4845c"}},
+ {model:"seer", face:{expression:"original"}},
+ {model:"seer", colors:{2:"#c0392b",4:"#2f7d6b",6:"#e7a8c4"}},
+ {model:"skull", face:{expression:"original"}},
+ {model:"skull", colors:{2:"#2e4a7d",4:"#6b3fa0",1:"#8a5a3f"}},
+ {model:"burgundy8", colors:{2:"#1d1d28",4:"#2e4a7d"}, face:{expression:"original"}},
+];
+const c = document.getElementById("c"); c.width = CELL.w*8; c.height = CELL.h*rows.length; const x = c.getContext("2d");
+rows.forEach((r,ri)=>DIRS.forEach((d,di)=>x.drawImage(kit.render(r,d), di*CELL.w, ri*CELL.h)));
+document.title="done";
+</script>
