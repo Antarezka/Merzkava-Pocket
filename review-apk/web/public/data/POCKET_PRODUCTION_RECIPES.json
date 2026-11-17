@@ -1,0 +1,1122 @@
+{
+  "schema_version": "1.0.0",
+  "recipes": [
+    {
+      "recipe_id": "recipe.wood.plank",
+      "name": "Cut logs into rough planks",
+      "facility_id": "facility.forestry.03",
+      "active_process_sim_minutes": 4,
+      "inputs": [
+        {
+          "item_id": "itm.0081",
+          "item_name": "Pine Log",
+          "quantity": 2
+        }
+      ],
+      "outputs": [
+        {
+          "item_id": "itm.0641",
+          "item_name": "Rough Plank",
+          "quantity": 3
+        }
+      ],
+      "tool_requirements": [
+        "Wood Saw"
+      ],
+      "output_per_sim_minute": [
+        {
+          "item_name": "Rough Plank",
+          "quantity": 0.75
+        }
+      ],
+      "requirements": [
+        "Facility built and operational",
+        "Exact inputs, fuel and water available",
+        "Operator and station tool"
+      ],
+      "completion": "Input deduction and output grant are atomic and occur once."
+    },
+    {
+      "recipe_id": "recipe.wood.beam",
+      "name": "Cut hardwood beam",
+      "facility_id": "facility.forestry.03",
+      "active_process_sim_minutes": 9,
+      "inputs": [
+        {
+          "item_id": "itm.0084",
+          "item_name": "Oak Log",
+          "quantity": 2
+        }
+      ],
+      "outputs": [
+        {
+          "item_id": "itm.0644",
+          "item_name": "Timber Beam",
+          "quantity": 1
+        }
+      ],
+      "tool_requirements": [
+        "Iron Hand Saw"
+      ],
+      "output_per_sim_minute": [
+        {
+          "item_name": "Timber Beam",
+          "quantity": 0.1111
+        }
+      ],
+      "requirements": [
+        "Facility built and operational",
+        "Exact inputs, fuel and water available",
+        "Operator and station tool"
+      ],
+      "completion": "Input deduction and output grant are atomic and occur once."
+    },
+    {
+      "recipe_id": "recipe.brick",
+      "name": "Fire clay bricks",
+      "facility_id": "facility.ceramic.03",
+      "active_process_sim_minutes": 4,
+      "inputs": [
+        {
+          "item_id": "itm.0146",
+          "item_name": "Clay Lump",
+          "quantity": 3
+        },
+        {
+          "item_id": "itm.0116",
+          "item_name": "Firewood Bundle",
+          "quantity": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item_id": "itm.0650",
+          "item_name": "Clay Brick",
+          "quantity": 4
+        }
+      ],
+      "tool_requirements": [
+        "Kiln Paddle"
+      ],
+      "output_per_sim_minute": [
+        {
+          "item_name": "Clay Brick",
+          "quantity": 1
+        }
+      ],
+      "requirements": [
+        "Facility built and operational",
+        "Exact inputs, fuel and water available",
+        "Operator and station tool"
+      ],
+      "completion": "Input deduction and output grant are atomic and occur once."
+    },
+    {
+      "recipe_id": "recipe.iron",
+      "name": "Smelt iron ore",
+      "facility_id": "facility.smith.04",
+      "active_process_sim_minutes": 12,
+      "inputs": [
+        {
+          "item_id": "itm.0171",
+          "item_name": "Iron Ore",
+          "quantity": 3
+        },
+        {
+          "item_id": "itm.0115",
+          "item_name": "Charcoal",
+          "quantity": 2
+        }
+      ],
+      "outputs": [
+        {
+          "item_id": "itm.0658",
+          "item_name": "Iron Ingot",
+          "quantity": 1
+        }
+      ],
+      "tool_requirements": [
+        "Forge Tongs"
+      ],
+      "output_per_sim_minute": [
+        {
+          "item_name": "Iron Ingot",
+          "quantity": 0.0833
+        }
+      ],
+      "requirements": [
+        "Facility built and operational",
+        "Exact inputs, fuel and water available",
+        "Operator and station tool"
+      ],
+      "completion": "Input deduction and output grant are atomic and occur once."
+    },
+    {
+      "recipe_id": "recipe.copper",
+      "name": "Smelt copper ore",
+      "facility_id": "facility.smith.06",
+      "active_process_sim_minutes": 10,
+      "inputs": [
+        {
+          "item_id": "itm.0172",
+          "item_name": "Copper Ore",
+          "quantity": 3
+        },
+        {
+          "item_id": "itm.0115",
+          "item_name": "Charcoal",
+          "quantity": 2
+        }
+      ],
+      "outputs": [
+        {
+          "item_id": "itm.0659",
+          "item_name": "Copper Ingot",
+          "quantity": 1
+        }
+      ],
+      "tool_requirements": [
+        "Forge Tongs"
+      ],
+      "output_per_sim_minute": [
+        {
+          "item_name": "Copper Ingot",
+          "quantity": 0.1
+        }
+      ],
+      "requirements": [
+        "Facility built and operational",
+        "Exact inputs, fuel and water available",
+        "Operator and station tool"
+      ],
+      "completion": "Input deduction and output grant are atomic and occur once."
+    },
+    {
+      "recipe_id": "recipe.bronze",
+      "name": "Cast bronze alloy",
+      "facility_id": "facility.smith.01",
+      "active_process_sim_minutes": 8,
+      "inputs": [
+        {
+          "item_id": "itm.0659",
+          "item_name": "Copper Ingot",
+          "quantity": 2
+        },
+        {
+          "item_id": "itm.0660",
+          "item_name": "Tin Ingot",
+          "quantity": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item_id": "itm.0661",
+          "item_name": "Bronze Ingot",
+          "quantity": 2
+        }
+      ],
+      "tool_requirements": [
+        "Anvil"
+      ],
+      "output_per_sim_minute": [
+        {
+          "item_name": "Bronze Ingot",
+          "quantity": 0.25
+        }
+      ],
+      "requirements": [
+        "Facility built and operational",
+        "Exact inputs, fuel and water available",
+        "Operator and station tool"
+      ],
+      "completion": "Input deduction and output grant are atomic and occur once."
+    },
+    {
+      "recipe_id": "recipe.steel",
+      "name": "Refine steel",
+      "facility_id": "facility.smith.08",
+      "active_process_sim_minutes": 18,
+      "inputs": [
+        {
+          "item_id": "itm.0658",
+          "item_name": "Iron Ingot",
+          "quantity": 2
+        },
+        {
+          "item_id": "itm.0115",
+          "item_name": "Charcoal",
+          "quantity": 3
+        }
+      ],
+      "outputs": [
+        {
+          "item_id": "itm.0664",
+          "item_name": "Steel Ingot",
+          "quantity": 1
+        }
+      ],
+      "tool_requirements": [
+        "Forge Tongs"
+      ],
+      "output_per_sim_minute": [
+        {
+          "item_name": "Steel Ingot",
+          "quantity": 0.0556
+        }
+      ],
+      "requirements": [
+        "Facility built and operational",
+        "Exact inputs, fuel and water available",
+        "Operator and station tool"
+      ],
+      "completion": "Input deduction and output grant are atomic and occur once."
+    },
+    {
+      "recipe_id": "recipe.flour",
+      "name": "Mill wheat into flour",
+      "facility_id": "facility.grain.03",
+      "active_process_sim_minutes": 3,
+      "inputs": [
+        {
+          "item_id": "itm.0354",
+          "item_name": "Wheat",
+          "quantity": 4
+        }
+      ],
+      "outputs": [
+        {
+          "item_id": "itm.0687",
+          "item_name": "Flour Sack",
+          "quantity": 1
+        }
+      ],
+      "tool_requirements": [
+        "Millstone"
+      ],
+      "output_per_sim_minute": [
+        {
+          "item_name": "Flour Sack",
+          "quantity": 0.3333
+        }
+      ],
+      "requirements": [
+        "Facility built and operational",
+        "Exact inputs, fuel and water available",
+        "Operator and station tool"
+      ],
+      "completion": "Input deduction and output grant are atomic and occur once."
+    },
+    {
+      "recipe_id": "recipe.riceflour",
+      "name": "Mill rice into flour",
+      "facility_id": "facility.grain.02",
+      "active_process_sim_minutes": 3,
+      "inputs": [
+        {
+          "item_id": "itm.0352",
+          "item_name": "Rice",
+          "quantity": 4
+        }
+      ],
+      "outputs": [
+        {
+          "item_id": "itm.0688",
+          "item_name": "Rice Flour Sack",
+          "quantity": 1
+        }
+      ],
+      "tool_requirements": [
+        "Millstone"
+      ],
+      "output_per_sim_minute": [
+        {
+          "item_name": "Rice Flour Sack",
+          "quantity": 0.3333
+        }
+      ],
+      "requirements": [
+        "Facility built and operational",
+        "Exact inputs, fuel and water available",
+        "Operator and station tool"
+      ],
+      "completion": "Input deduction and output grant are atomic and occur once."
+    },
+    {
+      "recipe_id": "recipe.eggs",
+      "name": "Collect hen eggs",
+      "facility_id": "facility.animals.01",
+      "active_process_sim_minutes": 45,
+      "inputs": [
+        {
+          "item_id": "itm.0577",
+          "item_name": "Laying Hen",
+          "quantity": 1
+        },
+        {
+          "item_id": "itm.0700",
+          "item_name": "Animal Feed Sack",
+          "quantity": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item_id": "itm.0596",
+          "item_name": "Chicken Egg",
+          "quantity": 1
+        }
+      ],
+      "tool_requirements": [
+        "Egg Basket"
+      ],
+      "output_per_sim_minute": [
+        {
+          "item_name": "Chicken Egg",
+          "quantity": 0.0222
+        }
+      ],
+      "requirements": [
+        "Facility built and operational",
+        "Exact inputs, fuel and water available",
+        "Operator and station tool"
+      ],
+      "completion": "Input deduction and output grant are atomic and occur once."
+    },
+    {
+      "recipe_id": "recipe.milk",
+      "name": "Milk dairy cow",
+      "facility_id": "facility.animals.05",
+      "active_process_sim_minutes": 20,
+      "inputs": [
+        {
+          "item_id": "itm.0589",
+          "item_name": "Dairy Cow",
+          "quantity": 1
+        },
+        {
+          "item_id": "itm.0700",
+          "item_name": "Animal Feed Sack",
+          "quantity": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item_id": "itm.0600",
+          "item_name": "Raw Cow Milk",
+          "quantity": 1
+        }
+      ],
+      "tool_requirements": [
+        "Milk Pail"
+      ],
+      "output_per_sim_minute": [
+        {
+          "item_name": "Raw Cow Milk",
+          "quantity": 0.05
+        }
+      ],
+      "requirements": [
+        "Facility built and operational",
+        "Exact inputs, fuel and water available",
+        "Operator and station tool"
+      ],
+      "completion": "Input deduction and output grant are atomic and occur once."
+    },
+    {
+      "recipe_id": "recipe.butter",
+      "name": "Churn butter",
+      "facility_id": "facility.food.01",
+      "active_process_sim_minutes": 8,
+      "inputs": [
+        {
+          "item_id": "itm.0600",
+          "item_name": "Raw Cow Milk",
+          "quantity": 3
+        }
+      ],
+      "outputs": [
+        {
+          "item_id": "itm.0604",
+          "item_name": "Butter",
+          "quantity": 1
+        }
+      ],
+      "tool_requirements": [
+        "Butter Churn"
+      ],
+      "output_per_sim_minute": [
+        {
+          "item_name": "Butter",
+          "quantity": 0.125
+        }
+      ],
+      "requirements": [
+        "Facility built and operational",
+        "Exact inputs, fuel and water available",
+        "Operator and station tool"
+      ],
+      "completion": "Input deduction and output grant are atomic and occur once."
+    },
+    {
+      "recipe_id": "recipe.rope",
+      "name": "Twist hemp rope",
+      "facility_id": "facility.textile.03",
+      "active_process_sim_minutes": 6,
+      "inputs": [
+        {
+          "item_id": "itm.0212",
+          "item_name": "Hemp Fiber",
+          "quantity": 4
+        }
+      ],
+      "outputs": [
+        {
+          "item_id": "itm.0671",
+          "item_name": "Hemp Rope Coil",
+          "quantity": 1
+        }
+      ],
+      "tool_requirements": [
+        "Spindle"
+      ],
+      "output_per_sim_minute": [
+        {
+          "item_name": "Hemp Rope Coil",
+          "quantity": 0.1667
+        }
+      ],
+      "requirements": [
+        "Facility built and operational",
+        "Exact inputs, fuel and water available",
+        "Operator and station tool"
+      ],
+      "completion": "Input deduction and output grant are atomic and occur once."
+    },
+    {
+      "recipe_id": "recipe.cloth",
+      "name": "Weave cotton cloth",
+      "facility_id": "facility.textile.01",
+      "active_process_sim_minutes": 10,
+      "inputs": [
+        {
+          "item_id": "itm.0673",
+          "item_name": "Cotton Thread Spool",
+          "quantity": 3
+        }
+      ],
+      "outputs": [
+        {
+          "item_id": "itm.0675",
+          "item_name": "Cotton Cloth Roll",
+          "quantity": 1
+        }
+      ],
+      "tool_requirements": [
+        "Hand Loom"
+      ],
+      "output_per_sim_minute": [
+        {
+          "item_name": "Cotton Cloth Roll",
+          "quantity": 0.1
+        }
+      ],
+      "requirements": [
+        "Facility built and operational",
+        "Exact inputs, fuel and water available",
+        "Operator and station tool"
+      ],
+      "completion": "Input deduction and output grant are atomic and occur once."
+    },
+    {
+      "recipe_id": "recipe.driedfish",
+      "name": "Smoke river fish",
+      "facility_id": "facility.food.09",
+      "active_process_sim_minutes": 12,
+      "inputs": [
+        {
+          "item_id": "itm.0491",
+          "item_name": "River Carp",
+          "quantity": 2
+        },
+        {
+          "item_id": "itm.0162",
+          "item_name": "Salt Rock",
+          "quantity": 1
+        },
+        {
+          "item_id": "itm.0116",
+          "item_name": "Firewood Bundle",
+          "quantity": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item_id": "itm.0690",
+          "item_name": "Dried Fish Pack",
+          "quantity": 1
+        }
+      ],
+      "tool_requirements": [
+        "Smoke Rack"
+      ],
+      "output_per_sim_minute": [
+        {
+          "item_name": "Dried Fish Pack",
+          "quantity": 0.0833
+        }
+      ],
+      "requirements": [
+        "Facility built and operational",
+        "Exact inputs, fuel and water available",
+        "Operator and station tool"
+      ],
+      "completion": "Input deduction and output grant are atomic and occur once."
+    },
+    {
+      "recipe_id": "recipe.compost",
+      "name": "Make compost",
+      "facility_id": "facility.specialty.09",
+      "active_process_sim_minutes": 30,
+      "inputs": [
+        {
+          "item_id": "itm.0620",
+          "item_name": "Manure Sack",
+          "quantity": 2
+        },
+        {
+          "item_id": "itm.0107",
+          "item_name": "Dry Branch Bundle",
+          "quantity": 2
+        }
+      ],
+      "outputs": [
+        {
+          "item_id": "itm.0699",
+          "item_name": "Compost Sack",
+          "quantity": 1
+        }
+      ],
+      "tool_requirements": [
+        "Wooden Shovel"
+      ],
+      "output_per_sim_minute": [
+        {
+          "item_name": "Compost Sack",
+          "quantity": 0.0333
+        }
+      ],
+      "requirements": [
+        "Facility built and operational",
+        "Exact inputs, fuel and water available",
+        "Operator and station tool"
+      ],
+      "completion": "Input deduction and output grant are atomic and occur once."
+    },
+    {
+      "recipe_id": "recipe.oil",
+      "name": "Press sesame oil",
+      "facility_id": "facility.grain.06",
+      "active_process_sim_minutes": 15,
+      "inputs": [
+        {
+          "item_id": "itm.0378",
+          "item_name": "Sesame",
+          "quantity": 5
+        }
+      ],
+      "outputs": [
+        {
+          "item_id": "itm.0686",
+          "item_name": "Sesame Oil Bottle",
+          "quantity": 1
+        }
+      ],
+      "tool_requirements": [
+        "Oil Press"
+      ],
+      "output_per_sim_minute": [
+        {
+          "item_name": "Sesame Oil Bottle",
+          "quantity": 0.0667
+        }
+      ],
+      "requirements": [
+        "Facility built and operational",
+        "Exact inputs, fuel and water available",
+        "Operator and station tool"
+      ],
+      "completion": "Input deduction and output grant are atomic and occur once."
+    },
+    {
+      "recipe_id": "recipe.poultice",
+      "name": "Prepare herbal poultice",
+      "facility_id": "facility.medicine.03",
+      "active_process_sim_minutes": 12,
+      "inputs": [
+        {
+          "item_id": "itm.0324",
+          "item_name": "Yarrow",
+          "quantity": 2
+        },
+        {
+          "item_id": "itm.0843",
+          "item_name": "Clean Bandage Roll",
+          "quantity": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item_id": "itm.0841",
+          "item_name": "Herbal Poultice",
+          "quantity": 1
+        }
+      ],
+      "tool_requirements": [
+        "Mortar and Pestle"
+      ],
+      "output_per_sim_minute": [
+        {
+          "item_name": "Herbal Poultice",
+          "quantity": 0.0833
+        }
+      ],
+      "requirements": [
+        "Facility built and operational",
+        "Exact inputs, fuel and water available",
+        "Operator and station tool"
+      ],
+      "completion": "Input deduction and output grant are atomic and occur once."
+    },
+    {
+      "recipe_id": "recipe.glass",
+      "name": "Melt glass",
+      "facility_id": "facility.ceramic.06",
+      "active_process_sim_minutes": 20,
+      "inputs": [
+        {
+          "item_id": "itm.0655",
+          "item_name": "Glass Sand",
+          "quantity": 4
+        },
+        {
+          "item_id": "itm.0115",
+          "item_name": "Charcoal",
+          "quantity": 2
+        }
+      ],
+      "outputs": [
+        {
+          "item_id": "itm.0656",
+          "item_name": "Glass Pane",
+          "quantity": 1
+        }
+      ],
+      "tool_requirements": [
+        "Glassblower Pipe"
+      ],
+      "output_per_sim_minute": [
+        {
+          "item_name": "Glass Pane",
+          "quantity": 0.05
+        }
+      ],
+      "requirements": [
+        "Facility built and operational",
+        "Exact inputs, fuel and water available",
+        "Operator and station tool"
+      ],
+      "completion": "Input deduction and output grant are atomic and occur once."
+    },
+    {
+      "recipe_id": "recipe.paper",
+      "name": "Make paper",
+      "facility_id": "facility.specialty.05",
+      "active_process_sim_minutes": 15,
+      "inputs": [
+        {
+          "item_id": "itm.0217",
+          "item_name": "Bamboo Fiber",
+          "quantity": 5
+        },
+        {
+          "item_id": "itm.0718",
+          "item_name": "Water Barrel",
+          "quantity": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item_id": "itm.0680",
+          "item_name": "Paper Stack",
+          "quantity": 1
+        }
+      ],
+      "tool_requirements": [
+        "Papermaking Screen"
+      ],
+      "output_per_sim_minute": [
+        {
+          "item_name": "Paper Stack",
+          "quantity": 0.0667
+        }
+      ],
+      "requirements": [
+        "Facility built and operational",
+        "Exact inputs, fuel and water available",
+        "Operator and station tool"
+      ],
+      "completion": "Input deduction and output grant are atomic and occur once."
+    }
+  ],
+  "crop_seed_pairs": [
+    {
+      "crop_item_id": "itm.0352",
+      "seed_item_id": "itm.0351",
+      "growth_time_sim_minutes": 90
+    },
+    {
+      "crop_item_id": "itm.0354",
+      "seed_item_id": "itm.0353",
+      "growth_time_sim_minutes": 125
+    },
+    {
+      "crop_item_id": "itm.0356",
+      "seed_item_id": "itm.0355",
+      "growth_time_sim_minutes": 160
+    },
+    {
+      "crop_item_id": "itm.0358",
+      "seed_item_id": "itm.0357",
+      "growth_time_sim_minutes": 195
+    },
+    {
+      "crop_item_id": "itm.0360",
+      "seed_item_id": "itm.0359",
+      "growth_time_sim_minutes": 230
+    },
+    {
+      "crop_item_id": "itm.0362",
+      "seed_item_id": "itm.0361",
+      "growth_time_sim_minutes": 265
+    },
+    {
+      "crop_item_id": "itm.0364",
+      "seed_item_id": "itm.0363",
+      "growth_time_sim_minutes": 300
+    },
+    {
+      "crop_item_id": "itm.0366",
+      "seed_item_id": "itm.0365",
+      "growth_time_sim_minutes": 335
+    },
+    {
+      "crop_item_id": "itm.0368",
+      "seed_item_id": "itm.0367",
+      "growth_time_sim_minutes": 370
+    },
+    {
+      "crop_item_id": "itm.0370",
+      "seed_item_id": "itm.0369",
+      "growth_time_sim_minutes": 405
+    },
+    {
+      "crop_item_id": "itm.0372",
+      "seed_item_id": "itm.0371",
+      "growth_time_sim_minutes": 90
+    },
+    {
+      "crop_item_id": "itm.0374",
+      "seed_item_id": "itm.0373",
+      "growth_time_sim_minutes": 125
+    },
+    {
+      "crop_item_id": "itm.0376",
+      "seed_item_id": "itm.0375",
+      "growth_time_sim_minutes": 160
+    },
+    {
+      "crop_item_id": "itm.0378",
+      "seed_item_id": "itm.0377",
+      "growth_time_sim_minutes": 195
+    },
+    {
+      "crop_item_id": "itm.0380",
+      "seed_item_id": "itm.0379",
+      "growth_time_sim_minutes": 230
+    },
+    {
+      "crop_item_id": "itm.0382",
+      "seed_item_id": "itm.0381",
+      "growth_time_sim_minutes": 265
+    },
+    {
+      "crop_item_id": "itm.0384",
+      "seed_item_id": "itm.0383",
+      "growth_time_sim_minutes": 300
+    },
+    {
+      "crop_item_id": "itm.0386",
+      "seed_item_id": "itm.0385",
+      "growth_time_sim_minutes": 335
+    },
+    {
+      "crop_item_id": "itm.0388",
+      "seed_item_id": "itm.0387",
+      "growth_time_sim_minutes": 370
+    },
+    {
+      "crop_item_id": "itm.0390",
+      "seed_item_id": "itm.0389",
+      "growth_time_sim_minutes": 405
+    },
+    {
+      "crop_item_id": "itm.0392",
+      "seed_item_id": "itm.0391",
+      "growth_time_sim_minutes": 90
+    },
+    {
+      "crop_item_id": "itm.0394",
+      "seed_item_id": "itm.0393",
+      "growth_time_sim_minutes": 125
+    },
+    {
+      "crop_item_id": "itm.0396",
+      "seed_item_id": "itm.0395",
+      "growth_time_sim_minutes": 160
+    },
+    {
+      "crop_item_id": "itm.0398",
+      "seed_item_id": "itm.0397",
+      "growth_time_sim_minutes": 195
+    },
+    {
+      "crop_item_id": "itm.0400",
+      "seed_item_id": "itm.0399",
+      "growth_time_sim_minutes": 230
+    },
+    {
+      "crop_item_id": "itm.0402",
+      "seed_item_id": "itm.0401",
+      "growth_time_sim_minutes": 265
+    },
+    {
+      "crop_item_id": "itm.0404",
+      "seed_item_id": "itm.0403",
+      "growth_time_sim_minutes": 300
+    },
+    {
+      "crop_item_id": "itm.0406",
+      "seed_item_id": "itm.0405",
+      "growth_time_sim_minutes": 335
+    },
+    {
+      "crop_item_id": "itm.0408",
+      "seed_item_id": "itm.0407",
+      "growth_time_sim_minutes": 370
+    },
+    {
+      "crop_item_id": "itm.0410",
+      "seed_item_id": "itm.0409",
+      "growth_time_sim_minutes": 405
+    },
+    {
+      "crop_item_id": "itm.0412",
+      "seed_item_id": "itm.0411",
+      "growth_time_sim_minutes": 90
+    },
+    {
+      "crop_item_id": "itm.0414",
+      "seed_item_id": "itm.0413",
+      "growth_time_sim_minutes": 125
+    },
+    {
+      "crop_item_id": "itm.0416",
+      "seed_item_id": "itm.0415",
+      "growth_time_sim_minutes": 160
+    },
+    {
+      "crop_item_id": "itm.0418",
+      "seed_item_id": "itm.0417",
+      "growth_time_sim_minutes": 195
+    },
+    {
+      "crop_item_id": "itm.0420",
+      "seed_item_id": "itm.0419",
+      "growth_time_sim_minutes": 230
+    },
+    {
+      "crop_item_id": "itm.0422",
+      "seed_item_id": "itm.0421",
+      "growth_time_sim_minutes": 265
+    },
+    {
+      "crop_item_id": "itm.0424",
+      "seed_item_id": "itm.0423",
+      "growth_time_sim_minutes": 300
+    },
+    {
+      "crop_item_id": "itm.0426",
+      "seed_item_id": "itm.0425",
+      "growth_time_sim_minutes": 335
+    },
+    {
+      "crop_item_id": "itm.0428",
+      "seed_item_id": "itm.0427",
+      "growth_time_sim_minutes": 370
+    },
+    {
+      "crop_item_id": "itm.0430",
+      "seed_item_id": "itm.0429",
+      "growth_time_sim_minutes": 405
+    },
+    {
+      "crop_item_id": "itm.0432",
+      "seed_item_id": "itm.0431",
+      "growth_time_sim_minutes": 90
+    },
+    {
+      "crop_item_id": "itm.0434",
+      "seed_item_id": "itm.0433",
+      "growth_time_sim_minutes": 125
+    },
+    {
+      "crop_item_id": "itm.0436",
+      "seed_item_id": "itm.0435",
+      "growth_time_sim_minutes": 160
+    },
+    {
+      "crop_item_id": "itm.0438",
+      "seed_item_id": "itm.0437",
+      "growth_time_sim_minutes": 195
+    },
+    {
+      "crop_item_id": "itm.0440",
+      "seed_item_id": "itm.0439",
+      "growth_time_sim_minutes": 230
+    },
+    {
+      "crop_item_id": "itm.0442",
+      "seed_item_id": "itm.0441",
+      "growth_time_sim_minutes": 265
+    },
+    {
+      "crop_item_id": "itm.0444",
+      "seed_item_id": "itm.0443",
+      "growth_time_sim_minutes": 300
+    },
+    {
+      "crop_item_id": "itm.0446",
+      "seed_item_id": "itm.0445",
+      "growth_time_sim_minutes": 335
+    },
+    {
+      "crop_item_id": "itm.0448",
+      "seed_item_id": "itm.0447",
+      "growth_time_sim_minutes": 370
+    },
+    {
+      "crop_item_id": "itm.0450",
+      "seed_item_id": "itm.0449",
+      "growth_time_sim_minutes": 405
+    },
+    {
+      "crop_item_id": "itm.0452",
+      "seed_item_id": "itm.0451",
+      "growth_time_sim_minutes": 90
+    },
+    {
+      "crop_item_id": "itm.0454",
+      "seed_item_id": "itm.0453",
+      "growth_time_sim_minutes": 125
+    },
+    {
+      "crop_item_id": "itm.0456",
+      "seed_item_id": "itm.0455",
+      "growth_time_sim_minutes": 160
+    },
+    {
+      "crop_item_id": "itm.0458",
+      "seed_item_id": "itm.0457",
+      "growth_time_sim_minutes": 195
+    },
+    {
+      "crop_item_id": "itm.0460",
+      "seed_item_id": "itm.0459",
+      "growth_time_sim_minutes": 230
+    },
+    {
+      "crop_item_id": "itm.0462",
+      "seed_item_id": "itm.0461",
+      "growth_time_sim_minutes": 265
+    },
+    {
+      "crop_item_id": "itm.0464",
+      "seed_item_id": "itm.0463",
+      "growth_time_sim_minutes": 300
+    },
+    {
+      "crop_item_id": "itm.0466",
+      "seed_item_id": "itm.0465",
+      "growth_time_sim_minutes": 335
+    },
+    {
+      "crop_item_id": "itm.0468",
+      "seed_item_id": "itm.0467",
+      "growth_time_sim_minutes": 370
+    },
+    {
+      "crop_item_id": "itm.0470",
+      "seed_item_id": "itm.0469",
+      "growth_time_sim_minutes": 405
+    },
+    {
+      "crop_item_id": "itm.0472",
+      "seed_item_id": "itm.0471",
+      "growth_time_sim_minutes": 90
+    },
+    {
+      "crop_item_id": "itm.0474",
+      "seed_item_id": "itm.0473",
+      "growth_time_sim_minutes": 125
+    },
+    {
+      "crop_item_id": "itm.0476",
+      "seed_item_id": "itm.0475",
+      "growth_time_sim_minutes": 160
+    },
+    {
+      "crop_item_id": "itm.0478",
+      "seed_item_id": "itm.0477",
+      "growth_time_sim_minutes": 195
+    },
+    {
+      "crop_item_id": "itm.0480",
+      "seed_item_id": "itm.0479",
+      "growth_time_sim_minutes": 230
+    },
+    {
+      "crop_item_id": "itm.0482",
+      "seed_item_id": "itm.0481",
+      "growth_time_sim_minutes": 265
+    },
+    {
+      "crop_item_id": "itm.0484",
+      "seed_item_id": "itm.0483",
+      "growth_time_sim_minutes": 300
+    },
+    {
+      "crop_item_id": "itm.0486",
+      "seed_item_id": "itm.0485",
+      "growth_time_sim_minutes": 335
+    },
+    {
+      "crop_item_id": "itm.0488",
+      "seed_item_id": "itm.0487",
+      "growth_time_sim_minutes": 370
+    },
+    {
+      "crop_item_id": "itm.0490",
+      "seed_item_id": "itm.0489",
+      "growth_time_sim_minutes": 405
+    }
+  ]
+}

@@ -2,9 +2,10 @@
  "set": "nohood",
  "views": {
   "S": {
+   "pal": null,
    "file": "S.png",
-   "w": 854,
-   "h": 1346,
+   "w": 427,
+   "h": 673,
    "levels": {
     "1": [
      {
@@ -279,13 +280,14 @@
      }
     ]
    },
-   "blankW": 854,
-   "blankH": 1346
+   "blankW": 427,
+   "blankH": 673
   },
   "SE": {
+   "pal": null,
    "file": "SE.png",
-   "w": 796,
-   "h": 1349,
+   "w": 398,
+   "h": 674,
    "levels": {
     "1": [
      {
@@ -560,13 +562,14 @@
      }
     ]
    },
-   "blankW": 796,
-   "blankH": 1349
+   "blankW": 398,
+   "blankH": 674
   },
   "E": {
+   "pal": null,
    "file": "E.png",
-   "w": 644,
-   "h": 1367,
+   "w": 322,
+   "h": 684,
    "levels": {
     "1": [
      {
@@ -840,13 +843,14 @@
      }
     ]
    },
-   "blankW": 644,
-   "blankH": 1367
+   "blankW": 322,
+   "blankH": 684
   },
   "NE": {
+   "pal": null,
    "file": "NE.png",
-   "w": 695,
-   "h": 1366,
+   "w": 348,
+   "h": 683,
    "levels": {
     "1": [
      {
@@ -968,9 +972,10 @@
    "facing": "front"
   },
   "N": {
+   "pal": null,
    "file": "N.png",
-   "w": 724,
-   "h": 1350,
+   "w": 362,
+   "h": 675,
    "levels": {
     "1": [
      {
@@ -1092,9 +1097,10 @@
    "facing": "front"
   },
   "NW": {
+   "pal": null,
    "file": "NW.png",
-   "w": 692,
-   "h": 1366,
+   "w": 346,
+   "h": 683,
    "levels": {
     "1": [
      {
@@ -1216,9 +1222,10 @@
    "facing": "front"
   },
   "W": {
+   "pal": null,
    "file": "W.png",
-   "w": 649,
-   "h": 1366,
+   "w": 324,
+   "h": 683,
    "levels": {
     "1": [
      {
@@ -1492,13 +1499,14 @@
      }
     ]
    },
-   "blankW": 649,
-   "blankH": 1366
+   "blankW": 324,
+   "blankH": 683
   },
   "SW": {
+   "pal": null,
    "file": "SW.png",
-   "w": 765,
-   "h": 1353,
+   "w": 382,
+   "h": 676,
    "levels": {
     "1": [
      {
@@ -1770,8 +1778,8 @@
      }
     ]
    },
-   "blankW": 765,
-   "blankH": 1353
+   "blankW": 382,
+   "blankH": 676
   }
  },
  "base": {
@@ -1782,5 +1790,7 @@
   "5": "#121421",
   "6": "#121421"
  },
- "eight": true
+ "eight": true,
+ "mode": "tone",
+ "thumb": "thumb.png"
 }

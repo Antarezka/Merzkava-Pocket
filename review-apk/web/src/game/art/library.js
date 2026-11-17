@@ -21,10 +21,23 @@ export const LOOKS = [
   { id: "oni", label: "Onmyoji · horned swordsman", zones: [1, 2, 4, 7], faceFixed: true },
   { id: "seer", label: "Blind seer · crow", zones: [2, 4, 5, 6, 7], faceFixed: true },
   { id: "skull", label: "Crimson kimono · hair ornament", zones: [2, 4, 5, 6], faceFixed: true },
+  { id: "miko_blue", label: "Shrine maiden · blue bob", zones: [2, 4, 5, 6, 7], faceFixed: true },
+  { id: "samurai", label: "Wandering samurai", zones: [2, 4, 6], faceFixed: true },
+  { id: "ronin_mask", label: "Masked ronin · silver braid", zones: [2, 4, 5, 6, 7], faceFixed: true },
+  { id: "elf", label: "Crimson elf · pixel", zones: [2, 4, 5, 6, 7], faceFixed: true, noSkin: true },
+  { id: "blindfold", label: "Blindfolded miko", zones: [2, 4, 6, 7], faceFixed: true },
+  { id: "maiden", label: "Solemn maiden · floral kimono", zones: [2, 4, 5, 6, 7], faceFixed: true, noSkin: true },
+  { id: "kitsune", label: "Nine-tail kitsune spirit", zones: [2, 5, 6, 7], faceFixed: true, noSkin: true },
+  { id: "priestess", label: "Mystic priestess", zones: [2, 4, 6, 7], faceFixed: true, noSkin: true },
+  { id: "hooded", label: "Hooded swordsman", zones: [2, 4, 6, 7], faceFixed: true, noSkin: true },
 ];
 export const ZONE_NAMES = { 1: "Skin", 2: "Hair", 3: "Eyes", 4: "Outer layer", 5: "Inner / trim", 6: "Hakama / skirt", 7: "Accent" };
 export const LOOK_ZONE_LABELS = { burgundy8: { 2: "Hair", 4: "Haori (jacket)", 5: "Inner collar & ribbons", 6: "Hakama", 3: "Eyes" }, hoodie: { 2: "Hair & hood", 4: "Robe", 5: "Straps & trim", 6: "Skirt" }, nohood: { 2: "Hair", 4: "Robe", 5: "Straps & trim", 6: "Skirt" },
-  oni: { 2: "Hair", 4: "Kimono & hakama", 7: "Horns & gold trim", 1: "Skin" }, seer: { 2: "Hair", 4: "Robe", 5: "Blindfold", 6: "Inner robe", 7: "Gold trim" }, skull: { 2: "Hair", 4: "Kimono", 5: "Hair ornament", 6: "Socks & skirt" } };
+  oni: { 2: "Hair", 4: "Kimono & hakama", 7: "Horns & gold trim", 1: "Skin" }, seer: { 2: "Hair", 4: "Robe", 5: "Blindfold", 6: "Inner robe", 7: "Gold trim" }, skull: { 2: "Hair", 4: "Kimono", 5: "Hair ornament", 6: "Socks & skirt" },
+  miko_blue: { 2: "Hair & eyes", 4: "Haori (top)", 5: "Hair bow", 6: "Hakama & ribbon", 7: "Hair ornament" }, samurai: { 2: "Hair", 4: "Kimono", 6: "Hakama" },
+  ronin_mask: { 2: "Hair", 4: "Haori (jacket)", 5: "Mask", 6: "Hakama", 7: "Sash" }, elf: { 2: "Hair", 4: "Kimono", 5: "Obi & dark trim", 6: "Skirt", 7: "Gold pattern" },
+  blindfold: { 2: "Hair", 4: "Outer robe", 6: "Under-robe", 7: "Cords & ornaments" }, maiden: { 2: "Hair", 4: "Kimono", 5: "Obi & dark trim", 6: "Skirt", 7: "Gold pattern" },
+  kitsune: { 2: "Fur, hair & robe", 5: "Inner kimono", 6: "Hakama", 7: "Ribbon accents" }, priestess: { 2: "Hair", 4: "Dark robe", 6: "White under-robe", 7: "Spirit flames & cords" }, hooded: { 2: "Hair", 4: "Hood & coat", 6: "Trousers & boots", 7: "Straps & fittings" } };
 
 export function defaultAppearance(look = "burgundy8") {
   return { gender: "female", look, body: "balanced", skin: null, hairColor: null, eyeColor: null, eyeShape: "original", expression: "original", browColor: null, colors: {} };

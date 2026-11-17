@@ -56,13 +56,32 @@ export function poseSprite(sprite, dir, mode, t, o = {}) {
  * kit = ModelKit (models.js); spec = { model, colors, face, shape }
  */
 export const SHEET_ROWS = ["S", "SE", "E", "NE", "N", "NW", "W", "SW"];
-export function buildSheet(kit, spec, { idleFrames = 2, walkFrames = 6, scale = 0.8 } = {}) {
-  const CW = kit.cell.w, CH = kit.cell.h, cw = Math.round(CW * scale), ch = Math.round(CH * scale), cols = idleFrames + walkFrames, hip = kit.hipRow(spec.model);
-  const sheet = mk(cw * cols, ch * SHEET_ROWS.length), sx = sheet.getContext("2d"); sx.imageSmoothingQuality = "high";
+export function buildSheet(kit, spec, { idleFrames = 1, walkFrames = 6, scale = 0.8 } = {}) {
+  const CW = kit.cell.w, CH = kit.cell.h, cw = Math.round(CW * scale), ch = Math.round(CH * scale), hip = kit.hipRow(spec.model), stride = kit.hasWalk?.(spec.model);
+  if (stride) walkFrames = 4;   // models with a drawn walking pose: stride pose <-> passing pose, each with a small bob
+  const cols = idleFrames + walkFrames, sheet = mk(cw * cols, ch * SHEET_ROWS.length), sx = sheet.getContext("2d"); sx.imageSmoothingQuality = "high";
   SHEET_ROWS.forEach((d, r) => {
     const spr = kit.render(spec, d), o = { w: CW, h: CH, hip };
-    for (let i = 0; i < idleFrames; i++) sx.drawImage(poseSprite(spr, d, "idle", i / idleFrames, o), 0, 0, CW, CH, i * cw, r * ch, cw, ch);
-    for (let i = 0; i < walkFrames; i++) sx.drawImage(poseSprite(spr, d, "walk", i / walkFrames, o), 0, 0, CW, CH, (idleFrames + i) * cw, r * ch, cw, ch);
+    for (let i = 0; i < idleFrames; i++) sx.drawImage(spr, 0, 0, CW, CH, i * cw, r * ch, cw, ch);   // idle = the plain view; drawBreathing() animates it live
+    if (stride) {
+      const wk = kit.render(spec, d, "walk"), K = CH / 300, F = [[wk, 0, 1], [spr, -6 * K, 1.012], [wk, 0, 1], [spr, -6 * K, 1.012]];
+      for (let i = 0; i < walkFrames; i++) {
+        const [src, dy, sq] = F[i], c = mk(CW, CH), cx = c.getContext("2d"); cx.imageSmoothingQuality = "high"; cx.translate(CW / 2, kit.cell.feet + dy); cx.scale(1 / sq, sq); cx.translate(-CW / 2, -kit.cell.feet); cx.drawImage(src, 0, 0);
+        sx.drawImage(c, 0, 0, CW, CH, (idleFrames + i) * cw, r * ch, cw, ch);
+      }
+    } else for (let i = 0; i < walkFrames; i++) sx.drawImage(poseSprite(spr, d, "walk", i / walkFrames, o), 0, 0, CW, CH, (idleFrames + i) * cw, r * ch, cw, ch);
   });
-  return { canvas: sheet, cell: [cw, ch], rows: SHEET_ROWS, idleFrames, walkFrames, scale, feet: CH ? kit.cell.feet / CH : 1 };
+  return { canvas: sheet, cell: [cw, ch], rows: SHEET_ROWS, idleFrames, walkFrames, scale, feet: CH ? kit.cell.feet / CH : 1, hip: hip / CH, stride: !!stride };
+}
+
+/**
+ * Idle "breathing" for any character cell, drawn live (smooth, works for every model/direction).
+ * The cell is split at the hip: legs stay planted, the torso+head rise/expand a little with each breath and drift a hair side to side.
+ * (src, sx,sy,sw,sh) = source rect of one cell, (dx,dy,dw,dh) = destination rect, hip = hip row as a fraction of the cell height, t = seconds.
+ */
+export function drawBreathing(c, src, sx, sy, sw, sh, dx, dy, dw, dh, hip, t, amp = 1) {
+  const b = (Math.sin(t * 2.3) + 1) / 2, hs = Math.max(1, Math.min(sh - 1, Math.round(sh * hip))), hd = dh * hs / sh;
+  c.drawImage(src, sx, sy + hs, sw, sh - hs, dx, dy + hd, dw, dh - hd);
+  c.save(); c.translate(dx + dw / 2, dy + hd); c.transform(1, 0, Math.sin(t * 1.3 + 0.7) * 0.007 * amp, 1, 0, 0); c.scale(1 + b * 0.01 * amp, 1 + b * 0.026 * amp);
+  c.drawImage(src, sx, sy, sw, hs, -dw / 2, -hd, dw, hd); c.restore();
 }

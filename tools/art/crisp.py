@@ -6,11 +6,15 @@ Pipeline: upscale -> k-means palette -> one-hot class maps -> Gaussian smooth ->
 import cv2, numpy as np
 
 
-def cutout(bgr, near_white=185, chroma=14):
-    """Alpha mask of the figure: everything not connected-neutral-white to the border."""
+def cutout(bgr, near_white=185, chroma=14, seal=0):
+    """Alpha mask of the figure: everything not connected-neutral-white to the border.
+    seal > 0: gaps in the dark outline up to ~2*seal px are closed first, so a white figure (white hair / robe) whose outline is not fully closed does not leak into the background."""
     h, w = bgr.shape[:2]
     mx = bgr.max(axis=2).astype(int); mn = bgr.min(axis=2).astype(int)
     neutral = (((mx - mn) < chroma) & (mn > near_white)).astype(np.uint8)
+    if seal:
+        edge = (mx < 150).astype(np.uint8); edge = cv2.morphologyEx(edge, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * seal + 1, 2 * seal + 1)))
+        neutral[edge > 0] = 0
     pad = cv2.copyMakeBorder(neutral, 1, 1, 1, 1, cv2.BORDER_CONSTANT, value=1)
     mask = np.zeros((h + 4, w + 4), np.uint8)
     cv2.floodFill(pad, mask, (0, 0), 2)

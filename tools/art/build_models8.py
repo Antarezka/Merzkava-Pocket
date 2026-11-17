@@ -33,6 +33,11 @@ def layout(name, d, cw, ch):
     return {"xl": eyes[0][0] / cw, "xr": 0 if single else eyes[-1][0] / cw, "y": eyes[0][1] / ch, "w": EYE_W[name] / cw, "h": EYE_H[name] / ch, "up": 2.0 / ch, "sx": 0.72,
             "mx": mo[0] / cw if mo else 0, "my": mo[1] / ch if mo else 0, "facing": FACING[d], "single": single}
 
+SHRINK = 0.5   # traced at x5 for clean edges, stored at x2.5 (the game renders the figure ~237px tall)
+def shrink(idx, a, zone):
+    h, w = idx.shape; nh, nw = int(round(h * SHRINK)), int(round(w * SHRINK))
+    f = lambda m, ip: cv2.resize(m, (nw, nh), interpolation=ip)
+    return f(idx, cv2.INTER_NEAREST), f(a, cv2.INTER_AREA), f(zone, cv2.INTER_NEAREST)
 def pal_preview(idx, a, pal):
     out = np.zeros(idx.shape + (4,), np.uint8); P = np.array([[c[2], c[1], c[0]] for c in pal], np.uint8)
     m = idx > 0; out[m, :3] = P[idx[m] - 1]; out[idx == 0, :3] = (54, 44, 59); out[..., 3] = a; return out
@@ -46,16 +51,19 @@ def main(out, cells, only):
             kw = dict(near_white=248, chroma=8, palette=name in PALETTE_SETS, clip=name != 'seer', k=28 if name in PALETTE_SETS else 16)
             idx, a, zone, levels, base, face, facing = trace_model(cell, name, layout=lay, strip_face=False, ref=ref, **kw)
             if d == "S": ref = dict(base)
+            idx, a, zone = shrink(idx, a, zone)
             write_packed(os.path.join(d0, d + ".png"), idx, a, zone)
             pal = getattr(trace_model, "pal", None) if name in PALETTE_SETS else None
             v = {"pal": pal, "file": d + ".png", "w": int(idx.shape[1]), "h": int(idx.shape[0]), "levels": {str(k): lv for k, lv in levels.items()}, "face": None, "facing": facing}
             if lay:
                 idx2, a2, zone2, levels2, base2, face2, _ = trace_model(cell, name, layout=lay, strip_face=True, ref=ref, **kw)
+                idx2, a2, zone2 = shrink(idx2, a2, zone2)
                 write_packed(os.path.join(d0, d + "_b.png"), idx2, a2, zone2)
                 v.update({"blank": d + "_b.png", "blankLevels": {str(k): lv for k, lv in levels2.items()}, "blankW": int(idx2.shape[1]), "blankH": int(idx2.shape[0]), "face": face2})
             meta["views"][d] = v
             if d == "S": meta["base"] = {str(k): c for k, c in base.items()}
             tiles.append(preview(idx, a, zone, levels, {z: c for z, c in ref.items()}) if not pal else pal_preview(idx, a, pal))
+        t = tiles[0]; s_ = 160 / t.shape[0]; t = cv2.resize(t, None, fx=s_, fy=s_, interpolation=cv2.INTER_AREA); cv2.imwrite(os.path.join(d0, "thumb.png"), t); meta["thumb"] = "thumb.png"
         json.dump(meta, open(os.path.join(d0, "model.json"), "w"), indent=1)
         Hh = 330; row = []
         for t in tiles:

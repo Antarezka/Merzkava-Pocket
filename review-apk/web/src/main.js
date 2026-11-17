@@ -1,6 +1,7 @@
 import { animate } from "animejs";
 import "./styles.css";
 import { economyMarkup, mountEconomy } from "./economy.js";
+import { mountGame } from "./game/index.js";
 
 const root = document.querySelector("#app");
 if (!root) throw new Error("Pocket root not found.");
@@ -721,9 +722,19 @@ function renderHome() {
   routeHistory.length = 0;
   renderPage("home");
 }
+let gameController = null;
+/** Game dock button: full-screen portrait Game Mode (loading scene -> menu -> character creator -> play). Identity comes from the verified developer / player session. */
+function mountGameRoute() {
+  root.innerHTML = '<div class="game-host" data-game-root></div>';
+  const host = root.querySelector("[data-game-root]");
+  const controller = mountGame(host, { identity: accessIdentity, storage: window.localStorage, base: "./", onExit: () => { if (gameController === controller) gameController = null; navigateBack(); } });
+  gameController = controller;
+  currentDisposer = () => { if (gameController === controller) gameController = null; controller.destroy(); };
+}
 function renderPage(destination, depth="") {
   disposeCurrent();
   currentRoute=destination;
+  if(destination==="game"){mountGameRoute();return;}
   let pageMarkup="";
   if(destination==="home"){
     pageMarkup=`
@@ -1091,6 +1102,7 @@ window.addEventListener("pocket:android-back",()=>{
   if(currentRoute==="splash")return;
   if(backPrompt){backPrompt.remove();backPrompt=null;return;}
   if(menuController?.open){menuController.close();return;}
+  if(currentRoute==="game"&&gameController?.back())return;
   if(currentRoute!=="home") return navigateBack();
   backPrompt=document.createElement("div");
   backPrompt.className="exit-prompt";

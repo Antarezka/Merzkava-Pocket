@@ -1,8 +1,10 @@
 // Game-mode engine: Canvas 2D top-down (slightly tilted) renderer, tap-only control, A* movement, gather / build / merchant interaction.
 // Dependency-free. The economy rules live in data/economy.js — this file only drives the world and asks the economy for outcomes.
-import { buildSheet } from "./art/anim.js";
+import { buildSheet, drawBreathing } from "./art/anim.js";
 import { drawHouse, drawFacility, drawConstructionSite, drawCart, drawMarker, facilityFootprint } from "./art/world.js";
 import { minuteOfDay } from "./data/clock.js";
+import * as A from "./art/animate.js";
+import { Grinder } from "./combat.js";
 
 const CHAR_H = 118, SPEED = 170;
 const DIR_ROW = { S: [0, false], SE: [1, false], E: [2, false], NE: [3, false], N: [4, false], NW: [5, false], W: [6, false], SW: [7, false] };   // every direction is its own traced view
@@ -10,23 +12,25 @@ const dirFromVec = (dx, dy) => { const a = Math.atan2(dy, dx), k = (Math.round(a
 
 export class GameEngine {
   constructor({ canvas, world, kit, appearance, economy, catalog, ui, spriteFor }) {
-    this.cv = canvas; this.ctx = canvas.getContext("2d"); this.world = world; this.kit = kit; this.eco = economy; this.catalog = catalog; this.ui = ui;
+    this.opts = arguments[0].options || {}; this.cv = canvas; this.ctx = canvas.getContext("2d"); this.world = world; this.kit = kit; this.eco = economy; this.catalog = catalog; this.ui = ui;
     this.time = 0; this.running = false; this.cam = { x: 0, y: 0 }; this.zoom = 1; this.vw = 0; this.vh = 0; this.dpr = 1;
     this.player = { x: 0, y: 0, dir: "S", moving: false, path: [], action: null, sheet: null, frame: 0 };
     this.markers = []; this.ghost = null; this.selected = null; this.hidden = new Set();
     this.spriteFor = spriteFor; // (appearance) -> sheet  (merchant npc etc.)
-    this.houseLevel = 1; this._houseSprite = drawHouse(1); this._cart = drawCart(); this._ping = drawMarker("ping"); this._sparkle = drawMarker("sparkle");
+    this.houseLevel = Math.max(1, Math.min(3, economy.state.flags?.house_level || 1)); this._houseSprite = drawHouse(this.houseLevel); this._cart = drawCart(); this._ping = drawMarker("ping"); this._sparkle = drawMarker("sparkle");
     this._facSprites = new Map(); this._construct = new Map(); this.npc = null;
-    this.setAppearanceSheet(appearance);
+    this.setAppearanceSheet(appearance); this.grind = new Grinder(this);
     const st = this.eco.state, w = this.world, sp = st.position && Number.isFinite(st.position.x) ? st.position : { x: (w.spawn.c + 0.5) * w.tile, y: (w.spawn.r + 0.5) * w.tile };
     this.player.x = sp.x; this.player.y = sp.y;
     this._bind(); this.resize();
     this.refreshFacilities();
     this.offChange = this.eco.on("change", () => this.refreshFacilities());
   }
-  setAppearanceSheet(spec) { this.player.sheet = buildSheet(this.kit, spec); }
-  destroy() { this.running = false; cancelAnimationFrame(this._raf); this.offChange?.(); this.cv.removeEventListener("pointerdown", this._pd); this.cv.removeEventListener("pointerup", this._pu); window.removeEventListener("resize", this._rs); }
-  start() { if (this.running) return; this.running = true; this._last = performance.now(); const loop = (t) => { if (!this.running) return; const dt = Math.min(0.05, (t - this._last) / 1000); this._last = t; this.update(dt); this.draw(); this._raf = requestAnimationFrame(loop); }; this._raf = requestAnimationFrame(loop); this._saveT = 0; }
+  setAppearanceSheet(spec) { this.player.sheet = buildSheet(this.kit, spec, { scale: this.opts?.sheetScale || 0.8 }); }
+  dirFrom(dx, dy) { return dirFromVec(dx, dy); }
+  _fpsTick(dt) { this._fa = (this._fa || 0) * 0.9 + (1 / dt) * 0.1; const c = this.ctx; c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0); c.fillStyle = "rgba(0,0,0,.45)"; c.fillRect(6, 70, 64, 20); c.fillStyle = "#fff"; c.font = "12px monospace"; c.fillText(Math.round(this._fa) + " fps", 12, 84); }
+  destroy() { this.running = false; cancelAnimationFrame(this._raf); this.offChange?.(); this.cv.removeEventListener("pointerdown", this._pd); this.cv.removeEventListener("pointerup", this._pu); window.removeEventListener("resize", this._rs); this._ro?.disconnect(); }
+  start() { if (this.running) return; this.running = true; this._last = performance.now(); const loop = (t) => { if (!this.running) return; const minDt = 1000 / (this.opts?.fps || 60) - 2; if (t - this._last < minDt) { this._raf = requestAnimationFrame(loop); return; } const dt = Math.min(0.05, (t - this._last) / 1000); this._last = t; this.update(dt); this.draw(); if (this.opts?.showFps) this._fpsTick(dt); this._raf = requestAnimationFrame(loop); }; this._raf = requestAnimationFrame(loop); this._saveT = 0; }
 
   // ------------------------------------------------------------ input
   _bind() {
@@ -34,16 +38,17 @@ export class GameEngine {
     this._pd = (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; };
     this._pu = (e) => { if (!down) return; const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y); down = null; if (moved > 12) return; const r = this.cv.getBoundingClientRect(); this.onTap(e.clientX - r.left, e.clientY - r.top); };
     this.cv.addEventListener("pointerdown", this._pd); this.cv.addEventListener("pointerup", this._pu);
-    this._rs = () => this.resize(); window.addEventListener("resize", this._rs);
+    this._rs = () => this.resize(); window.addEventListener("resize", this._rs); if (typeof ResizeObserver !== "undefined") { this._ro = new ResizeObserver(() => this.resize()); this._ro.observe(this.cv); }
   }
   resize() {
-    const r = this.cv.getBoundingClientRect(), dpr = Math.min(2.5, window.devicePixelRatio || 1); this.vw = r.width || 390; this.vh = r.height || 780; this.dpr = dpr;
+    const r = this.cv.getBoundingClientRect(), dpr = Math.min(this.opts?.dprCap || 2.5, window.devicePixelRatio || 1); this.vw = r.width || 390; this.vh = r.height || 780; this.dpr = dpr;
     this.cv.width = Math.round(this.vw * dpr); this.cv.height = Math.round(this.vh * dpr); this.zoom = Math.max(0.8, this.vw / 460);
   }
   screenToWorld(sx, sy) { return { x: this.cam.x + sx / this.zoom, y: this.cam.y + sy / this.zoom }; }
 
   onTap(sx, sy) {
     if (this.ui.blocking?.()) return;
+    if (this.grind.on) this.grind.setOn(false, "manual");
     const p = this.screenToWorld(sx, sy), w = this.world, T = w.tile;
     if (this.ghost) { this.moveGhost(Math.floor(p.x / T), Math.floor(p.y / T)); return; }
     this.cancelAction();
@@ -130,6 +135,7 @@ export class GameEngine {
     const a = this.player.action; this.player.action = null;
     const res = this.eco.commitGather(a.plan, a.uid);
     if (!res.ok) { this.ui.toast(res.reason === "bag_full" ? "Your bag is full." : "Couldn't gather."); return; }
+    if (a.pr?.sway) this.burstLeaves(a.pr, /^tree_/.test(a.pr.name) ? 16 : 6);
     const txt = res.gained.map((g) => `+${g.quantity} ${this.catalog.itemName(g.item_id)}`).join(", "); this.ui.toast(txt); this.ui.sfx?.("gather");
     this.markers.push({ x: this.player.x, y: this.player.y - 70, t: 0, spark: true });
   }
@@ -145,6 +151,7 @@ export class GameEngine {
     const k = f.facility_id + ":" + f.level; if (!this._facSprites.has(k)) this._facSprites.set(k, drawFacility(def, f.level)); return this._facSprites.get(k);
   }
   refreshFacilities() {
+    const lv = Math.max(1, Math.min(3, this.eco.state.flags?.house_level || 1)); if (lv !== this.houseLevel) { this.houseLevel = lv; this._houseSprite = drawHouse(lv); }
     const w = this.world; this._facBlocked = new Uint8Array(w.cols * w.rows);
     for (const f of this.eco.state.facilities) for (let r = f.r; r < f.r + f.h; r++) for (let c = f.c; c < f.c + f.h * 0 + f.w; c++) if (c >= 0 && r >= 0 && c < w.cols && r < w.rows) this._facBlocked[r * w.cols + c] = 1;
     if (!this._propTile) this._indexProps();
@@ -174,7 +181,8 @@ export class GameEngine {
 
   // ------------------------------------------------------------ update / draw
   update(dt) {
-    this.time += dt; const p = this.player, w = this.world;
+    this.time += dt; this.dt = dt; const p = this.player, w = this.world; this.grind.update(dt); this.updateParts(dt);
+    { const pr = p.action?.pr; if (pr?.sway) { pr.shake = 1; this._leafT = (this._leafT || 0) - dt; if (this._leafT <= 0) { this._leafT = 0.32; if (/^tree_/.test(pr.name)) this.burstLeaves(pr, 2); } } }
     if (p.action) {
       p.action.t += dt; p.moving = false;
       if (p.action.t >= p.action.dur) this._finishAction();
@@ -184,7 +192,7 @@ export class GameEngine {
       if (d <= step) { p.x = n.x; p.y = n.y; p.path.shift(); } else { p.x += dx / d * step; p.y += dy / d * step; }
       if (!p.path.length) { p.moving = false; const f = p.then; p.then = null; if (f) f(); }
     } else p.moving = false;
-    p.frame += dt * (p.moving ? 9 : 1.6);
+    p.frame += dt * (p.moving ? (p.sheet?.stride ? 7.5 : 9) : 1.6);
     const cx = p.x - this.vw / this.zoom / 2, cy = p.y - 40 - this.vh / this.zoom / 2;
     const maxX = w.width - this.vw / this.zoom, maxY = w.height - this.vh / this.zoom;
     this.cam.x += (Math.max(0, Math.min(maxX, cx)) - this.cam.x) * Math.min(1, dt * 7); this.cam.y += (Math.max(0, Math.min(maxY, cy)) - this.cam.y) * Math.min(1, dt * 7);
@@ -195,6 +203,11 @@ export class GameEngine {
     const m = this.eco.merchant(); this._merchantHere = !!m.present;
     if (m.present && !this._cartPlaced) { this._cartPlaced = true; }
   }
+  sun() { const m = minuteOfDay(this.eco.now()) / 60, s = Math.max(-1, Math.min(1, (m - 12) / 6.5)), a = m < 5.5 || m > 19.5 ? 0 : Math.min(1, (m - 5.5) / 1.5, (19.5 - m) / 1.5); return { shx: 0.55 * s, shy: 0.14 + 0.16 * Math.abs(s), a: a * (this.world.amb?.shadow ?? 1) }; }
+  // falling-leaf particles (tree gathering, bushes)
+  burstLeaves(pr, n) { const col = /^tree_/.test(pr.name) ? A.leafColourOf(pr.name) : "#8fb05a", P = this.parts || (this.parts = []); for (let i = 0; i < n && P.length < 120; i++) P.push({ x: pr.x + (Math.random() - 0.5) * pr.w * 0.5, y: pr.y - pr.h * (0.45 + Math.random() * 0.45), vx: -14 + Math.random() * 46, vy: -18 + Math.random() * 26, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 6, t: 0, life: 1.8 + Math.random() * 1.2, col, s: 0.8 + Math.random() * 0.5, g: Math.random() * 6 }); }
+  updateParts(dt) { const P = this.parts; if (!P?.length) return; for (const q of P) { q.t += dt; q.vy = Math.min(46, q.vy + 55 * dt); q.vx += (Math.sin(this.time * 2 + q.g) * 26 - q.vx * 0.4) * dt; q.x += q.vx * dt; q.y += q.vy * dt; q.rot += q.vr * dt; } this.parts = P.filter((q) => q.t < q.life); }
+  drawParts(c) { const P = this.parts; if (!P?.length) return; c.save(); for (const q of P) { c.globalAlpha = Math.min(1, (q.life - q.t) / 0.5); A.drawLeaf(c, q.x, q.y, q.rot, q.s, q.col, Math.cos(this.time * 3 + q.g)); } c.restore(); }
   tint() { // multiply colour for time of day
     const sim = this.eco.now(), m = minuteOfDay(sim) / 60, k = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t)), day = [255, 255, 255], dusk = [255, 200, 165], night = [95, 110, 175], dawn = [255, 214, 185];
     if (m < 4.5) return night; if (m < 6) return k(night, dawn, (m - 4.5) / 1.5); if (m < 8) return k(dawn, day, (m - 6) / 2); if (m < 16.5) return day;
@@ -205,24 +218,29 @@ export class GameEngine {
     c.setTransform(dpr * z, 0, 0, dpr * z, -cam.x * dpr * z, -cam.y * dpr * z); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = "high";
     c.fillStyle = "#2a2a22"; c.fillRect(cam.x - 2, cam.y - 2, vw + 4, vh + 4);
     c.drawImage(w.ground, cam.x, cam.y, vw, vh, cam.x, cam.y, vw, vh);
-    w.drawWater(c, this.time, 0, 0, w.width, w.height);
+    const view = { x0: cam.x, y0: cam.y, x1: cam.x + vw, y1: cam.y + vh }, sun = this.sun(), hidden = (pr) => this.isHidden(pr);
+    A.drawWater(c, w, this.time, view); A.drawGrass(c, w, this.time, view);
     // tile highlight for build mode
     if (this.ghost) { const T = w.tile, cl = w.claim; c.save(); c.globalAlpha = 0.22; c.fillStyle = "#f2e08a"; c.fillRect(cl.c0 * T, cl.r0 * T, (cl.c1 - cl.c0 + 1) * T, (cl.r1 - cl.r0 + 1) * T); c.restore(); }
+    // soft shadows on the ground: they follow the sun, sway with the canopy and fade at night
+    A.drawShadows(c, w, this.time, view, sun, hidden); { const h0 = this._houseSprite; A.drawSilShadow(c, h0.canvas, w.home.x, w.home.y + 10, h0.w, h0.h, sun, 0.4); for (const f of this.eco.facilities()) { const r = this.facRect(f), sp = r && this.facSprite(f); if (sp) A.drawSilShadow(c, sp.canvas, r.cx, r.y + r.h, r.w, r.h, sun, 0.35); } }
     // entity list (y-sorted)
     const list = [], pad = 120, x0 = cam.x - pad, x1 = cam.x + vw + pad, y0 = cam.y - pad, y1 = cam.y + vh + pad + 160;
-    for (const pr of w.props) { if (pr.x < x0 || pr.x > x1 || pr.y < y0 || pr.y > y1 + 120) continue; if (pr.node && this.isHidden(pr)) continue; list.push({ y: pr.y, f: () => { c.save(); c.translate(pr.x, pr.y); if (pr.flip) c.scale(-1, 1); c.drawImage(pr.sprite, -pr.w / 2, -pr.h, pr.w, pr.h); if (this.selected === pr) { c.globalAlpha = 0.5; c.strokeStyle = "#fff4cf"; c.lineWidth = 3; c.beginPath(); c.ellipse(0, -4, pr.w * 0.4, 9, 0, 0, 6.3); c.stroke(); } c.restore(); } }); }
+    for (const pr of w.props) { if (pr.x < x0 || pr.x > x1 || pr.y < y0 || pr.y > y1 + 120) continue; if (pr.node && this.isHidden(pr)) continue; list.push({ y: pr.y, f: () => { A.drawProp(c, pr, this.time, this.dt || 0.016, this.player); c.save(); c.translate(pr.x, pr.y); if (this.selected === pr) { c.globalAlpha = 0.5; c.strokeStyle = "#fff4cf"; c.lineWidth = 3; c.beginPath(); c.ellipse(0, -4, pr.w * 0.4, 9, 0, 0, 6.3); c.stroke(); } c.restore(); } }); }
     const hs = this._houseSprite; list.push({ y: w.home.y, f: () => c.drawImage(hs.canvas, w.home.x - hs.w / 2, w.home.y - hs.h + 10) });
     for (const f of this.eco.facilities()) { const r = this.facRect(f); if (!r) continue; const spr = this.facSprite(f); list.push({ y: r.by, f: () => { c.drawImage(spr.canvas, r.x, r.y, r.w, r.h); if (f.status === "ready" && (Object.keys(f.buffer || {}).length || f.process?.done)) c.drawImage(this._sparkle, r.cx - 16, r.y - 12, 32, 32); } }); }
     // merchant cart + npc
     const m = this.eco.merchant(); this.cartRect = null;
     if (m.present) { const cx = 17.5 * w.tile, cy = 26.4 * w.tile, cw = this._cart.w, ch = this._cart.h, x = cx - cw / 2, y = cy - ch + 14; this.cartRect = { x, y, w: cw, h: ch, cx, cy }; list.push({ y: cy, f: () => { c.drawImage(this._cart.canvas, x, y); this.ui.drawNpcLabel?.(c, cx, y - 6, m.name); } }); }
-    list.push({ y: this.player.y, f: () => this.drawPlayer(c) });
+    list.push(...this.grind.entities(c)); list.push({ y: this.player.y, f: () => this.drawPlayer(c) });
     list.sort((a, b) => a.y - b.y); for (const e of list) e.f();
+    A.drawTreeLeaves(c, w, this.time, view, hidden); this.drawParts(c); this.grind.drawBars(c); this.grind.drawFx(c);
     // ghost footprint
     if (this.ghost) { const g = this.ghost, T = w.tile; c.save(); c.globalAlpha = 0.6; c.drawImage(g.spr.canvas, (g.c + g.w / 2) * T - g.spr.w / 2, (g.r + g.h) * T - g.spr.h + 6); c.globalAlpha = 0.45; c.fillStyle = g.ok ? "#6fdc8a" : "#e0584a"; c.fillRect(g.c * T, g.r * T, g.w * T, g.h * T); c.restore(); }
     // markers
     for (const mk of this.markers) { const k = mk.t / 1.0; c.save(); c.globalAlpha = 1 - k; if (mk.spark) c.drawImage(this._sparkle, mk.x - 20, mk.y - 20 - k * 30, 40, 40); else c.drawImage(this._ping, mk.x - 22 - k * 10, mk.y - 22 - k * 6, 44 + k * 20, 44 + k * 12); c.restore(); }
-    w.drawAmbient(c, this.time, cam.x, cam.y, vw, vh);
+    if (sun.a > 0.05) A.drawBlobs(c, w, this.time, view, { n: 7, rgb: "36,48,92", a: 0.11 * sun.a, speed: 14, rx: 380, ry: 210, seed: 3 });   // drifting cloud shadows
+    A.drawAmbient(c, this.time, view, w.amb); if (w.amb?.fog) A.drawBlobs(c, w, this.time, view, { n: 20, rgb: w.amb.fogRgb || "226,232,238", a: w.amb.fog, speed: 7, rx: 300, ry: 140, seed: 7 });
     // time-of-day tint
     c.setTransform(dpr, 0, 0, dpr, 0, 0); const t = this.tint(); if (t[0] < 250 || t[2] < 250) { c.save(); c.globalCompositeOperation = "multiply"; c.fillStyle = `rgb(${t[0]},${t[1]},${t[2]})`; c.fillRect(0, 0, this.vw, this.vh); c.restore(); }
     // vignette
@@ -231,10 +249,16 @@ export class GameEngine {
     const a = this.player.action; if (a) { const sx = (this.player.x - cam.x) * z, sy = (this.player.y - 124 - cam.y) * z, k = Math.min(1, a.t / a.dur); c.save(); c.lineWidth = 5; c.strokeStyle = "rgba(20,14,28,0.55)"; c.beginPath(); c.arc(sx, sy, 20, 0, 6.2832); c.stroke(); c.strokeStyle = "#f2d889"; c.beginPath(); c.arc(sx, sy, 20, -1.5708, -1.5708 + 6.2832 * k); c.stroke(); c.fillStyle = "#fff4cf"; c.font = "600 11px system-ui"; c.textAlign = "center"; c.fillText(a.label || "", sx, sy - 28); c.restore(); }
   }
   drawPlayer(c) {
-    const p = this.player, s = p.sheet, [row, mirror] = DIR_ROW[p.dir] || DIR_ROW.S, [cw, ch] = s.cell, sc = CHAR_H / (ch * 236 / 300);
-    let col; if (p.moving) col = s.idleFrames + (Math.floor(p.frame) % s.walkFrames); else if (p.action) col = s.idleFrames + (Math.floor(p.frame * 0.6) % 2 ? 2 : 0) % s.walkFrames * 0; else col = Math.floor(p.frame) % s.idleFrames;
-    const dw = cw * sc, dh = ch * sc, feet = s.feet || 0.973;
-    c.save(); c.fillStyle = "rgba(30,24,40,0.3)"; c.beginPath(); c.ellipse(p.x, p.y, 22, 8, 0, 0, 6.3); c.fill(); c.translate(p.x, p.y - dh * feet + (p.action ? Math.sin(p.action.t * 12) * 1.5 : 0));
-    if (mirror) { c.scale(-1, 1); } c.drawImage(s.canvas, col * cw, row * ch, cw, ch, -dw / 2, 0, dw, dh); c.restore();
+    const p = this.player, s = p.sheet, [row, mirror] = DIR_ROW[p.dir] || DIR_ROW.S, [cw, ch] = s.cell, sc = CHAR_H / (ch * 236 / 300), still = !p.moving && !p.action, T = this.time;
+    let col; if (p.moving) col = s.idleFrames + (Math.floor(p.frame) % s.walkFrames); else if (p.action) col = s.idleFrames; else col = 0;
+    const dw = cw * sc, dh = ch * sc, feet = s.feet || 0.973, b = (Math.sin(T * 2.3) + 1) / 2, step = p.moving ? Math.abs(Math.sin(p.frame * (s.stride ? 0.42 : 0.35) * Math.PI)) : 0;
+    // soft ground shadow: breathes with the body when standing, pulses with each step when walking
+    c.save(); c.fillStyle = "rgba(30,24,40,0.3)"; c.beginPath(); c.ellipse(p.x, p.y, 22 + b * 0.9 - step * 2.5, 8 + b * 0.25 - step * 0.6, 0, 0, 6.3); c.fill();
+    const lg = (p.lunge || 0) * 9, lv = { E: [1, 0], W: [-1, 0], S: [0, 1], N: [0, -1], SE: [.7, .7], SW: [-.7, .7], NE: [.7, -.7], NW: [-.7, -.7] }[p.dir] || [0, 0];
+    c.translate(p.x + lv[0] * lg, p.y + lv[1] * lg * 0.6 - dh * feet + (p.action ? Math.sin(p.action.t * 12) * 1.5 : 0));
+    if (mirror) c.scale(-1, 1);
+    if (still || p.action) drawBreathing(c, s.canvas, col * cw, row * ch, cw, ch, -dw / 2, 0, dw, dh, s.hip || 0.8, T + (p.seed || 0), p.action ? 0.6 : 1);
+    else c.drawImage(s.canvas, col * cw, row * ch, cw, ch, -dw / 2, 0, dw, dh);
+    c.restore();
   }
 }

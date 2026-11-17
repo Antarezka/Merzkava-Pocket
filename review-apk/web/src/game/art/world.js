@@ -1,6 +1,7 @@
 // Home-map world: painted ground bake, river/pond, props from the traced sprite set, shack + facility drawings.
 // Terrain ids: 0 grass,1 meadow,2 dirt,3 mud,4 water,5 shallows,6 bank,7 pond,8 yard,9 road,10 forest-edge
 import { createCanvas, mulberry32, fbm, hash2, parseHex, TAU, smoothstep } from "./paint.js";
+import { swayOf } from "./animate.js";
 
 export const WORLD = { tile: 64, cols: 28, rows: 42 };
 const T = { GRASS: 0, MEADOW: 1, DIRT: 2, MUD: 3, WATER: 4, SHALLOW: 5, BANK: 6, POND: 7, YARD: 8, ROAD: 9, FOREST: 10 };
@@ -104,7 +105,7 @@ export function buildHomeWorld(sprites, seed = 1337) {
   const heightFor = (name) => TARGET_H[name.startsWith("tree_pine") ? "pine" : name.startsWith("tree_willow") ? "willow" : name.startsWith("tree_") ? "tree" : name.startsWith("bush_") ? "bush" : name.startsWith("plant_") ? "plant" : name === "rock_s1" || name === "rock_s2" ? "rock_s" : name === "rock_tall" ? "rock_tall" : name === "rock_big_moss" || name === "rock_cluster" ? "rock_big" : name.startsWith("rock") ? "rock_m" : name.startsWith("mushroom") ? "mush" : name === "log_hollow" ? "log_hollow" : name === "log" ? "log" : name === "stump" ? "stump" : name === "branch_dead" ? "branch" : name.startsWith("fence") ? "fence" : name === "pebble_big" ? "pebble" : name === "leaf_pile" ? "leaf" : "sticks"] || 50;
   const add = (name, x, y, o = {}) => {
     const img = spr(name); if (!img) return null; const h = (o.h || heightFor(name)) * (o.s || 1), w = img.width * h / img.height, c = Math.floor(x / tile), r = Math.floor(y / tile);
-    const p = { uid: uid++, kind: o.kind || "deco", variant: o.variant || name, name, x, y, w, h, sprite: img, c, r, blocking: !!o.blocking, node: o.node || null, removable: !!o.node, flip: !!o.flip };
+    const p = { uid: uid++, kind: o.kind || "deco", variant: o.variant || name, name, x, y, w, h, sprite: img, c, r, blocking: !!o.blocking, node: o.node || null, removable: !!o.node, flip: !!o.flip, sway: swayOf(name), ph: ((uid * 2654435761) >>> 0) / 4294967295 * TAU };
     props.push(p); if (p.blocking && c >= 0 && r >= 0 && c < cols && r < rows) blocked[at(c, r)] = 1; return p;
   };
   const tileType = (c, r) => (c < 0 || r < 0 || c >= cols || r >= rows ? -1 : tiles[at(c, r)]);
@@ -152,22 +153,15 @@ export function buildHomeWorld(sprites, seed = 1337) {
   for (const e of exits) for (let r = e.r0; r <= e.r1; r++) for (let c = e.c0; c <= e.c1; c++) blocked[at(c, r)] = 0;
   const fishSpots = []; for (let c = 3; c < cols - 3; c += 3) fishSpots.push({ c, r: Math.round(riverCentre(c) + 1.5) });
   const ground = bakeGround(tiles);
-  // water ripples (animated overlay)
-  const ripples = []; const rr = mulberry32(seed + 9);
-  for (let i = 0; i < 90; i++) { const c = rr() * cols, y = (riverCentre(c) + (rr() - 0.5) * 2.2) * tile; ripples.push({ x: c * tile, y, ph: rr() * TAU, sp: 0.5 + rr() * 0.8, w: 18 + rr() * 26 }); }
-  for (let i = 0; i < 14; i++) ripples.push({ x: (19.5 + rr() * 4) * tile, y: (28.5 + rr() * 3) * tile, ph: rr() * TAU, sp: 0.4 + rr(), w: 12 + rr() * 16 });
+  // animated-environment data (see art/animate.js): lily pads on the pond, grass tufts per terrain, falling leaves
+  const lilies = [[-0.9, -0.5, 13, 0], [0.7, 0.5, 15, 1], [-0.3, 0.9, 11, 0], [1.1, -0.6, 12, 0], [0.1, -0.1, 14, 0], [-1.2, 0.3, 10, 0]].map(([dx, dy, r, fl], i) => ({ x: (21.5 + dx * 0.9) * tile, y: (30 + dy * 0.8) * tile, r, flower: !!fl && i === 1, ph: i * 1.7, rot: i * 0.9 }));
+  const lite = (h) => { const [r, g, b] = rgb(h); const m = (v) => Math.min(255, Math.round(v + (255 - v) * 0.22)); return `rgb(${m(r)},${m(g)},${m(b)})`; };
+  const grass = { [T.GRASS]: [lite(COL[T.GRASS]), COLB[T.GRASS], 3], [T.MEADOW]: [lite(COL[T.MEADOW]), COLB[T.MEADOW], 3], [T.FOREST]: [lite(COL[T.FOREST]), COLB[T.FOREST], 2], [T.BANK]: [lite(COL[T.BANK]), COLB[T.BANK], 1], [T.YARD]: [lite(COL[T.YARD]), COLB[T.YARD], 1] };
   const world = {
     cols, rows, tile, width: W, height: H, ground, tiles, blocked, props, home: homeDef, claim: { c0: 3, r0: 15, c1: 24, r1: 36 }, exits, spawn: { c: 14, r: 23 }, fishSpots,
     terrainAt: (c, r) => tileType(c, r),
-    drawWater(ctx, time, camX, camY, vw, vh) {
-      ctx.save(); ctx.strokeStyle = "rgba(235,248,240,0.55)"; ctx.lineCap = "round";
-      for (const p of ripples) { const sx = p.x - camX, sy = p.y - camY; if (sx < -60 || sx > vw + 60 || sy < -30 || sy > vh + 30) continue; const k = (Math.sin(time * p.sp + p.ph) + 1) / 2; ctx.globalAlpha = 0.15 + 0.5 * k; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(sx - p.w / 2, sy + k * 3); ctx.quadraticCurveTo(sx, sy - 4 + k * 4, sx + p.w / 2, sy + k * 3); ctx.stroke(); }
-      ctx.restore();
-    },
-    drawAmbient(ctx, time, camX, camY, vw, vh) {
-      ctx.save(); for (let i = 0; i < 26; i++) { const sp = 12 + (i % 5) * 5, x = ((i * 137.5 + time * sp) % (vw + 80)) - 40, y = ((i * 91.3 + time * (6 + (i % 4) * 3) + Math.sin(time * 0.7 + i) * 30) % (vh + 60)) - 30; ctx.globalAlpha = 0.55; ctx.fillStyle = i % 3 ? "#e8a54e" : "#d0643a"; ctx.save(); ctx.translate(x, y); ctx.rotate(time * 0.8 + i); ctx.beginPath(); ctx.ellipse(0, 0, 4.2, 2.1, 0, 0, TAU); ctx.fill(); ctx.restore(); }
-      ctx.restore();
-    },
+    lilies, grass, flow: [1, 0], waterTypes: [T.WATER, T.SHALLOW, T.POND], waterHi: "235,248,245",
+    amb: { mode: "leaf", leaves: ["#e07a3a", "#c0392b", "#e8b23a", "#b5532f", "#d9a441"], count: 26, shadow: 1 },
   };
   return world;
 }

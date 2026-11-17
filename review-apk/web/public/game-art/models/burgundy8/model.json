@@ -2,9 +2,10 @@
  "set": "burgundy8",
  "views": {
   "S": {
+   "pal": null,
    "file": "S.png",
-   "w": 1268,
-   "h": 1809,
+   "w": 634,
+   "h": 904,
    "levels": {
     "1": [
      {
@@ -319,13 +320,14 @@
      }
     ]
    },
-   "blankW": 1268,
-   "blankH": 1809
+   "blankW": 634,
+   "blankH": 904
   },
   "SE": {
+   "pal": null,
    "file": "SE.png",
-   "w": 1117,
-   "h": 1809,
+   "w": 558,
+   "h": 904,
    "levels": {
     "1": [
      {
@@ -643,13 +645,14 @@
      }
     ]
    },
-   "blankW": 1117,
-   "blankH": 1809
+   "blankW": 558,
+   "blankH": 904
   },
   "E": {
+   "pal": null,
    "file": "E.png",
-   "w": 1070,
-   "h": 1810,
+   "w": 535,
+   "h": 905,
    "levels": {
     "1": [
      {
@@ -963,13 +966,14 @@
      }
     ]
    },
-   "blankW": 1070,
-   "blankH": 1810
+   "blankW": 535,
+   "blankH": 905
   },
   "NE": {
+   "pal": null,
    "file": "NE.png",
-   "w": 1065,
-   "h": 1797,
+   "w": 532,
+   "h": 898,
    "levels": {
     "1": [
      {
@@ -1111,9 +1115,10 @@
    "facing": "front"
   },
   "N": {
+   "pal": null,
    "file": "N.png",
-   "w": 1274,
-   "h": 1783,
+   "w": 637,
+   "h": 892,
    "levels": {
     "1": [
      {
@@ -1255,9 +1260,10 @@
    "facing": "front"
   },
   "NW": {
+   "pal": null,
    "file": "NW.png",
-   "w": 1143,
-   "h": 1782,
+   "w": 572,
+   "h": 891,
    "levels": {
     "1": [
      {
@@ -1402,9 +1408,10 @@
    "facing": "front"
   },
   "W": {
+   "pal": null,
    "file": "W.png",
-   "w": 1089,
-   "h": 1792,
+   "w": 544,
+   "h": 896,
    "levels": {
     "1": [
      {
@@ -1715,13 +1722,14 @@
      }
     ]
    },
-   "blankW": 1089,
-   "blankH": 1792
+   "blankW": 544,
+   "blankH": 896
   },
   "SW": {
+   "pal": null,
    "file": "SW.png",
-   "w": 1149,
-   "h": 1793,
+   "w": 574,
+   "h": 896,
    "levels": {
     "1": [
      {
@@ -2036,8 +2044,8 @@
      }
     ]
    },
-   "blankW": 1149,
-   "blankH": 1793
+   "blankW": 574,
+   "blankH": 896
   }
  },
  "base": {
@@ -2049,5 +2057,7 @@
   "6": "#b2adb7",
   "7": "#7b7a8b"
  },
- "eight": true
+ "eight": true,
+ "mode": "tone",
+ "thumb": "thumb.png"
 }

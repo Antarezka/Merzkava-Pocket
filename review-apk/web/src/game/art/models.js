@@ -55,15 +55,18 @@ export class ModelKit {
       if (v.blank) o.blankPacked = await decode(`${this.root}/models/${id}/${v.blank}`);
       views[k] = o;
     }));
-    return (this.models[id] = { id, meta, views, info: MODEL_INFO[id] || { hip: 0.78 }, base: meta.base });
+    const walk = {};   // optional walking-pose views (one stride pose per direction, from the paired walking sheet)
+    if (meta.walk) await Promise.all(Object.entries(meta.walk).map(async ([k, v]) => { walk[k] = { ...v, packed: await decode(`${this.root}/models/${id}/${v.file}`) }; }));
+    return (this.models[id] = { id, meta, views, walk, info: MODEL_INFO[id] || { hip: 0.78 }, base: meta.base });
   }
   has(id) { return !!this.models[id]; }
+  hasWalk(id) { const m = this.models[id]; return !!m && Object.keys(m.walk || {}).length > 0; }
   /** default colours of a model (the colours of the reference art) */
   defaults(id) { const b = this.models[id]?.base || {}, o = {}; for (let z = 1; z <= 7; z++) o[z] = b[z] || (z === 1 ? "#f0d8cf" : z === 2 ? "#e6e8f2" : "#8a8a96"); return o; }
   zonesOf(id) { const m = this.models[id]; return m ? Object.keys(m.base).map(Number) : []; }
-  _recolor(model, vname, blank, colors) {
-    const key = model.id + vname + (blank ? "b" : "") + Object.keys(colors).map((z) => colors[z]).join(","); if (this._rc.has(key)) return this._rc.get(key);
-    const v = model.views[vname], p = blank ? v.blankPacked : v.packed, lv = blank ? v.blankLevels : v.levels, luts = {};
+  _recolor(model, vname, blank, colors, pose = "stand") {
+    const key = model.id + pose + vname + (blank ? "b" : "") + Object.keys(colors).map((z) => colors[z]).join(","); if (this._rc.has(key)) return this._rc.get(key);
+    const v = (pose === "walk" ? model.walk : model.views)[vname], p = blank ? v.blankPacked : v.packed, lv = blank ? v.blankLevels : v.levels, luts = {};
     if (v.pal) for (const z of Object.keys(model.base)) luts[z] = [INK, ...v.pal.map((c) => (colors[z] && colors[z] !== model.base[z] ? palShift(c, colors[z], model.base[z]) : c))];
     else for (const [z, l] of Object.entries(lv)) luts[z] = lutFor(l, colors[z] || "#cccccc", model.base[z]);
     const c = mk(p.w, p.h), x = c.getContext("2d"), im = x.createImageData(p.w, p.h), o = im.data;
@@ -76,11 +79,11 @@ export class ModelKit {
   /** true when the player's face needs the overlay (anything other than the reference face) */
   _custom(face) { return !!face && ((face.expression && face.expression !== "original") || (face.eyeShape && face.eyeShape !== "original")); }
   /** CELL-sized canvas of direction d.  spec = { model, colors:{1..7}, face:{expression,eyeShape,eyeColor,browColor,blushColor}, shape:{sx,sy} } */
-  render(spec, d = "S") {
+  render(spec, d = "S", pose = "stand") {
     const model = this.models[spec.model]; if (!model) return mk(CELL.w, CELL.h);
-    const v = model.views[d] || model.views.S, colors = { ...this.defaults(spec.model), ...(spec.colors || {}) };
-    const L = v.face, custom = !!L && this._custom(spec.face), src = this._recolor(model, model.views[d] ? d : "S", custom, colors);
-    const sc = CELL.figH / v.h, fw = v.w * sc, fh = CELL.figH, x0 = (CELL.w - fw) / 2, y0 = CELL.feet - fh;
+    const set = pose === "walk" && model.walk?.[d] ? model.walk : model.views, vn = set[d] ? d : "S", v = set[vn] || model.views.S, ps = set === model.walk ? "walk" : "stand", colors = { ...this.defaults(spec.model), ...(spec.colors || {}) };
+    const L = v.face, custom = !!L && this._custom(spec.face), src = this._recolor(model, vn, custom, colors, ps);
+    const sc = CELL.figH / v.h, fw = v.w * sc, fh = CELL.figH, y0 = CELL.feet - fh, x0 = v.cx != null ? Math.max(0, Math.min(CELL.w - fw, CELL.w / 2 - v.cx * fw)) : (CELL.w - fw) / 2;
     const cell = mk(CELL.w, CELL.h), x = cell.getContext("2d"); x.imageSmoothingQuality = "high";
     x.drawImage(src, x0, y0, fw, fh);
     if (custom) {

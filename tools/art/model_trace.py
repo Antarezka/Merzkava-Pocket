@@ -10,6 +10,8 @@ import os, sys, json, colorsys, cv2, numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from crisp import cutout
 
+FACE = [None]
+HAIR = [None]   # per-view auto-detected hair mask, filled in by trace_model for sets that use it
 ZONES = ["none", "skin", "hair", "eyes", "outer", "collar", "hakama", "accent"]
 INK_BGR = (54, 44, 59)
 
@@ -51,13 +53,41 @@ def rules_for(name):
                  ("hakama", lambda H, S, V, Y: white(H, S, V, Y)), ("outer", lambda H, S, V, Y: True)]
     R["skull"] = [("skin", skin), ("hair", lambda H, S, V, Y: (Y < 0.40) & (((H <= 12) | (H >= 160)) & (S > 100) & (V > 60))), ("collar", lambda H, S, V, Y: (Y < 0.40)),
                   ("hakama", lambda H, S, V, Y: white(H, S, V, Y)), ("outer", lambda H, S, V, Y: True)]
+
+    # ---- batch 3: paired idle + walking sheets (palette models) ----
+    skin3 = lambda H, S, V, Y: ((H <= 22) | (H >= 170)) & (S >= 19) & (S <= 150) & (V >= 160)
+    redc = lambda H, S, V, Y: ((H <= 12) | (H >= 165)) & (S > 85) & (V > 55)
+    goldc = lambda H, S, V, Y: (H >= 14) & (H <= 36) & (S > 70) & (V > 100)
+    whitec = lambda H, S, V, Y: (S < 48) & (V > 165)
+    darkc = lambda H, S, V, Y: (V < 95)
+    R["miko_blue"] = [("hair", lambda H, S, V, Y: (H >= 100) & (H <= 130) & (S > 70) & (Y < 0.62)), ("skin", skin), ("hakama", lambda H, S, V, Y: redc(H, S, V, Y) & (Y > 0.45)), ("accent", redc),
+                      ("collar", lambda H, S, V, Y: whitec(H, S, V, Y) & (Y < 0.30)), ("outer", lambda H, S, V, Y: True)]
+    R["samurai"] = [("skin", skin3), ("accent", goldc), ("accent", lambda H, S, V, Y: (H <= 25) & (S >= 40) & (V >= 25) & (V < 110) & (Y > 0.35)), ("hair", lambda H, S, V, Y: (S < 45) & (V > 120) & (Y < 0.56)),
+                    ("hakama", lambda H, S, V, Y: Y >= 0.62), ("outer", lambda H, S, V, Y: True)]
+    R["ronin_mask"] = [("skin", lambda H, S, V, Y: (FACE[0] | skin3(H, S, V, Y)) & (V > 140) & (Y < 0.5)), ("accent", lambda H, S, V, Y: redc(H, S, V, Y) & (Y > 0.35)), ("collar", lambda H, S, V, Y: darkc(H, S, V, Y) & (Y < 0.5)), ("hakama", darkc),
+                       ("hair", lambda H, S, V, Y: HAIR[0] & (Y < 0.72)), ("outer", lambda H, S, V, Y: True)]
+    skin4 = lambda H, S, V, Y: ((H <= 21) | (H >= 170)) & (S >= 34) & (S <= 150) & (V >= 170)
+    gold2 = lambda H, S, V, Y: (H >= 14) & (H <= 36) & (S > 105) & (V > 110)
+    autohair = lambda H, S, V, Y: HAIR[0]
+    kimono = [("skin", lambda H, S, V, Y: FACE[0]), ("accent", lambda H, S, V, Y: redc(H, S, V, Y) & (Y < 0.36)), ("outer", redc), ("hakama", lambda H, S, V, Y: gold2(H, S, V, Y) & (Y >= 0.58)), ("accent", gold2),
+              ("collar", lambda H, S, V, Y: darkc(H, S, V, Y) & (Y > 0.3) & (Y < 0.8)), ("hair", lambda H, S, V, Y: autohair(H, S, V, Y) & (Y < 0.76)), ("hair", lambda H, S, V, Y: (S < 40) & (V > 170) & (Y < 0.62)),
+              ("hakama", lambda H, S, V, Y: (Y >= 0.76) & (V > 120)), ("outer", lambda H, S, V, Y: True)]
+    R["elf"] = kimono; R["maiden"] = kimono
+    R["blindfold"] = [("skin", skin3), ("accent", lambda H, S, V, Y: goldc(H, S, V, Y) | (redc(H, S, V, Y) & (V > 70))), ("hair", lambda H, S, V, Y: (V < 110) & (Y < 0.44)),
+                      ("outer", lambda H, S, V, Y: (S < 55) & (V > 150)), ("hakama", lambda H, S, V, Y: True)]
+    R["kitsune"] = [("skin", lambda H, S, V, Y: FACE[0]), ("hakama", lambda H, S, V, Y: redc(H, S, V, Y) & (Y > 0.45)), ("accent", lambda H, S, V, Y: redc(H, S, V, Y)),
+                    ("collar", lambda H, S, V, Y: darkc(H, S, V, Y) & (Y < 0.75)), ("hair", lambda H, S, V, Y: True)]
+    R["priestess"] = [("skin", lambda H, S, V, Y: FACE[0]), ("accent", lambda H, S, V, Y: ((H >= 78) & (H <= 100) & (S > 90)) | redc(H, S, V, Y)), ("hair", lambda H, S, V, Y: autohair(H, S, V, Y) & (Y < 0.62)),
+                      ("hair", lambda H, S, V, Y: (S < 70) & (V >= 140) & (Y < 0.45)), ("hakama", lambda H, S, V, Y: (S < 60) & (V >= 150) & (Y >= 0.55)), ("outer", lambda H, S, V, Y: True)]
+    R["hooded"] = [("skin", lambda H, S, V, Y: ((H <= 22) | (H >= 170)) & (S >= 14) & (V >= 150) & (Y < 0.55)), ("hair", lambda H, S, V, Y: (S < 45) & (V >= 105) & (Y < 0.56)),
+                   ("accent", lambda H, S, V, Y: (V >= 105) & (Y >= 0.5)), ("hakama", lambda H, S, V, Y: Y >= 0.72), ("outer", lambda H, S, V, Y: True)]
     return R[name]
 
 
-def trace_model(cell, set_name, scale=5, k=16, sigma=3.2, layout=None, seed=1, near_white=225, chroma=18, strip_face=True, ref=None, palette=False, clip=True):
+def trace_model(cell, set_name, scale=5, k=16, sigma=3.2, layout=None, seed=1, near_white=225, chroma=18, strip_face=True, ref=None, palette=False, clip=True, seal=0):
     ch0, cw0 = cell.shape[:2]
     cell = cv2.copyMakeBorder(cell, 6, 6, 6, 6, cv2.BORDER_CONSTANT, value=(255, 255, 255))
-    fg = cutout(cell, near_white=near_white, chroma=chroma)
+    fg = cutout(cell, near_white=near_white, chroma=chroma, seal=seal)
     h, w = cell.shape[:2]
     up = cv2.resize(cell, (w * scale, h * scale), interpolation=cv2.INTER_CUBIC)
     a = cv2.resize(fg, (w * scale, h * scale), interpolation=cv2.INTER_CUBIC)
@@ -84,6 +114,18 @@ def trace_model(cell, set_name, scale=5, k=16, sigma=3.2, layout=None, seed=1, n
     ys, xs = np.where(a > 127); y0, y1, x0, x1 = ys.min(), ys.max(), xs.min(), xs.max(); fh = max(1, y1 - y0)
     Y = np.clip((np.arange(H)[:, None] - y0) / fh, 0, 1) * np.ones((1, W))
     hsv = _hsv(smooth); Hh, Ss, Vv = hsv[..., 0], hsv[..., 1], hsv[..., 2]
+    HAIR[0] = np.zeros((H, W), bool); FACE[0] = np.zeros((H, W), bool)
+    if set_name in ("elf", "maiden", "kitsune", "priestess", "ronin_mask"):
+        # hair = the flat colours that dominate the top of the head (outside skin / ink / saturated trim), closed into one blob; the face box (not hair-coloured) is the skin zone (kept, but not offered for recolour)
+        topm = (a > 127) & (Y < 0.30) & (Vv > 110) & (Ss < 70) & ~(((Hh <= 21) | (Hh >= 170)) & (Ss >= 34) & (Ss <= 150) & (Vv >= 170))
+        if topm.any():
+            ids, cnt = np.unique(out[topm], return_counts=True); keep = [int(i) for i, c in zip(ids, cnt) if c >= 0.04 * topm.sum()]
+            hm = (np.isin(out, keep) & (a > 127)).astype(np.uint8)
+            xn = np.clip((np.arange(W)[None, :] - x0) / max(1, x1 - x0), 0, 1) * np.ones((H, 1))
+            FACE[0] = (np.abs(xn - 0.5) < 0.21) & (Y > 0.16) & (Y < 0.40) & (a > 127) & (hm == 0) & (Vv > 140) & (Ss <= 150)
+            blob = cv2.morphologyEx(hm, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (scale * 7 + 1,) * 2))
+            blob[FACE[0]] = 0
+            HAIR[0] = (blob > 0) & (a > 127)
     zone = np.zeros((H, W), np.uint8); done = np.zeros((H, W), bool)
     names = {"none": 0, "skin": 1, "hair": 2, "eyes": 3, "outer": 4, "collar": 5, "hakama": 6, "accent": 7, "hair2": 2}
     for zn, fn in rules_for(set_name):
