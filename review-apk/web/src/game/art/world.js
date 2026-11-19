@@ -4,10 +4,12 @@ import { createCanvas, mulberry32, fbm, hash2, parseHex, TAU, smoothstep } from 
 import { swayOf } from "./animate.js";
 
 export const WORLD = { tile: 64, cols: 28, rows: 42 };
-const T = { GRASS: 0, MEADOW: 1, DIRT: 2, MUD: 3, WATER: 4, SHALLOW: 5, BANK: 6, POND: 7, YARD: 8, ROAD: 9, FOREST: 10 };
-const COL = ["#8d9a55", "#b3a65c", "#b98f63", "#7d5c47", "#3f7f8f", "#7fb0a4", "#a39663", "#4c8c8c", "#bda27a", "#c4a67c", "#66713f"];
-const COLB = ["#6c8247", "#9a9050", "#9f7a52", "#654837", "#2f6577", "#5d9a94", "#8b7d52", "#3c7478", "#a38a65", "#a98c66", "#4d5a31"];
-const rgb = (h) => parseHex(h);
+export const T = { GRASS: 0, MEADOW: 1, DIRT: 2, MUD: 3, WATER: 4, SHALLOW: 5, BANK: 6, POND: 7, YARD: 8, ROAD: 9, FOREST: 10 };
+const COL_DEFAULT = ["#8d9a55", "#b3a65c", "#b98f63", "#7d5c47", "#3f7f8f", "#7fb0a4", "#a39663", "#4c8c8c", "#bda27a", "#c4a67c", "#66713f"];
+const COLB_DEFAULT = ["#6c8247", "#9a9050", "#9f7a52", "#654837", "#2f6577", "#5d9a94", "#8b7d52", "#3c7478", "#a38a65", "#a98c66", "#4d5a31"];
+export const rgb = (h) => parseHex(h);
+export const TREE_SHAPES_ALL = ["tree_round", "tree_dark", "tree_bonsai", "tree_pine", "tree_willow", "tree_blossom"], TREE_WAYS = ["orange_light", "orange_dark", "peach", "rust", "olive", "gold", "crimson", "plum"];
+export { FLOWER_PLANTS, REED_PLANTS, WEED_PLANTS };
 
 const TREE_SHAPES = ["tree_round", "tree_dark", "tree_bonsai", "tree_pine", "tree_willow", "tree_blossom"];
 const WAYS = ["orange_light", "orange_dark", "peach", "rust", "olive", "gold", "crimson", "plum"];
@@ -48,8 +50,8 @@ function buildTiles(rnd) {
 const fbmTile = (c, r) => fbm(c * 0.35, r * 0.35, 77, 3);
 
 // ------------------------------------------------------------------ ground bake
-function bakeGround(tiles) {
-  const { cols, rows, tile } = WORLD, W = cols * tile, H = rows * tile, S = 4, lw = W / S, lh = H / S, N = 11;
+export function bakeGround(tiles, o = {}) {
+  const { cols, rows, tile } = o.dim || WORLD, COL = o.col || COL_DEFAULT, COLB = o.colb || COLB_DEFAULT, W = cols * tile, H = rows * tile, S = 4, lw = W / S, lh = H / S, N = 11;
   const weights = [];
   for (let t = 0; t < N; t++) {
     const small = createCanvas(cols, rows), sx = small.getContext("2d"), im = sx.createImageData(cols, rows);
@@ -89,12 +91,13 @@ function bakeGround(tiles) {
   }
   gx.globalAlpha = 1;
   // pond/river shimmer base lines and darker depth in the middle of the river
-  gx.globalAlpha = 0.18; gx.strokeStyle = "#102c3a"; gx.lineWidth = 26; gx.lineCap = "round"; gx.beginPath();
-  for (let c = 0; c <= cols; c += 0.5) { const x = c * tile, y = riverCentre(c) * tile; c === 0 ? gx.moveTo(x, y) : gx.lineTo(x, y); } gx.stroke(); gx.globalAlpha = 1;
+  if (o.riverFn) { gx.globalAlpha = 0.18; gx.strokeStyle = "#102c3a"; gx.lineWidth = 26; gx.lineCap = "round"; gx.beginPath();
+    for (let c = 0; c <= cols; c += 0.5) { const x = c * tile, y = o.riverFn(c) * tile; c === 0 ? gx.moveTo(x, y) : gx.lineTo(x, y); } gx.stroke(); gx.globalAlpha = 1; }
   return ground;
 }
 
 // ------------------------------------------------------------------ props
+export const heightFor = (name) => TARGET_H[name.startsWith("tree_pine") ? "pine" : name.startsWith("tree_willow") ? "willow" : name.startsWith("tree_") ? "tree" : name.startsWith("bush_") ? "bush" : name.startsWith("plant_") ? "plant" : name === "rock_s1" || name === "rock_s2" ? "rock_s" : name === "rock_tall" ? "rock_tall" : name === "rock_big_moss" || name === "rock_cluster" ? "rock_big" : name.startsWith("rock") ? "rock_m" : name.startsWith("mushroom") ? "mush" : name === "log_hollow" ? "log_hollow" : name === "log" ? "log" : name === "stump" ? "stump" : name === "branch_dead" ? "branch" : name.startsWith("fence") ? "fence" : name === "pebble_big" ? "pebble" : name === "leaf_pile" ? "leaf" : "sticks"] || 50;
 export function buildHomeWorld(sprites, seed = 1337) {
   const { cols, rows, tile } = WORLD, W = cols * tile, H = rows * tile, rnd = mulberry32(seed), tiles = buildTiles(rnd), at = (c, r) => r * cols + c;
   const blocked = new Uint8Array(cols * rows), props = [], occ = new Uint8Array(cols * rows); let uid = 1;
@@ -102,7 +105,6 @@ export function buildHomeWorld(sprites, seed = 1337) {
   // far bank (north of the river) can't be reached: block everything north of the bank line
   for (let c = 0; c < cols; c++) for (let r = 0; r < rows; r++) if (r + 0.5 < riverCentre(c) - 1.25) blocked[at(c, r)] = 1;
   const spr = (name) => sprites[name];
-  const heightFor = (name) => TARGET_H[name.startsWith("tree_pine") ? "pine" : name.startsWith("tree_willow") ? "willow" : name.startsWith("tree_") ? "tree" : name.startsWith("bush_") ? "bush" : name.startsWith("plant_") ? "plant" : name === "rock_s1" || name === "rock_s2" ? "rock_s" : name === "rock_tall" ? "rock_tall" : name === "rock_big_moss" || name === "rock_cluster" ? "rock_big" : name.startsWith("rock") ? "rock_m" : name.startsWith("mushroom") ? "mush" : name === "log_hollow" ? "log_hollow" : name === "log" ? "log" : name === "stump" ? "stump" : name === "branch_dead" ? "branch" : name.startsWith("fence") ? "fence" : name === "pebble_big" ? "pebble" : name === "leaf_pile" ? "leaf" : "sticks"] || 50;
   const add = (name, x, y, o = {}) => {
     const img = spr(name); if (!img) return null; const h = (o.h || heightFor(name)) * (o.s || 1), w = img.width * h / img.height, c = Math.floor(x / tile), r = Math.floor(y / tile);
     const p = { uid: uid++, kind: o.kind || "deco", variant: o.variant || name, name, x, y, w, h, sprite: img, c, r, blocking: !!o.blocking, node: o.node || null, removable: !!o.node, flip: !!o.flip, sway: swayOf(name), ph: ((uid * 2654435761) >>> 0) / 4294967295 * TAU };
@@ -149,15 +151,16 @@ export function buildHomeWorld(sprites, seed = 1337) {
   const homeDef = { uid: uid++, x: (home.c + home.w / 2) * tile, y: (home.r + home.h) * tile, c: home.c, r: home.r, fc: home.w, fr: home.h, doorC: home.c + 2, doorR: home.r + home.h };
   for (let r = home.r; r < home.r + home.h; r++) for (let c = home.c; c < home.c + home.w; c++) { blocked[at(c, r)] = 1; occ[at(c, r)] = 1; }
   // exits (placeholders, "coming soon")
-  const exits = [{ id: "west", label: "Western Road", c0: 0, r0: 24, c1: 0, r1: 30 }, { id: "east", label: "Eastern Road", c0: cols - 1, r0: 24, c1: cols - 1, r1: 30 }, { id: "south", label: "Southern Road", c0: 9, r0: rows - 1, c1: 18, r1: rows - 1 }];
+  const exits = [{ id: "south", side: "s", to: "village", label: "Village", c0: 9, r0: rows - 1, c1: 18, r1: rows - 1 }];
   for (const e of exits) for (let r = e.r0; r <= e.r1; r++) for (let c = e.c0; c <= e.c1; c++) blocked[at(c, r)] = 0;
   const fishSpots = []; for (let c = 3; c < cols - 3; c += 3) fishSpots.push({ c, r: Math.round(riverCentre(c) + 1.5) });
-  const ground = bakeGround(tiles);
+  const ground = bakeGround(tiles, { riverFn: riverCentre });
   // animated-environment data (see art/animate.js): lily pads on the pond, grass tufts per terrain, falling leaves
   const lilies = [[-0.9, -0.5, 13, 0], [0.7, 0.5, 15, 1], [-0.3, 0.9, 11, 0], [1.1, -0.6, 12, 0], [0.1, -0.1, 14, 0], [-1.2, 0.3, 10, 0]].map(([dx, dy, r, fl], i) => ({ x: (21.5 + dx * 0.9) * tile, y: (30 + dy * 0.8) * tile, r, flower: !!fl && i === 1, ph: i * 1.7, rot: i * 0.9 }));
   const lite = (h) => { const [r, g, b] = rgb(h); const m = (v) => Math.min(255, Math.round(v + (255 - v) * 0.22)); return `rgb(${m(r)},${m(g)},${m(b)})`; };
-  const grass = { [T.GRASS]: [lite(COL[T.GRASS]), COLB[T.GRASS], 3], [T.MEADOW]: [lite(COL[T.MEADOW]), COLB[T.MEADOW], 3], [T.FOREST]: [lite(COL[T.FOREST]), COLB[T.FOREST], 2], [T.BANK]: [lite(COL[T.BANK]), COLB[T.BANK], 1], [T.YARD]: [lite(COL[T.YARD]), COLB[T.YARD], 1] };
+  const grass = { [T.GRASS]: [lite(COL_DEFAULT[T.GRASS]), COLB_DEFAULT[T.GRASS], 3], [T.MEADOW]: [lite(COL_DEFAULT[T.MEADOW]), COLB_DEFAULT[T.MEADOW], 3], [T.FOREST]: [lite(COL_DEFAULT[T.FOREST]), COLB_DEFAULT[T.FOREST], 2], [T.BANK]: [lite(COL_DEFAULT[T.BANK]), COLB_DEFAULT[T.BANK], 1], [T.YARD]: [lite(COL_DEFAULT[T.YARD]), COLB_DEFAULT[T.YARD], 1] };
   const world = {
+    areaId: "home", entries: { s: { c: 14, r: rows - 3 } }, noMobs: true, mood: "Home",
     cols, rows, tile, width: W, height: H, ground, tiles, blocked, props, home: homeDef, claim: { c0: 3, r0: 15, c1: 24, r1: 36 }, exits, spawn: { c: 14, r: 23 }, fishSpots,
     terrainAt: (c, r) => tileType(c, r),
     lilies, grass, flow: [1, 0], waterTypes: [T.WATER, T.SHALLOW, T.POND], waterHi: "235,248,245",

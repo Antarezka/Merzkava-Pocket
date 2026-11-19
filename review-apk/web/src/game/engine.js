@@ -17,6 +17,7 @@ export class GameEngine {
     this.player = { x: 0, y: 0, dir: "S", moving: false, path: [], action: null, sheet: null, frame: 0 };
     this.markers = []; this.ghost = null; this.selected = null; this.hidden = new Set();
     this.spriteFor = spriteFor; // (appearance) -> sheet  (merchant npc etc.)
+    this.areas = arguments[0].areas || null; this.areaId = world.areaId || "home"; this.fade = 0; this.fadeTask = null; this.busy = false;
     this.houseLevel = Math.max(1, Math.min(3, economy.state.flags?.house_level || 1)); this._houseSprite = drawHouse(this.houseLevel); this._cart = drawCart(); this._ping = drawMarker("ping"); this._sparkle = drawMarker("sparkle");
     this._facSprites = new Map(); this._construct = new Map(); this.npc = null;
     this.setAppearanceSheet(appearance); this.grind = new Grinder(this);
@@ -47,7 +48,7 @@ export class GameEngine {
   screenToWorld(sx, sy) { return { x: this.cam.x + sx / this.zoom, y: this.cam.y + sy / this.zoom }; }
 
   onTap(sx, sy) {
-    if (this.ui.blocking?.()) return;
+    if (this.busy || this.ui.blocking?.()) return;
     if (this.grind.on) this.grind.setOn(false, "manual");
     const p = this.screenToWorld(sx, sy), w = this.world, T = w.tile;
     if (this.ghost) { this.moveGhost(Math.floor(p.x / T), Math.floor(p.y / T)); return; }
@@ -55,9 +56,9 @@ export class GameEngine {
     // 1. merchant / cart
     if (this.cartRect && p.x > this.cartRect.x && p.x < this.cartRect.x + this.cartRect.w && p.y > this.cartRect.y && p.y < this.cartRect.y + this.cartRect.h) return this.goTo({ kind: "merchant", x: this.cartRect.cx, y: this.cartRect.cy + 30 }, () => this.ui.openMerchant());
     // 2. home / facilities
-    const hs = this._houseSprite, hx = w.home.x - hs.w / 2, hy = w.home.y - hs.h + 10;
-    if (p.x > hx && p.x < hx + hs.w && p.y > hy + 60 && p.y < w.home.y + 20) return this.goTo({ x: w.home.x, y: w.home.y + 28 }, () => this.ui.openHome());
-    for (const f of this.eco.facilities()) { const r = this.facRect(f); if (r && p.x > r.x && p.x < r.x + r.w && p.y > r.y + r.h * 0.25 && p.y < r.y + r.h) return this.goTo({ x: r.cx, y: r.y + r.h + 18 }, () => this.ui.openFacility(f.uid)); }
+    const hs = this._houseSprite, hx = w.home ? w.home.x - hs.w / 2 : 0, hy = w.home ? w.home.y - hs.h + 10 : 0;
+    if (w.home && p.x > hx && p.x < hx + hs.w && p.y > hy + 60 && p.y < w.home.y + 20) return this.goTo({ x: w.home.x, y: w.home.y + 28 }, () => this.ui.openHome());
+    if (w.home) for (const f of this.eco.facilities()) { const r = this.facRect(f); if (r && p.x > r.x && p.x < r.x + r.w && p.y > r.y + r.h * 0.25 && p.y < r.y + r.h) return this.goTo({ x: r.cx, y: r.y + r.h + 18 }, () => this.ui.openFacility(f.uid)); }
     // 3. gatherable props (closest by pivot, generous box)
     let best = null, bd = 1e9;
     for (const pr of w.props) {
@@ -153,7 +154,7 @@ export class GameEngine {
   refreshFacilities() {
     const lv = Math.max(1, Math.min(3, this.eco.state.flags?.house_level || 1)); if (lv !== this.houseLevel) { this.houseLevel = lv; this._houseSprite = drawHouse(lv); }
     const w = this.world; this._facBlocked = new Uint8Array(w.cols * w.rows);
-    for (const f of this.eco.state.facilities) for (let r = f.r; r < f.r + f.h; r++) for (let c = f.c; c < f.c + f.h * 0 + f.w; c++) if (c >= 0 && r >= 0 && c < w.cols && r < w.rows) this._facBlocked[r * w.cols + c] = 1;
+    if (w.home) for (const f of this.eco.state.facilities) for (let r = f.r; r < f.r + f.h; r++) for (let c = f.c; c < f.c + f.h * 0 + f.w; c++) if (c >= 0 && r >= 0 && c < w.cols && r < w.rows) this._facBlocked[r * w.cols + c] = 1;
     if (!this._propTile) this._indexProps();
   }
   canPlace(c, r, fw, fh) {
@@ -181,7 +182,7 @@ export class GameEngine {
 
   // ------------------------------------------------------------ update / draw
   update(dt) {
-    this.time += dt; this.dt = dt; const p = this.player, w = this.world; this.grind.update(dt); this.updateParts(dt);
+    this.time += dt; this.dt = dt; this._tickFade(dt); const p = this.player, w = this.world; if (!this.busy) this.grind.update(dt); this.updateParts(dt); this._checkExits(dt);
     { const pr = p.action?.pr; if (pr?.sway) { pr.shake = 1; this._leafT = (this._leafT || 0) - dt; if (this._leafT <= 0) { this._leafT = 0.32; if (/^tree_/.test(pr.name)) this.burstLeaves(pr, 2); } } }
     if (p.action) {
       p.action.t += dt; p.moving = false;
@@ -221,17 +222,18 @@ export class GameEngine {
     const view = { x0: cam.x, y0: cam.y, x1: cam.x + vw, y1: cam.y + vh }, sun = this.sun(), hidden = (pr) => this.isHidden(pr);
     A.drawWater(c, w, this.time, view); A.drawGrass(c, w, this.time, view);
     // tile highlight for build mode
-    if (this.ghost) { const T = w.tile, cl = w.claim; c.save(); c.globalAlpha = 0.22; c.fillStyle = "#f2e08a"; c.fillRect(cl.c0 * T, cl.r0 * T, (cl.c1 - cl.c0 + 1) * T, (cl.r1 - cl.r0 + 1) * T); c.restore(); }
+    if (this.ghost && w.claim) { const T = w.tile, cl = w.claim; c.save(); c.globalAlpha = 0.22; c.fillStyle = "#f2e08a"; c.fillRect(cl.c0 * T, cl.r0 * T, (cl.c1 - cl.c0 + 1) * T, (cl.r1 - cl.r0 + 1) * T); c.restore(); }
     // soft shadows on the ground: they follow the sun, sway with the canopy and fade at night
-    A.drawShadows(c, w, this.time, view, sun, hidden); { const h0 = this._houseSprite; A.drawSilShadow(c, h0.canvas, w.home.x, w.home.y + 10, h0.w, h0.h, sun, 0.4); for (const f of this.eco.facilities()) { const r = this.facRect(f), sp = r && this.facSprite(f); if (sp) A.drawSilShadow(c, sp.canvas, r.cx, r.y + r.h, r.w, r.h, sun, 0.35); } }
+    A.drawShadows(c, w, this.time, view, sun, hidden); if (w.home) { const h0 = this._houseSprite; A.drawSilShadow(c, h0.canvas, w.home.x, w.home.y + 10, h0.w, h0.h, sun, 0.4); for (const f of this.eco.facilities()) { const r = this.facRect(f), sp = r && this.facSprite(f); if (sp) A.drawSilShadow(c, sp.canvas, r.cx, r.y + r.h, r.w, r.h, sun, 0.35); } }
     // entity list (y-sorted)
     const list = [], pad = 120, x0 = cam.x - pad, x1 = cam.x + vw + pad, y0 = cam.y - pad, y1 = cam.y + vh + pad + 160;
     for (const pr of w.props) { if (pr.x < x0 || pr.x > x1 || pr.y < y0 || pr.y > y1 + 120) continue; if (pr.node && this.isHidden(pr)) continue; list.push({ y: pr.y, f: () => { A.drawProp(c, pr, this.time, this.dt || 0.016, this.player); c.save(); c.translate(pr.x, pr.y); if (this.selected === pr) { c.globalAlpha = 0.5; c.strokeStyle = "#fff4cf"; c.lineWidth = 3; c.beginPath(); c.ellipse(0, -4, pr.w * 0.4, 9, 0, 0, 6.3); c.stroke(); } c.restore(); } }); }
-    const hs = this._houseSprite; list.push({ y: w.home.y, f: () => c.drawImage(hs.canvas, w.home.x - hs.w / 2, w.home.y - hs.h + 10) });
-    for (const f of this.eco.facilities()) { const r = this.facRect(f); if (!r) continue; const spr = this.facSprite(f); list.push({ y: r.by, f: () => { c.drawImage(spr.canvas, r.x, r.y, r.w, r.h); if (f.status === "ready" && (Object.keys(f.buffer || {}).length || f.process?.done)) c.drawImage(this._sparkle, r.cx - 16, r.y - 12, 32, 32); } }); }
+    const hs = this._houseSprite; if (w.home) list.push({ y: w.home.y, f: () => c.drawImage(hs.canvas, w.home.x - hs.w / 2, w.home.y - hs.h + 10) });
+    if (w.home) for (const f of this.eco.facilities()) { const r = this.facRect(f); if (!r) continue; const spr = this.facSprite(f); list.push({ y: r.by, f: () => { c.drawImage(spr.canvas, r.x, r.y, r.w, r.h); if (f.status === "ready" && (Object.keys(f.buffer || {}).length || f.process?.done)) c.drawImage(this._sparkle, r.cx - 16, r.y - 12, 32, 32); } }); }
     // merchant cart + npc
     const m = this.eco.merchant(); this.cartRect = null;
-    if (m.present) { const cx = 17.5 * w.tile, cy = 26.4 * w.tile, cw = this._cart.w, ch = this._cart.h, x = cx - cw / 2, y = cy - ch + 14; this.cartRect = { x, y, w: cw, h: ch, cx, cy }; list.push({ y: cy, f: () => { c.drawImage(this._cart.canvas, x, y); this.ui.drawNpcLabel?.(c, cx, y - 6, m.name); } }); }
+    if (w.home && m.present) { const cx = 17.5 * w.tile, cy = 26.4 * w.tile, cw = this._cart.w, ch = this._cart.h, x = cx - cw / 2, y = cy - ch + 14; this.cartRect = { x, y, w: cw, h: ch, cx, cy }; list.push({ y: cy, f: () => { c.drawImage(this._cart.canvas, x, y); this.ui.drawNpcLabel?.(c, cx, y - 6, m.name); } }); }
+    if (w.exits?.length) this.drawExits(c, w);
     list.push(...this.grind.entities(c)); list.push({ y: this.player.y, f: () => this.drawPlayer(c) });
     list.sort((a, b) => a.y - b.y); for (const e of list) e.f();
     A.drawTreeLeaves(c, w, this.time, view, hidden); this.drawParts(c); this.grind.drawBars(c); this.grind.drawFx(c);
@@ -243,8 +245,10 @@ export class GameEngine {
     A.drawAmbient(c, this.time, view, w.amb); if (w.amb?.fog) A.drawBlobs(c, w, this.time, view, { n: 20, rgb: w.amb.fogRgb || "226,232,238", a: w.amb.fog, speed: 7, rx: 300, ry: 140, seed: 7 });
     // time-of-day tint
     c.setTransform(dpr, 0, 0, dpr, 0, 0); const t = this.tint(); if (t[0] < 250 || t[2] < 250) { c.save(); c.globalCompositeOperation = "multiply"; c.fillStyle = `rgb(${t[0]},${t[1]},${t[2]})`; c.fillRect(0, 0, this.vw, this.vh); c.restore(); }
+    if (w.amb?.tone) { const [tr, tg, tb, ta] = w.amb.tone; c.save(); c.fillStyle = `rgba(${tr},${tg},${tb},${ta})`; c.fillRect(0, 0, this.vw, this.vh); c.restore(); }
     // vignette
     const g2 = c.createRadialGradient(this.vw / 2, this.vh / 2, Math.min(this.vw, this.vh) * 0.45, this.vw / 2, this.vh / 2, Math.max(this.vw, this.vh) * 0.75); g2.addColorStop(0, "rgba(20,14,28,0)"); g2.addColorStop(1, "rgba(20,14,28,0.32)"); c.fillStyle = g2; c.fillRect(0, 0, this.vw, this.vh);
+    if (this.fade > 0.003) { c.setTransform(dpr, 0, 0, dpr, 0, 0); c.fillStyle = `rgba(8,6,14,${this.fade})`; c.fillRect(0, 0, this.vw, this.vh); }
     // action ring (screen space)
     const a = this.player.action; if (a) { const sx = (this.player.x - cam.x) * z, sy = (this.player.y - 124 - cam.y) * z, k = Math.min(1, a.t / a.dur); c.save(); c.lineWidth = 5; c.strokeStyle = "rgba(20,14,28,0.55)"; c.beginPath(); c.arc(sx, sy, 20, 0, 6.2832); c.stroke(); c.strokeStyle = "#f2d889"; c.beginPath(); c.arc(sx, sy, 20, -1.5708, -1.5708 + 6.2832 * k); c.stroke(); c.fillStyle = "#fff4cf"; c.font = "600 11px system-ui"; c.textAlign = "center"; c.fillText(a.label || "", sx, sy - 28); c.restore(); }
   }
@@ -260,5 +264,50 @@ export class GameEngine {
     if (still || p.action) drawBreathing(c, s.canvas, col * cw, row * ch, cw, ch, -dw / 2, 0, dw, dh, s.hip || 0.8, T + (p.seed || 0), p.action ? 0.6 : 1);
     else c.drawImage(s.canvas, col * cw, row * ch, cw, ch, -dw / 2, 0, dw, dh);
     c.restore();
+  }
+
+  // ------------------------------------------------------------ areas (fade out -> load -> fade in)
+  drawExits(c, w) {
+    const T = w.tile, t = this.time; c.save(); c.textAlign = "center"; c.lineJoin = "round";
+    for (const e of w.exits) {
+      if (!e.to) continue; const x0 = e.c0 * T, y0 = e.r0 * T, x1 = (e.c1 + 1) * T, y1 = (e.r1 + 1) * T, pulse = 0.5 + 0.5 * Math.sin(t * 2.4), L = 96;
+      let rx = x0, ry = y0, rw = x1 - x0, rh = y1 - y0, gx0 = 0, gy0 = 0, gx1 = 0, gy1 = 0, tx = (x0 + x1) / 2, ty = (y0 + y1) / 2;
+      if (e.side === "n") { rh = L; gy0 = ry; gy1 = ry + L; ty = ry + 52; } else if (e.side === "s") { ry = y1 - L; rh = L; gy0 = y1; gy1 = ry; ty = y1 - 62; }
+      else if (e.side === "w") { rw = L; gx0 = rx; gx1 = rx + L; tx = rx + 56; } else { rx = x1 - L; rw = L; gx0 = x1; gx1 = rx; tx = x1 - 56; }
+      const g = c.createLinearGradient(gx0, gy0, gx1, gy1); g.addColorStop(0, `rgba(255,244,207,${0.34 + 0.16 * pulse})`); g.addColorStop(1, "rgba(255,244,207,0)"); c.fillStyle = g; c.fillRect(rx, ry, rw, rh);
+      const ar = { n: "▲", s: "▼", e: "▶", w: "◀" }[e.side], label = `${ar} ${e.label}`; c.globalAlpha = 0.72 + 0.28 * pulse; c.font = "800 13px system-ui"; c.lineWidth = 4; c.strokeStyle = "rgba(30,20,36,.85)"; c.strokeText(label, tx, ty); c.fillStyle = "#fff4cf"; c.fillText(label, tx, ty); c.globalAlpha = 1;
+    }
+    c.restore();
+  }
+  _fadeTo(to, dur) { return new Promise((res) => { this.fadeTask = { from: this.fade, to, dur: Math.max(0.01, dur), t: 0, res }; }); }
+  _tickFade(dt) { const f = this.fadeTask; if (!f) return; f.t += dt; const k = Math.min(1, f.t / f.dur), e = k * k * (3 - 2 * k); this.fade = f.from + (f.to - f.from) * e; if (k >= 1) { this.fadeTask = null; f.res(); } }
+  /** switch the world: opts = { pos, spot, instant, then } ; side = the side of the new map the hero arrives on */
+  async travel(areaId, side, opts = {}) {
+    if (this.busy || !this.areas || (areaId === this.areaId && !opts.force)) return false;
+    this.busy = true; this.cancelAction(); this.player.path = []; this.player.moving = false; if (this.grind.on) this.grind.setOn(false);
+    try {
+      if (opts.instant) this.fade = 1; else await this._fadeTo(1, 0.38);
+      await new Promise((r) => setTimeout(r, 40));
+      const world = await this.areas.get(areaId); if (!this.running) return false;
+      this._applyWorld(world, areaId, side, opts);
+      this.ui.areaTitle?.(areaId, world);
+      await this._fadeTo(0, 0.55);
+    } finally { this.busy = false; this.fade = this.fadeTask ? this.fade : 0; }
+    opts.then?.(); return true;
+  }
+  _applyWorld(world, areaId, side, opts = {}) {
+    const p = this.player, T = world.tile; this.world = world; this.areaId = areaId; this.markers = []; this.selected = null; this.ghost = null; this.parts = []; this.cartRect = null; this._propTile = null; this._facBlocked = null;
+    this.grind.clearMobs(); this.refreshFacilities();
+    let pos = opts.pos; if (opts.spot === "homeDoor" && world.home) pos = { x: world.home.x, y: world.home.y + 46 };
+    if (!pos) { const en = world.entries?.[side] || world.entries?.s || world.spawn; pos = { x: (en.c + 0.5) * T, y: (en.r + 0.5) * T }; }
+    p.x = pos.x; p.y = pos.y; p.path = []; p.moving = false; p.dir = side === "n" ? "S" : side === "s" ? "N" : side === "e" ? "W" : side === "w" ? "E" : p.dir;
+    const z = this.zoom, vw = this.vw / z, vh = this.vh / z; this.cam.x = Math.max(0, Math.min(world.width - vw, p.x - vw / 2)); this.cam.y = Math.max(0, Math.min(world.height - vh, p.y - 40 - vh / 2));
+    const f = this.eco.state.flags; f.area = areaId; this.eco.state.position = { x: Math.round(p.x), y: Math.round(p.y) }; this.eco.save?.();
+    this._exitLock = 0.8;
+  }
+  _checkExits(dt) {
+    const w = this.world; if (!w.exits?.length || this.busy) return; if (this._exitLock > 0) { this._exitLock -= dt; return; }
+    const T = w.tile, c = Math.floor(this.player.x / T), r = Math.floor(this.player.y / T), OPP = { s: "n", n: "s", e: "w", w: "e" };
+    for (const e of w.exits) if (e.to && c >= e.c0 && c <= e.c1 && r >= e.r0 && r <= e.r1) { this.travel(e.to, OPP[e.side]); return; }
   }
 }

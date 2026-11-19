@@ -55,6 +55,17 @@ export function poseSprite(sprite, dir, mode, t, o = {}) {
  * Sprite sheet for the engine: 8 rows (every direction is its own traced view), columns = idle frames then walk frames.
  * kit = ModelKit (models.js); spec = { model, colors, face, shape }
  */
+
+/** the opposite stride of a drawn walking pose: everything above the knee line is kept, the lower legs / feet are mirrored about the feet centroid */
+function mirrorLegs(wk, hip, cell) {
+  const W = wk.width, H = wk.height, knee = Math.round(hip + (cell.feet - hip) * 0.42), out = mk(W, H), x = out.getContext("2d"), px = wk.getContext("2d", { willReadFrequently: true }).getImageData(0, knee, W, H - knee).data;
+  let sw = 0, sx = 0; for (let y = 0; y < H - knee; y++) for (let i = 0; i < W; i++) { const a = px[(y * W + i) * 4 + 3]; if (a > 40) { sw += a; sx += a * i; } }
+  const c = sw ? sx / sw : W / 2;
+  x.imageSmoothingQuality = "high";
+  x.save(); x.beginPath(); x.rect(0, knee, W, H - knee); x.clip(); x.translate(2 * c, 0); x.scale(-1, 1); x.drawImage(wk, 0, 0); x.restore();
+  x.save(); x.beginPath(); x.rect(0, 0, W, knee); x.clip(); x.drawImage(wk, 0, 0); x.restore();
+  return out;
+}
 export const SHEET_ROWS = ["S", "SE", "E", "NE", "N", "NW", "W", "SW"];
 export function buildSheet(kit, spec, { idleFrames = 1, walkFrames = 6, scale = 0.8 } = {}) {
   const CW = kit.cell.w, CH = kit.cell.h, cw = Math.round(CW * scale), ch = Math.round(CH * scale), hip = kit.hipRow(spec.model), stride = kit.hasWalk?.(spec.model);
@@ -64,7 +75,8 @@ export function buildSheet(kit, spec, { idleFrames = 1, walkFrames = 6, scale = 
     const spr = kit.render(spec, d), o = { w: CW, h: CH, hip };
     for (let i = 0; i < idleFrames; i++) sx.drawImage(spr, 0, 0, CW, CH, i * cw, r * ch, cw, ch);   // idle = the plain view; drawBreathing() animates it live
     if (stride) {
-      const wk = kit.render(spec, d, "walk"), K = CH / 300, F = [[wk, 0, 1], [spr, -6 * K, 1.012], [wk, 0, 1], [spr, -6 * K, 1.012]];
+      // the sheets only draw ONE stride pose per direction: the opposite stride is the same pose with the legs mirrored, so the steps alternate left / right
+      const wk = kit.render(spec, d, "walk"), wm = mirrorLegs(wk, hip, kit.cell), K = CH / 300, F = [[wk, 0, 1], [spr, -6 * K, 1.012], [wm, 0, 1], [spr, -6 * K, 1.012]];
       for (let i = 0; i < walkFrames; i++) {
         const [src, dy, sq] = F[i], c = mk(CW, CH), cx = c.getContext("2d"); cx.imageSmoothingQuality = "high"; cx.translate(CW / 2, kit.cell.feet + dy); cx.scale(1 / sq, sq); cx.translate(-CW / 2, -kit.cell.feet); cx.drawImage(src, 0, 0);
         sx.drawImage(c, 0, 0, CW, CH, (idleFrames + i) * cw, r * ch, cw, ch);

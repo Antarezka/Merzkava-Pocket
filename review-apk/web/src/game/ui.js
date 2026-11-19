@@ -1,7 +1,9 @@
 // In-game HUD + panels (bag, home & storage, build, facility, merchant, quests, pause). Pure DOM, no framework.
 import { minuteOfDay, dayIndex } from "./data/clock.js";
 import { housePlan, upgradeHouse, houseLevel } from "./data/house.js";
-import { MOBS, SUB_BOSSES, BOSSES, speciesById, getHero, heroStats, expToNext, MAX_LEVEL, TIER_LABEL } from "./data/mobs.js";
+import { ROSTER, speciesById, getHero, heroStats, expToNext, MAX_LEVEL, TIER_LABEL } from "./data/mobs.js";
+import { ZONES, zoneById, zoneOfLevel, AREA_NAMES, isHunting } from "./data/areas.js";
+import { buildHud } from "./hud.js";
 
 export function h(tag, attrs, ...kids) {
   const e = document.createElement(tag);
@@ -27,45 +29,28 @@ export function createGameUI({ hud, layer, toastBox, eco, catalog, identity, aud
   const api = { audio };
 
   // ---------------------------------------------------------------- toasts
-  api.toast = (txt) => { if (!txt) return; const t = h("div", { class: "gh-toast" }, txt); toastBox.append(t); while (toastBox.children.length > 3) toastBox.firstChild.remove(); setTimeout(() => t.remove(), 2600); };
+  api.toast = (txt) => { if (!txt) return; api.logLine?.(txt); const t = h("div", { class: "gh-toast" }, txt); toastBox.append(t); while (toastBox.children.length > 3) toastBox.firstChild.remove(); setTimeout(() => t.remove(), 2600); };
   const why = (res, fallback = "Couldn't do that.") => WHY[res?.reason] || fallback;
   const off = [eco.on("toast", api.toast)];
   api.blocking = () => !!sheet || !!placing?.blocking;
 
-  // ---------------------------------------------------------------- HUD
-  const clk = h("b", null, "Day 1"), clkSub = h("small", null, "06:00"), wal = h("b", null, "0 xc"), walSub = h("small", null, "wallet");
-  const dot = h("i", { class: "dot gm-hidden" }); let hLv, hTxt, hHp, hXp, autoBtn, autoSub;
-  const nm = identity?.displayName ? eco.state.profile.name : eco.state.profile.name;
-  hud.append(
-    h("div", { class: "gh-top" }, h("div", { class: "gh-pill" }, h("small", null, nm), clk, clkSub), h("div", { class: "gh-pill gh-wallet", style: "text-align:right" }, walSub, wal)),
-    (api.bar = h("div", { class: "gh-bar" },
-      ...[["bag", "BAG", () => api.openBag()], ["build", "BUILD", () => api.openBuild()], ["home", "HOME", () => api.openHome()], ["quest", "QUESTS", () => api.openQuests(), dot], ["menu", "MENU", () => api.openPause()]]
-        .map(([ic, label, fn, extra]) => h("button", { type: "button", "aria-label": label, onclick: () => { audio.tap(); fn(); } }, h("span", { html: ICON[ic] }), label, extra)))),
-    (api.placeBox = h("div", { class: "gh-place gm-hidden" })),
-    (api.hero = h("div", { class: "gh-hero" }, h("div", { class: "gh-lv" }, (hLv = h("b", null, "Lv 1")), (hTxt = h("small", null, ""))), h("div", { class: "gh-meter hp" }, (hHp = h("i"))), h("div", { class: "gh-meter xp" }, (hXp = h("i"))))),
-    (api.side = h("div", { class: "gh-side" },
-      h("button", { type: "button", class: "gh-hunt", "aria-label": "Hunting list", onclick: () => { audio.tap(); api.openHunt(); } }, h("span", { html: ICON.sword }), h("small", null, "HUNT")),
-      (autoBtn = h("button", { type: "button", class: "gh-auto", "aria-label": "Auto-grind", onclick: () => { audio.tap(); const g = getEngine()?.grind; if (g) g.toggle(); } }, h("b", null, "AUTO"), (autoSub = h("small", null, "OFF")))))));
+  // ---------------------------------------------------------------- HUD (portrait layout lives in hud.js)
+  buildHud({ h, hud, eco, audio, api, getEngine });
   let bossNm, bossLv, bossLag, bossFill, bossTxt;
   const bossEl = h("div", { class: "gh-boss gm-hidden" }, h("div", { class: "nm" }, (bossNm = h("b")), (bossLv = h("small"))), h("div", { class: "bar" }, (bossLag = h("i", { class: "lag" })), (bossFill = h("i", { class: "fill" })), (bossTxt = h("span")))); hud.append(bossEl);
+  const hudFrame = api.frame;
   api.frame = () => {
-    const sim = eco.now(), m = minuteOfDay(sim); clk.textContent = "Day " + (dayIndex(sim) + 1); const mer = eco.merchant();
-    clkSub.textContent = clockText(m) + (mer.present ? " · merchant in town" : ""); wal.textContent = fmt(eco.wallet()) + " xc";
-    const q = eco.questList(); dot.classList.toggle("gm-hidden", !q.some((x) => x.done && !x.claimed));
-    const hero = getHero(eco), st = heroStats(hero.lv), gr = getEngine()?.grind, need = expToNext(hero.lv);
-    hLv.textContent = "Lv " + hero.lv; hTxt.textContent = `HP ${Math.ceil(hero.hp)}/${st.maxHp}`; hHp.style.width = Math.max(0, Math.min(100, hero.hp / st.maxHp * 100)).toFixed(1) + "%";
-    hXp.style.width = (hero.lv >= MAX_LEVEL ? 100 : Math.min(100, hero.exp / need * 100)).toFixed(1) + "%";
+    hudFrame(); const gr = getEngine()?.grind;
     const bt = gr?.target, showB = !!(gr?.on && bt && bt.sp.tier !== "mob" && gr.mobs.includes(bt)); bossEl.classList.toggle("gm-hidden", !showB);
     if (showB) { bossEl.classList.toggle("sub", bt.sp.tier === "sub"); bossNm.textContent = bt.sp.name; bossLv.textContent = `${TIER_LABEL[bt.sp.tier].toUpperCase()} · LV ${bt.lv}`; bossFill.style.width = Math.max(0, bt.hp / bt.max * 100).toFixed(1) + "%"; bossLag.style.width = Math.max(0, bt.lag / bt.max * 100).toFixed(1) + "%"; bossTxt.textContent = `${Math.ceil(Math.max(0, bt.hp))} / ${bt.max}`; }
-    const on = !!gr?.on; autoBtn.classList.toggle("on", on); autoSub.textContent = on ? (gr.status === "rest" ? "REST" : gr.status === "fight" ? "FIGHT" : "HUNT") : "OFF";
   };
-  const hudUpdate = setInterval(api.frame, 1000); api.frame();
+  const hudUpdate = setInterval(api.frame, 250); api.frame();
 
   // ---------------------------------------------------------------- sheet helper
   function close() { sheet?.remove(); sheet = null; if (merchantTick) { clearInterval(merchantTick); merchantTick = null; } }
-  function open(title, { sub, tabs, render }) {
+  function open(title, { sub, tabs, render, initial }) {
     close(); const body = h("div", { class: "gp-body" }), tabBox = h("div", { class: "gp-tabs" }), subEl = h("small", null, sub || "");
-    let tab = tabs?.[0]?.[0]; const redraw = () => { tabBox.replaceChildren(...(tabs || []).map(([id, lab]) => h("button", { class: "gm-chip" + (id === tab ? " on" : ""), onclick: () => { tab = id; audio.tap(); redraw(); } }, lab))); const nodes = render(tab, redraw, subEl); body.replaceChildren(...(Array.isArray(nodes) ? nodes : [nodes])); };
+    let tab = initial || tabs?.[0]?.[0]; const redraw = () => { tabBox.replaceChildren(...(tabs || []).map(([id, lab]) => h("button", { class: "gm-chip" + (id === tab ? " on" : ""), onclick: () => { tab = id; audio.tap(); redraw(); } }, lab))); const nodes = render(tab, redraw, subEl); body.replaceChildren(...(Array.isArray(nodes) ? nodes : [nodes])); };
     sheet = h("div", { class: "gp", onclick: (e) => { if (e.target === sheet) close(); } }, h("div", { class: "gp-sheet" }, h("div", { class: "gp-grab" }), h("div", { class: "gp-head" }, h("h3", null, title), subEl, h("button", { class: "gp-x", onclick: () => { audio.tap(); close(); } }, "✕")), tabs ? tabBox : null, body));
     layer.append(sheet); redraw(); const sub2 = eco.on("change", () => { if (!sheet?.isConnected) return sub2(); redraw(); }); off.push(sub2); return { redraw };
   }
@@ -74,21 +59,36 @@ export function createGameUI({ hud, layer, toastBox, eco, catalog, identity, aud
 
   // ---------------------------------------------------------------- hunting (auto-grind target list)
   api.openHunt = () => {
-    const sec = (list, tier) => list.map((sp) => {
+    const cur0 = speciesById(getHero(eco).species);
+    const row = (sp) => {
       const hero = getHero(eco), cur = hero.species === sp.id, fit = hero.lv >= sp.lv[0] - 2 && hero.lv <= sp.lv[1] + 8, tough = sp.lv[0] > hero.lv + 4;
       return h("button", { class: "gp-mob" + (cur ? " on" : ""), onclick: () => { audio.tap(); getEngine()?.grind.setSpecies(sp.id); } },
-        h("i", { style: `background:${sp.tint}` }, sp.tier === "boss" ? "★" : sp.tier === "sub" ? "◆" : ""),
-        h("span", null, h("b", null, sp.name), h("small", null, `Lv ${sp.lv[0] === sp.lv[1] ? sp.lv[0] : sp.lv[0] + "–" + sp.lv[1]} · ${sp.drops.slice(0, 2).join(", ")}`)),
+        h("i", { style: `background:${sp.tint || "#7a6a8a"}` }, sp.tier === "boss" ? "★" : sp.tier === "sub" ? "◆" : ""),
+        h("span", null, h("b", null, sp.name, sp.jp ? h("small", { style: "margin-left:6px;opacity:.6" }, sp.jp) : null), h("small", null, `${TIER_LABEL[sp.tier]} · Lv ${sp.lv[0] === sp.lv[1] ? sp.lv[0] : sp.lv[0] + "–" + sp.lv[1]} · ${sp.drops.slice(0, 2).join(", ")}`)),
         h("em", { class: tough ? "bad" : fit ? "good" : "" }, cur ? "TARGET" : tough ? "TOUGH" : fit ? "FITS" : ""));
-    });
-    open("HUNTING", { sub: "", tabs: [["mob", "Mobs Lv 1–50"], ["sub", "Sub bosses"], ["boss", "Bosses"]], render(tab, redraw, subEl) {
-      const hero = getHero(eco), st = heroStats(hero.lv), gr = getEngine()?.grind, sp = speciesById(hero.species); subEl.textContent = `Lv ${hero.lv} · HP ${Math.ceil(hero.hp)}/${st.maxHp}`;
-      const card = h("div", { class: "gp-card" }, h("h4", null, `Target: ${sp.name}`), h("p", null, `${TIER_LABEL[sp.tier]} · Lv ${sp.lv[0] === sp.lv[1] ? sp.lv[0] : sp.lv[0] + "–" + sp.lv[1]} · drops ${sp.drops.join(", ")}`),
-        gr?.on ? h("p", null, `This run: ${gr.session.kills} kills · +${gr.session.exp} exp · +${Math.round(gr.session.xc * 100) / 100} xc`) : h("p", null, "Auto-grind walks to the nearest target, fights, loots and repeats. It rests when your HP is low."),
-        h("button", { class: "gm-btn sm" + (gr?.on ? " rose" : ""), style: "margin-top:8px", onclick: () => { audio.tap(); if (gr?.on) gr.setOn(false); else { gr.setOn(true); close(); return; } redraw(); } }, gr?.on ? "STOP AUTO" : "START AUTO"));
-      return [card, h("div", { class: "gp-moblist" }, sec(tab === "mob" ? MOBS : tab === "sub" ? SUB_BOSSES : BOSSES)), h("p", { class: "gc-note" }, "Mob roster and art are placeholders for now — the list will grow.")];
+    };
+    open("HUNTING", { sub: "", initial: cur0.z, tabs: ZONES.map((z) => [z.id, `Lv ${z.lv[0]}–${z.lv[1]}`]), render(tab, redraw, subEl) {
+      const hero = getHero(eco), st = heroStats(hero.lv), gr = getEngine()?.grind, sp = speciesById(hero.species), z = zoneById(tab); subEl.textContent = `Lv ${hero.lv} · HP ${Math.ceil(hero.hp)}/${st.maxHp}`;
+      const card = h("div", { class: "gp-card" }, h("h4", null, `Target: ${sp.name}`), h("p", null, `${AREA_NAMES[sp.z]} · ${TIER_LABEL[sp.tier]} · Lv ${sp.lv[0] === sp.lv[1] ? sp.lv[0] : sp.lv[0] + "–" + sp.lv[1]} · drops ${sp.drops.join(", ")}`),
+        gr?.on ? h("p", null, `This run: ${gr.session.kills} kills · +${gr.session.exp} exp · +${Math.round(gr.session.xc * 100) / 100} xc`) : h("p", null, "Auto-grind travels to the target's area, fights, loots and repeats. It rests when your HP is low."),
+        h("button", { class: "gm-btn sm" + (gr?.on ? " rose" : ""), style: "margin-top:8px", onclick: () => { audio.tap(); if (gr?.on) { gr.setOn(false, "manual"); redraw(); } else { close(); gr.toggle(); } } }, gr?.on ? "STOP AUTO" : "START AUTO"));
+      const list = ROSTER.filter((m) => m.z === tab), zone = h("div", { class: "gp-card" }, h("h4", null, z.name), h("p", null, z.theme + (z.id >= "z7" && /^z(7|8|9|10|11)$/.test(z.id) ? "" : "")));
+      return [card, zone, h("div", { class: "gp-moblist" }, ["mob", "sub", "boss"].flatMap((t) => list.filter((m) => m.tier === t).map(row))), h("p", { class: "gc-note" }, "Monster names come from Japanese folklore. Zones 7–11 are placeholders.")];
     } });
     const g = getEngine()?.grind; if (g) { const un = g.onChange(() => { if (!sheet?.isConnected) return un(); }); off.push(un); }
+  };
+  // ---------------------------------------------------------------- travel map (fade between areas)
+  api.openMap = () => {
+    open("TRAVEL MAP", { sub: "", render() {
+      const e = getEngine(), hero = getHero(eco), here = e?.areaId || "home", ids = ["home", "village", "palace", ...ZONES.map((z) => z.id)];
+      return [h("p", { class: "gc-note", style: "margin:0 0 8px" }, "Roads connect Home, the Village and the zones. Pick a place to travel there."), ...ids.map((id) => {
+        const z = zoneById(id), tough = z && z.lv[0] > hero.lv + 6;
+        return h("button", { class: "gp-mob" + (id === here ? " on" : ""), onclick: () => { audio.tap(); close(); if (id !== here) e?.travel(id, "s"); } },
+          h("i", { style: `background:${z ? "#6a7f9a" : id === "home" ? "#a18a3a" : "#c0793a"}` }, z ? String(ZONES.indexOf(z) + 1) : id === "home" ? "⌂" : id === "village" ? "村" : "宮"),
+          h("span", null, h("b", null, AREA_NAMES[id]), h("small", null, z ? `Lv ${z.lv[0]}–${z.lv[1]} · ${z.theme}` : id === "home" ? "Your land · storage · facilities" : id === "village" ? "Shops · villagers" : "Imperial court · nobles")),
+          h("em", { class: tough ? "bad" : "" }, id === here ? "HERE" : tough ? "TOUGH" : ""));
+      })];
+    } });
   };
 
   // ---------------------------------------------------------------- bag
@@ -140,12 +140,12 @@ export function createGameUI({ hud, layer, toastBox, eco, catalog, identity, aud
     } });
   };
   function startPlacing(f) {
-    const eng = getEngine(); eng.beginPlacing(f); placing = { f, blocking: false }; api.bar.classList.add("gm-hidden"); api.side.classList.add("gm-hidden"); api.placeBox.classList.remove("gm-hidden");
+    const eng = getEngine(); eng.beginPlacing(f); placing = { f, blocking: false }; hud.classList.add("placing"); api.placeBox.classList.remove("gm-hidden");
     api.placeBox.replaceChildren(h("p", null, `Tap the land to position the ${f.name}. Green = valid.`), h("div", null,
       h("button", { class: "gm-btn alt", onclick: () => { eng.cancelPlacing(); endPlacing(); } }, "CANCEL"),
       h("button", { class: "gm-btn", onclick: () => { const r = eng.confirmPlacing(); if (r.ok) { audio.thud(); api.toast(f.name + " — construction started."); endPlacing(); } else { audio.no(); api.toast(r.reason === "blocked" ? "Can't build there." : r.missing?.join(", ") || why(r)); } } }, "BUILD HERE")));
   }
-  function endPlacing() { placing = null; api.bar.classList.remove("gm-hidden"); api.side.classList.remove("gm-hidden"); api.placeBox.classList.add("gm-hidden"); }
+  function endPlacing() { placing = null; hud.classList.remove("placing"); api.placeBox.classList.add("gm-hidden"); }
 
   // ---------------------------------------------------------------- facility
   api.openFacility = (uid) => {

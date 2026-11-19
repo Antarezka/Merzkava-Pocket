@@ -1,59 +1,100 @@
 // Mob roster + hero progression + combat maths for Auto-Grind.
-// The roster is a PLACEHOLDER list (names, levels, drops) — art is drawn procedurally by the engine for now.
-// Layout: normal mobs cover Lv 1-50, a sub boss every 5 levels (Lv 5..50), a boss every 10 levels (Lv 10..50).
+// Zones (areas) follow the design brief: 01-08 Village Outskirts, 09-16 Forest & Foothills, 17-24 Streams & Caves, 25-32 Marshes & Abandoned Shrines,
+// 33-40 Mountain Passes & Old Ruins, 41-50 Deeper Spirit Lands, then one 10-level band per zone up to Lv 100 (zones 7-11: PLACEHOLDER names/themes).
+// A sub boss appears every 5 levels, a boss every 10 levels. Monster names are taken from Japanese yokai folklore (kodama, tsuchigumo, kitsunebi, ...).
+// Art: every species uses one of the 35 portrait illustrations (public/game-art/monsters/<art>.png), animated as a puppet (see art/monsters.js);
+// level 51+ species and all bosses recolour a portrait with hue/sat/bri. The procedural rig (art/mobs.js) is only the fallback while a portrait loads.
 // Drops use existing catalogue items by name (names that don't exist in the catalogue are skipped), prices are never touched.
 
-export const MAX_LEVEL = 50;
-const sp = (id, name, kind, lv, tint, drops) => ({ id, name, kind, tier: "mob", lv, tint, drops });
+export const MAX_LEVEL = 100;
+/** nominal body height in world px (hero = 118), native facing of the portrait (1 = looks right) and the fallback rig kind/tint */
+export const ART = {
+  green_slime: { h: 58, face: 1, kind: "slime", tint: "#7fcf7f" }, wild_boar: { h: 66, face: 1, kind: "beast", tint: "#8a6a50" }, wooden_spirit: { h: 86, face: 1, kind: "spirit", tint: "#a98a5a" },
+  forest_wolf: { h: 78, face: 1, kind: "beast", tint: "#9aa2ad" }, giant_spider: { h: 60, face: 1, kind: "critter", tint: "#5a4a60" }, bandit_thug: { h: 104, face: -1, kind: "spirit", tint: "#5a4a44" },
+  blood_boar: { h: 82, face: 1, kind: "beast", tint: "#6a4a4a" }, iron_fang_wolf: { h: 90, face: 1, kind: "beast", tint: "#6a7088" }, venomous_spider: { h: 72, face: 1, kind: "critter", tint: "#6a4a88" },
+  toxic_centipede: { h: 64, face: 1, kind: "critter", tint: "#5a4a7a" }, dire_wolf: { h: 98, face: -1, kind: "beast", tint: "#4a4a58" }, jade_serpent: { h: 104, face: -1, kind: "spirit", tint: "#7fd0c8" },
+  croc_dragon: { h: 84, face: 1, kind: "beast", tint: "#4a6a4a" }, stone_golem: { h: 126, face: 1, kind: "golem", tint: "#8a90a8" }, gale_crane: { h: 118, face: 1, kind: "critter", tint: "#e8e8f0" },
+  cave_demon: { h: 122, face: 1, kind: "spirit", tint: "#6a6aa0" }, spirit_serpent: { h: 108, face: -1, kind: "spirit", tint: "#aad8e8" }, lotus_leech: { h: 80, face: 1, kind: "beast", tint: "#4a6a4a" },
+  demonic_flower: { h: 92, face: 1, kind: "spirit", tint: "#7a4a8a" }, paper_revenant: { h: 120, face: 1, kind: "spirit", tint: "#3a4a7a" }, marsh_wisp_beast: { h: 116, face: 1, kind: "spirit", tint: "#6a7a9a" },
+  shrine_tanuki: { h: 92, face: 1, kind: "beast", tint: "#8a6a4a" }, soul_fox: { h: 84, face: 1, kind: "spirit", tint: "#d8d8f0" }, spirit_boar: { h: 90, face: 1, kind: "beast", tint: "#c8c4c0" },
+  stone_golem_dark: { h: 130, face: 1, kind: "golem", tint: "#4a5a7a" }, cultist_disciple: { h: 112, face: 1, kind: "spirit", tint: "#3a3a6a" }, rogue_cultist: { h: 116, face: 1, kind: "spirit", tint: "#4a3a5a" },
+  shadow_bandit: { h: 112, face: 1, kind: "spirit", tint: "#3a3a44" }, wooden_spirit_b: { h: 110, face: 1, kind: "spirit", tint: "#8a7a5a" }, fox_spirit: { h: 88, face: 1, kind: "spirit", tint: "#f0e8ee" },
+  vampire_bat: { h: 60, face: 1, kind: "critter", tint: "#4a4468" }, venomous_spider_b: { h: 80, face: 1, kind: "critter", tint: "#5a4a78" }, qilin: { h: 118, face: 1, kind: "beast", tint: "#bcd0f0" },
+  abyssal_slime: { h: 62, face: 1, kind: "slime", tint: "#5a78e8" }, celestial_fox: { h: 100, face: 1, kind: "spirit", tint: "#f4f4ff" },
+};
+export const ART_IDS = Object.keys(ART);
+
+const D = {  // drop tables per zone (existing catalogue names)
+  z1: ["Crushed Seashell", "Salt Crystal", "Rabbit Pelt", "Morel Mushroom", "Hawthorn Berry", "Boar Hide", "Leather Offcut"],
+  z2: ["Boar Hide", "Wolf Pelt", "Bone Bundle", "Horn Pair", "Feather Bundle", "Leather Offcut", "Fox Pelt"],
+  z3: ["Iron Ore", "Tin Ore", "Copper Ore", "Blue Crystal Geode", "Down Feather", "Wild Angelica"],
+  z4: ["Silver Ore", "Blue Crystal Geode", "Wild Angelica", "Morel Mushroom", "Bone Bundle", "Zinc Ore"],
+  z5: ["Zinc Ore", "Nickel Ore", "Tungsten Ore", "Steel Ingot", "Iron Ingot", "Horn Pair"],
+  z6: ["Gold Ore", "Antimony Ore", "Cobalt Ore", "Blue Crystal Geode", "Steel Ingot", "Wildcat Pelt"],
+};
+for (const z of ["z7", "z8", "z9", "z10", "z11"]) D[z] = ["Gold Ore", "Antimony Ore", "Tungsten Ore", "Steel Ingot", "Cobalt Ore", "Blue Crystal Geode"];
+const dr = (z, i, n = 2) => Array.from({ length: n }, (_, k) => D[z][(i + k) % D[z].length]);
+
+let _i = 0;
+const M = (z, id, name, jp, art, a, b, o = {}) => ({ id, name, jp, art, z, tier: "mob", lv: [a, b], drops: dr(z, _i++), ...o });
+const B = (tier, z, lv, id, name, jp, art, o = {}) => ({ id, name, jp, art, z, tier, lv: [lv, lv], drops: dr(z, _i++, tier === "boss" ? 3 : 2), ...o });
+
 export const MOBS = [
-  sp("green_slime", "Green Slime", "slime", [1, 3], "#7fcf7f", ["Crushed Seashell", "Salt Crystal"]),
-  sp("dew_slime", "Dew Slime", "slime", [3, 5], "#7fb6e8", ["Salt Crystal", "Crushed Seashell"]),
-  sp("field_hare", "Field Hare", "critter", [4, 7], "#d8c3a0", ["Rabbit Pelt", "Morel Mushroom"]),
-  sp("mushroom_imp", "Mushroom Imp", "spirit", [6, 9], "#c97b6a", ["Morel Mushroom", "Hawthorn Berry"]),
-  sp("wild_piglet", "Wild Piglet", "beast", [8, 11], "#c9967a", ["Boar Hide", "Leather Offcut"]),
-  sp("ember_slime", "Ember Slime", "slime", [10, 13], "#e8775a", ["Copper Ore", "Iron Ore"]),
-  sp("ink_crow", "Ink Crow", "critter", [12, 15], "#5a5470", ["Feather Bundle", "Down Feather"]),
-  sp("rust_fox", "Rust Fox", "beast", [14, 17], "#e0914f", ["Fox Pelt", "Bone Bundle"]),
-  sp("pebble_golem", "Pebble Golem", "golem", [16, 19], "#9a9a8a", ["Iron Ore", "Tin Ore"]),
-  sp("reed_sprite", "Reed Sprite", "spirit", [18, 21], "#7fc3a3", ["Wild Angelica", "Hawthorn Berry"]),
-  sp("tusk_boar", "Tusk Boar", "beast", [20, 23], "#a1745a", ["Boar Hide", "Horn Pair"]),
-  sp("grey_wolf", "Grey Wolf", "beast", [22, 26], "#9aa2ad", ["Wolf Pelt", "Bone Bundle"]),
-  sp("mire_slime", "Mire Slime", "slime", [24, 28], "#a583d6", ["Silver Ore", "Blue Crystal Geode"]),
-  sp("shade_deer", "Shade Deer", "beast", [26, 30], "#b99a6a", ["Deer Hide", "Horn Pair"]),
-  sp("moon_wildcat", "Moon Wildcat", "beast", [28, 32], "#cfc6d8", ["Wildcat Pelt", "Down Feather"]),
-  sp("clay_golem", "Clay Golem", "golem", [30, 34], "#b08a68", ["Zinc Ore", "Nickel Ore"]),
-  sp("will_o_wisp", "Will-o'-Wisp", "spirit", [32, 36], "#8fd6e0", ["Blue Crystal Geode", "Salt Crystal"]),
-  sp("bone_hound", "Bone Hound", "beast", [34, 38], "#e1dccb", ["Bone Bundle", "Leather Offcut"]),
-  sp("gilded_slime", "Gilded Slime", "slime", [36, 40], "#e8c85a", ["Gold Ore", "Silver Ore"]),
-  sp("oni_cub", "Oni Cub", "spirit", [38, 42], "#d9604f", ["Horn Pair", "Iron Ingot"]),
-  sp("geode_beetle", "Geode Beetle", "critter", [40, 44], "#6fb0c8", ["Blue Crystal Geode", "Cobalt Ore"]),
-  sp("elder_kodama", "Elder Kodama", "spirit", [42, 46], "#a9d6a0", ["Wild Angelica", "Morel Mushroom"]),
-  sp("shrine_guardian", "Shrine Guardian", "golem", [44, 48], "#8d8f9f", ["Tungsten Ore", "Steel Ingot"]),
-  sp("void_slime", "Void Slime", "slime", [46, 50], "#6a5aa8", ["Gold Ore", "Antimony Ore"]),
+  // 01-08 Village Outskirts: wild creatures, small spirits, weak beasts
+  M("z1", "green_slime", "Green Slime", "スライム", "green_slime", 1, 3), M("z1", "inoshishi", "Inoshishi", "猪", "wild_boar", 2, 5), M("z1", "kodama", "Kodama", "木霊", "wooden_spirit", 3, 6),
+  M("z1", "yamainu", "Yamainu", "山犬", "forest_wolf", 4, 7), M("z1", "tsuchigumo", "Tsuchigumo", "土蜘蛛", "giant_spider", 5, 8), M("z1", "yamazoku", "Yamazoku Thug", "山賊", "bandit_thug", 6, 8),
+  // 09-16 Forest & Foothills: predators, poisonous insects, aggressive beasts
+  M("z2", "chi_inoshishi", "Blood Inoshishi", "血猪", "blood_boar", 9, 11), M("z2", "haganeba", "Iron-Fang Ōkami", "鋼牙狼", "iron_fang_wolf", 10, 13), M("z2", "dokugumo", "Dokugumo", "毒蜘蛛", "venomous_spider", 11, 14),
+  M("z2", "omukade", "Ōmukade", "大百足", "toxic_centipede", 13, 16), M("z2", "makami", "Makami", "真神", "dire_wolf", 14, 16),
+  // 17-24 Streams & Caves: water predators, golems, cave creatures
+  M("z3", "hisui_ryuja", "Hisui Ryūja", "翡翠龍蛇", "jade_serpent", 17, 19), M("z3", "kaze_zuru", "Kaze-Zuru", "風鶴", "gale_crane", 17, 20), M("z3", "ishigami", "Ishigami", "石神", "stone_golem", 18, 21),
+  M("z3", "mizuchi", "Mizuchi", "蛟", "croc_dragon", 20, 22), M("z3", "iwaya_oni", "Iwaya Oni", "岩屋鬼", "cave_demon", 21, 24), M("z3", "kuchinawa", "Kuchinawa", "朽縄", "spirit_serpent", 22, 24),
+  // 25-32 Marshes & Abandoned Shrines: poison, undead, wandering spirits
+  M("z4", "hasu_gama", "Hasu-Gama", "蓮蝦蟇", "lotus_leech", 25, 27), M("z4", "yoren", "Yōren", "妖蓮", "demonic_flower", 26, 28), M("z4", "kyonshi", "Fuda Kyonshi", "札僵尸", "paper_revenant", 27, 30),
+  M("z4", "toro_shika", "Tōrō-Shika", "灯籠鹿", "marsh_wisp_beast", 28, 31), M("z4", "bake_danuki", "Bake-Danuki", "化け狸", "shrine_tanuki", 29, 32), M("z4", "kitsunebi", "Kitsunebi", "狐火", "soul_fox", 30, 32),
+  // 33-40 Mountain Passes & Old Ruins: armored beasts, spirit warriors, guardians
+  M("z5", "yama_nushi", "Yama-Nushi", "山主", "spirit_boar", 33, 36), M("z5", "kuro_ishigami", "Kuro-Ishigami", "黒石神", "stone_golem_dark", 34, 38), M("z5", "kage_deshi", "Kage-Deshi", "影弟子", "cultist_disciple", 35, 38),
+  M("z5", "datsu_onmyoji", "Datsu-Onmyōji", "堕陰陽師", "rogue_cultist", 36, 39), M("z5", "furu_kodama", "Furu-Kodama", "古木霊", "wooden_spirit_b", 37, 40), M("z5", "kage_shinobi", "Kage Shinobi", "影忍", "shadow_bandit", 38, 40),
+  // 41-50 Deeper Spirit Lands: shape-shifters, spirit beasts, evolved monsters
+  M("z6", "kitsune", "Kitsune", "狐", "fox_spirit", 41, 44), M("z6", "nobusuma", "Nobusuma", "野衾", "vampire_bat", 42, 45), M("z6", "jorogumo", "Jorō-gumo", "絡新婦", "venomous_spider_b", 43, 46),
+  M("z6", "kirin", "Kirin", "麒麟", "qilin", 44, 47), M("z6", "shinkai_slime", "Shinkai Slime", "深海", "abyssal_slime", 45, 48), M("z6", "tenko", "Tenko", "天狐", "celestial_fox", 47, 50),
+  // 51-100 (PLACEHOLDER zones 7-11): evolved variants - a portrait recoloured per zone
+  M("z7", "akaoni", "Akaoni", "赤鬼", "cave_demon", 51, 53, { hue: 150, sat: 1.3 }), M("z7", "ikusa_makami", "Ikusa-Makami", "戦真神", "dire_wolf", 53, 55, { hue: 330, sat: 1.4 }), M("z7", "ochimusha", "Ochimusha", "落武者", "shadow_bandit", 55, 57, { hue: 340, sat: 1.8 }),
+  M("z7", "ikusa_kyonshi", "Ikusa Kyonshi", "戦僵尸", "paper_revenant", 57, 59, { hue: 300, sat: 1.4 }), M("z7", "ikusa_ishigami", "Ikusa Ishigami", "戦石神", "stone_golem_dark", 58, 60, { hue: 340, sat: 1.5 }),
+  M("z8", "yuki_okami", "Yuki-Ōkami", "雪狼", "forest_wolf", 61, 63, { hue: 175, sat: 0.9, bri: 1.1 }), M("z8", "koori_ishigami", "Kōri Ishigami", "氷石神", "stone_golem", 63, 65, { hue: 170, sat: 1.3, bri: 1.1 }), M("z8", "yuki_kitsune", "Yuki-Kitsune", "雪狐", "celestial_fox", 65, 67, { hue: 160, sat: 0.8, bri: 1.1 }),
+  M("z8", "tsurara_gumo", "Tsurara-Gumo", "氷蜘蛛", "venomous_spider_b", 66, 68, { hue: 150, sat: 0.9, bri: 1.25 }), M("z8", "fuyu_kirin", "Fuyu-Kirin", "冬麒麟", "qilin", 68, 70, { hue: 40, sat: 0.7, bri: 1.1 }),
+  M("z9", "ryugu_ryuja", "Ryūgū Ryūja", "龍宮龍蛇", "jade_serpent", 71, 73, { hue: 40, sat: 1.1 }), M("z9", "shinen_mizuchi", "Shin'en Mizuchi", "深淵蛟", "croc_dragon", 73, 75, { hue: 150, sat: 1.4 }), M("z9", "kaiyoren", "Kai-Yōren", "海妖蓮", "demonic_flower", 75, 77, { hue: 120, sat: 1.5, bri: 1.15 }),
+  M("z9", "mizu_kyonshi", "Mizu-Kyonshi", "水僵尸", "paper_revenant", 77, 79, { hue: 120, sat: 1.1 }), M("z9", "umi_slime", "Umi Slime", "海スライム", "abyssal_slime", 78, 80, { hue: 330, sat: 1.1 }),
+  M("z10", "hai_makami", "Hai-Makami", "灰真神", "dire_wolf", 81, 83, { hue: 20, sat: 0.4, bri: 1.1 }), M("z10", "moe_nobusuma", "Moe-Nobusuma", "燃野衾", "vampire_bat", 83, 85, { hue: 330, sat: 1.9, bri: 1.2 }), M("z10", "kazan_ishigami", "Kazan Ishigami", "火山石神", "stone_golem_dark", 85, 87, { hue: 150, sat: 1.9, bri: 1.1 }),
+  M("z10", "hai_kitsune", "Hai-Kitsune", "灰狐", "fox_spirit", 87, 89, { hue: 20, sat: 0.4, bri: 0.75 }), M("z10", "enma_oni", "Enma Oni", "炎魔鬼", "cave_demon", 88, 90, { hue: 120, sat: 1.7, bri: 1.1 }),
+  M("z11", "tenkyu_kirin", "Tenkyū Kirin", "天宮麒麟", "qilin", 91, 93, { hue: 20, sat: 1.9, bri: 1.1 }), M("z11", "kinko_tenko", "Kinkō Tenko", "金光天狐", "celestial_fox", 93, 95, { hue: 35, sat: 2, bri: 1.05 }), M("z11", "tenmon_ishigami", "Tenmon Ishigami", "天門石神", "stone_golem", 95, 97, { hue: 40, sat: 1.7, bri: 1.2 }),
+  M("z11", "hoo_zuru", "Hōō-Zuru", "鳳鶴", "gale_crane", 96, 98, { hue: 330, sat: 1.9, bri: 1.1 }), M("z11", "raiju_ryuja", "Raijū Ryūja", "雷獣龍蛇", "spirit_serpent", 98, 100, { hue: 40, sat: 1.9, bri: 1.2 }),
 ];
-const bs = (tier, lv, id, name, kind, tint, drops) => ({ id, name, kind, tier, lv: [lv, lv], tint, drops });
 export const SUB_BOSSES = [
-  bs("sub", 5, "slime_matron", "Slime Matron", "slime", "#5fbf7a", ["Salt Crystal", "Crushed Seashell"]),
-  bs("sub", 10, "warren_elder", "Warren Elder", "critter", "#c9b48c", ["Rabbit Pelt", "Down Feather"]),
-  bs("sub", 15, "cap_lord", "Capped Mushroom Lord", "spirit", "#b4584a", ["Morel Mushroom", "Wild Angelica"]),
-  bs("sub", 20, "black_tusk", "Black Tusk", "beast", "#5b4a44", ["Boar Hide", "Horn Pair"]),
-  bs("sub", 25, "cinder_queen", "Cinder Slime Queen", "slime", "#e0553a", ["Copper Ore", "Silver Ore"]),
-  bs("sub", 30, "rust_kitsune", "Rust Kitsune", "beast", "#d98a3d", ["Fox Pelt", "Bone Bundle"]),
-  bs("sub", 35, "stone_warden", "Stone Warden", "golem", "#7f8798", ["Zinc Ore", "Nickel Ore"]),
-  bs("sub", 40, "pale_alpha", "Pale Hound Alpha", "beast", "#ddd6c4", ["Bone Bundle", "Wolf Pelt"]),
-  bs("sub", 45, "hollow_oni", "Hollow Oni", "spirit", "#8a3d4f", ["Horn Pair", "Steel Ingot"]),
-  bs("sub", 50, "void_matron", "Void Matron", "slime", "#4d3f86", ["Gold Ore", "Antimony Ore"]),
+  B("sub", "z1", 5, "sub_ushi_inoshishi", "Moss-Tusk Elder", "苔牙の長", "wild_boar", { hue: 70, sat: 1.1 }), B("sub", "z2", 10, "sub_yamazoku_gashira", "Yamazoku Gashira", "山賊頭", "bandit_thug", { hue: 200, sat: 1.2 }),
+  B("sub", "z2", 15, "sub_dokugumo_haha", "Brood-Mother Dokugumo", "毒蜘蛛の母", "venomous_spider", { hue: 90, sat: 1.4 }), B("sub", "z3", 20, "sub_ishigami_bancho", "Cavern Warden Ishigami", "洞窟番石神", "stone_golem", { hue: 30, sat: 1.4 }),
+  B("sub", "z4", 25, "sub_toro_shika_okami", "Matriarch Tōrō-Shika", "灯籠鹿の主", "marsh_wisp_beast", { hue: 160, sat: 1.4 }), B("sub", "z4", 30, "sub_tanuki_osho", "Abbot Bake-Danuki", "化け狸和尚", "shrine_tanuki", { hue: 330, sat: 1.4 }),
+  B("sub", "z5", 35, "sub_ruin_sentinel", "Ruin Sentinel", "遺跡の番人", "stone_golem_dark", { hue: 40, sat: 1.4 }), B("sub", "z5", 40, "sub_ashi_makami", "Ashen Makami Alpha", "灰真神", "dire_wolf", { hue: 20, sat: 0.4, bri: 1.2 }),
+  B("sub", "z6", 45, "sub_nanabi_kitsune", "Nine-Veil Kitsune", "九尾の狐", "fox_spirit", { hue: 280, sat: 1.7 }), B("sub", "z6", 50, "sub_shinkai_ou", "Shinkai Slime King", "深海の王", "abyssal_slime", { hue: 280, sat: 1.4 }),
+  B("sub", "z7", 55, "sub_ikusa_oni", "Ikusa Oni Taishō", "戦鬼大将", "cave_demon", { hue: 190, sat: 1.6 }), B("sub", "z7", 60, "sub_ikusa_noyuri", "Banner-Bearer Ochimusha", "旗持ち落武者", "shadow_bandit", { hue: 10, sat: 2 }),
+  B("sub", "z8", 65, "sub_yuki_onna_okami", "Blizzard Yuki-Ōkami", "吹雪雪狼", "forest_wolf", { hue: 180, sat: 1, bri: 1.2 }), B("sub", "z8", 70, "sub_koori_gumo", "Frost Queen Gumo", "氷蜘蛛女王", "giant_spider", { hue: 170, sat: 1.3, bri: 1.5 }),
+  B("sub", "z9", 75, "sub_umibozu", "Umi-Zuru Lord", "海鶴王", "gale_crane", { hue: 190, sat: 1.4 }), B("sub", "z9", 80, "sub_ryugu_ou", "Ryūgū Slime Sovereign", "龍宮の王", "green_slime", { hue: 170, sat: 1.5, bri: 0.8 }),
+  B("sub", "z10", 85, "sub_hai_oni", "Cinder Oni Warden", "灰鬼番", "cave_demon", { hue: 40, sat: 1.9 }), B("sub", "z10", 90, "sub_hi_tanuki", "Ember Bake-Danuki", "火狸", "shrine_tanuki", { hue: 30, sat: 1.9 }),
+  B("sub", "z11", 95, "sub_tenmon_shugo", "Gate Guardian Shugo", "天門守護", "stone_golem", { hue: 45, sat: 1.9, bri: 1.2 }), B("sub", "z11", 100, "sub_tenko_gozen", "Tenko Gozen", "天狐御前", "celestial_fox", { hue: 40, sat: 2 }),
 ];
 export const BOSSES = [
-  bs("boss", 10, "verdant_tyrant", "Verdant Tyrant Slime", "slime", "#4fbf5f", ["Crushed Seashell", "Salt Crystal", "Boar Hide"]),
-  bs("boss", 20, "grey_king", "Grey King Wolf", "beast", "#7d8794", ["Wolf Pelt", "Bone Bundle", "Horn Pair"]),
-  bs("boss", 30, "ironbark", "Ironbark Colossus", "golem", "#8a6a4a", ["Iron Ingot", "Zinc Ore", "Silver Ore"]),
-  bs("boss", 40, "crimson_oni", "Crimson Oni Lord", "spirit", "#c23b3b", ["Horn Pair", "Steel Ingot", "Gold Ore"]),
-  bs("boss", 50, "calamity_kodama", "Calamity Kodama", "spirit", "#5aa88a", ["Gold Ore", "Antimony Ore", "Blue Crystal Geode"]),
+  B("boss", "z2", 10, "boss_chi_inoshishi", "Ō-Chi-Inoshishi", "大血猪", "blood_boar", { hue: 0, sat: 1.4 }), B("boss", "z3", 20, "boss_ishigami_ou", "Ishigami-Ō", "石神王", "stone_golem_dark", { hue: 330, sat: 1.4 }),
+  B("boss", "z4", 30, "boss_mizuchi_ou", "Mizuchi, Marsh Dragon", "沼の蛟", "croc_dragon", { hue: 60, sat: 1.5 }), B("boss", "z5", 40, "boss_oni_taisho", "Kage-Taishō", "影大将", "cultist_disciple", { hue: 330, sat: 1.7 }),
+  B("boss", "z6", 50, "boss_kirin_ou", "Kirin Sovereign", "麒麟帝", "qilin", { hue: 40, sat: 1.9, bri: 1.1 }), B("boss", "z7", 60, "boss_akaoni_ou", "Akaoni-Ō", "赤鬼王", "cave_demon", { hue: 160, sat: 1.9 }),
+  B("boss", "z8", 70, "boss_fuyu_tenko", "Fuyu Tenko", "冬天狐", "celestial_fox", { hue: 150, sat: 1.1, bri: 1.1 }), B("boss", "z9", 80, "boss_ryugu_mizuchi", "Ryūgū Mizuchi", "龍宮蛟", "croc_dragon", { hue: 160, sat: 1.9, bri: 1.1 }),
+  B("boss", "z10", 90, "boss_enma_ou", "Enma-Ō", "閻魔王", "cave_demon", { hue: 90, sat: 2, bri: 0.9 }), B("boss", "z11", 100, "boss_tenjo_kirin", "Tenjō Kirin", "天上麒麟", "qilin", { hue: 20, sat: 2, bri: 1.3 }),
 ];
 export const ROSTER = [...MOBS, ...SUB_BOSSES, ...BOSSES];
 export const speciesById = (id) => ROSTER.find((m) => m.id === id) || MOBS[0];
 export const TIER_LABEL = { mob: "Mob", sub: "Sub boss", boss: "Boss" };
+export const TIER_SCALE = { mob: 1, sub: 1.45, boss: 1.95 };
+/** world height of a species (puppet portrait) */
+export const sizeOf = (sp) => (ART[sp.art]?.h || 90) * TIER_SCALE[sp.tier];
 
 // ---------------------------------------------------------------- hero progression
 export const expToNext = (lv) => Math.round(20 * Math.pow(lv, 1.55));

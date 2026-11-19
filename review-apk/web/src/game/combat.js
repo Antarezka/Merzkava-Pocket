@@ -1,7 +1,9 @@
 // Auto-Grind: the hero hunts the chosen mob species on its own (seek -> fight -> loot -> next), rests when hurt and stops when it keeps losing.
 // Pure game logic + small canvas drawing; economy rules (items, wallet) go through GameEconomy, numbers live in data/mobs.js.
-import { speciesById, rollLevel, mobHp, rewards, heroHit, mobHit, heroStats, getHero, addExp, TIER_SIZE, TIER_RESPAWN, TIER_COUNT, MAX_LEVEL } from "./data/mobs.js";
+import { speciesById, rollLevel, mobHp, rewards, heroHit, mobHit, heroStats, getHero, addExp, sizeOf, TIER_SIZE, TIER_RESPAWN, TIER_COUNT, MAX_LEVEL } from "./data/mobs.js";
 import { buildRig, drawMob } from "./art/mobs.js";
+import { drawMonster, monsterSprite, topOf } from "./art/monsters.js";
+import { zoneById, AREA_NAMES } from "./data/areas.js";
 
 
 // ---- HP bar drawing (world space) -------------------------------------------------------------------------------------------------
@@ -48,14 +50,19 @@ export class Grinder {
   constructor(engine) {
     this.e = engine; this.on = false; this.mobs = []; this.fx = []; this.status = "off"; this.target = null; this.atkT = 0; this.repathT = 0; this.respawn = []; this.dying = []; this.rigs = new Map();
     this.retreats = 0; this.session = { kills: 0, exp: 0, xc: 0 }; this.listeners = new Set(); this.lootWarn = 0; this.restLabel = "";
+    this.CD = { strike: 7, mend: 18 }; this.cd = { strike: 0, mend: 0 };
   }
   get eco() { return this.e.eco; }
   get hero() { return getHero(this.eco); }
   get species() { return speciesById(this.hero.species); }
   onChange(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
   _emit() { for (const f of this.listeners) f(); }
-  setSpecies(id) { const h = this.hero; if (h.species === id) return; h.species = id; this.retreats = 0; if (this.on) { this.clearMobs(); this._fill(true); } this._emit(); }
-  toggle() { this.setOn(!this.on); }
+  setSpecies(id) { const h = this.hero; if (h.species === id) return; h.species = id; this.retreats = 0; if (this.on) { if (this.e.areaId !== this.species.z) { this.setOn(false); this.toggle(); } else { this.clearMobs(); this._fill(true); } } this._emit(); }
+  toggle() {
+    if (this.on) return this.setOn(false, "manual"); const sp = this.species, e = this.e;
+    if (e.busy) return; if (e.areaId !== sp.z) { e.ui.toast?.(`Travelling to ${AREA_NAMES[sp.z] || sp.z}…`); e.travel(sp.z, "s", { then: () => this.setOn(true) }); return; }
+    this.setOn(true);
+  }
   setOn(on, why) {
     if (on === this.on) return; this.on = on; this.target = null; this.retreats = 0; this.e.cancelAction(); this.e.player.path = [];
     if (on) { this.session = { kills: 0, exp: 0, xc: 0 }; this.status = "seek"; this._fill(true); this.e.ui.toast?.(`Auto-grind on · ${this.species.name}`); }
@@ -67,11 +74,12 @@ export class Grinder {
   // ---------------------------------------------------------------- spawning
   _rig(sp) { const k = sp.id; if (!this.rigs.has(k)) this.rigs.set(k, buildRig(sp.kind, sp.tint, TIER_SIZE[sp.tier], sp.tier)); return this.rigs.get(k); }
   _spot() {
-    const e = this.e, w = e.world, T = w.tile, p = e.player;
-    for (let i = 0; i < 60; i++) {
-      const c = 2 + Math.floor(Math.random() * (w.cols - 4)), r = 16 + Math.floor(Math.random() * (w.rows - 17)); if (!e.walkable(c, r)) continue;
-      const t = w.terrainAt(c, r); if (t === 4 || t === 5 || t === 7 || t === 3 || t === 9) continue; const x = (c + 0.5) * T, y = (r + 0.5) * T;
-      if (Math.hypot(x - w.home.x, y - w.home.y) < 260) continue; if (Math.hypot(x - p.x, y - p.y) < 130) continue; if (this.mobs.some((m) => Math.hypot(m.x - x, m.y - y) < 90)) continue;
+    const e = this.e, w = e.world, T = w.tile, p = e.player, zoned = !w.home, en = w.entries?.s;
+    for (let i = 0; i < 80; i++) {
+      const c = zoned ? 3 + Math.floor(Math.random() * (w.cols - 6)) : 2 + Math.floor(Math.random() * (w.cols - 4)), r = zoned ? 7 + Math.floor(Math.random() * (w.rows - 13)) : 16 + Math.floor(Math.random() * (w.rows - 17)); if (!e.walkable(c, r)) continue;
+      const t = w.terrainAt(c, r); if (t === 4 || t === 5 || t === 7 || (!zoned && (t === 3 || t === 9)) || (zoned && t === 10)) continue; const x = (c + 0.5) * T, y = (r + 0.5) * T;
+      if (w.home && Math.hypot(x - w.home.x, y - w.home.y) < 260) continue; if (zoned && en && Math.hypot(x - (en.c + 0.5) * T, y - (en.r + 0.5) * T) < 240) continue;
+      if (Math.hypot(x - p.x, y - p.y) < 130) continue; if (this.mobs.some((m) => Math.hypot(m.x - x, m.y - y) < 90)) continue;
       if (e._facBlocked?.[r * w.cols + c]) continue; return { x, y };
     }
     return null;
@@ -86,6 +94,7 @@ export class Grinder {
   update(dt) {
     for (const f of this.fx) f.t += dt; this.fx = this.fx.filter((f) => f.t < 1.1);
     const p = this.e.player, h = this.hero, st = heroStats(h.lv);
+    for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt);
     p.lunge = Math.max(0, (p.lunge || 0) - dt * 5);
     if (!this.on) { if (h.hp < st.maxHp) { h.hp = Math.min(st.maxHp, h.hp + st.maxHp * 0.012 * dt); } return; }
     // respawn queue
@@ -117,8 +126,28 @@ export class Grinder {
     }
     // in reach: fight
     p.path = []; p.moving = false; this.status = "fight"; p.dir = this.e.dirFrom(dx, dy); this.atkT -= dt; m.atkT -= dt; m.face = dx < 0 ? 1 : -1;
-    if (this.atkT <= 0) { this.atkT = st.speed; const dmg = heroHit(h.lv, m.sp.tier); m.hp -= dmg; m.flash = 1; m.hitAt = this.e.time; p.lunge = 1; this.fx.push({ x: m.x + (Math.random() - 0.5) * 16, y: m.y - TIER_SIZE[m.sp.tier] * 0.8, t: 0, txt: String(dmg), col: "#fff4cf" }); this.e.ui.audio?.thud?.(); if (m.hp <= 0) return this._kill(m); }
+    if (this.cd.strike <= 0) { this.cast("strike"); if (m.hp <= 0 || !this.mobs.includes(m)) return; }
+    else if (h.hp < st.maxHp * 0.5 && this.cd.mend <= 0) this.cast("mend");
+    if (this.atkT <= 0) { this.atkT = st.speed; if (this._hit(m, 1, heroHit(h.lv, m.sp.tier))) return; }
     if (m.atkT <= 0) { m.atkT = MOB_SWING; m.swingAt = this.e.time; const dmg = mobHit(m.sp, m.lv, h.lv); h.hp -= dmg; this.fx.push({ x: p.x, y: p.y - 130, t: 0, txt: "-" + dmg, col: "#ff9a8a" }); if (h.hp <= 0) return this._faint(); }
+  }
+  /** one blow on mob m; returns true when it killed it */
+  _hit(m, k, base, crit) {
+    const p = this.e.player, dmg = Math.max(1, Math.round(base * k)); m.hp -= dmg; m.flash = 1; m.hitAt = this.e.time; p.lunge = 1;
+    this.fx.push({ x: m.x + (Math.random() - 0.5) * 16, y: m.y - sizeOf(m.sp) * 0.8, t: 0, txt: String(dmg), col: crit ? "#ffd27a" : "#fff4cf", big: !!crit }); this.e.ui.audio?.thud?.();
+    if (m.hp <= 0) { this._kill(m); return true; } return false;
+  }
+  /** hero skills: "strike" = Power Strike (golden ring, area damage), "mend" = heal. Used automatically while Auto is on, or by the skill buttons. */
+  cast(id) {
+    const e = this.e, p = e.player, h = this.hero, st = heroStats(h.lv); if (this.cd[id] > 0 || e.busy) return false;
+    if (id === "mend") { if (h.hp >= st.maxHp) return false; const n = Math.round(st.maxHp * 0.35); h.hp = Math.min(st.maxHp, h.hp + n); this.cd.mend = this.CD.mend; this.fx.push({ x: p.x, y: p.y - 150, t: 0, txt: "+" + n, col: "#9be5a8" }); this.fx.push({ ring: true, x: p.x, y: p.y, t: 0, col: "155,229,168" }); e.ui.audio?.ok?.(); this._emit(); return true; }
+    if (id === "strike") {
+      const m = this.target; if (!this.on || !m || !this.mobs.includes(m) || Math.hypot(m.x - p.x, m.y - p.y) > REACH + 14) return false;
+      this.cd.strike = this.CD.strike; this.fx.push({ ring: true, x: m.x, y: m.y, t: 0, col: "246,214,120", big: true }); this.atkT = Math.max(this.atkT, 0.4);
+      const base = heroHit(h.lv, m.sp.tier); for (const o of [...this.mobs]) { if (o === m || Math.hypot(o.x - m.x, o.y - m.y) > 96) continue; this._hit(o, 0.6, base); }
+      this._hit(m, 2.6, base, true); this._emit(); return true;
+    }
+    return false;
   }
   _retreat(why) {
     const m = this.target; if (m) { m.hp = m.max; } this.target = null; this.retreats++; this.e.player.path = [];
@@ -126,8 +155,8 @@ export class Grinder {
     this.status = "rest"; this.fx.push({ x: this.e.player.x, y: this.e.player.y - 140, t: 0, txt: "Resting…", col: "#bfe3d0" }); this._emit();
   }
   _faint() {
-    const e = this.e, w = e.world, h = this.hero; this.setOn(false); h.hp = Math.round(heroStats(h.lv).maxHp * 0.6); e.player.x = w.home.x; e.player.y = w.home.y + 40; e.player.path = [];
-    e.cam.x = e.player.x - e.vw / e.zoom / 2; e.cam.y = e.player.y - e.vh / e.zoom / 2; e.ui.toast?.("You fainted and were carried home. Auto-grind stopped.");
+    const e = this.e, h = this.hero; this.setOn(false); h.hp = Math.round(heroStats(h.lv).maxHp * 0.6); e.ui.toast?.("You fainted and were carried home. Auto-grind stopped.");
+    e.travel("home", "s", { spot: "homeDoor", force: true });
   }
   _kill(m) {
     const e = this.e, h = this.hero, rw = rewards(m.sp, m.lv, h.lv, e.catalog), parts = [`+${rw.exp} exp`];
@@ -145,10 +174,11 @@ export class Grinder {
   entities(c) {
     const out = [], e = this.e, T = e.time, clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
     const one = (m, d) => ({ y: m.y, f: () => {
-      const rig = this._rig(m.sp), sz = TIER_SIZE[m.sp.tier], atk = (T - m.swingAt) / 0.55, hit = clamp(1 - (T - m.hitAt) / 0.35, 0, 1);
+      const spr = monsterSprite(m.sp), sz = spr ? sizeOf(m.sp) : TIER_SIZE[m.sp.tier], atk = (T - m.swingAt) / 0.55, hit = clamp(1 - (T - m.hitAt) / 0.35, 0, 1);
       if (!d && m.sp.tier === "boss") { c.save(); c.globalAlpha = 0.28 + Math.sin(T * 3) * 0.08; c.strokeStyle = "#ff6a5a"; c.lineWidth = 5; c.beginPath(); c.ellipse(m.x, m.y - 4, sz * 0.62, sz * 0.18, 0, 0, 6.3); c.stroke(); c.restore(); }
       else if (!d && m.sp.tier === "sub") { c.save(); c.globalAlpha = 0.32 + Math.sin(T * 2.4) * 0.08; c.strokeStyle = "#f2d889"; c.lineWidth = 3.5; c.beginPath(); c.ellipse(m.x, m.y - 3, sz * 0.5, sz * 0.14, 0, 0, 6.3); c.stroke(); c.restore(); }
-      drawMob(c, rig, { x: m.x, y: m.y, sz, face: m.face, t: m.t, id: m.id, mv: m.mv, swing: atk >= 0 && atk <= 1 ? atk : -1, hit, flash: m.flash, born: m.born, dead: d ? clamp((T - d.t0) / 0.8, 0, 1) : 0 });
+      const st = { x: m.x, y: m.y, face: m.face, t: m.t, id: m.id, mv: m.mv, swing: atk >= 0 && atk <= 1 ? atk : -1, hit, flash: m.flash, born: m.born, dead: d ? clamp((T - d.t0) / 0.8, 0, 1) : 0, art: m.sp.art };
+      if (spr) drawMonster(c, spr, { ...st, h: sz }); else drawMob(c, this._rig(m.sp), { ...st, sz });
     } });
     for (const d of this.dying) out.push(one(d.m, d)); for (const m of this.mobs) out.push(one(m, null));
     return out;
@@ -157,15 +187,17 @@ export class Grinder {
   drawBars(c) {
     const T = this.e.time;
     for (const m of this.mobs) {
-      if (m.born < 0.6) continue; const rig = this._rig(m.sp), sz = TIER_SIZE[m.sp.tier], tier = m.sp.tier, top = m.y - sz + 4 + rig.top * sz - (rig.kind === "spirit" ? 10 : 0), isT = m === this.target;
+      if (m.born < 0.6) continue; const spr = monsterSprite(m.sp), tier = m.sp.tier, isT = m === this.target; let top;
+      if (spr) top = topOf({ y: m.y, art: m.sp.art }, sizeOf(m.sp)) + 6; else { const rig = this._rig(m.sp), sz = TIER_SIZE[tier]; top = m.y - sz + 4 + rig.top * sz - (rig.kind === "spirit" ? 10 : 0); }
       if (tier === "mob") barMob(c, m.x, top - 9, m, isT); else if (tier === "sub") barSub(c, m.x, top - 11, m); else barBoss(c, m.x, top - 13, m, T);
     }
   }
   _flashSprite() { return null; }
   drawFx(c) {
     c.save(); c.textAlign = "center"; c.lineJoin = "round";
-    for (const f of this.fx) { const k = f.t / 1.1; c.globalAlpha = 1 - k * k; if (f.puff) { c.fillStyle = f.col; c.font = "700 22px system-ui"; c.fillText("✦", f.x - 14 - k * 18, f.y - k * 30); c.fillText("✦", f.x + 14 + k * 18, f.y - k * 24); continue; }
-      c.font = (f.wide ? "700 12px system-ui" : "800 15px system-ui"); c.lineWidth = 3.5; c.strokeStyle = "rgba(30,20,36,.9)"; c.strokeText(f.txt, f.x, f.y - k * 38); c.fillStyle = f.col; c.fillText(f.txt, f.x, f.y - k * 38); }
+    for (const f of this.fx) { const k = f.t / 1.1; c.globalAlpha = 1 - k * k; if (f.ring) { const kk = Math.min(1, f.t / 0.6), R = (f.big ? 96 : 60) * (0.35 + 0.65 * kk); c.globalAlpha = 0.9 * (1 - kk); c.lineWidth = 4 + 3 * (1 - kk); c.strokeStyle = `rgba(${f.col},1)`; c.shadowColor = `rgba(${f.col},.9)`; c.shadowBlur = 12; c.beginPath(); c.ellipse(f.x, f.y - 4, R, R * 0.36, 0, 0, 6.3); c.stroke(); c.shadowBlur = 0; continue; }
+      if (f.puff) { c.fillStyle = f.col; c.font = "700 22px system-ui"; c.fillText("✦", f.x - 14 - k * 18, f.y - k * 30); c.fillText("✦", f.x + 14 + k * 18, f.y - k * 24); continue; }
+      c.font = (f.wide ? "700 12px system-ui" : f.big ? "900 20px system-ui" : "800 15px system-ui"); c.lineWidth = 3.5; c.strokeStyle = "rgba(30,20,36,.9)"; c.strokeText(f.txt, f.x, f.y - k * 38); c.fillStyle = f.col; c.fillText(f.txt, f.x, f.y - k * 38); }
     c.restore();
   }
 }
