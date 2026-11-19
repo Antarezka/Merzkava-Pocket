@@ -6,7 +6,7 @@
 // level 51+ species and all bosses recolour a portrait with hue/sat/bri. The procedural rig (art/mobs.js) is only the fallback while a portrait loads.
 // Drops use existing catalogue items by name (names that don't exist in the catalogue are skipped), prices are never touched.
 
-export const MAX_LEVEL = 100;
+export const MAX_LEVEL = 666;   // player level cap (content - zones, monsters - currently ends at Lv 100)
 /** nominal body height in world px (hero = 118), native facing of the portrait (1 = looks right) and the fallback rig kind/tint */
 export const ART = {
   green_slime: { h: 58, face: 1, kind: "slime", tint: "#7fcf7f" }, wild_boar: { h: 66, face: 1, kind: "beast", tint: "#8a6a50" }, wooden_spirit: { h: 86, face: 1, kind: "spirit", tint: "#a98a5a" },
@@ -96,19 +96,19 @@ export const TIER_SCALE = { mob: 1, sub: 1.45, boss: 1.95 };
 /** world height of a species (puppet portrait) */
 export const sizeOf = (sp) => (ART[sp.art]?.h || 90) * TIER_SCALE[sp.tier];
 
+import { statsOf, LEVEL_CAP, heroRec } from "./progression.js";
+
 // ---------------------------------------------------------------- hero progression
-export const expToNext = (lv) => Math.round(20 * Math.pow(lv, 1.55));
-export const heroStats = (lv) => ({ maxHp: Math.round(40 + lv * 12), atk: 5 + lv * 2.4, def: lv * 0.7, speed: 0.9 });
+export const expToNext = (lv) => Math.round(28 * Math.pow(lv, 1.6));   // hard grind: ~30 kills per level around Lv 10
 export function getHero(eco) {
-  const f = eco.state.flags; const h = (f.hero ||= { lv: 1, exp: 0, hp: null, kills: 0, species: null });
-  const st = heroStats(h.lv); if (h.hp == null || h.hp > st.maxHp) h.hp = st.maxHp; if (!h.species) h.species = defaultSpecies(h.lv); return h;
+  const h = heroRec(eco), st = statsOf(eco); if (h.hp == null || h.hp > st.maxHp) h.hp = st.maxHp; if (!h.species) h.species = defaultSpecies(h.lv); return h;
 }
 export function defaultSpecies(lv) { let best = MOBS[0]; for (const m of MOBS) if (m.lv[0] <= lv) best = m; return best.id; }
-/** returns number of levels gained */
+/** returns number of levels gained.  Levelling gives stat points (3 per level) - it never raises an attribute by itself. */
 export function addExp(eco, amount) {
   const h = getHero(eco); let up = 0; if (h.lv >= MAX_LEVEL) return 0; h.exp += amount;
   while (h.lv < MAX_LEVEL && h.exp >= expToNext(h.lv)) { h.exp -= expToNext(h.lv); h.lv++; up++; }
-  if (h.lv >= MAX_LEVEL) h.exp = 0; if (up) h.hp = heroStats(h.lv).maxHp; return up;
+  if (h.lv >= MAX_LEVEL) h.exp = 0; if (up) h.hp = statsOf(eco).maxHp; return up;
 }
 
 // ---------------------------------------------------------------- mob maths
@@ -117,19 +117,21 @@ export const TIER_SIZE = { mob: 58, sub: 88, boss: 124 }, TIER_RESPAWN = { mob: 
 export const mobHp = (lv, tier) => Math.round((14 + 7.5 * lv + 0.19 * lv * lv) * TIER_HP[tier]);
 export const mobDmg = (lv, tier) => (2 + 1.1 * lv) * TIER_ATK[tier];
 export function rollLevel(sp, rnd = Math.random) { return sp.lv[0] + Math.floor(rnd() * (sp.lv[1] - sp.lv[0] + 1)); }
-export function rewards(sp, mobLv, heroLv, catalog, rnd = Math.random) {
+export function rewards(sp, mobLv, heroLv, catalog, rnd = Math.random, luck = 1) {
   const diff = Math.max(0.2, Math.min(1.8, 1 + 0.12 * (mobLv - heroLv)));
   const exp = Math.max(1, Math.round((6 + 3 * mobLv) * TIER_EXP[sp.tier] * diff));
   const xc = Math.round((0.15 + 0.05 * mobLv) * TIER_COIN[sp.tier] * 100) / 100, items = [];
   sp.drops.forEach((name, i) => {
     const it = catalog.byName?.(name); if (!it) return; let q = 0;
-    if (sp.tier === "mob") { if (rnd() < (i === 0 ? 0.3 : 0.16)) q = mobLv >= 25 ? 2 : 1; }
+    if (sp.tier === "mob") { if (rnd() < (i === 0 ? 0.3 : 0.16) * luck) q = mobLv >= 25 ? 2 : 1; }
     else if (sp.tier === "sub") { if (i === 0 || rnd() < 0.5) q = 1 + Math.floor(rnd() * 2) + (i === 0 ? 1 : 0); }
     else q = 2 + Math.floor(rnd() * 3);
     if (q) items.push({ item_id: it.item_id, quantity: q });
   });
   return { exp, xc, items };
 }
-/** damage dealt by the hero in one swing / by a mob in one hit */
-export const heroHit = (lv, mobTier, rnd = Math.random) => Math.max(1, Math.round(heroStats(lv).atk * (0.85 + rnd() * 0.3) * (mobTier === "boss" ? 0.9 : 1)));
-export const mobHit = (sp, mobLv, heroLv, rnd = Math.random) => Math.max(1, Math.round(mobDmg(mobLv, sp.tier) * (0.85 + rnd() * 0.3) - heroStats(heroLv).def));
+/** one swing by the hero: { dmg, crit }.  st = statsOf(eco) (with temporary buffs) */
+export function heroHit(st, mobTier, rnd = Math.random) {
+  const crit = rnd() * 100 < st.crit; return { dmg: Math.max(1, Math.round(st.atk * (0.85 + rnd() * 0.3) * (mobTier === "boss" ? 0.9 : 1) * (crit ? st.critDmg / 100 : 1))), crit };
+}
+export const mobHit = (sp, mobLv, def, rnd = Math.random) => Math.max(1, Math.round(mobDmg(mobLv, sp.tier) * (0.85 + rnd() * 0.3) - def));

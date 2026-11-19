@@ -230,3 +230,25 @@
 .hd-area.show{animation:hd-ban 3.2s ease both}@keyframes hd-ban{0%{opacity:0;transform:translateY(8px)}15%,75%{opacity:1;transform:none}100%{opacity:0}}
 .placing .hd-keep,.placing .hd-log,.placing .hd-targets{display:none}
 .gm .gh-toasts{top:auto;bottom:calc(var(--sa-b) + 270px)}
+
+/* ---------- skill slots, mode chip, meridians, skill book ---------- */
+.hd-skills{gap:6px}.hd-row{gap:5px}.hd-mini-b{position:relative;width:38px;height:38px}.hd-mini-b small{font-size:6px;letter-spacing:.02em}
+.hd-mini-b .dot{position:absolute;top:1px;right:1px;width:10px;height:10px;border-radius:50%;background:var(--rose);box-shadow:0 0 0 2px #1d1722}
+.hd-mode{pointer-events:auto;padding:3px 10px;border-radius:12px;font-size:8.5px;font-weight:800;letter-spacing:.08em;background:rgba(29,23,34,.88);border:1.5px solid rgba(255,243,220,.3);color:#d9cbb6}.hd-mode.on{color:#bfe9c8;border-color:rgba(111,220,138,.6)}
+.hd-grid{display:grid;grid-template-columns:repeat(2,52px);gap:7px}.hd-grid .hd-sk{width:52px;height:52px}
+.hd-sk{border-color:color-mix(in srgb,var(--tc,#fff) 55%,transparent)}.hd-sk .hd-ic{display:grid;place-items:center}.hd-sk svg{width:20px;height:20px}.hd-sk small{font-size:6.5px;max-width:48px;white-space:nowrap}
+.hd-sk.empty{border-style:dashed;opacity:.65}.hd-sk.chant{animation:gh-pulse .5s ease-in-out infinite;border-color:#f6e4a0}
+.mt-head{display:flex;gap:8px;align-items:center;margin-bottom:8px}.mt-head div{flex:1;text-align:center;background:rgba(255,255,255,.06);border-radius:10px;padding:5px 2px}.mt-head b{display:block;font-size:18px;color:var(--gold)}.mt-head small{font-size:9px;opacity:.7}
+.mt-wrap{position:relative;border-radius:14px;overflow:hidden;border:1.5px solid rgba(255,243,220,.25)}.mt-cv{display:block;width:100%;height:min(46vh,380px);touch-action:none;cursor:grab}
+.mt-zoom{position:absolute;right:6px;top:6px;display:flex;flex-direction:column;gap:4px}.mt-zoom button{width:30px;height:30px;border-radius:9px;background:rgba(29,23,34,.85);border:1.5px solid rgba(255,243,220,.3);font-size:15px;font-weight:800}
+.mt-card{margin-top:8px}.mt-card h4{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.mt-dot{width:11px;height:11px;border-radius:50%;display:inline-block}.mt-key{background:var(--gold);color:var(--ink);border-radius:8px;padding:1px 6px;font-size:8px;font-weight:800}
+.mt-fx{color:var(--gold);font-weight:700}.mt-st{font-size:11px;opacity:.85}.mt-why{display:block;margin-top:4px;font-size:10px;color:#ffb4a8}
+.sb-slots{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px}.sb-slot{position:relative;padding:6px 2px 8px;border-radius:11px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,243,220,.2);display:flex;flex-direction:column;gap:2px;align-items:center;overflow:hidden}
+.sb-slot small{font-size:8px;opacity:.65;letter-spacing:.08em}.sb-slot b{font-size:10px}.sb-slot i{position:absolute;left:0;right:0;bottom:0;height:3px}.sb-slot.on{border-color:#f2d889;background:rgba(242,216,137,.14)}
+.sb-mode{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:8px;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.06)}.sb-mode small{display:block;font-size:10px;opacity:.7;margin-top:2px}
+.sb-card.locked{opacity:.82}.sb-card h4{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.sb-tier{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:10px;color:var(--ink);font-style:normal;font-weight:800}
+.sb-han{opacity:.55;font-size:11px}.sb-lv{margin-left:auto;font-style:normal;font-size:10px;color:var(--gold);font-weight:800}.sb-lv.off{color:#a99}.sb-stats{color:#bfe3d0;font-size:11px}.sb-find{font-size:10px;opacity:.65}
+.sb-cost{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0}.sb-mat{padding:2px 8px;border-radius:9px;background:rgba(255,120,110,.18);font-size:10px;font-weight:700}.sb-mat.ok{background:rgba(111,220,138,.2);color:#bfe9c8}
+.sb-btns{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.hd-mini-b{width:43px;height:38px;border-radius:12px!important}
+.gm .gh-toasts{top:44%;bottom:auto}

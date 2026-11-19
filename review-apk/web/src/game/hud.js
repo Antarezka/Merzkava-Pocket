@@ -2,7 +2,9 @@
 // top-left hero card (avatar, Lv, power, EXP/HP, xc) · top-right minimap + zone card · tabbed quest tracker · target list on the right edge ·
 // activity log bottom-left · "Auto is working" status pill · AUTO + skill cluster bottom-right · icon dock (bag, build, home, quests, menu).
 import { minuteOfDay, dayIndex } from "./data/clock.js";
-import { getHero, heroStats, expToNext, MAX_LEVEL, speciesById } from "./data/mobs.js";
+import { getHero, expToNext, MAX_LEVEL, speciesById } from "./data/mobs.js";
+import { statsOf, pointsOf, powerOf, NODE_COST } from "./data/progression.js";
+import { SKILLS, SKILL, skillRec, canLearn, setAuto, SLOT_COUNT } from "./data/skills.js";
 import { zoneById, AREA_NAMES } from "./data/areas.js";
 
 const ICON = {
@@ -11,11 +13,13 @@ const ICON = {
   menu: '<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>', sword: '<svg viewBox="0 0 24 24"><path d="M5 19l9-9M14 10l5-5v-1h-1l-5 5M4 20l2-1M6 16l2 2"/></svg>',
   map: '<svg viewBox="0 0 24 24"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2zM9 4v14M15 6v14"/></svg>', strike: '<svg viewBox="0 0 24 24"><path d="M4 20L15 9M13 7l4-4 4 4-4 4zM5 14l5 5M3 17l4 4"/></svg>',
   mend: '<svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 017-2.4A4 4 0 0119 10c0 5.6-7 10-7 10zM12 9v6M9 12h6"/></svg>',
+  aoe: '<svg viewBox="0 0 24 24"><path d="M3 15a9 5 0 0018 0M5 11a7 4 0 0114 0M12 4v4M8 5l1 3M16 5l-1 3"/></svg>', guard: '<svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6zM9 12l2 2 4-4"/></svg>',
+  book: '<svg viewBox="0 0 24 24"><path d="M5 4h11a3 3 0 013 3v13H8a3 3 0 01-3-3zM5 17a3 3 0 013-3h11M9 8h6"/></svg>', tree: '<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="14" r="2"/><circle cx="19" cy="14" r="2"/><circle cx="12" cy="20" r="2"/><path d="M12 7v11M11 6.5L6 12.5M13 6.5l5 6M6.5 15.5l4 3M17.5 15.5l-4 3"/></svg>',
+  plus: '<svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg>',
 };
 const TERRAIN_RGB = null;
 const fmt = (n) => (Math.round(n * 100) / 100).toString();
 const rgbOf = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-const power = (lv) => { const s = heroStats(lv); return Math.round(s.atk * 12 + s.maxHp * 0.35 + s.def * 10); };
 
 export function buildHud({ h, hud, eco, audio, api, getEngine }) {
   const log = []; let tab = "quest", open = true, avatarKey = "";
@@ -42,8 +46,8 @@ export function buildHud({ h, hud, eco, audio, api, getEngine }) {
       const list = eco.questList().filter((q) => !q.claimed).slice(0, 3);
       bodyEl.replaceChildren(...(list.length ? list.map((q) => h("div", { class: "hd-q" + (q.done ? " done" : ""), onclick: () => { audio.tap(); api.openQuests(); } }, mk("span", "", (q.tutorial ? "★ " : "") + q.title), mk("em", "", q.done ? "READY" : `${fmt(Math.min(q.progress, q.target))}/${q.target}`), mk("div", "hd-qb", h("i", { style: `width:${Math.round(Math.min(1, q.progress / q.target) * 100)}%` })))) : [mk("p", "hd-none", "All quests claimed.")]));
     } else if (tab === "hero") {
-      const hr = getHero(eco), st = heroStats(hr.lv), g = getEngine()?.grind;
-      bodyEl.replaceChildren(...[["Power", power(hr.lv)], ["ATK", Math.round(st.atk)], ["DEF", Math.round(st.def)], ["Max HP", st.maxHp], ["Kills", hr.kills || 0], ["This run", g?.on ? `${g.session.kills} kills · +${g.session.exp} exp` : "—"]].map(([k, v]) => mk("div", "hd-stat", mk("span", "", k), mk("b", "", String(v)))));
+      const hr = getHero(eco), st = statsOf(eco), pt = pointsOf(eco), g = getEngine()?.grind;
+      bodyEl.replaceChildren(...[["Power", powerOf(st)], ["Stat points", `${pt.free} free`], ["ATK / DEF", `${Math.round(st.atk)} / ${Math.round(st.def)}`], ["Max HP", st.maxHp], ["Crit", `${st.crit.toFixed(1)}% ×${(st.critDmg / 100).toFixed(2)}`], ["Chant −", `${st.cdr.toFixed(1)}%`], ["This run", g?.on ? `${g.session.kills} kills · +${g.session.exp} exp` : `${hr.kills || 0} kills total`]].map(([k, v]) => mk("div", "hd-stat", mk("span", "", k), mk("b", "", String(v)))));
     } else bodyEl.replaceChildren(...(log.length ? log.slice(-5).reverse().map((l) => mk("p", "hd-ll", l.t)) : [mk("p", "hd-none", "Nothing yet.")]));
   }
   // ---- target list (right edge)
@@ -51,11 +55,18 @@ export function buildHud({ h, hud, eco, audio, api, getEngine }) {
   // ---- activity log + status pill
   const logEl = mk("div", "hd-log"), pillDot = mk("i", ""), pillTxt = mk("span", ""), pill = h("button", { type: "button", class: "hd-pill hd-keep", onclick: () => { audio.tap(); getEngine()?.grind.toggle(); } }, pillDot, pillTxt);
   // ---- skills + AUTO
-  const cdTxt = {}, skill = (id, label, ic) => { const t = mk("em", "", ""); cdTxt[id] = t; return h("button", { type: "button", class: "hd-sk", "aria-label": label, onclick: () => { audio.tap(); const g = getEngine()?.grind; if (g && !g.cast(id)) api.toast(id === "strike" ? (g.on ? "Move closer to a target first." : "Start Auto-grind first.") : g.cd.mend > 0 ? "Not ready yet." : "HP is already full."); } }, h("span", { html: ICON[ic] }), mk("small", "", label), t); };
+  const slotEls = [], slotIds = [];
+  const slotBtn = (i) => { const ic = mk("span", "hd-ic", ""), nm = mk("small", "", ""), t = mk("em", "", "");
+    const b = h("button", { type: "button", class: "hd-sk empty", "aria-label": "Skill slot " + (i + 1), onclick: () => { audio.tap(); const g = getEngine()?.grind, id = skillRec(eco).slots[i]; if (!id) { api.openBook(i); return; } if (g && !g.cast(id) && g.why) api.toast(g.why); } }, ic, nm, t);
+    slotEls[i] = { b, ic, nm, t }; return b; };
   const huntB = h("button", { type: "button", class: "hd-mini-b", "aria-label": "Hunting list", onclick: () => { audio.tap(); api.openHunt(); } }, h("span", { html: ICON.sword }), mk("small", "", "HUNT"));
   const mapB = h("button", { type: "button", class: "hd-mini-b", "aria-label": "Travel map", onclick: () => { audio.tap(); api.openMap(); } }, h("span", { html: ICON.map }), mk("small", "", "MAP"));
+  const bookDot = h("i", { class: "dot gm-hidden" }), treeDot = h("i", { class: "dot gm-hidden" });
+  const bookB = h("button", { type: "button", class: "hd-mini-b", "aria-label": "Skill book", onclick: () => { audio.tap(); api.openBook(); } }, h("span", { html: ICON.book }), mk("small", "", "SKILLS"), bookDot);
+  const treeB = h("button", { type: "button", class: "hd-mini-b", "aria-label": "Meridians", onclick: () => { audio.tap(); api.openTree(); } }, h("span", { html: ICON.tree }), mk("small", "", "MERIDIAN"), treeDot);
+  const modeB = h("button", { type: "button", class: "hd-mode on", "aria-label": "Skill mode", onclick: () => { audio.tap(); const r = skillRec(eco); setAuto(eco, !r.auto); api.toast(r.auto ? "Skills fire automatically while Auto is on." : "Manual skills — tap a slot to use it."); api.frame(); } }, "SKILLS · AUTO");
   const autoSub = mk("small", "", "OFF"), autoB = h("button", { type: "button", class: "hd-auto", "aria-label": "Auto-grind", onclick: () => { audio.tap(); getEngine()?.grind.toggle(); } }, mk("b", "", "AUTO"), autoSub);
-  api.side = mk("div", "hd-skills hd-keep", mk("div", "hd-row", huntB, mapB), mk("div", "hd-row", skill("strike", "STRIKE", "strike"), skill("mend", "MEND", "mend")), autoB);
+  api.side = mk("div", "hd-skills hd-keep", mk("div", "hd-row", huntB, mapB, bookB, treeB), modeB, mk("div", "hd-grid", ...[0, 1, 2, 3].map(slotBtn)), autoB);
   // ---- dock
   const dot = h("i", { class: "dot gm-hidden" });
   api.bar = mk("div", "hd-dock hd-keep", ...[["bag", "BAG", () => api.openBag()], ["build", "BUILD", () => api.openBuild()], ["home", "HOME", () => api.openHome()], ["quest", "QUESTS", () => api.openQuests(), dot], ["menu", "MENU", () => api.openPause()]]
@@ -87,8 +98,8 @@ export function buildHud({ h, hud, eco, audio, api, getEngine }) {
 
   let slow = 0;
   api.frame = () => {
-    const e = getEngine(), sim = eco.now(), m = minuteOfDay(sim), hr = getHero(eco), st = heroStats(hr.lv), g = e?.grind, need = expToNext(hr.lv);
-    lvB.textContent = hr.lv; pw.textContent = "⚔ " + power(hr.lv); xpI.style.width = (hr.lv >= MAX_LEVEL ? 100 : Math.min(100, hr.exp / need * 100)).toFixed(1) + "%"; xpT.textContent = hr.lv >= MAX_LEVEL ? "MAX" : (hr.exp / need * 100).toFixed(1) + "%";
+    const e = getEngine(), sim = eco.now(), m = minuteOfDay(sim), hr = getHero(eco), st = statsOf(eco), g = e?.grind, need = expToNext(hr.lv);
+    lvB.textContent = hr.lv; pw.textContent = "⚔ " + powerOf(st); xpI.style.width = (hr.lv >= MAX_LEVEL ? 100 : Math.min(100, hr.exp / need * 100)).toFixed(1) + "%"; xpT.textContent = hr.lv >= MAX_LEVEL ? "MAX" : (hr.exp / need * 100).toFixed(1) + "%";
     hpI.style.width = Math.max(0, Math.min(100, hr.hp / st.maxHp * 100)).toFixed(1) + "%"; hpT.textContent = `${Math.ceil(hr.hp)}/${st.maxHp}`; xcT.textContent = "◈ " + fmt(eco.wallet()) + " xc";
     dayT.textContent = `Day ${dayIndex(sim) + 1} · ${String(Math.floor(m / 60)).padStart(2, "0")}:${String(Math.floor(m % 60)).padStart(2, "0")}`;
     const q = eco.questList(); dot.classList.toggle("gm-hidden", !q.some((x) => x.done && !x.claimed));
@@ -97,13 +108,17 @@ export function buildHud({ h, hud, eco, audio, api, getEngine }) {
       const on = !!g?.on, sp = speciesById(hr.species), here = e.areaId === sp.z;
       pill.classList.toggle("on", on); pillTxt.textContent = on ? (g.status === "rest" ? "Auto is resting — tap to stop" : "Auto is working — tap to stop") : (e.busy ? "Travelling…" : here || !z ? `Auto off — tap to hunt ${sp.name}` : `Auto off — tap to travel & hunt ${sp.name}`);
       autoB.classList.toggle("on", on); autoSub.textContent = on ? (g.status === "rest" ? "REST" : g.status === "fight" ? "FIGHT" : "HUNT") : "OFF";
-      for (const id of ["strike", "mend"]) { const cd = g?.cd[id] || 0, t = cdTxt[id]; t.textContent = cd > 0 ? String(Math.ceil(cd)) : ""; t.parentElement.classList.toggle("cd", cd > 0); t.parentElement.style.setProperty("--k", cd > 0 ? (cd / g.CD[id]).toFixed(3) : "0"); t.parentElement.classList.toggle("ready", cd <= 0 && on); }
+      const rec = skillRec(eco); modeB.classList.toggle("on", rec.auto); modeB.textContent = rec.auto ? "SKILLS · AUTO" : "SKILLS · MANUAL";
+      for (let i = 0; i < SLOT_COUNT; i++) { const id = rec.slots[i], sk = SKILL[id], el = slotEls[i], cd = (id && g?.cd[id]) || 0, ch = g?.chant && g.chant.id === id;
+        if (slotIds[i] !== (id || "")) { slotIds[i] = id || ""; el.ic.innerHTML = sk ? ICON[sk.type === "hit" ? "strike" : sk.type === "aoe" ? "aoe" : sk.type === "heal" ? "mend" : "guard"] : ICON.plus; el.nm.textContent = sk ? sk.short : "EMPTY"; el.b.classList.toggle("empty", !sk); el.b.style.setProperty("--tc", sk ? `rgb(${sk.col})` : "#fff"); }
+        el.t.textContent = ch ? "…" : cd > 0 ? String(Math.ceil(cd)) : ""; el.b.classList.toggle("cd", cd > 0); el.b.classList.toggle("chant", !!ch); el.b.style.setProperty("--k", cd > 0 ? (cd / (g.cdMax[id] || cd)).toFixed(3) : "0"); el.b.classList.toggle("ready", !!sk && cd <= 0 && !ch && on); }
       // targets
       const list = on ? [...g.mobs].sort((a, b) => Math.hypot(a.x - e.player.x, a.y - e.player.y) - Math.hypot(b.x - e.player.x, b.y - e.player.y)).slice(0, 4) : [];
       targets.replaceChildren(...list.map((t) => mk("div", "hd-t" + (t === g.target ? " cur" : "") + " " + t.sp.tier, mk("b", "", `Lv ${t.lv}`), mk("span", "", t.sp.name), mk("div", "hd-tb", h("i", { style: `width:${Math.max(0, t.hp / t.max * 100).toFixed(0)}%` })))));
       hud.classList.toggle("boss-on", !!(g?.on && g.target && g.target.sp.tier !== "mob" && g.mobs.includes(g.target)));
     }
-    if (++slow % 4 === 0 && open && (tab === "quest" || tab === "hero")) renderBody();
+    if (++slow % 4 === 0) { treeDot.classList.toggle("gm-hidden", pointsOf(eco).free < NODE_COST); bookDot.classList.toggle("gm-hidden", !SKILLS.some((k) => canLearn(eco, k.id, eco.catalog).ok)); }
+    if (slow % 4 === 0 && open && (tab === "quest" || tab === "hero")) renderBody();
   };
   return { frame: api.frame };
 }

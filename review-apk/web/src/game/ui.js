@@ -1,7 +1,10 @@
 // In-game HUD + panels (bag, home & storage, build, facility, merchant, quests, pause). Pure DOM, no framework.
 import { minuteOfDay, dayIndex } from "./data/clock.js";
 import { housePlan, upgradeHouse, houseLevel } from "./data/house.js";
-import { ROSTER, speciesById, getHero, heroStats, expToNext, MAX_LEVEL, TIER_LABEL } from "./data/mobs.js";
+import { ROSTER, speciesById, getHero, expToNext, MAX_LEVEL, TIER_LABEL } from "./data/mobs.js";
+import { statsOf } from "./data/progression.js";
+import { installSkillPanels } from "./skillui.js";
+import { SKILLS, addBooks } from "./data/skills.js";
 import { ZONES, zoneById, zoneOfLevel, AREA_NAMES, isHunting } from "./data/areas.js";
 import { buildHud } from "./hud.js";
 
@@ -68,7 +71,7 @@ export function createGameUI({ hud, layer, toastBox, eco, catalog, identity, aud
         h("em", { class: tough ? "bad" : fit ? "good" : "" }, cur ? "TARGET" : tough ? "TOUGH" : fit ? "FITS" : ""));
     };
     open("HUNTING", { sub: "", initial: cur0.z, tabs: ZONES.map((z) => [z.id, `Lv ${z.lv[0]}–${z.lv[1]}`]), render(tab, redraw, subEl) {
-      const hero = getHero(eco), st = heroStats(hero.lv), gr = getEngine()?.grind, sp = speciesById(hero.species), z = zoneById(tab); subEl.textContent = `Lv ${hero.lv} · HP ${Math.ceil(hero.hp)}/${st.maxHp}`;
+      const hero = getHero(eco), st = statsOf(eco), gr = getEngine()?.grind, sp = speciesById(hero.species), z = zoneById(tab); subEl.textContent = `Lv ${hero.lv} · HP ${Math.ceil(hero.hp)}/${st.maxHp}`;
       const card = h("div", { class: "gp-card" }, h("h4", null, `Target: ${sp.name}`), h("p", null, `${AREA_NAMES[sp.z]} · ${TIER_LABEL[sp.tier]} · Lv ${sp.lv[0] === sp.lv[1] ? sp.lv[0] : sp.lv[0] + "–" + sp.lv[1]} · drops ${sp.drops.join(", ")}`),
         gr?.on ? h("p", null, `This run: ${gr.session.kills} kills · +${gr.session.exp} exp · +${Math.round(gr.session.xc * 100) / 100} xc`) : h("p", null, "Auto-grind travels to the target's area, fights, loots and repeats. It rests when your HP is low."),
         h("button", { class: "gm-btn sm" + (gr?.on ? " rose" : ""), style: "margin-top:8px", onclick: () => { audio.tap(); if (gr?.on) { gr.setOn(false, "manual"); redraw(); } else { close(); gr.toggle(); } } }, gr?.on ? "STOP AUTO" : "START AUTO"));
@@ -90,6 +93,8 @@ export function createGameUI({ hud, layer, toastBox, eco, catalog, identity, aud
       })];
     } });
   };
+
+  installSkillPanels({ api, h, open, close, eco, audio, cat, getEngine });
 
   // ---------------------------------------------------------------- bag
   api.openBag = () => {
@@ -206,7 +211,7 @@ export function createGameUI({ hud, layer, toastBox, eco, catalog, identity, aud
       const out = [h("button", { class: "gm-btn", style: "margin-bottom:10px", onclick: () => { audio.tap(); close(); } }, "RESUME"),
         h("button", { class: "gm-btn alt", style: "margin-bottom:10px", onclick: () => { close(); onPause("options"); } }, "OPTIONS"),
         h("button", { class: "gm-btn alt", style: "margin-bottom:10px", onclick: () => { close(); onPause("menu"); } }, "SAVE & MAIN MENU")];
-      if (eco.isDev) out.push(h("div", { class: "gs-sec" }, "DEVELOPER TOOLS"), h("div", { class: "gp-qty" }, h("button", { class: "gm-chip", onclick: () => { eco.devGrant({ xc: 100 }); api.toast("+100 xc"); } }, "+100 xc"), h("button", { class: "gm-chip", onclick: () => { eco.devSkipTime(60); api.toast("+1 hour"); } }, "+1 h"), h("button", { class: "gm-chip", onclick: () => { eco.devSkipTime(480); api.toast("+8 hours"); } }, "+8 h")));
+      if (eco.isDev) out.push(h("div", { class: "gs-sec" }, "DEVELOPER TOOLS"), h("div", { class: "gp-qty" }, h("button", { class: "gm-chip", onclick: () => { eco.devGrant({ xc: 100 }); api.toast("+100 xc"); } }, "+100 xc"), h("button", { class: "gm-chip", onclick: () => { const hr = getHero(eco); hr.lv = Math.min(MAX_LEVEL, hr.lv + 10); eco.changed?.(); api.toast(`Dev: Lv ${hr.lv}`); } }, "+10 levels"), h("button", { class: "gm-chip", onclick: () => { for (const k of SKILLS) addBooks(eco, k.id, 20); api.toast("Dev: +20 of every skill book"); } }, "+20 books"), h("button", { class: "gm-chip", onclick: () => { eco.devSkipTime(60); api.toast("+1 hour"); } }, "+1 h"), h("button", { class: "gm-chip", onclick: () => { eco.devSkipTime(480); api.toast("+8 hours"); } }, "+8 h")));
       return out;
     } });
   };

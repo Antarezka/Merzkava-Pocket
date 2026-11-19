@@ -1,6 +1,8 @@
 // Auto-Grind: the hero hunts the chosen mob species on its own (seek -> fight -> loot -> next), rests when hurt and stops when it keeps losing.
 // Pure game logic + small canvas drawing; economy rules (items, wallet) go through GameEconomy, numbers live in data/mobs.js.
-import { speciesById, rollLevel, mobHp, rewards, heroHit, mobHit, heroStats, getHero, addExp, sizeOf, TIER_SIZE, TIER_RESPAWN, TIER_COUNT, MAX_LEVEL } from "./data/mobs.js";
+import { speciesById, rollLevel, mobHp, rewards, heroHit, mobHit, getHero, addExp, sizeOf, TIER_SIZE, TIER_RESPAWN, TIER_COUNT } from "./data/mobs.js";
+import { statsOf, pointsOf, NODE_COST } from "./data/progression.js";
+import { SKILL, skillRec, levelOfSkill, levelScale, rollBooks, addBooks } from "./data/skills.js";
 import { buildRig, drawMob } from "./art/mobs.js";
 import { drawMonster, monsterSprite, topOf } from "./art/monsters.js";
 import { zoneById, AREA_NAMES } from "./data/areas.js";
@@ -45,15 +47,33 @@ function barBoss(c, x, y, m, T) {
   c.restore();
 }
 
+
+// ---- skill effects (world space).  f = { kind, x, y, px, py, t, col, R }, k = t / 1.1
+const glow = (c, col, a, w) => { c.globalAlpha = a; c.strokeStyle = `rgba(${col},1)`; c.shadowColor = `rgba(${col},.95)`; c.shadowBlur = 14; c.lineWidth = w; c.lineCap = "round"; };
+const SKFX = {
+  vslash(c, f, k) { const q = Math.min(1, f.t / 0.28), a = 1 - Math.max(0, (f.t - 0.28) / 0.5); if (a <= 0) return; glow(c, f.col, a, 7 * (1 - f.t * 0.8)); for (const s of [-1, 1]) { c.beginPath(); c.moveTo(f.x + s * 46, f.y - 120); c.lineTo(f.x + s * 46 * (1 - q), f.y - 120 + 96 * q); c.stroke(); } },
+  crescent(c, f, k) { const q = Math.min(1, f.t / 0.35), a = 1 - Math.max(0, (f.t - 0.3) / 0.6); if (a <= 0) return; const R = (f.R || 118) * (0.7 + 0.3 * q); glow(c, f.col, a, 9 * (1 - q * 0.5)); c.beginPath(); c.ellipse(f.x, f.y - 30, R, R * 0.5, 0, -2.6, -2.6 + 5.2 * q); c.stroke(); },
+  dash(c, f, k) { const a = 1 - Math.min(1, f.t / 0.5); if (a <= 0) return; glow(c, f.col, a, 10 * a); c.beginPath(); c.moveTo(f.px ?? f.x - 80, (f.py ?? f.y) - 60); c.lineTo(f.x, f.y - 60); c.stroke(); c.lineWidth = 3; c.beginPath(); c.moveTo((f.px ?? f.x - 80) - 10, (f.py ?? f.y) - 74); c.lineTo(f.x + 14, f.y - 52); c.stroke(); },
+  thunder(c, f, k) { const a = 1 - Math.min(1, f.t / 0.7); if (a <= 0) return; glow(c, f.col, a, 4); for (let i = 0; i < 5; i++) { const ang = i * 1.256 + 0.4, r = (f.R || 130) * 0.8; let x = f.x + Math.cos(ang) * r, y = f.y - 190; c.beginPath(); c.moveTo(x, y); for (let j = 1; j <= 5; j++) { x += Math.sin(f.t * 40 + i * 7 + j * 3) * 14 + (f.x + Math.cos(ang) * r * 0.9 - x) * 0.2; y += (f.y + Math.sin(ang) * r * 0.35 - 10 - y) / (6 - j + 1); c.lineTo(x, y); } c.stroke(); } const R = (f.R || 130) * Math.min(1, f.t / 0.4); c.lineWidth = 5; c.beginPath(); c.ellipse(f.x, f.y - 4, R, R * 0.36, 0, 0, 6.3); c.stroke(); },
+  flurry(c, f, k) { const a = 1 - Math.min(1, f.t / 0.8); if (a <= 0) return; for (let i = 0; i < 6; i++) { const q = Math.min(1, Math.max(0, (f.t - i * 0.07) / 0.14)); if (q <= 0) continue; const ang = i * 1.9, r = 34 + (i % 3) * 8; glow(c, f.col, a, 5); c.beginPath(); c.moveTo(f.x - Math.cos(ang) * r, f.y - 70 - Math.sin(ang) * r * 0.8); c.lineTo(f.x - Math.cos(ang) * r + Math.cos(ang) * 2 * r * q, f.y - 70 - Math.sin(ang) * r * 0.8 + Math.sin(ang) * 2 * r * 0.8 * q); c.stroke(); } },
+  aura(c, f, k) { const q = Math.min(1, f.t / 0.55), a = 1 - Math.max(0, (f.t - 0.25) / 0.85); if (a <= 0) return; const R = (f.R || 170) * q; glow(c, f.col, a, 10 * (1 - q * 0.6)); c.beginPath(); c.ellipse(f.x, f.y - 6, R, R * 0.4, 0, 0, 6.3); c.stroke(); c.lineWidth = 4; for (let i = 0; i < 10; i++) { const ang = i * 0.628; c.beginPath(); c.moveTo(f.x + Math.cos(ang) * R * 0.55, f.y - 6 + Math.sin(ang) * R * 0.22); c.lineTo(f.x + Math.cos(ang) * R, f.y - 6 + Math.sin(ang) * R * 0.4); c.stroke(); } },
+  rain(c, f, k) { const a = 1 - Math.max(0, (f.t - 0.6) / 0.5); if (a <= 0) return; glow(c, f.col, a, 4); for (let i = 0; i < 16; i++) { const q = Math.min(1, Math.max(0, (f.t - (i % 8) * 0.05) / 0.3)); if (q <= 0 || q >= 1) continue; const ang = i * 2.4, r = (f.R || 200) * (0.25 + 0.75 * ((i * 37) % 10) / 10), x = f.x + Math.cos(ang) * r, y = f.y + Math.sin(ang) * r * 0.4, yy = y - 220 * (1 - q); c.beginPath(); c.moveTo(x, yy - 46); c.lineTo(x, yy); c.stroke(); } },
+  heal(c, f, k) { const a = 1 - Math.min(1, f.t / 1.0); if (a <= 0) return; glow(c, f.col, a, 5); const R = 24 + 36 * Math.min(1, f.t / 0.5); c.beginPath(); c.ellipse(f.x, f.y - 4, R, R * 0.36, 0, 0, 6.3); c.stroke(); c.fillStyle = `rgba(${f.col},1)`; for (let i = 0; i < 6; i++) { const yy = f.y - 20 - ((f.t * 90 + i * 40) % 170), xx = f.x + Math.sin(i * 2 + f.t * 3) * 34; c.globalAlpha = a * 0.9; c.fillRect(xx - 1.5, yy - 5, 3, 10); c.fillRect(xx - 5, yy - 1.5, 10, 3); } },
+  guard(c, f, k) { const a = 1 - Math.min(1, f.t / 1.0); if (a <= 0) return; glow(c, f.col, a, 5); for (let j = 0; j < 2; j++) { const R = 34 + j * 14 + 12 * Math.min(1, f.t / 0.4); c.beginPath(); for (let i = 0; i <= 6; i++) { const ang = i * 1.047 + 0.5; c.lineTo(f.x + Math.cos(ang) * R, f.y - 60 + Math.sin(ang) * R * 1.3); } c.stroke(); } },
+  rage(c, f, k) { const a = 1 - Math.min(1, f.t / 1.0); if (a <= 0) return; glow(c, f.col, a, 5); for (let i = 0; i < 9; i++) { const xx = f.x + (i - 4) * 9, h0 = 30 + ((i * 13) % 5) * 12 + f.t * 60; c.beginPath(); c.moveTo(xx, f.y - 6); c.quadraticCurveTo(xx + Math.sin(f.t * 12 + i) * 8, f.y - h0 * 0.6, xx, f.y - h0 - 20); c.stroke(); } },
+};
+
 const REACH = 54, MOB_SWING = 1.7;
 export class Grinder {
   constructor(engine) {
     this.e = engine; this.on = false; this.mobs = []; this.fx = []; this.status = "off"; this.target = null; this.atkT = 0; this.repathT = 0; this.respawn = []; this.dying = []; this.rigs = new Map();
     this.retreats = 0; this.session = { kills: 0, exp: 0, xc: 0 }; this.listeners = new Set(); this.lootWarn = 0; this.restLabel = "";
-    this.CD = { strike: 7, mend: 18 }; this.cd = { strike: 0, mend: 0 };
+    this.cd = {}; this.cdMax = {}; this.buffs = []; this.chant = null; this._st = null; this._stT = -1;
   }
   get eco() { return this.e.eco; }
   get hero() { return getHero(this.eco); }
+  /** final attributes incl. temporary skill buffs (recomputed at most once per frame) */
+  get st() { if (!this._st || this._stT !== this.e.time) { const b = { atk: 0, def: 0 }; for (const x of this.buffs) { b.atk += x.atk || 0; b.def += x.def || 0; } this._st = statsOf(this.eco, b); this._stT = this.e.time; } return this._st; }
   get species() { return speciesById(this.hero.species); }
   onChange(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
   _emit() { for (const f of this.listeners) f(); }
@@ -93,8 +113,9 @@ export class Grinder {
   // ---------------------------------------------------------------- per frame
   update(dt) {
     for (const f of this.fx) f.t += dt; this.fx = this.fx.filter((f) => f.t < 1.1);
-    const p = this.e.player, h = this.hero, st = heroStats(h.lv);
-    for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt);
+    const T = this.e.time, p = this.e.player, h = this.hero, st = this.st;
+    for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt); this.buffs = this.buffs.filter((b) => b.until > T);
+    if (st.regen > 0) h.hp = Math.min(st.maxHp, h.hp + st.maxHp * st.regen / 100 * dt); for (const b of this.buffs) if (b.regen) h.hp = Math.min(st.maxHp, h.hp + st.maxHp * b.regen / 100 * dt);
     p.lunge = Math.max(0, (p.lunge || 0) - dt * 5);
     if (!this.on) { if (h.hp < st.maxHp) { h.hp = Math.min(st.maxHp, h.hp + st.maxHp * 0.012 * dt); } return; }
     // respawn queue
@@ -126,10 +147,14 @@ export class Grinder {
     }
     // in reach: fight
     p.path = []; p.moving = false; this.status = "fight"; p.dir = this.e.dirFrom(dx, dy); this.atkT -= dt; m.atkT -= dt; m.face = dx < 0 ? 1 : -1;
-    if (this.cd.strike <= 0) { this.cast("strike"); if (m.hp <= 0 || !this.mobs.includes(m)) return; }
-    else if (h.hp < st.maxHp * 0.5 && this.cd.mend <= 0) this.cast("mend");
-    if (this.atkT <= 0) { this.atkT = st.speed; if (this._hit(m, 1, heroHit(h.lv, m.sp.tier))) return; }
-    if (m.atkT <= 0) { m.atkT = MOB_SWING; m.swingAt = this.e.time; const dmg = mobHit(m.sp, m.lv, h.lv); h.hp -= dmg; this.fx.push({ x: p.x, y: p.y - 130, t: 0, txt: "-" + dmg, col: "#ff9a8a" }); if (h.hp <= 0) return this._faint(); }
+    if (this.chant) { this.chant.t += dt; if (this.chant.t >= this.chant.dur) { const id = this.chant.id; this.chant = null; this._fire(id); if (m.hp <= 0 || !this.mobs.includes(m)) return; } }
+    else if (skillRec(this.eco).auto && this._autoCast(m, st)) { if (m.hp <= 0 || !this.mobs.includes(m)) return; }
+    if (this.atkT <= 0 && !this.chant) { this.atkT = st.speed; const r = heroHit(st, m.sp.tier); if (this._hit(m, 1, r.dmg, r.crit)) return; }
+    if (m.atkT <= 0) {
+      m.atkT = MOB_SWING; m.swingAt = this.e.time;
+      if (Math.random() * 100 < st.evade) this.fx.push({ x: p.x, y: p.y - 130, t: 0, txt: "Miss", col: "#bfe3d0" });
+      else { const dmg = mobHit(m.sp, m.lv, st.def); h.hp -= dmg; this.fx.push({ x: p.x, y: p.y - 130, t: 0, txt: "-" + dmg, col: "#ff9a8a" }); if (h.hp <= 0) return this._faint(); }
+    }
   }
   /** one blow on mob m; returns true when it killed it */
   _hit(m, k, base, crit) {
@@ -137,17 +162,41 @@ export class Grinder {
     this.fx.push({ x: m.x + (Math.random() - 0.5) * 16, y: m.y - sizeOf(m.sp) * 0.8, t: 0, txt: String(dmg), col: crit ? "#ffd27a" : "#fff4cf", big: !!crit }); this.e.ui.audio?.thud?.();
     if (m.hp <= 0) { this._kill(m); return true; } return false;
   }
-  /** hero skills: "strike" = Power Strike (golden ring, area damage), "mend" = heal. Used automatically while Auto is on, or by the skill buttons. */
-  cast(id) {
-    const e = this.e, p = e.player, h = this.hero, st = heroStats(h.lv); if (this.cd[id] > 0 || e.busy) return false;
-    if (id === "mend") { if (h.hp >= st.maxHp) return false; const n = Math.round(st.maxHp * 0.35); h.hp = Math.min(st.maxHp, h.hp + n); this.cd.mend = this.CD.mend; this.fx.push({ x: p.x, y: p.y - 150, t: 0, txt: "+" + n, col: "#9be5a8" }); this.fx.push({ ring: true, x: p.x, y: p.y, t: 0, col: "155,229,168" }); e.ui.audio?.ok?.(); this._emit(); return true; }
-    if (id === "strike") {
-      const m = this.target; if (!this.on || !m || !this.mobs.includes(m) || Math.hypot(m.x - p.x, m.y - p.y) > REACH + 14) return false;
-      this.cd.strike = this.CD.strike; this.fx.push({ ring: true, x: m.x, y: m.y, t: 0, col: "246,214,120", big: true }); this.atkT = Math.max(this.atkT, 0.4);
-      const base = heroHit(h.lv, m.sp.tier); for (const o of [...this.mobs]) { if (o === m || Math.hypot(o.x - m.x, o.y - m.y) > 96) continue; this._hit(o, 0.6, base); }
-      this._hit(m, 2.6, base, true); this._emit(); return true;
-    }
+  // ---------------------------------------------------------------- skills (4 quick slots; see data/skills.js)
+  /** auto-use: heal when hurt, buffs before a fight, attacks when ready.  Returns true when something was started. */
+  _autoCast(m, st) {
+    const h = this.hero, r = skillRec(this.eco);
+    for (const id of r.slots) { const sk = SKILL[id]; if (!sk || (this.cd[id] || 0) > 0 || !levelOfSkill(this.eco, id)) continue;
+      if (sk.type === "heal" && h.hp > st.maxHp * 0.55) continue; if (sk.type === "buff" && this.buffs.some((b) => b.id === id)) continue;
+      if (this.cast(id)) return true; }
     return false;
+  }
+  slotSkill(i) { return SKILL[skillRec(this.eco).slots[i]] || null; }
+  /** start a skill (manual tap or auto).  Returns false (with a reason in this.why) when it cannot be used right now. */
+  cast(id) {
+    const e = this.e, p = e.player, h = this.hero, st = this.st, sk = SKILL[id]; this.why = "";
+    if (!sk || !levelOfSkill(this.eco, id)) { this.why = "Not learned."; return false; } if (e.busy) { this.why = ""; return false; }
+    if (this.chant) { this.why = "Already chanting."; return false; } if ((this.cd[id] || 0) > 0) { this.why = "Not ready yet."; return false; }
+    if (sk.type === "heal" && h.hp >= st.maxHp) { this.why = "HP is already full."; return false; }
+    if (sk.type === "hit") { const m = this.target; if (!this.on || !m || !this.mobs.includes(m) || Math.hypot(m.x - p.x, m.y - p.y) > REACH + 14) { this.why = this.on ? "Move closer to a target first." : "Start Auto-grind first."; return false; } }
+    if (sk.type === "aoe" && !(this.on && this.mobs.some((o) => Math.hypot(o.x - p.x, o.y - p.y) <= sk.radius + 20))) { this.why = this.on ? "No enemy in range." : "Start Auto-grind first."; return false; }
+    const dur = sk.chant * (1 - st.cdr / 100); p.path = []; p.moving = false;
+    if (dur < 0.15) this._fire(id); else { this.chant = { id, t: 0, dur }; this.fx.push({ ring: true, x: p.x, y: p.y, t: 0, col: sk.col, small: true }); }
+    this._emit(); return true;
+  }
+  _fire(id) {
+    const e = this.e, p = e.player, h = this.hero, st = this.st, sk = SKILL[id], lv = levelOfSkill(this.eco, id), sc = levelScale(lv) * (1 + st.skillPct / 100); if (!sk) return;
+    this.cd[id] = this.cdMax[id] = sk.cd; this.atkT = Math.max(this.atkT, 0.35);
+    if (sk.type === "heal") { const n = Math.round(st.maxHp * sk.heal * levelScale(lv)); h.hp = Math.min(st.maxHp, h.hp + n); if (sk.regen) this.buffs.push({ id, regen: sk.regen, until: e.time + 10 }); this.fx.push({ x: p.x, y: p.y - 150, t: 0, txt: "+" + n, col: "#9be5a8" }, { kind: "heal", x: p.x, y: p.y, t: 0, col: sk.col }); e.ui.audio?.ok?.(); }
+    else if (sk.type === "buff") { this.buffs = this.buffs.filter((b) => b.id !== id); this.buffs.push({ id, atk: sk.buff.atk, def: sk.buff.def, until: e.time + sk.buff.dur, col: sk.col }); this.fx.push({ kind: sk.fx, x: p.x, y: p.y, t: 0, col: sk.col }, { x: p.x, y: p.y - 150, t: 0, txt: sk.name, col: "#f2d889", wide: true }); e.ui.audio?.ok?.(); }
+    else if (sk.type === "hit") {
+      const m = this.target; if (!m || !this.mobs.includes(m)) return; this.fx.push({ kind: sk.fx, x: m.x, y: m.y, px: p.x, py: p.y, t: 0, col: sk.col });
+      for (let i = 0; i < sk.hits && this.mobs.includes(m); i++) { const r = heroHit(st, m.sp.tier); this._hit(m, sk.mult * sc, r.dmg, r.crit || i === sk.hits - 1); }
+    } else if (sk.type === "aoe") {
+      this.fx.push({ kind: sk.fx, x: p.x, y: p.y, t: 0, col: sk.col, R: sk.radius });
+      for (const o of [...this.mobs]) { if (Math.hypot(o.x - p.x, o.y - p.y) > sk.radius + 20) continue; const r = heroHit(st, o.sp.tier); this._hit(o, sk.mult * sc, r.dmg, r.crit); }
+    }
+    e.ui.audio?.thud?.(); this._emit();
   }
   _retreat(why) {
     const m = this.target; if (m) { m.hp = m.max; } this.target = null; this.retreats++; this.e.player.path = [];
@@ -155,18 +204,19 @@ export class Grinder {
     this.status = "rest"; this.fx.push({ x: this.e.player.x, y: this.e.player.y - 140, t: 0, txt: "Resting…", col: "#bfe3d0" }); this._emit();
   }
   _faint() {
-    const e = this.e, h = this.hero; this.setOn(false); h.hp = Math.round(heroStats(h.lv).maxHp * 0.6); e.ui.toast?.("You fainted and were carried home. Auto-grind stopped.");
+    const e = this.e, h = this.hero; this.setOn(false); this.chant = null; h.hp = Math.round(this.st.maxHp * 0.6); e.ui.toast?.("You fainted and were carried home. Auto-grind stopped.");
     e.travel("home", "s", { spot: "homeDoor", force: true });
   }
   _kill(m) {
-    const e = this.e, h = this.hero, rw = rewards(m.sp, m.lv, h.lv, e.catalog), parts = [`+${rw.exp} exp`];
+    const e = this.e, h = this.hero, st = this.st, rw = rewards(m.sp, m.lv, h.lv, e.catalog, Math.random, 1 + st.dropPct / 100), parts = []; rw.exp = Math.round(rw.exp * (1 + st.expPct / 100)); parts.push(`+${rw.exp} exp`);
     this.mobs = this.mobs.filter((x) => x !== m); this.dying.push({ m, t0: this.e.time }); this.target = null; this.retreats = 0; h.kills = (h.kills || 0) + 1; this.session.kills++; this.session.exp += rw.exp;
     this.fx.push({ x: m.x, y: m.y - 20, t: 0, txt: "✦", col: "#fff4cf", puff: true });
     if (rw.xc > 0) { this.eco.state.wallet_xc = Math.round((this.eco.state.wallet_xc + rw.xc) * 100) / 100; this.session.xc += rw.xc; this.eco.ledger?.("hunt", rw.xc, m.sp.name); parts.push(`+${rw.xc} xc`); e.ui.audio?.coin?.(); }
     let lost = false; for (const it of rw.items) { const r = this.eco.addItem(it.item_id, it.quantity); if (r.ok) parts.push(`+${it.quantity} ${e.catalog.itemName(it.item_id)}`); else lost = true; }
     if (lost && performance.now() - this.lootWarn > 8000) { this.lootWarn = performance.now(); e.ui.toast?.("Your bag is full — some loot was left behind."); }
+    for (const b of rollBooks(m.sp, st.dropPct)) { addBooks(this.eco, b.id, b.n); parts.push(`+${b.n} ${SKILL[b.id].name} book`); e.ui.audio?.ok?.(); }
     const up = addExp(this.eco, rw.exp); this.fx.push({ x: e.player.x, y: e.player.y - 150, t: 0, txt: parts.join("  "), col: "#f2d889", wide: true });
-    if (up) { e.ui.toast?.(`Level up! Lv ${h.lv}`); e.ui.audio?.ok?.(); this.fx.push({ x: e.player.x, y: e.player.y - 170, t: 0, txt: "LEVEL UP", col: "#9be5a8", wide: true }); }
+    if (up) { e.ui.toast?.(`Level up! Lv ${h.lv} · +${up * 3} stat points` + (pointsOf(this.eco).free >= NODE_COST ? " — open the Meridians" : "")); e.ui.audio?.ok?.(); this.fx.push({ x: e.player.x, y: e.player.y - 170, t: 0, txt: "LEVEL UP  +" + up * 3 + " pts", col: "#9be5a8", wide: true }); }
     this.respawn.push({ sp: m.sp, t: TIER_RESPAWN[m.sp.tier] * (0.7 + Math.random() * 0.6) }); this.eco.changed?.(); this._emit();
   }
 
@@ -195,9 +245,13 @@ export class Grinder {
   _flashSprite() { return null; }
   drawFx(c) {
     c.save(); c.textAlign = "center"; c.lineJoin = "round";
-    for (const f of this.fx) { const k = f.t / 1.1; c.globalAlpha = 1 - k * k; if (f.ring) { const kk = Math.min(1, f.t / 0.6), R = (f.big ? 96 : 60) * (0.35 + 0.65 * kk); c.globalAlpha = 0.9 * (1 - kk); c.lineWidth = 4 + 3 * (1 - kk); c.strokeStyle = `rgba(${f.col},1)`; c.shadowColor = `rgba(${f.col},.9)`; c.shadowBlur = 12; c.beginPath(); c.ellipse(f.x, f.y - 4, R, R * 0.36, 0, 0, 6.3); c.stroke(); c.shadowBlur = 0; continue; }
+    for (const f of this.fx) { const k = f.t / 1.1; c.globalAlpha = 1 - k * k; if (f.kind) { c.save(); SKFX[f.kind]?.(c, f, k); c.restore(); continue; }
+      if (f.ring) { const kk = Math.min(1, f.t / 0.6), R = (f.small ? 36 : f.big ? 96 : 60) * (0.35 + 0.65 * kk); c.globalAlpha = 0.9 * (1 - kk); c.lineWidth = 4 + 3 * (1 - kk); c.strokeStyle = `rgba(${f.col},1)`; c.shadowColor = `rgba(${f.col},.9)`; c.shadowBlur = 12; c.beginPath(); c.ellipse(f.x, f.y - 4, R, R * 0.36, 0, 0, 6.3); c.stroke(); c.shadowBlur = 0; continue; }
       if (f.puff) { c.fillStyle = f.col; c.font = "700 22px system-ui"; c.fillText("✦", f.x - 14 - k * 18, f.y - k * 30); c.fillText("✦", f.x + 14 + k * 18, f.y - k * 24); continue; }
       c.font = (f.wide ? "700 12px system-ui" : f.big ? "900 20px system-ui" : "800 15px system-ui"); c.lineWidth = 3.5; c.strokeStyle = "rgba(30,20,36,.9)"; c.strokeText(f.txt, f.x, f.y - k * 38); c.fillStyle = f.col; c.fillText(f.txt, f.x, f.y - k * 38); }
     c.restore();
+    const p = this.e.player, T = this.e.time;
+    if (this.chant) { const q = Math.min(1, this.chant.t / this.chant.dur), sk = SKILL[this.chant.id]; c.save(); c.lineCap = "round"; c.lineWidth = 5; c.strokeStyle = "rgba(30,20,36,.6)"; c.beginPath(); c.arc(p.x, p.y - 62, 40, 0, 6.2832); c.stroke(); c.strokeStyle = `rgba(${sk.col},1)`; c.shadowColor = `rgba(${sk.col},.9)`; c.shadowBlur = 10; c.beginPath(); c.arc(p.x, p.y - 62, 40, -1.5708, -1.5708 + 6.2832 * q); c.stroke(); c.shadowBlur = 0; c.textAlign = "center"; label(c, sk.name, p.x, p.y - 112, "800 11px system-ui", "#f9e4a6"); c.restore(); }
+    for (const b of this.buffs) if (b.col) { c.save(); c.globalAlpha = 0.35 + Math.sin(T * 5) * 0.12; c.strokeStyle = `rgba(${b.col},1)`; c.lineWidth = 3; c.beginPath(); c.ellipse(p.x, p.y - 3, 30, 10, 0, 0, 6.3); c.stroke(); c.restore(); break; }
   }
 }
