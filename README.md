@@ -1,3 +1,5 @@
+> **Claude handoff — mandatory before replacing the Game screen:** Read [CLAUDE_GAME_REPLACEMENT_HANDOFF.md](./CLAUDE_GAME_REPLACEMENT_HANDOFF.md). The legacy map/world, character, and wardrobe implementation must be removed from the active Game runtime before the new Claude-built game is integrated. Preserve Daily Login as a separate top-level menu and do not remove unrelated app features.
+
 # Merzkava Pocket
 
 ## Mandatory game specifications
