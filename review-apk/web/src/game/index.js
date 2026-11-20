@@ -3,16 +3,19 @@
 import { GameEconomy } from "./data/economy.js";
 import { createNewState, loadState, hasSave } from "./data/state.js";
 import { GameEngine } from "./engine.js";
+import { ROSTER } from "./data/mobs.js";
 import { loadGameAssets } from "./loader.js";
 import { createGameUI, h } from "./ui.js";
 import { createAudio } from "./audio.js";
+import { createMusic } from "./music.js";
+import { minuteOfDay } from "./data/clock.js";
 import { drawBreathing } from "./art/anim.js";
 import { DIRS, CELL } from "./art/models.js";
 import { LOOKS, LOOK_ZONE_LABELS, BODIES, EXPRESSION_LIST, EYE_SHAPE_LIST, SKINS, HAIR_COLORS, EYE_COLORS, CLOTH_COLORS, defaultAppearance, normalizeAppearance, appearanceToSpec } from "./art/library.js";
 
 const OPT_KEY = "mp-game-opts";
 const QUALITY = { high: { dprCap: 2.5, sheetScale: 0.8 }, medium: { dprCap: 1.75, sheetScale: 0.6 }, low: { dprCap: 1.25, sheetScale: 0.45 } };
-const DEFAULT_OPTS = { quality: "high", fps: 60, showFps: false, music: 55, sfx: 80 };
+const DEFAULT_OPTS = { quality: "high", fps: 60, showFps: false, music: 55, sfx: 80, beatOffset: 0 };
 const ANIMALS = ["sheep", "bunny", "chick", "cat", "bear"];
 const TIPS = ["The fluffy ones are fetching water…", "Sweeping fallen autumn leaves…", "Counting the stones in the river…", "Waking the little merchant's pony…", "Brewing a very small pot of tea…", "Tying the last knot on the fence…"];
 
@@ -49,7 +52,8 @@ export function mountGame(host, { identity, storage = window.localStorage, base 
   const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => fit()) : null; ro?.observe(root); window.addEventListener("resize", fit); window.addEventListener("orientationchange", fit);
 
   let opts = loadOpts(storage), assets = null, eco = null, engine = null, ui = null, screen = "loading", dead = false, backStack = [], appearance = null, exitConfirm = null, timers = [];
-  fit(); const audio = createAudio(() => opts); const saveOpts = () => { try { storage.setItem(OPT_KEY, JSON.stringify(opts)); } catch {} audio.refresh(); };
+  fit(); const audio = createAudio(() => opts), music = createMusic({ base, getOpts: () => opts });   // Game music is its own thing - never routed through the app's sound engine
+  const saveOpts = () => { try { storage.setItem(OPT_KEY, JSON.stringify(opts)); } catch {} audio.refresh(); music.refresh(); };
   const later = (fn, ms) => { const t = setInterval(fn, ms); timers.push(t); return t; };
   const clearTimers = () => { timers.forEach(clearInterval); timers = []; };
   const setScreen = (name, el) => { screen = name; clearTimers(); screenEl.replaceChildren(el); screenEl.classList.remove("gm-hidden"); };
@@ -74,16 +78,30 @@ export function mountGame(host, { identity, storage = window.localStorage, base 
   function showMenu() {
     backStack = []; closeEngine(); canvas.classList.add("gm-hidden"); hud.classList.add("gm-hidden"); exitConfirm = null;
     const has = hasSave(id, storage); let saved = null; if (has && assets) { const r = loadState(id, assets.catalog, storage); if (r.ok) saved = r.state; }
-    const heroApp = normalizeAppearance(saved?.profile?.appearance || defaultAppearance("burgundy8")), cv = h("canvas", { width: CELL.w, height: CELL.h });
-    const leaves = Array.from({ length: 16 }, (_, i) => h("i", { class: "gmm-leaf", style: `left:${(i * 61) % 100}%;animation-duration:${8 + (i % 6) * 1.7}s;animation-delay:-${(i * 1.7) % 9}s;background:${["#e07a3a", "#c0392b", "#e8b23a", "#b5532f"][i % 4]}` }));
-    const startAudio = () => { if (opts.music > 0) audio.music(true); };
-    const btn = (label, cls, fn) => h("button", { class: "gm-btn " + cls, type: "button", onclick: () => { audio.tap(); startAudio(); fn(); } }, label);
-    const el = h("div", { class: "gmm" }, h("div", { class: "gmm-far" }), h("div", { class: "gmm-hill" }), ...leaves,
-      h("div", { class: "gmm-title" }, h("small", null, "THE POCKET ARCHIVE"), h("h1", null, "MERZKAVA"), h("p", null, "A LITTLE WORLD, ALWAYS WITHIN REACH")),
-      h("div", { class: "gmm-hero" }, cv),
-      h("div", { class: "gmm-btns" }, btn("NEW GAME", "", () => (saved ? confirmNew() : showCreator())), saved ? btn(`CONTINUE · ${saved.profile.name}`, "", () => continueGame(saved)) : null, btn("OPTIONS", "alt", () => showOptions(showMenu)), btn("EXIT", "alt", askExit)),
+    const A = (n) => `${base}game-art/menu/${n}.webp`, leafCols = ["#e07a3a", "#c0392b", "#e8b23a", "#b5532f"];
+    const leaves = Array.from({ length: 12 }, (_, i) => h("i", { class: "gmm-leaf", style: `left:${(i * 61) % 100}%;animation-duration:${9 + (i % 6) * 1.9}s;animation-delay:-${(i * 1.7) % 9}s;background:${leafCols[i % 4]}` }));
+    const sparks = [[300, 640], [452, 600], [150, 830], [520, 760], [250, 980], [470, 1040], [370, 560], [80, 700], [540, 900], [330, 1090]].map(([x, y], i) => h("i", { class: "gmm-spark", style: `left:${x}px;top:${y}px;animation-delay:-${(i * 0.7) % 4}s;transform:scale(${0.6 + (i % 3) * 0.3})` }));
+    const startAudio = () => music.play("menu");
+    const B = (key, y, h0, fn, off) => h("button", { class: "gmm-b" + (off ? " off" : ""), type: "button", "aria-label": key, style: `top:${y}px;height:${h0}px;--i:${["new", "continue", "archive", "options", "exit"].indexOf(key)}`, disabled: !!off, onclick: () => { audio.tap(); startAudio(); fn(); } }, h("img", { src: A("b_" + key), alt: "", draggable: "false" }));
+    const box = h("div", { class: "gmm-box" }, ...sparks,
+      h("img", { class: "gmm-world", src: A("world"), alt: "", draggable: "false" }), h("img", { class: "gmm-logo", src: A("logo"), alt: "MERZKAVA — The Pocket Archive", draggable: "false" }),
+      B("new", 527, 105, () => (saved ? confirmNew() : showCreator())), B("continue", 634, 103, () => saved && continueGame(saved), !saved), B("archive", 740, 104, () => showArchive(saved)), B("options", 847, 104, () => showOptions(showMenu)), B("exit", 953, 104, askExit),
       h("div", { class: "gmm-foot" }, id.role.toUpperCase() + " · " + id.displayName));
-    setScreen("menu", el); drawHero(cv, heroApp);
+    const el = h("div", { class: "gmm", style: `background-image:url(${A("bg")})` }, ...leaves, box);
+    const fit = () => { const k = Math.min(el.clientWidth / 756, el.clientHeight / 1344) || 1; box.style.setProperty("--k", k.toFixed(4)); box.style.setProperty("--tx", Math.max(0, (el.clientWidth - 756 * k) / 2).toFixed(1) + "px"); };
+    setScreen("menu", el); fit(); const ro = typeof ResizeObserver === "function" ? new ResizeObserver(fit) : null; ro?.observe(el); setTimeout(fit, 400);
+  }
+  // ARCHIVE: what this save has discovered (bestiary) and a few lifetime records
+  function showArchive(saved) {
+    backStack.push(showMenu); let tab = "dex"; const body = h("div", { class: "gs-body" });
+    const hero = saved?.flags?.hero || {}, dex = hero.dex || {}, seen = ROSTER.filter((m) => dex[m.id]).length;
+    const draw = () => { body.replaceChildren();
+      if (!saved) { body.append(h("p", { class: "gc-note" }, "Nothing is recorded yet. Begin a journey and the Archive starts filling in.")); return; }
+      if (tab === "dex") { body.append(h("div", { class: "gs-sec" }, `BESTIARY · ${seen} / ${ROSTER.length}`), h("div", { class: "ar-grid" }, ROSTER.map((m) => { const n = dex[m.id] || 0; return h("div", { class: "ar-cell" + (n ? "" : " lock") + (m.tier !== "mob" ? " " + m.tier : "") }, h("img", { src: `${base}game-art/monsters/${m.art}.png`, alt: "", loading: "lazy", style: `filter:hue-rotate(${m.hue || 0}deg) saturate(${m.sat || 1}) brightness(${m.bri || 1})` }), h("b", null, n ? m.name : "???"), h("small", null, n ? `${m.jp || ""} · ×${n}` : `Lv ${m.lv[0]}+`)); }))); }
+      else { const f = saved.flags || {}, st = saved.stats || {}, rows = [["Name", saved.profile.name], ["Level", hero.lv || 1], ["Monsters defeated", hero.kills || 0], ["Resources gathered", st.gathered || 0], ["Goods sold", st.sold || 0], ["Things built", st.built || 0], ["Days lived", (saved.clock?.day ?? 0) + 1], ["Realm", f.realm?.n ? `Realm ${f.realm.n}` : "Spirit Initiate"], ["Martial Soul", f.soul?.name || "Not awakened"]];
+        body.append(h("div", { class: "gs-sec" }, "RECORDS"), ...rows.map(([k, v]) => h("div", { class: "gs-row" }, h("div", null, h("b", null, k)), h("span", { class: "ar-v" }, String(v))))); } };
+    const tabs = h("div", { class: "gc-chips ar-tabs" }, [["dex", "BESTIARY"], ["rec", "RECORDS"]].map(([k, l]) => h("button", { class: "gm-chip" + (k === tab ? " on" : ""), onclick: (e) => { tab = k; tabs.querySelectorAll("button").forEach((b) => b.classList.remove("on")); e.target.classList.add("on"); audio.tap(); draw(); } }, l)));
+    setScreen("archive", h("div", { class: "gs" }, h("div", { class: "gs-head" }, h("button", { class: "gs-back", onclick: () => goBack() }, "‹"), h("h2", null, "ARCHIVE")), tabs, body)); draw();
   }
   async function drawHero(cv, app) {
     const spec = appearanceToSpec(app); await assets.kit.load(spec.model); if (dead || !cv.isConnected) return; const x = cv.getContext("2d"), spr = assets.kit.render(spec, "S"), hip = assets.kit.hipRow(spec.model) / CELL.h, t0 = performance.now();
@@ -101,7 +119,7 @@ export function mountGame(host, { identity, storage = window.localStorage, base 
     const el = h("div", { class: "gs" }, h("div", { class: "gs-head" }, h("button", { class: "gs-back", onclick: () => goBack() }, "‹"), h("h2", null, "OPTIONS")),
       h("div", { class: "gs-body" }, h("div", { class: "gs-sec" }, "GRAPHICS"), row("Quality", "Sharpness of the world and sprites", seg("quality", [["low", "Low"], ["medium", "Med"], ["high", "High"]])), row("Show FPS", "Frame counter in game", tog("showFps")),
         h("div", { class: "gs-sec" }, "PERFORMANCE"), row("Frame limit", "30 saves battery on older phones", seg("fps", [[30, "30"], [60, "60"]])),
-        h("div", { class: "gs-sec" }, "AUDIO"), row("Music", null, range("music", () => { if (opts.music > 0) audio.music(true); })), row("Effects", null, range("sfx", () => audio.tap())),
+        h("div", { class: "gs-sec" }, "AUDIO"), row("Music", "Game music only", range("music")), row("Effects", null, range("sfx", () => audio.tap())), row("Beat timing", "Shift the rhythm event if taps feel early or late (ms)", seg("beatOffset", [[-100, "−100"], [-50, "−50"], [0, "0"], [50, "+50"], [100, "+100"]])),
         h("p", { class: "gc-note" }, "These settings only affect Game Mode. Graphics changes apply when you return to the world.")));
     setScreen("options", el);
   }
@@ -157,14 +175,16 @@ export function mountGame(host, { identity, storage = window.localStorage, base 
   // ------------------------------------------------------------------ play
   function startNew(name, app) { const state = createNewState({ identity: id, name: id.role === "player" ? id.displayName : name, appearance: app, catalog: assets.catalog }); state.profile.appearance = app; beginPlay(state); }
   async function continueGame(state) { beginPlay(state); }
+  let moodT = 0;   // the day theme plays at night too, a little softer
   async function beginPlay(state) {
     const app = normalizeAppearance(state.profile.appearance || defaultAppearance("burgundy8")); state.profile.appearance = app; await assets.kit.load(app.look); if (dead) return;
     eco = new GameEconomy(assets.catalog, state, { storage, identity: id }); eco.tick(); eco.save(); appearance = app; clearTimers(); screenEl.replaceChildren(); screenEl.classList.add("gm-hidden"); canvas.classList.remove("gm-hidden"); hud.classList.remove("gm-hidden"); hud.replaceChildren(); layer.replaceChildren(); screen = "play";
-    ui = createGameUI({ hud, layer, toastBox, eco, catalog: assets.catalog, identity: id, audio, getEngine: () => engine, onPause: (what) => { if (what === "options") showOptions(() => { screenEl.classList.add("gm-hidden"); screen = "play"; }); else saveAndMenu(); } });
+    music.play("day"); ui = createGameUI({ hud, layer, toastBox, eco, catalog: assets.catalog, identity: id, audio, music, getOpts: () => opts, getEngine: () => engine, onPause: (what) => { if (what === "options") showOptions(() => { screenEl.classList.add("gm-hidden"); screen = "play"; }); else saveAndMenu(); } });
     engine = new GameEngine({ canvas, world: assets.world, areas: assets.areas, kit: assets.kit, appearance: appearanceToSpec(app), economy: eco, catalog: assets.catalog, ui, options: q(opts) }); engine.appSpec = appearanceToSpec(app); engine.start(); { const sa = eco.state.flags?.area; if (sa && sa !== "home") engine.travel(sa, null, { instant: true, pos: eco.state.position }); } if (opts.music > 0) audio.music(true);
-    if (!state.flags.welcomed) { state.flags.welcomed = true; ui.toast(`Welcome, ${state.profile.name}. Tap anywhere to walk; tap trees, rocks and weeds to gather.`); }
+    clearInterval(moodT); moodT = setInterval(() => { if (!eco) return; const m = minuteOfDay(eco.now()) / 60; music.mood(m < 5.5 || m > 19.5 ? 0.65 : 1); }, 4000);
+    if (!state.flags.welcomed) { state.flags.welcomed = true; ui.say([`Welcome, ${state.profile.name}.`, "Tap anywhere to walk, and tap trees, rocks and weeds to gather. The big AUTO button (bottom right) hunts monsters for you."]); }
   }
-  function closeEngine() { if (engine) { try { eco.state.position = { x: Math.round(engine.player.x), y: Math.round(engine.player.y) }; eco.save(); } catch {} engine.destroy(); engine = null; } ui?.destroy(); ui = null; eco = null; hud.replaceChildren(); }
+  function closeEngine() { clearInterval(moodT); if (engine) { try { eco.state.position = { x: Math.round(engine.player.x), y: Math.round(engine.player.y) }; eco.save(); } catch {} engine.destroy(); engine = null; } ui?.destroy(); ui = null; eco = null; hud.replaceChildren(); }
   function saveAndMenu() { closeEngine(); layer.replaceChildren(); showMenu(); }
 
   // ------------------------------------------------------------------ boot, back button, teardown
@@ -177,6 +197,6 @@ export function mountGame(host, { identity, storage = window.localStorage, base 
     if (screen === "creator") { showMenu(); return true; }
     return false;
   }
-  function destroy() { if (dead) return; dead = true; ro?.disconnect(); window.removeEventListener("resize", fit); window.removeEventListener("orientationchange", fit); clearTimers(); closeEngine(); audio.destroy(); host.innerHTML = ""; }
+  function destroy() { if (dead) return; dead = true; music.destroy(); clearInterval(moodT); ro?.disconnect(); window.removeEventListener("resize", fit); window.removeEventListener("orientationchange", fit); clearTimers(); closeEngine(); audio.destroy(); host.innerHTML = ""; }
   return { destroy, back, _debug: () => ({ engine, eco, ui }) };   // _debug: test hook only
 }

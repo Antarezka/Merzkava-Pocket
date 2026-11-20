@@ -1,6 +1,6 @@
 // Areas of the offline world. Moving between areas fades out / in (like a classic MMORPG).
 // Chain: Home -> Village -> (Imperial Palace | Zone 1) ; Zone n -> Zone n+1 ... Zone 11. Zones 7-11 are PLACEHOLDER themes.
-import { MAX_LEVEL } from "./mobs.js";
+const MAX_LEVEL = 100;   // content cap: the zones end at Lv 100 (the player level cap is 666)
 export const ZONES = [
   { id: "z1", name: "Village Outskirts", lv: [1, 8], theme: "Wild creatures, small spirits, weak beasts" },
   { id: "z2", name: "Forest & Foothills", lv: [9, 16], theme: "Predators, poisonous insects, aggressive beasts" },

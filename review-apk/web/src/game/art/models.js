@@ -95,5 +95,17 @@ export class ModelKit {
     const out = mk(CELL.w, CELL.h), ox = out.getContext("2d"), sx = s.sx ?? 1, sy = s.sy ?? 1; ox.imageSmoothingQuality = "high";
     ox.translate(CELL.w / 2, CELL.feet); ox.scale(sx, sy); ox.translate(-CELL.w / 2, -CELL.feet); ox.drawImage(cell, 0, 0); return out;
   }
+  /** large portrait canvas (height H) of one view - used for dialogue busts.  Same recolour + face overlay as render(), but at the model's own resolution. */
+  renderBust(spec, d = "S", H = 560) {
+    const model = this.models[spec.model]; if (!model) return mk(2, 2);
+    const vn = model.views[d] ? d : "S", v = model.views[vn], colors = { ...this.defaults(spec.model), ...(spec.colors || {}) }, L = v.face, custom = !!L && this._custom(spec.face), src = this._recolor(model, vn, custom, colors, "stand");
+    const fw = Math.round(v.w * H / v.h), c = mk(fw, H), x = c.getContext("2d"); x.imageSmoothingQuality = "high"; x.drawImage(src, 0, 0, fw, H);
+    if (custom) {
+      const ew = L.eyeW * fw, face = { ...spec.face }; if (!face.eyeColor) face.eyeColor = colors[3];
+      const far = L.facing === "right" ? 1 : L.facing === "left" ? 0 : -1, eyes = L.eyeX.map((ex, i) => ({ x: ex * fw, y: L.eyeY * H, side: L.single ? (L.facing === "left" ? -1 : 1) : i === 0 ? -1 : 1, sx: i === far ? 0.82 : 1 }));
+      drawFaceAt(x, face, { eyes, w: Math.max(12, ew * 0.78), mouth: L.mouthY && !L.single ? { x: L.mouthX * fw, y: L.mouthY * H } : null });
+    }
+    return c;
+  }
   hipRow(id) { return CELL.feet - CELL.figH * (1 - (MODEL_INFO[id]?.hip ?? 0.78)); }
 }

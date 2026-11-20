@@ -1,5 +1,6 @@
 // Game-mode engine: Canvas 2D top-down (slightly tilted) renderer, tap-only control, A* movement, gather / build / merchant interaction.
 // Dependency-free. The economy rules live in data/economy.js — this file only drives the world and asks the economy for outcomes.
+import { drawRingOrbits, orbitItems } from "./art/rings.js";
 import { buildSheet, drawBreathing } from "./art/anim.js";
 import { drawHouse, drawFacility, drawConstructionSite, drawCart, drawMarker, facilityFootprint } from "./art/world.js";
 import { minuteOfDay } from "./data/clock.js";
@@ -17,7 +18,7 @@ export class GameEngine {
     this.player = { x: 0, y: 0, dir: "S", moving: false, path: [], action: null, sheet: null, frame: 0 };
     this.markers = []; this.ghost = null; this.selected = null; this.hidden = new Set();
     this.spriteFor = spriteFor; // (appearance) -> sheet  (merchant npc etc.)
-    this.areas = arguments[0].areas || null; this.areaId = world.areaId || "home"; this.fade = 0; this.fadeTask = null; this.busy = false;
+    this.lock = 0; this._npcCell = new Map(); this.areas = arguments[0].areas || null; this.areaId = world.areaId || "home"; this.fade = 0; this.fadeTask = null; this.busy = false;
     this.houseLevel = Math.max(1, Math.min(3, economy.state.flags?.house_level || 1)); this._houseSprite = drawHouse(this.houseLevel); this._cart = drawCart(); this._ping = drawMarker("ping"); this._sparkle = drawMarker("sparkle");
     this._facSprites = new Map(); this._construct = new Map(); this.npc = null;
     this.setAppearanceSheet(appearance); this.grind = new Grinder(this);
@@ -48,13 +49,15 @@ export class GameEngine {
   screenToWorld(sx, sy) { return { x: this.cam.x + sx / this.zoom, y: this.cam.y + sy / this.zoom }; }
 
   onTap(sx, sy) {
-    if (this.busy || this.ui.blocking?.()) return;
+    if (this.busy || this.lock || this.ui.blocking?.()) return;
     if (this.grind.on) this.grind.setOn(false, "manual");
     const p = this.screenToWorld(sx, sy), w = this.world, T = w.tile;
     if (this.ghost) { this.moveGhost(Math.floor(p.x / T), Math.floor(p.y / T)); return; }
     this.cancelAction();
     // 1. merchant / cart
-    if (this.cartRect && p.x > this.cartRect.x && p.x < this.cartRect.x + this.cartRect.w && p.y > this.cartRect.y && p.y < this.cartRect.y + this.cartRect.h) return this.goTo({ kind: "merchant", x: this.cartRect.cx, y: this.cartRect.cy + 30 }, () => this.ui.openMerchant());
+    if (this.cartRect && p.x > this.cartRect.x && p.x < this.cartRect.x + this.cartRect.w && p.y > this.cartRect.y && p.y < this.cartRect.y + this.cartRect.h) return this.goTo({ kind: "merchant", x: this.cartRect.cx, y: this.cartRect.cy + 30 }, () => (this.ui.talkMerchant ? this.ui.talkMerchant() : this.ui.openMerchant()));
+    // 1b. NPCs (villagers, class master ...)
+    for (const n of w.npcs || []) if (n.x != null && Math.abs(p.x - n.x) < 36 && p.y > n.y - 130 && p.y < n.y + 14) return this.goTo({ kind: "npc", x: n.x, y: n.y + 38 }, () => this.ui.talkNpc?.(n));
     // 2. home / facilities
     const hs = this._houseSprite, hx = w.home ? w.home.x - hs.w / 2 : 0, hy = w.home ? w.home.y - hs.h + 10 : 0;
     if (w.home && p.x > hx && p.x < hx + hs.w && p.y > hy + 60 && p.y < w.home.y + 20) return this.goTo({ x: w.home.x, y: w.home.y + 28 }, () => this.ui.openHome());
@@ -182,7 +185,7 @@ export class GameEngine {
 
   // ------------------------------------------------------------ update / draw
   update(dt) {
-    this.time += dt; this.dt = dt; this._tickFade(dt); const p = this.player, w = this.world; if (!this.busy) this.grind.update(dt); this.updateParts(dt); this._checkExits(dt);
+    this.time += dt; this.dt = dt; this._tickFade(dt); const p = this.player, w = this.world; if (!this.busy && !this.lock) this.grind.update(dt); this.updateParts(dt); this._checkExits(dt);
     { const pr = p.action?.pr; if (pr?.sway) { pr.shake = 1; this._leafT = (this._leafT || 0) - dt; if (this._leafT <= 0) { this._leafT = 0.32; if (/^tree_/.test(pr.name)) this.burstLeaves(pr, 2); } } }
     if (p.action) {
       p.action.t += dt; p.moving = false;
@@ -214,7 +217,14 @@ export class GameEngine {
     if (m < 4.5) return night; if (m < 6) return k(night, dawn, (m - 4.5) / 1.5); if (m < 8) return k(dawn, day, (m - 6) / 2); if (m < 16.5) return day;
     if (m < 18.5) return k(day, dusk, (m - 16.5) / 2); if (m < 20.5) return k(dusk, night, (m - 18.5) / 2); return night;
   }
+  /** camera shake: amplitude in screen px; decays fast; stacks by taking the larger one (so a swarm of tiny hits never turns into a quake) */
+  kick(amp) { if (this.shakeOff) return; this.shake = Math.min(7, Math.max(this.shake || 0, amp)); }
   draw() {
+    const sk = this.shake || 0; if (sk < 0.06) { this.shake = 0; return this._draw(); }
+    const z = this.zoom, ox = (Math.random() - 0.5) * 2 * sk / z, oy = (Math.random() - 0.5) * 2 * sk / z; this.cam.x += ox; this.cam.y += oy; this.shake = sk * Math.exp(-(this.dt || 0.016) * 9);
+    try { this._draw(); } finally { this.cam.x -= ox; this.cam.y -= oy; }
+  }
+  _draw() {
     const c = this.ctx, w = this.world, z = this.zoom, dpr = this.dpr, vw = this.vw / z, vh = this.vh / z, cam = this.cam;
     c.setTransform(dpr * z, 0, 0, dpr * z, -cam.x * dpr * z, -cam.y * dpr * z); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = "high";
     c.fillStyle = "#2a2a22"; c.fillRect(cam.x - 2, cam.y - 2, vw + 4, vh + 4);
@@ -234,6 +244,7 @@ export class GameEngine {
     const m = this.eco.merchant(); this.cartRect = null;
     if (w.home && m.present) { const cx = 17.5 * w.tile, cy = 26.4 * w.tile, cw = this._cart.w, ch = this._cart.h, x = cx - cw / 2, y = cy - ch + 14; this.cartRect = { x, y, w: cw, h: ch, cx, cy }; list.push({ y: cy, f: () => { c.drawImage(this._cart.canvas, x, y); this.ui.drawNpcLabel?.(c, cx, y - 6, m.name); } }); }
     if (w.exits?.length) this.drawExits(c, w);
+    for (const n of w.npcs || []) if (n.x != null) list.push({ y: n.y, f: () => this.drawNpc(c, n) });
     list.push(...this.grind.entities(c)); list.push({ y: this.player.y, f: () => this.drawPlayer(c) });
     list.sort((a, b) => a.y - b.y); for (const e of list) e.f();
     A.drawTreeLeaves(c, w, this.time, view, hidden); this.drawParts(c); this.grind.drawBars(c); this.grind.drawFx(c);
@@ -257,13 +268,33 @@ export class GameEngine {
     let col; if (p.moving) col = s.idleFrames + (Math.floor(p.frame) % s.walkFrames); else if (p.action) col = s.idleFrames; else col = 0;
     const dw = cw * sc, dh = ch * sc, feet = s.feet || 0.973, b = (Math.sin(T * 2.3) + 1) / 2, step = p.moving ? Math.abs(Math.sin(p.frame * (s.stride ? 0.42 : 0.35) * Math.PI)) : 0;
     // soft ground shadow: breathes with the body when standing, pulses with each step when walking
-    c.save(); c.fillStyle = "rgba(30,24,40,0.3)"; c.beginPath(); c.ellipse(p.x, p.y, 22 + b * 0.9 - step * 2.5, 8 + b * 0.25 - step * 0.6, 0, 0, 6.3); c.fill();
+    c.save(); c.fillStyle = "rgba(30,24,40,0.3)"; c.beginPath(); c.ellipse(p.x, p.y, 22 + b * 0.9 - step * 2.5, 8 + b * 0.25 - step * 0.6, 0, 0, 6.3); c.fill(); this._rings(c, p, "back"); if (this.meditating) this._drawMeditate(c, p);
     const lg = (p.lunge || 0) * 9, lv = { E: [1, 0], W: [-1, 0], S: [0, 1], N: [0, -1], SE: [.7, .7], SW: [-.7, .7], NE: [.7, -.7], NW: [-.7, -.7] }[p.dir] || [0, 0];
     c.translate(p.x + lv[0] * lg, p.y + lv[1] * lg * 0.6 - dh * feet + (p.action ? Math.sin(p.action.t * 12) * 1.5 : 0));
     if (mirror) c.scale(-1, 1);
     if (still || p.action) drawBreathing(c, s.canvas, col * cw, row * ch, cw, ch, -dw / 2, 0, dw, dh, s.hip || 0.8, T + (p.seed || 0), p.action ? 0.6 : 1);
     else c.drawImage(s.canvas, col * cw, row * ch, cw, ch, -dw / 2, 0, dw, dh);
-    c.restore();
+    c.restore(); this._rings(c, p, "front");
+  }
+  _rings(c, p, half) {   // Spirit Ring orbits (art/rings.js): bound rings + the ring being absorbed
+    const cu = this.eco.state.flags?.cult; if (!cu || (!cu.absorb && !cu.rings?.some(Boolean))) return; const a = cu.absorb, prog = a ? Math.min(1, (this.eco.now() - a.t0) / a.dur) : 0, fl = Math.max(0, 1 - (this.time - (this.ringFlash ?? -9)) / 1.6);
+    drawRingOrbits(c, p.x, p.y, orbitItems(cu, prog), this.time, half, fl);
+  }
+
+  // ------------------------------------------------------------ NPCs: standing figures with the idle breathing, tap to talk
+  _placeNpcs(w) {
+    const T = w.tile; for (const n of w.npcs || []) { if (n.x != null) continue; let best = null; for (let d = 0; d < 9 && !best; d++) for (let dc = -d; dc <= d && !best; dc++) for (let dr = -d; dr <= d && !best; dr++) { if (Math.max(Math.abs(dc), Math.abs(dr)) !== d) continue; const c = n.c + dc, r = n.r + dr; if (this.walkable(c, r)) best = { x: (c + 0.5) * T, y: (r + 0.5) * T }; } if (best) { n.x = best.x; n.y = best.y; } }
+  }
+  _drawMeditate(c, p) {   // glowing rings + rising motes while a Spirit Ring is being absorbed
+    const T = this.time; c.save();
+    for (let i = 0; i < 9; i++) { const k = ((T * 0.3 + i * 0.111) % 1), a = i * 2.4 + T * 0.6; c.fillStyle = `rgba(255,236,170,${(1 - k) * 0.85})`; c.beginPath(); c.arc(p.x + Math.cos(a) * (18 + i * 2.5), p.y - k * 120, 1.6 + (1 - k) * 1.4, 0, 6.3); c.fill(); }
+    const g = c.createRadialGradient(p.x, p.y - 40, 4, p.x, p.y - 40, 70); g.addColorStop(0, "rgba(255,214,120,.28)"); g.addColorStop(1, "rgba(255,214,120,0)"); c.fillStyle = g; c.fillRect(p.x - 80, p.y - 120, 160, 160); c.restore();
+  }
+  drawNpc(c, n) {
+    const key = n.id; if (!this._npcCell.has(key)) { if (!this.kit.has(n.model)) return; this._npcCell.set(key, this.kit.render({ model: n.model, colors: n.colors || {}, face: n.face }, n.view || "S")); }
+    const cell = this._npcCell.get(key), sc = CHAR_H / (cell.height * 236 / 300), dw = cell.width * sc, dh = cell.height * sc, T = this.time;
+    c.save(); c.fillStyle = "rgba(30,24,40,0.3)"; c.beginPath(); c.ellipse(n.x, n.y, 22, 8, 0, 0, 6.3); c.fill(); c.translate(n.x, n.y - dh * 0.973); drawBreathing(c, cell, 0, 0, cell.width, cell.height, -dw / 2, 0, dw, dh, this.kit.hipRow(n.model) / cell.height, T + n.x * 0.01, 1); c.restore();
+    this.ui.drawNpcLabel?.(c, n.x, n.y - CHAR_H - 14, n.name);
   }
 
   // ------------------------------------------------------------ areas (fade out -> load -> fade in)
@@ -297,7 +328,7 @@ export class GameEngine {
   }
   _applyWorld(world, areaId, side, opts = {}) {
     const p = this.player, T = world.tile; this.world = world; this.areaId = areaId; this.markers = []; this.selected = null; this.ghost = null; this.parts = []; this.cartRect = null; this._propTile = null; this._facBlocked = null;
-    this.grind.clearMobs(); this.refreshFacilities();
+    this.grind.clearMobs(); this.refreshFacilities(); this._placeNpcs(world);
     let pos = opts.pos; if (opts.spot === "homeDoor" && world.home) pos = { x: world.home.x, y: world.home.y + 46 };
     if (!pos) { const en = world.entries?.[side] || world.entries?.s || world.spawn; pos = { x: (en.c + 0.5) * T, y: (en.r + 0.5) * T }; }
     p.x = pos.x; p.y = pos.y; p.path = []; p.moving = false; p.dir = side === "n" ? "S" : side === "s" ? "N" : side === "e" ? "W" : side === "w" ? "E" : p.dir;

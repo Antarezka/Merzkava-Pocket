@@ -1,7 +1,8 @@
 // Panels for the character-development systems: Meridians (stat node web) and Skill Book (learn / upgrade / equip into the 4 quick slots).
 // Installed onto the game UI api by ui.js: installSkillPanels({ api, h, open, close, eco, audio, cat, getEngine }).
 import { NODES, NODE, BRANCHES, branchOf, STAT, NODE_COST, LEVEL_CAP, TOTAL_LEVEL_POINTS, pointsOf, isActive, canActivate, activate, canRefund, refund, resetNodes, respecCost, statsOf, powerOf, describeFx, heroRec, SOURCES, ATTRS } from "./data/progression.js";
-import { SKILLS, SKILL, TIER, MAX_SKILL_LV, SLOT_COUNT, skillRec, levelOfSkill, booksOf, costOf, canLearn, learn, setSlot, setAuto, levelScale } from "./data/skills.js";
+import { SKILLS, SKILL, CLASSES, CLASS, SLOT_COUNT, CLASS_COST, SWITCH_COST, FIRST_CLASS_LEVEL, tierLabel, skillRec, classRec, activeClass, ownsClass, isUnlocked, booksOf, costOf, canUnlock, unlock, usable, setSlot, setAuto, skillsOfClass, canAcquireClass, acquireClass, switchClass } from "./data/skills.js";
+import { skillIcon } from "./art/icons.js";
 import { getHero } from "./data/mobs.js";
 import { AREA_NAMES } from "./data/areas.js";
 
@@ -74,28 +75,46 @@ export function installSkillPanels({ api, h, open, close, eco, audio, cat, getEn
     }
   };
 
-  // ======================================================================= SKILL BOOK
-  let slotSel = 0, filter = "known";
-  api.openBook = (slot) => {
-    if (typeof slot === "number") slotSel = slot;
-    open("SKILL BOOK", { sub: "", tabs: [["known", "Known"], ["all", "All skills"]], initial: filter, render(tab, redraw, subEl) {
-      filter = tab; const r = skillRec(eco), g = getEngine()?.grind, st = statsOf(eco); subEl.textContent = `${SKILLS.filter((s) => r.lv[s.id]).length}/${SKILLS.length} known`;
-      const slots = h("div", { class: "sb-slots" }, ...Array.from({ length: SLOT_COUNT }, (_, i) => { const sk = SKILL[r.slots[i]]; return h("button", { class: "sb-slot" + (i === slotSel ? " on" : ""), onclick: () => { audio.tap(); slotSel = i; redraw(); } }, h("small", null, `SLOT ${i + 1}`), h("b", null, sk ? sk.short : "empty"), sk ? h("i", { style: `background:rgb(${sk.col})` }) : null); }));
-      const mode = h("div", { class: "sb-mode" }, h("span", null, h("b", null, r.auto ? "Auto skills" : "Manual skills"), h("small", null, r.auto ? "Slots fire on their own while Auto is on (heal when hurt, buffs first, attacks when ready)." : "Slots only fire when you tap them.")), h("button", { class: "gm-btn sm", onclick: () => { audio.tap(); setAuto(eco, !r.auto); redraw(); } }, r.auto ? "SWITCH TO MANUAL" : "SWITCH TO AUTO"));
-      const list = SKILLS.filter((s) => tab === "all" || r.lv[s.id]).map((sk) => {
-        const lv = r.lv[sk.id] || 0, cl = canLearn(eco, sk.id, cat), cost = costOf(sk, lv), have = booksOf(eco, sk.id), eq = r.slots.indexOf(sk.id), tier = TIER[sk.tier], sc = levelScale(Math.max(1, lv));
-        const power = sk.type === "heal" ? `Heals ${Math.round(sk.heal * sc * 100)}% HP` : sk.type === "buff" ? Object.entries(sk.buff).filter(([k]) => k !== "dur").map(([k, v]) => `+${Math.round(v * 100)}% ${k.toUpperCase()}`).join(" ") + ` · ${sk.buff.dur}s` : `${sk.hits && sk.hits > 1 ? sk.hits + " × " : ""}${fx2(sk.mult * sc * (1 + st.skillPct / 100))}× ATK${sk.type === "aoe" ? " · area" : ""}`;
-        const mats = cost.mats.map(([name, n]) => { const it = cat.byName(name), got = it ? eco.total(it.item_id) : 0; return h("span", { class: "sb-mat" + (got >= n ? " ok" : "") }, `${name} ${fx2(Math.min(got, n))}/${n}`); });
-        return h("div", { class: "gp-card sb-card" + (lv ? "" : " locked") },
-          h("h4", null, h("i", { class: "sb-tier", style: `background:${tier[1]}` }, sk.tier), sk.name, h("small", { class: "sb-han" }, sk.hanja), lv ? h("em", { class: "sb-lv" }, `Lv ${lv}/${MAX_SKILL_LV}`) : h("em", { class: "sb-lv off" }, "NOT LEARNED")),
-          h("p", null, sk.desc), h("p", { class: "sb-stats" }, `${power} · cooldown ${sk.cd}s · chant ${fx2(sk.chant * (1 - st.cdr / 100))}s`),
-          h("p", { class: "sb-find" }, `${TIER[sk.tier][0]} · books drop in ${sk.zones.map((z) => AREA_NAMES[z] || z).join(", ")}`),
-          lv < MAX_SKILL_LV ? h("div", { class: "sb-cost" }, h("span", { class: "sb-mat" + (have >= cost.books ? " ok" : "") }, `Books ${have}/${cost.books}`), ...mats) : h("p", { class: "sb-find" }, "Max level."),
-          h("div", { class: "sb-btns" }, lv < MAX_SKILL_LV ? h("button", { class: "gm-btn sm", disabled: !cl.ok, onclick: () => { const x = learn(eco, sk.id, cat); if (x.ok) { audio.ok(); api.toast(`${sk.name} ${lv ? "upgraded to Lv " + x.lv : "learned"}`); } else { audio.no(); api.toast("Need " + cl.missing.join(", ")); } redraw(); } }, lv ? `UPGRADE → Lv ${lv + 1}` : "LEARN") : null,
-            lv ? (eq === slotSel ? h("button", { class: "gm-btn sm rose", onclick: () => { audio.tap(); setSlot(eco, slotSel, null); redraw(); } }, `REMOVE FROM SLOT ${slotSel + 1}`) : h("button", { class: "gm-btn sm", onclick: () => { audio.tap(); setSlot(eco, slotSel, sk.id); redraw(); } }, eq >= 0 ? `MOVE TO SLOT ${slotSel + 1}` : `EQUIP IN SLOT ${slotSel + 1}`)) : null,
-            !lv && !cl.ok ? h("small", { class: "mt-why" }, "Need " + cl.missing.join(", ")) : null));
-      });
-      return [slots, mode, ...(list.length ? list : [h("p", { class: "gc-note" }, "No skills yet.")]), h("p", { class: "gc-note" }, "Skill books are dropped by monsters (rarely by normal ones, often by sub bosses, always by bosses) and don't take bag space. Higher tiers also need materials from the hunting zones. Skill names are placeholders.")];
+  // ======================================================================= SKILLS: Skill Library (everything unlocked, equip into the 4 slots) + class Skill Book (ACTIVE class only)
+  let slotSel = 0, bookSel = null; const ic = (sk, n = 44) => h("span", { class: "sk-wrap", html: skillIcon(sk.m, sk.c, n) });
+  const typeText = (sk, st) => sk.type === "heal" ? `Heals ${Math.round(sk.heal * 100)}% HP` : sk.type === "buff" ? Object.entries(sk.buff).filter(([k]) => k !== "dur").map(([k, v]) => `+${Math.round(v * 100)}% ${k.toUpperCase()}`).join(" ") + ` · ${sk.buff.dur}s` : `${sk.hits > 1 ? sk.hits + " × " : ""}${fx2(sk.mult * (1 + st.skillPct / 100))}× ATK${sk.type === "aoe" ? " · area" : ""}`;
+  api.openSkills = (tab0) => {
+    const tabs = () => [["library", "Skill Library"], ...(activeClass(eco) ? [["book", "Class Skill Tree"]] : [])];
+    open("SKILLS", { sub: "", tabs: tabs(), initial: tab0 === "book" && activeClass(eco) ? "book" : "library", render(tab, redraw, subEl) {
+      const r = skillRec(eco), st = statsOf(eco), lvl = getHero(eco).lv, cls = activeClass(eco); subEl.textContent = cls ? `${cls.name} · Lv ${lvl}` : `Unclassed · Lv ${lvl}`;
+      if (tab === "book" && cls) return bookTab(r, st, lvl, cls, redraw);
+      const slots = h("div", { class: "sb-slots" }, ...Array.from({ length: SLOT_COUNT }, (_, i) => { const sk = SKILL[r.slots[i]]; return h("button", { class: "sb-slot" + (i === slotSel ? " on" : ""), onclick: () => { audio.tap(); slotSel = i; redraw(); } }, sk ? ic(sk, 40) : h("span", { class: "sb-empty" }, "+"), h("small", null, sk ? sk.short : `SLOT ${i + 1}`)); }));
+      const mode = h("div", { class: "sb-mode" }, h("span", null, h("b", null, r.auto ? "Auto skills" : "Manual skills"), h("small", null, r.auto ? "Slots fire on their own while Auto is on." : "Slots only fire when you tap them.")), h("button", { class: "gm-btn sm", onclick: () => { audio.tap(); setAuto(eco, !r.auto); redraw(); } }, r.auto ? "MANUAL" : "AUTO"));
+      const known = SKILLS.filter((s) => r.owned[s.id]);
+      const list = known.map((sk) => { const eq = r.slots.indexOf(sk.id), u = usable(eco, sk.id);
+        return h("div", { class: "sb-row" + (u.ok ? "" : " dim") }, ic(sk), h("div", { class: "sb-info" }, h("b", null, sk.name, sk.ult ? h("em", { class: "sb-ult" }, "ULTIMATE") : null), h("small", null, `${typeText(sk, st)} · ${sk.cd}s cd · ${fx2(sk.chant * (1 - st.cdr / 100))}s chant`), !u.ok ? h("small", { class: "mt-why" }, u.why) : null),
+          eq === slotSel ? h("button", { class: "gm-btn sm ghost", onclick: () => { audio.tap(); setSlot(eco, slotSel, null); redraw(); } }, `SLOT ${slotSel + 1} ✕`) : h("button", { class: "gm-btn sm", onclick: () => { audio.tap(); setSlot(eco, slotSel, sk.id); redraw(); } }, eq >= 0 ? `→ ${slotSel + 1}` : `EQUIP ${slotSel + 1}`)); });
+      return [slots, mode, ...list, h("p", { class: "gc-note" }, cls ? "Everything you unlock stays here and can be equipped whatever class is active. Ultimates only work while their own class is active." : "You are Unclassed. Reach Lv 9, then find the Class Change NPC in the Village to begin a class and its Skill Book.")];
+    } });
+  };
+  function bookTab(r, st, lvl, cls, redraw) {
+    const list = skillsOfClass(cls.id), reg = list.filter((s) => !s.ult), ult = list.filter((s) => s.ult), sel = SKILL[bookSel] && SKILL[bookSel].cls === cls.id ? SKILL[bookSel] : reg[0];
+    const node = (sk) => { const done = isUnlocked(eco, sk.id), can = canUnlock(eco, sk.id, cat, lvl), near = !done && lvl >= sk.lv && (!sk.parent || isUnlocked(eco, sk.parent));
+      return h("button", { class: "bk-node" + (done ? " done" : near ? " near" : " far") + (sk === sel ? " sel" : ""), onclick: () => { audio.tap(); bookSel = sk.id; redraw(); } }, ic(sk, 46), h("small", null, done ? "✓" : `Lv ${sk.lv}`)); };
+    const row = (arr) => h("div", { class: "bk-row" }, ...arr.flatMap((s, i) => (i ? [h("i", { class: "bk-link" + (isUnlocked(eco, s.parent || "") ? " on" : "") }), node(s)] : [node(s)])));
+    const done = isUnlocked(eco, sel.id), c = canUnlock(eco, sel.id, cat, lvl), cost = costOf(sel);
+    const req = (ok, t) => h("span", { class: "sb-req" + (ok ? " ok" : "") }, (ok ? "✓ " : "✗ ") + t);
+    const detail = h("div", { class: "gp-card bk-detail" }, h("div", { class: "bk-dh" }, ic(sel, 54), h("div", null, h("h4", null, sel.name, sel.ult ? h("em", { class: "sb-ult" }, `ULTIMATE ${sel.ult}`) : null), h("small", null, `${tierLabel(sel)[0]} · ${typeText(sel, st)} · ${sel.cd}s cd`))), h("p", null, sel.ult ? "A signature technique. It unlocks here, but only works while this class is active." : sel.desc),
+      done ? h("p", { class: "sb-req ok" }, "✓ Unlocked — equip it in the Skill Library.") : h("div", { class: "sb-reqs" }, req(true, "Class: " + cls.name), req(lvl >= sel.lv, `Level ${sel.lv}`), sel.parent ? req(isUnlocked(eco, sel.parent), SKILL[sel.parent].name) : null, req(booksOf(eco, sel.id) >= cost.books, `Skill books ${booksOf(eco, sel.id)}/${cost.books}`), ...cost.mats.map(([n, q]) => { const it = cat.byName(n); return req(it && eco.total(it.item_id) >= q, `${n} ${fx2(Math.min(q, it ? eco.total(it.item_id) : 0))}/${q}`); })),
+      done ? null : h("button", { class: "gm-btn", disabled: !c.ok, onclick: () => { const x = unlock(eco, sel.id, cat, lvl); if (x.ok) { audio.ok(); api.toast(`${sel.name} unlocked`); } else { audio.no(); api.toast("Missing: " + c.reasons.join(", ")); } redraw(); } }, "UNLOCK"));
+    return [h("div", { class: "bk-head" }, h("span", { class: "sk-wrap", html: skillIcon(cls.m, cls.c, 52) }), h("div", null, h("b", null, cls.name), h("small", null, `${cls.weapon} · ${cls.identity}`))),
+      h("div", { class: "gs-sec" }, "CLASS SKILL TREE"), h("div", { class: "bk-map" }, row(reg), h("div", { class: "gs-sec", style: "margin-top:10px" }, "SIGNATURE ULTIMATES · Lv 100 / 300 / 404 / 666"), row(ult)), detail,
+      h("p", { class: "gc-note" }, "Level milestones make a skill eligible — you still need the class, the previous skill and its materials. Skill books drop from monsters; other materials come from the hunting zones. Only your active class's book is shown.")];
+  }
+  // ======================================================================= CLASS CHANGE (the Class Change NPC opens this)
+  api.openClasses = () => {
+    open("CLASS CHANGE", { sub: "", render(tab, redraw, subEl) {
+      const lvl = getHero(eco).lv, cr = classRec(eco), act = cr.active; subEl.textContent = `${eco.wallet().toFixed(2)} xc`;
+      return [h("p", { class: "gc-note", style: "margin:0 0 8px" }, `You can own several classes but only one is active. Beginning a class costs ${CLASS_COST} xc (from Lv ${FIRST_CLASS_LEVEL}); switching costs ${SWITCH_COST} xc. Class progress and unlocked skills are never lost.`),
+        ...CLASSES.map((c) => { const own = ownsClass(eco, c.id), isAct = act === c.id, can = canAcquireClass(eco, c.id, lvl);
+          return h("div", { class: "sb-row" + (isAct ? " act" : "") }, h("span", { class: "sk-wrap", html: skillIcon(c.m, c.c, 46) }), h("div", { class: "sb-info" }, h("b", null, c.name), h("small", null, `${c.weapon} · ${c.identity}`)),
+            isAct ? h("em", { class: "sb-ult" }, "ACTIVE") : own ? h("button", { class: "gm-btn sm", onclick: () => { const x = switchClass(eco, c.id); if (x.ok) { audio.ok(); api.toast(`Class: ${c.name}`); } else { audio.no(); api.toast(x.reason === "funds" ? "Not enough xc." : "Can't switch."); } redraw(); } }, "SWITCH")
+            : h("button", { class: "gm-btn sm", disabled: !can.ok, onclick: () => { const x = acquireClass(eco, c.id, lvl); if (x.ok) { audio.ok(); api.toast(`You begin the ${c.name} path.`); } else { audio.no(); api.toast(x.reason === "level" ? `Reach Lv ${FIRST_CLASS_LEVEL} first.` : "Not enough xc."); } redraw(); } }, can.ok || can.reason === "funds" ? "BEGIN" : `Lv ${FIRST_CLASS_LEVEL}`)); })];
     } });
   };
 }

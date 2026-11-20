@@ -6,6 +6,7 @@ import { buildZoneWorld } from "./art/zones.js";
 import { loadMonsterArt } from "./art/monsters.js";
 import { ROSTER } from "./data/mobs.js";
 import { isHunting } from "./data/areas.js";
+import { npcsOf } from "./data/npcs.js";
 
 const img = (url) => new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = url; });
 
@@ -25,6 +26,7 @@ export async function loadGameAssets({ base = "./", looks = ["burgundy8"], onPro
     async get(id) {
       if (!cache.has(id)) cache.set(id, id === "village" || id === "palace" ? buildZoneWorld(id, sprites, { biome: "outskirts", seed: id === "palace" ? 5 : 3 }) : buildZoneWorld(id, sprites));
       if (isHunting(id)) await loadMonsterArt(base, ROSTER.filter((sp) => sp.z === id));
+      const w = cache.get(id); if (!w.npcs) { w.npcs = npcsOf(id); await Promise.all(w.npcs.map((n) => kit.load(n.model))); }
       return cache.get(id);
     },
   };

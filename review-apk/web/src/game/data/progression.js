@@ -1,94 +1,80 @@
-// Character development: Level -> stat points -> Meridian node web -> final stats.
-// Design (from the project brief):
-//   * level cap 666 (content currently ends at Lv 100); +3 stat points per level-up (1,995 points from level 1 -> 666 with zero start)
-//   * levelling NEVER raises an attribute by itself - points are spent to activate nodes (6 points each) in an interconnected web
-//   * a node can only be activated when it touches an already-active node (the Origin is always active); only ACTIVE nodes give stats
-//   * final stats = combined base stats + modifiers from several independent sources (nodes, equipment, class, specialist weapon, cultivation, pets, ...)
-//     flat bonuses are summed per source, percentage modifiers are summed and applied on top (cultivation can also give penalties)
+import { cultivationMods, cult, realmOf } from "./realms.js";
+import { PATHS } from "./meridian.js";
+import { SKILL } from "./skills.js";
+// Character development (architecture v6): Level -> Stat Points -> Meridian Web -> Final Stats.
+//   * 17 Base Stats, all starting at 9: six Primary Attributes (STR DEX AGI VIT END LCK) + eleven modifiers (chant / recovery / cooldown / crit rate / crit damage /
+//     consistent damage / consistent defense / Qi consumption / Qi consumption reduction / HP regen / Qi regen). HP, HP Cap, Qi and Qi Cap are resource pools derived from them.
+//   * Stat Points: +3 per level (1,995 at Lv 666) + independent extra allowances (Class 216, Specialist Weapons 216, Spirit Realm 210 = 642). A node costs 6.
+//   * Meridian Web: six named paths x 133 nodes, one shared network. A node can be activated only when it touches an active node (the Origin is always active);
+//     only ACTIVE nodes add their stat. The Node System (cultivation) is NOT a point source; it is the realm / breakthrough interface.
+//   * Final stat = (9 + flat bonuses) x (1 + % modifiers); derived effects grow from the points above 9 (formulas in statsOf; every curve is mine, the document left them open).
 // Pure data + maths: no DOM, no engine imports.
 export const LEVEL_CAP = 666, POINTS_PER_LEVEL = 3, NODE_COST = 6;
 export const levelPoints = (lv) => POINTS_PER_LEVEL * Math.max(0, Math.min(LEVEL_CAP, lv) - 1);          // 1995 at the cap
 export const TOTAL_LEVEL_POINTS = levelPoints(LEVEL_CAP);
+export const EXTRA_BUDGET = { class: 216, weapon: 216, realm: 210 };                                      // provisional allowances from the document (642 combined)
+export const REALM_POINTS = [24, 24, 24, 23, 23, 23, 23, 23, 23];                                         // 210, awarded on entering each Spirit Realm
 
-// ---------------------------------------------------------------- stat definitions
-export const ATTRS = ["str", "dex", "agi", "vit", "spi"];
+// ---------------------------------------------------------------- the 17 Base Stats
+export const ATTRS = ["str", "dex", "agi", "vit", "end", "lck"];
+export const MODS = ["ctr", "srr", "cdr", "crt", "cdm", "cod", "cdf", "qco", "qcr", "hpr", "qir"];
+export const STAT_IDS = [...ATTRS, ...MODS];
 export const STAT = {
-  str: ["Strength", "", "ATK +2.2, Max HP +2"], dex: ["Dexterity", "", "ATK +0.6, Crit chance +0.18%"], agi: ["Agility", "", "Swing speed, Evade, DEF +0.25"],
-  vit: ["Vitality", "", "Max HP +14, DEF +0.5"], spi: ["Spirit", "", "Chant Time Reduction +0.2%, Skill damage +0.6%"],
-  crit: ["Crit chance", "%"], critDmg: ["Crit damage", "%"], cdr: ["Chant Time Reduction", "%"], evade: ["Evade", "%"], haste: ["Swing speed", "%"],
-  regen: ["HP regen", "%/s"], expPct: ["EXP gain", "%"], dropPct: ["Loot & book luck", "%"], skillPct: ["Skill damage", "%"],
-  atk: ["ATK", "%"], maxHp: ["Max HP", "%"], def: ["DEF", "%"],
+  str: ["Strength", "", "ATK +2.2 · Max HP +1.5"], dex: ["Dexterity", "", "ATK +0.6 · Skill damage +0.35% · Crit rate +0.05%"], agi: ["Agility", "", "Swing speed +0.8% · Evade +0.12% · DEF +0.1"],
+  vit: ["Vitality", "", "Max HP +14 · DEF +0.15 · Qi cap +2"], end: ["Endurance", "", "Max HP +3 · DEF +0.5 · Qi cap +6"], lck: ["Luck", "", "Crit rate +0.15% · Deadly-hit chance · Evade +0.05%"],
+  ctr: ["Chant Time Reduction", "", "Chant time −0.45% per point (max 70%). Never touches cooldowns"], srr: ["Skill Recovery Reduction", "", "Recovery after a skill −0.5% per point (max 70%): faster chaining"],
+  cdr: ["Cooldown Reduction", "", "Skill cooldowns −0.4% per point (max 60%)"], crt: ["Critical Rate", "", "Crit chance +0.2% per point"], cdm: ["Critical Damage", "", "Crit damage +1.2% per point"],
+  cod: ["Consistent Damage", "", "Non-crit damage +1% per point and steadier rolls"], cdf: ["Consistent Defense", "", "Flat DEF +0.8 per point"], qco: ["Qi Consumption", "", "Base Qi cost −0.6% per point (max −40%)"],
+  qcr: ["Qi Consumption Reduction", "", "Qi cost paid −0.5% per point (max −50%, final cost never below 30%)"], hpr: ["HP Regeneration", "", "HP regen +0.015% of max HP per second per point"], qir: ["Qi Regeneration", "", "Qi regen +0.14 per second per point"],
+  // derived / legacy keys used by other sources
+  crit: ["Crit chance", "%"], critDmg: ["Crit damage", "%"], evade: ["Evade", "%"], haste: ["Swing speed", "%"], regen: ["HP regen", "%/s"], expPct: ["EXP gain", "%"], dropPct: ["Loot & book luck", "%"], skillPct: ["Skill damage", "%"],
+  atk: ["ATK", "%"], maxHp: ["Max HP", "%"], def: ["DEF", "%"], qi: ["Qi cap", "%"],
 };
-const PCT_KEYS = new Set(["atk", "maxHp", "def"]);   // these are % multipliers of the derived stat; everything else in fx.flat is a flat value
+const PCT_KEYS = new Set(["atk", "maxHp", "def", "qi"]);
 
-// ---------------------------------------------------------------- the node web (generated; deterministic)
-export const RINGS = 10;
-const RING_NAME = ["Mortal", "Tempered", "Hardened", "Refined", "Awakened", "Radiant", "Profound", "Heavenly", "Sovereign", "Transcendent"];
-export const BRANCHES = [
-  { id: "str", name: "Tiger Sinew", col: "#e0584a", ang: -90, main: "str", l: ["atk", "pct"], r: ["critDmg", "flat"], base: ["Tiger Sinew", "Mountain Grip", "Splitting Wrist"], key: ["Mountain-Breaking Fist", "Tiger God Awakening"] },
-  { id: "dex", name: "Falcon Eye", col: "#e9c46a", ang: -30, main: "dex", l: ["crit", "flat"], r: ["skillPct", "flat"], base: ["Falcon Eye", "Needle Focus", "Piercing Gaze"], key: ["Hundred-Pace Aim", "Sky Falcon Insight"] },
-  { id: "agi", name: "Crane Step", col: "#6fdc8a", ang: 30, main: "agi", l: ["evade", "flat"], r: ["haste", "flat"], base: ["Crane Step", "Willow Dodge", "Swallow Turn"], key: ["Cloud-Treading Step", "Wind God Footwork"] },
-  { id: "vit", name: "Iron Bone", col: "#7ab0ff", ang: 90, main: "vit", l: ["maxHp", "pct"], r: ["regen", "flat"], base: ["Iron Bone", "Tortoise Marrow", "Jade Skin"], key: ["Diamond Body", "Golden Bell Shroud"] },
-  { id: "spi", name: "Thunder Breath", col: "#b58cff", ang: 150, main: "spi", l: ["cdr", "flat"], r: ["skillPct", "flat"], base: ["Thunder Breath", "Quick Chant", "Spirit Pulse"], key: ["Swift Incantation Seal", "Heavenly Thunder Heart"] },
-  { id: "hid", name: "Hidden Gate", col: "#e7a8c4", ang: 210, main: null, l: ["expPct", "flat"], r: ["dropPct", "flat"], base: ["Hidden Gate", "Wanderer's Insight", "Fortune Seal"], key: ["Gate of Nine Fortunes", "Void Gate Awakening"] },
-];
-const LANE_CHAR = { s: 0, l: 1, r: 2 };
-function mainFx(b, k, ring) {   // spine: the branch's attribute (Hidden Gate: a little of everything)
-  const v = 3 + Math.floor(ring / 2);
-  if (!b.main) return { flat: Object.fromEntries(ATTRS.map((a) => [a, Math.max(1, Math.round(v * 0.45))])) };
-  return { flat: { [b.main]: v } };
-}
-function subFx(b, lane, ring) {
-  const [key, kind] = lane === "l" ? b.l : b.r;
-  const unit = { atk: 0.7, maxHp: 0.7, crit: 0.45, critDmg: 2.2, evade: 0.5, haste: 0.55, regen: 0.012, cdr: 0.8, skillPct: 0.9, expPct: 0.9, dropPct: 0.8 }[key] || 0.6;
-  const val = Math.round((unit * (1 + ring * 0.55)) * 100) / 100, o = { flat: {}, pct: {} };
-  if (kind === "pct") o.pct[key] = val; else o.flat[key] = val;
-  if (ring >= 4) { const a = b.main || ATTRS[ring % 5]; o.flat[a] = Math.round(ring / 2); }
-  return o;
-}
-function keyFx(b, ring) {       // keystones on the spine at ring 5 and 10: big, branch-defining
-  const big = ring === 10, m = b.main || "vit", o = { flat: {}, pct: {} };
-  if (b.main) o.flat[m] = big ? 22 : 10; else for (const a of ATTRS) o.flat[a] = big ? 9 : 4;
-  const extra = { str: ["atk", "pct", 7], dex: ["crit", "flat", 4], agi: ["haste", "flat", 6], vit: ["maxHp", "pct", 8], spi: ["cdr", "flat", 7], hid: ["dropPct", "flat", 8] }[b.id];
-  o[extra[1] === "pct" ? "pct" : "flat"][extra[0]] = extra[2] * (big ? 2 : 1);
-  if (big) { o.flat.expPct = (o.flat.expPct || 0) + 5; }
-  return o;
-}
+// ---------------------------------------------------------------- Meridian Web (generated, deterministic): six wedges of 133 nodes around the Origin
+export const BRANCHES = PATHS, PATH = Object.fromEntries(PATHS.map((p) => [p.id, p]));
+export const PATH_NODES = 133;
+export const MAG = { core: 1.0, support: 1.6, low: 2.2, weak: 3.0 };   // Base Stat points per node (rarer nodes are worth more); the last node of every Core run is a "Seal" worth double
+const S = 46, R0 = 84, DR = 40, WEDGE = 0.9;
 function build() {
-  const nodes = [{ id: "origin", x: 0, y: 0, branch: null, ring: 0, lane: "o", name: "Origin · Dantian", fx: { flat: {}, pct: {} }, links: [], free: true }], by = { origin: nodes[0] };
+  const nodes = [{ id: "origin", x: 0, y: 0, path: null, branch: null, ring: 0, name: "Origin · Dantian", fx: { flat: {}, pct: {} }, links: [], free: true }], by = { origin: nodes[0] }, rows = {};
   const link = (a, b) => { if (!a || !b || a === b) return; a.links.includes(b.id) || a.links.push(b.id); b.links.includes(a.id) || b.links.push(a.id); };
-  const add = (n) => { nodes.push(n); by[n.id] = n; return n; };
-  BRANCHES.forEach((b) => {
-    const th = (b.ang * Math.PI) / 180, ux = Math.cos(th), uy = Math.sin(th), vx = -uy, vy = ux;
-    for (let k = 1; k <= RINGS; k++) {
-      const R = 96 + k * 74, sp = 40 + k * 9, mk = (lane, off) => ({ id: `${b.id}-${lane}${k}`, x: Math.round(ux * R + vx * off), y: Math.round(uy * R + vy * off), branch: b.id, ring: k, lane });
-      const keyed = k === 5 || k === 10, s = add({ ...mk("s", 0), key: keyed, name: keyed ? b.key[k / 5 - 1] : `${RING_NAME[k - 1]} ${b.base[0]}`, fx: keyed ? keyFx(b, k) : mainFx(b, k, k), links: [] });
-      link(s, by[k === 1 ? "origin" : `${b.id}-s${k - 1}`]);
-      if (k >= 2) for (const lane of ["l", "r"]) {
-        const off = (lane === "l" ? -1 : 1) * sp, n = add({ ...mk(lane, off), name: `${RING_NAME[k - 1]} ${b.base[LANE_CHAR[lane]]}`, fx: subFx(b, lane, k), links: [] });
-        link(n, k === 2 ? by[`${b.id}-s1`] : by[`${b.id}-${lane}${k - 1}`]); link(n, s);
-      }
-    }
+  PATHS.forEach((P, pi) => {
+    const th = (-90 + 60 * pi) * Math.PI / 180, seq = []; for (const [st, cnt, tier] of P.runs) for (let i = 0; i < cnt; i++) seq.push({ st, tier, i, last: i === cnt - 1, cnt });
+    const rr = []; let rem = PATH_NODES, k = 1; while (rem > 0) { const R = R0 + (k - 1) * DR, full = Math.max(2, Math.floor(WEDGE * R / S) + 1), c = Math.min(full, rem); rr.push({ R, c }); rem -= c; k++; }
+    let n = 0; rows[P.id] = [];
+    rr.forEach(({ R, c }, ri) => { const row = [], W = Math.min(WEDGE, (c - 1) * S / R);
+      for (let j = 0; j < c; j++) { const a = th + (c === 1 ? 0 : (j / (c - 1) - 0.5) * W), q = seq[n++], seal = q.tier === "core" && q.last, v = MAG[q.tier] * (seal ? 2 : 1), id = `${P.id}-${n}`;
+        const nd = { id, n, path: P.id, branch: P.id, pi, ring: ri + 1, x: Math.round(Math.cos(a) * R), y: Math.round(Math.sin(a) * R), stat: q.st, tier: q.tier, key: seal, name: seal ? `${STAT[q.st][0]} Seal` : `${STAT[q.st][0]} ${String(q.i + 1).padStart(2, "0")}`, fx: { flat: { [q.st]: v }, pct: {} }, links: [], j, c };
+        nodes.push(nd); by[id] = nd; row.push(nd); if (j) link(row[j - 1], nd); }
+      if (ri === 0) row.forEach((nd) => link(nd, by.origin)); else { const prev = rows[P.id][ri - 1]; row.forEach((nd, j) => { const f = nd.c === 1 ? 0.5 : j / (nd.c - 1), pos = f * (prev.length - 1); link(nd, prev[Math.floor(pos)]); link(nd, prev[Math.ceil(pos)]); }); }
+      rows[P.id].push(row); });
   });
-  // cross-links between neighbouring branches (right lane of one <-> left lane of the next) make it a web rather than six separate trees
-  BRANCHES.forEach((b, i) => { const nb = BRANCHES[(i + 1) % BRANCHES.length]; for (const k of [3, 6, 9]) link(by[`${b.id}-r${k}`], by[`${nb.id}-l${k}`]); });
+  PATHS.forEach((P, pi) => { const Q = PATHS[(pi + 1) % 6]; for (const row of rows[P.id].slice(2)) { const a = row[row.length - 1]; let best = null, bd = S * 1.5; for (const r2 of rows[Q.id].slice(2)) { const b = r2[0], d = Math.hypot(a.x - b.x, a.y - b.y); if (d < bd) { bd = d; best = b; } } if (best) link(a, best); } });   // seam links: one web, not six trees
   return { nodes, by };
 }
 const WEB = build();
 export const NODES = WEB.nodes, NODE = WEB.by;
-export const branchOf = (id) => BRANCHES.find((b) => b.id === id);
+export const branchOf = (id) => PATH[id] || null;
+export const WEB_RADIUS = Math.max(...NODES.map((n) => Math.hypot(n.x, n.y)));
 
 /** readable text of what a node gives */
 export function describeFx(fx) {
-  const out = []; for (const [k, v] of Object.entries(fx.flat || {})) if (v) out.push(`+${Math.round(v * 100) / 100}${STAT[k][1] === "%" ? "%" : STAT[k][1] === "%/s" ? "%/s" : ""} ${STAT[k][0]}`);
-  for (const [k, v] of Object.entries(fx.pct || {})) if (v) out.push(`${v > 0 ? "+" : ""}${Math.round(v * 100) / 100}% ${STAT[k][0]}`); return out;
+  const out = []; for (const [k, v] of Object.entries(fx.flat || {})) if (v) out.push(`+${Math.round(v * 100) / 100}${STAT[k]?.[1] === "%" ? "%" : STAT[k]?.[1] === "%/s" ? "%/s" : ""} ${STAT[k]?.[0] || k}`);
+  for (const [k, v] of Object.entries(fx.pct || {})) if (v) out.push(`${v > 0 ? "+" : ""}${Math.round(v * 100) / 100}% ${STAT[k]?.[0] || k}`); return out;
 }
 
 // ---------------------------------------------------------------- saved state (inside flags.hero)
-export function heroRec(eco) { const f = eco.state.flags; const h = (f.hero ||= { lv: 1, exp: 0, hp: null, kills: 0, species: null }); h.nodes ||= []; h.bonusPts ||= 0; h.spentRespec ||= 0; return h; }
-const levelOf = (eco) => eco.state.flags?.hero?.lv || 1;
-/** { total, spent, free } stat points.  total = level points + bonus points from class / specialist weapons / cultivation tier ... */
-export function pointsOf(eco) { const h = heroRec(eco), total = levelPoints(h.lv) + (h.bonusPts || 0), spent = h.nodes.length * NODE_COST; return { total, spent, free: Math.max(0, total - spent), nodes: h.nodes.length }; }
+export function heroRec(eco) { const f = eco.state.flags; const h = (f.hero ||= { lv: 1, exp: 0, hp: null, kills: 0, species: null }); h.nodes ||= []; if (h.nodes.some((id) => !NODE[id])) h.nodes = h.nodes.filter((id) => NODE[id]); h.bonusPts ||= 0; h.spentRespec ||= 0; return h; }
+/** extra Stat Point allowances (provisional budget 216 + 216 + 210): Class mastery (3 per Class Skill Tree skill, 15 per Ultimate), Specialist Weapons (hook: hero.weaponPts), Spirit Realm (on entering a realm) */
+export function extraPoints(eco) {
+  const h = heroRec(eco), owned = eco.state.flags?.skills?.owned || {}; let cp = 0; for (const id of Object.keys(owned)) { const s = SKILL[id]; if (s && s.cls !== "basic") cp += s.ult ? 15 : 3; }
+  const n = realmOf(h.lv).n, awake = h.lv > 1; let rp = 0; for (let i = 0; i < n; i++) if (i || awake) rp += REALM_POINTS[i];   // Spirit Initiate (and its points) opens with Ring 1 at Lv 2
+  return { class: Math.min(EXTRA_BUDGET.class, cp), weapon: Math.min(EXTRA_BUDGET.weapon, h.weaponPts || 0), realm: Math.min(EXTRA_BUDGET.realm, rp) };
+}
+/** { total, spent, free, nodes, src } stat points */
+export function pointsOf(eco) { const h = heroRec(eco), x = extraPoints(eco), lvl = levelPoints(h.lv), total = lvl + x.class + x.weapon + x.realm + (h.bonusPts || 0), spent = h.nodes.length * NODE_COST; return { total, spent, free: Math.max(0, total - spent), nodes: h.nodes.length, src: { level: lvl, ...x } }; }
 export const isActive = (eco, id) => id === "origin" || heroRec(eco).nodes.includes(id);
 /** a node can be activated when it is next to an active one and there are enough free points */
 export function canActivate(eco, id) {
@@ -113,29 +99,32 @@ export function resetNodes(eco) {
 }
 
 // ---------------------------------------------------------------- stat sources
-/** every source returns { flat: {stat: n}, pct: {stat: %} }.  Only the node web is implemented now; the others are the hooks for the coming systems. */
+/** every source returns { flat: {stat: n}, pct: {stat: %} }.  Nodes and cultivation (Spirit Realm / Soul / Rings) are live; the rest are hooks for the coming systems. */
 export const SOURCES = {
   nodes(eco) {
     const o = { flat: {}, pct: {} }; for (const id of heroRec(eco).nodes) { const n = NODE[id]; if (!n) continue; for (const [k, v] of Object.entries(n.fx.flat || {})) o.flat[k] = (o.flat[k] || 0) + v; for (const [k, v] of Object.entries(n.fx.pct || {})) o.pct[k] = (o.pct[k] || 0) + v; } return o;
   },
   equipment: (eco) => eco.state.flags?.hero?.equipment || { flat: {}, pct: {} },       // weapons / armour / accessories (not implemented yet)
-  class: (eco) => eco.state.flags?.hero?.classMods || { flat: {}, pct: {} },            // class bonuses
-  specialist: (eco) => eco.state.flags?.hero?.weaponMods || { flat: {}, pct: {} },      // specialist weapon attributes
-  cultivation: (eco) => eco.state.flags?.hero?.cultivationMods || { flat: {}, pct: {} },// % bonuses AND penalties on specific attributes, e.g. { pct: { str: 20, agi: -10 } }
+  class: (eco) => eco.state.flags?.hero?.classMods || { flat: {}, pct: {} },            // direct class bonuses (the class Stat Point allowance is counted in pointsOf)
+  specialist: (eco) => eco.state.flags?.hero?.weaponMods || { flat: {}, pct: {} },      // Specialist Weapon bonuses
+  realm: (eco) => cultivationMods(eco),                                                 // Spirit Realm stages / breakthroughs, Martial Soul, Spirit Rings, hunger
   pets: (eco) => eco.state.flags?.hero?.petMods || { flat: {}, pct: {} },
 };
-export const BASE = { maxHp: 50, atk: 6, def: 0, speed: 0.95 };
-/** combine everything -> the character's final attributes.  buffs = { atk, def } temporary multipliers from skills (optional) */
+export const BASE_STAT = 9;   // every Base Stat starts at 9 (Strength 9 + a +3 node = 12)
+export const BASE = { maxHp: 50, atk: 6, def: 0, speed: 0.95, qi: 80, qiRegen: 1.2 };
+/** combine everything -> final Base Stats, then the derived combat numbers.  buffs = { atk, def } temporary multipliers from skills (optional) */
 export function statsOf(eco, buffs = {}) {
   const flat = {}, pct = {}; for (const f of Object.values(SOURCES)) { const s = f(eco); for (const [k, v] of Object.entries(s.flat || {})) flat[k] = (flat[k] || 0) + v; for (const [k, v] of Object.entries(s.pct || {})) pct[k] = (pct[k] || 0) + v; }
-  const A = {}; for (const a of ATTRS) A[a] = Math.max(0, (flat[a] || 0) * (1 + (pct[a] || 0) / 100));        // cultivation etc. can scale an attribute up or down
-  const f = (k) => flat[k] || 0, p = (k) => 1 + (pct[k] || 0) / 100;
-  const maxHp = Math.round((BASE.maxHp + A.vit * 14 + A.str * 2) * p("maxHp")), atk = (BASE.atk + A.str * 2.2 + A.dex * 0.6) * p("atk") * (1 + (buffs.atk || 0));
-  const def = (BASE.def + A.vit * 0.5 + A.agi * 0.25) * p("def") * (1 + (buffs.def || 0)), haste = A.agi * 0.8 + f("haste");
+  const A = {}, X = {}; for (const a of STAT_IDS) { A[a] = Math.max(0, (BASE_STAT + (flat[a] || 0)) * (1 + (pct[a] || 0) / 100)); X[a] = A[a] - BASE_STAT; }   // % sources can scale a stat up or down; effects grow from the points above 9
+  const f = (k) => flat[k] || 0, p = (k) => 1 + (pct[k] || 0) / 100, cl = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const maxHp = Math.round((BASE.maxHp + X.vit * 14 + X.end * 3 + X.str * 1.5) * p("maxHp")), atk = (BASE.atk + X.str * 2.2 + X.dex * 0.6 + X.lck * 0.2) * p("atk") * (1 + (buffs.atk || 0));
+  const def = (BASE.def + X.end * 0.5 + X.cdf * 0.8 + X.vit * 0.15 + X.agi * 0.1) * p("def") * (1 + (buffs.def || 0)), haste = X.agi * 0.8 + f("haste");
   return {
     attrs: A, maxHp, atk, def, speed: Math.max(0.32, BASE.speed / (1 + haste / 100)),
-    crit: Math.min(75, 5 + A.dex * 0.18 + f("crit")), critDmg: 150 + f("critDmg"), cdr: Math.min(70, A.spi * 0.2 + f("cdr")), evade: Math.min(45, A.agi * 0.12 + f("evade")),
-    skillPct: A.spi * 0.6 + f("skillPct"), regen: f("regen"), expPct: f("expPct"), dropPct: f("dropPct"),
+    crit: Math.min(75, 5 + X.crt * 0.2 + X.lck * 0.15 + X.dex * 0.05 + f("crit")), critDmg: 150 + X.cdm * 1.2 + f("critDmg"), deadly: cl(4 + X.lck * 0.3, 0, 35),   // deadly = % of crits that become Deadly hits
+    consDmg: cl(X.cod, 0, 150), chantRed: cl(X.ctr * 0.45, 0, 70), recovRed: cl(X.srr * 0.5, 0, 70), cdRed: cl(X.cdr * 0.4, 0, 60), evade: Math.min(45, X.agi * 0.12 + X.lck * 0.05 + f("evade")),
+    skillPct: (X.str + X.dex) * 0.35 + X.cod * 0.5 + f("skillPct"), regen: X.hpr * 0.015 + f("regen"), expPct: f("expPct"), dropPct: f("dropPct"),
+    qiCap: Math.round((BASE.qi + X.end * 6 + X.vit * 2) * p("qi")), qiRegen: BASE.qiRegen + X.qir * 0.14, qiCostMul: Math.max(0.3, (1 - Math.min(0.4, X.qco * 0.006)) * (1 - Math.min(0.5, X.qcr * 0.005))),
   };
 }
 export const powerOf = (st) => Math.round(st.atk * 12 + st.maxHp * 0.35 + st.def * 10 + st.crit * 4 + st.critDmg * 0.5 + st.skillPct * 2);

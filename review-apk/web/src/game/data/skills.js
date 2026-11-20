@@ -1,70 +1,138 @@
-// Skill Book: martial arts the hero can learn, level up and put into 4 quick slots (used automatically while Auto is on, or tapped manually).
-// Skills are learned from "skill books" (dropped by monsters, a separate collection - not bag items) plus, from tier 2 up, specific catalogue materials.
-// Names use East-Asian swordsmanship terms (Korean/Chinese/Japanese). All numbers are placeholders for balancing.
-export const MAX_SKILL_LV = 5, SLOT_COUNT = 4;
+// Classes, class Skill Books and the persistent Skill Library (design brief v2).
+//  * characters start UNCLASSED with four basic techniques; classes are acquired from the Class Change NPC (several can be owned, ONE is active)
+//  * every class has its own sparse Skill Book tree (milestone levels 9 / 20 / 60 ...) + four signature Ultimates at Lv 100 / 300 / 404 / 666
+//  * unlocking a skill needs: the class (owned), the character level, the parent skill, skill books (monster drops) and, from tier 2 up, catalogue materials
+//  * an unlocked ordinary skill stays in the Skill Library and can be equipped whatever class / weapon is active; an Ultimate only works while ITS class is active
+//  * the Skill Book screen shows only the ACTIVE class; unowned classes and Advanced Classes are never shown (no locked entries, silhouettes or hints)
+// Names / numbers are placeholders - the brief says the detailed skill lists are still to be designed.
+export const SLOT_COUNT = 4, FIRST_CLASS_LEVEL = 9, ULT_LEVELS = [100, 300, 404, 666];
+export const CLASS_COST = 8, SWITCH_COST = 2;     // xc (placeholder)
 export const TIER = { 1: ["Mortal", "#c9b08a"], 2: ["Adept", "#7ec8a6"], 3: ["Master", "#7ab0ff"], 4: ["Grandmaster", "#b58cff"], 5: ["Heavenly", "#ffb04a"] };
-// books needed to learn at each tier (and x level for upgrades) + materials per tier (catalogue item names that already exist in the economy)
 const BOOKS = { 1: 3, 2: 8, 3: 20, 4: 45, 5: 100 };
 const MATS = { 1: [], 2: [["Iron Ingot", 3]], 3: [["Steel Ingot", 5], ["Blue Crystal Geode", 3]], 4: [["Gold Ore", 8], ["Cobalt Ore", 6]], 5: [["Tungsten Ore", 15], ["Antimony Ore", 10], ["Gold Ore", 10]] };
+const tierOf = (s) => (s.ult ? [3, 4, 5, 5][s.ult - 1] : s.lv < 20 ? 1 : s.lv < 60 ? 2 : s.lv < 150 ? 3 : 4);
 
-// type: hit (single target, n hits) | aoe (around the hero) | heal | buff.  mult = x ATK per hit.  chant = seconds of channelling (reduced by Chant Time Reduction)
-const SHORT = { vslash: "V-SLASH", crescent: "CRESCENT", mend: "MEND", ironstance: "GUARD", galeblade: "GALE", thunderpalm: "THUNDER", lotus: "LOTUS", bloodoath: "OATH", skyrend: "AURA", phoenix: "PHOENIX", tigerroar: "ROAR", nineheavens: "SWORD RAIN", voidstep: "VOID", heavendivide: "DIVIDE" };
-const S = (id, name, hanja, tier, type, o) => ({ id, name, hanja, tier, type, short: SHORT[id] || name.toUpperCase(), cd: 8, chant: 0.4, zones: [], ...o });
+export const CLASSES = [
+  { id: "reaper", name: "Reaper", weapon: "Straight double-edged sword", identity: "Precision, agility, critical strikes", m: "crane", c: "azure" },
+  { id: "monk", name: "Monk", weapon: "Staff", identity: "Staff-based martial discipline", m: "staff", c: "jade" },
+  { id: "ghostneedle", name: "Ghostneedle", weapon: "Shuriken & throwing weapons", identity: "Ranged precision, concealed projectiles", m: "shuriken", c: "violet" },
+  { id: "striker", name: "Striker", weapon: "Gauntlets", identity: "Close-range martial arts, combinations", m: "fist", c: "orange" },
+  { id: "sworddemon", name: "Sword Demon", weapon: "Saber", identity: "Saber-focused martial discipline", m: "saber", c: "crimson" },
+  { id: "breaker", name: "Breaker", weapon: "Heavy swords", identity: "Heavy attacks, overwhelming force", m: "heavy", c: "ember" },
+  { id: "eclipse", name: "Eclipse Sovereign", weapon: "Paired blades", identity: "Dual-weapon techniques", m: "twin", c: "rose" },
+  { id: "war", name: "War Sovereign", weapon: "Spear", identity: "Spear mastery, battlefield reach", m: "spear", c: "gold" },
+];
+export const CLASS = Object.fromEntries(CLASSES.map((c) => [c.id, c]));
+/** Advanced Classes are discovered in the world (achievement clues + lore + NPC side quest). They are intentionally NOT in CLASSES and never listed by any UI: only an ACQUIRED one may appear. */
+export const ADVANCED = [{ id: "heavenlydemon", name: "Heavenly Demon" }, { id: "heavenlysovereign", name: "Heavenly Sovereign" }];
+
+const DEF = { hit: { cd: 9, chant: 0.5, fx: "vslash" }, aoe: { cd: 12, chant: 0.8, fx: "aura" }, heal: { cd: 20, chant: 0.9, fx: "heal" }, buff: { cd: 28, chant: 0.4, fx: "guard" } };
+const COL = { azure: "78,168,255", jade: "63,224,160", violet: "169,123,255", orange: "255,138,61", crimson: "255,90,74", ember: "255,95,42", rose: "255,122,168", gold: "255,194,71", white: "238,243,255", ink: "211,217,234", ice: "143,230,255", teal: "47,212,212" };
+const zoneOfLv = (lv) => "z" + Math.min(11, Math.max(1, Math.ceil(lv / 10)));
+function S(cls, key, name, lv, parent, type, m, c, o = {}) {
+  const id = cls === "basic" ? key : `${cls}.${key}`, d = DEF[type];
+  const s = { id, key, name, cls, lv, parent: parent ? `${cls}.${parent}` : null, type, m, c, cd: d.cd, chant: d.chant, fx: d.fx, col: COL[c] || "255,255,255", mult: 1, hits: 1, ...o };
+  s.short = (o.short || name.split(" ").slice(0, 2).join(" ")).toUpperCase(); s.zone = o.zone || zoneOfLv(Math.max(lv, 5)); return s;
+}
+const ULT = [["Verdict", 12, 70, 2.2, 230], ["Heavens", 24, 90, 2.6, 260], ["Sovereign", 40, 110, 3.0, 300], ["Finale", 70, 150, 3.6, 360]];
+function ults(cls, list) {    // list = [[name, motif, palette, type?]] x4
+  return list.map(([name, m, c, type], i) => S(cls, `ult${i + 1}`, name, ULT_LEVELS[i], null, type || "aoe", m, c, { ult: i + 1, mult: ULT[i][1], cd: ULT[i][2], chant: ULT[i][3], radius: ULT[i][4], hits: type === "hit" ? 5 : 1, fx: type === "hit" ? "flurry" : "aura", zone: ["z10", "z11", "z11", "z11"][i] }));
+}
 export const SKILLS = [
-  S("vslash", "V-Slash", "雙鶴斬", 1, "hit", { en: "Twin Crane Cut", hits: 2, mult: 1.45, cd: 6, chant: 0.3, fx: "vslash", col: "246,214,120", zones: ["z1", "z2"], desc: "Two quick diagonal cuts that meet in a V on one target." }),
-  S("crescent", "Crescent Moon Sweep", "月牙掃", 1, "aoe", { en: "Wolgeom Sweep", mult: 1.5, radius: 118, cd: 9, chant: 0.5, fx: "crescent", col: "200,226,255", zones: ["z1", "z2", "z3"], desc: "A wide arc that cuts every enemy around you." }),
-  S("mend", "Jade Breath Mending", "玉息", 1, "heal", { en: "Okgi Breathing", heal: 0.35, cd: 18, chant: 0.9, fx: "heal", col: "155,229,168", zones: ["z1", "z2", "z3"], desc: "Slow your breath and restore 35% of max HP." }),
-  S("ironstance", "Iron Mountain Stance", "鐵山靠", 1, "buff", { en: "Cheolsan Stance", buff: { def: 0.6, dur: 9 }, cd: 26, chant: 0.4, fx: "guard", col: "190,180,220", zones: ["z1", "z2", "z3"], desc: "Plant your feet: +60% DEF for 9 seconds." }),
-  S("galeblade", "Gale Edge Dash", "疾風刃", 2, "hit", { en: "Jilpung Blade", hits: 1, mult: 3.4, cd: 10, chant: 0.6, fx: "dash", col: "180,255,220", zones: ["z2", "z3", "z4"], desc: "Burst forward like a gust and slash through the target." }),
-  S("thunderpalm", "Thunder Palm", "雷掌", 2, "aoe", { en: "Noejang", mult: 2.3, radius: 130, cd: 13, chant: 1.0, fx: "thunder", col: "190,170,255", zones: ["z3", "z4", "z5"], desc: "Slam a palm of thunder qi that shocks everything near you." }),
-  S("lotus", "Hundred Lotus Flurry", "百蓮亂舞", 2, "hit", { en: "Baengnyeon Flurry", hits: 6, mult: 0.8, cd: 14, chant: 0.8, fx: "flurry", col: "255,190,210", zones: ["z4", "z5", "z6"], desc: "Six rapid cuts, each blossoming like a lotus petal." }),
-  S("bloodoath", "Blood Oath Resolve", "血盟意", 2, "buff", { en: "Hyeolmaeng Will", buff: { atk: 0.35, dur: 10 }, cd: 30, chant: 0.5, fx: "rage", col: "255,120,110", zones: ["z3", "z4", "z5"], desc: "Burn your resolve: +35% ATK for 10 seconds." }),
-  S("skyrend", "Sky-Rending Sword Aura", "裂天劍罡", 3, "aoe", { en: "Yeolcheon Geomgang", mult: 4.2, radius: 175, cd: 20, chant: 1.4, fx: "aura", col: "255,235,150", zones: ["z5", "z6", "z7"], desc: "Release a sword aura that tears the air in a wide ring." }),
-  S("phoenix", "Phoenix Vein Rebirth", "鳳脈再生", 3, "heal", { en: "Bongmaek Rebirth", heal: 0.65, regen: 0.8, cd: 45, chant: 1.6, fx: "heal", col: "255,170,110", zones: ["z5", "z6", "z7", "z8"], desc: "Rekindle your meridians: restore 65% HP and regenerate for 10 seconds." }),
-  S("tigerroar", "Tiger Roar Slash", "虎嘯斬", 3, "hit", { en: "Hohyo Slash", hits: 3, mult: 2.1, cd: 16, chant: 1.1, fx: "vslash", col: "255,180,90", zones: ["z6", "z7", "z8"], desc: "Three heavy cuts that end in a roar, shaking the target." }),
-  S("nineheavens", "Nine Heavens Sword Rain", "九天劍雨", 4, "aoe", { en: "Gucheon Geomu", mult: 7, radius: 210, cd: 34, chant: 2.0, fx: "rain", col: "170,210,255", zones: ["z8", "z9", "z10"], desc: "Call down a rain of a hundred swords across the whole field." }),
-  S("voidstep", "Void-Cutting Step", "斷虛步", 4, "hit", { en: "Danheo Step", hits: 4, mult: 3.2, cd: 28, chant: 1.5, fx: "dash", col: "200,160,255", zones: ["z8", "z9", "z10", "z11"], desc: "Step through the gap between breaths and cut four times." }),
-  S("heavendivide", "Heaven-Dividing Sword Intent", "分天劍意", 5, "aoe", { en: "Bunchon Geomui", mult: 15, radius: 260, cd: 60, chant: 2.6, fx: "aura", col: "255,255,255", zones: ["z10", "z11"], desc: "A single sword intent that splits sky and ground." }),
+  // ---- basic techniques: known by every character, no class needed
+  S("basic", "vslash", "V-Slash", 1, null, "hit", "vslash", "gold", { hits: 2, mult: 1.45, cd: 6, chant: 0.3, desc: "Two quick diagonal cuts that meet in a V on one target." }),
+  S("basic", "crescent", "Crescent Sweep", 1, null, "aoe", "crescent", "ice", { mult: 1.5, radius: 118, cd: 9, chant: 0.5, fx: "crescent", desc: "A wide arc that cuts every enemy around you." }),
+  S("basic", "mend", "Jade Breath", 1, null, "heal", "gourd", "jade", { heal: 0.35, cd: 18, chant: 0.9, desc: "Slow your breath and restore 35% of max HP." }),
+  S("basic", "ironstance", "Iron Mountain", 1, null, "buff", "mountain", "white", { buff: { def: 0.6, dur: 9 }, cd: 26, desc: "Plant your feet: +60% DEF for 9 seconds." }),
+  // ---- Reaper
+  S("reaper", "flash", "Twin Crane Flash", 9, null, "hit", "crane", "azure", { hits: 3, mult: 1.1, cd: 8, chant: 0.4, fx: "flurry", desc: "Three precise cuts that favour critical strikes." }),
+  S("reaper", "step", "Cold Needle Step", 20, "flash", "hit", "needles", "ice", { mult: 4.2, cd: 11, chant: 0.5, fx: "dash", desc: "Slip through the gap and pierce the target." }),
+  S("reaper", "moon", "Moonless Reaping", 60, "step", "aoe", "eclipse", "violet", { mult: 4.6, radius: 170, cd: 18, chant: 1.0, fx: "crescent", desc: "A silent sweep that reaps everything in reach." }),
+  ...ults("reaper", [["Dawn Verdict", "sun", "gold"], ["Ten Thousand Cranes", "crane", "white", "hit"], ["Silent Heaven Severance", "void", "violet"], ["Final Reap of Nine Hells", "skull", "azure"]]),
+  // ---- Monk
+  S("monk", "sweep", "Iron Staff Sweep", 9, null, "aoe", "staff", "jade", { mult: 1.9, radius: 140, cd: 10, chant: 0.6, fx: "crescent", desc: "A grounded sweep that knocks the whole pack back." }),
+  S("monk", "wall", "Diamond Palm Wall", 20, "sweep", "buff", "bell", "gold", { buff: { def: 0.8, dur: 12 }, cd: 30, desc: "Harden your body: +80% DEF for 12 seconds." }),
+  S("monk", "dragon", "Rising Dragon Staff", 60, "wall", "hit", "dragon", "teal", { hits: 2, mult: 2.6, cd: 14, chant: 0.8, desc: "Two rising strikes that carry a dragon's weight." }),
+  ...ults("monk", [["Heavenly Bell Toll", "bell", "gold"], ["Nine-Ring Pilgrimage", "bagua", "jade"], ["Arhat's Golden Body", "taiji", "orange"], ["Final Strike of Enlightenment", "sun", "white"]]),
+  // ---- Ghostneedle
+  S("ghostneedle", "stars", "Scatter Stars", 9, null, "aoe", "shuriken", "violet", { mult: 1.7, radius: 150, cd: 9, chant: 0.5, fx: "flurry", desc: "Throw a ring of stars that hits everything near you." }),
+  S("ghostneedle", "rain", "Shadow Needle Rain", 20, "stars", "hit", "needles", "ink", { hits: 5, mult: 0.9, cd: 12, chant: 0.7, fx: "rain", desc: "Five hidden needles into one target." }),
+  S("ghostneedle", "mark", "Ghost Flame Mark", 60, "rain", "aoe", "spirit", "teal", { mult: 3.6, radius: 160, cd: 17, chant: 1.0, desc: "Mark the field with pale spirit flame." }),
+  ...ults("ghostneedle", [["Hundred Shadow Hail", "needles", "ink"], ["Soul-Stitching Needles", "needles", "rose", "hit"], ["Night Without Dawn", "eclipse", "violet"], ["Empty Heaven Barrage", "void", "white"]]),
+  // ---- Striker
+  S("striker", "combo", "Thunder Fist Combo", 9, null, "hit", "fist", "orange", { hits: 4, mult: 1.0, cd: 8, chant: 0.4, fx: "flurry", desc: "Four quick punches with thunder qi." }),
+  S("striker", "palm", "Shattering Palm", 20, "combo", "aoe", "bolt", "gold", { mult: 2.4, radius: 130, cd: 11, chant: 0.7, fx: "thunder", desc: "A palm strike that shocks everything close." }),
+  S("striker", "fury", "Fury Resolve", 60, "palm", "buff", "flame", "ember", { buff: { atk: 0.5, dur: 12 }, cd: 30, fx: "rage", desc: "Fury burns hotter: +50% ATK for 12 seconds." }),
+  ...ults("striker", [["Thousand Fist Storm", "claws", "ember", "hit"], ["Heaven-Rending Palm", "bolt", "gold"], ["Dragon-Tiger Burst", "tiger", "orange"], ["Mountain Collapse Fist", "mountain", "crimson"]]),
+  // ---- Sword Demon
+  S("sworddemon", "arc", "Crimson Saber Arc", 9, null, "hit", "saber", "crimson", { mult: 3.6, cd: 8, chant: 0.4, desc: "One heavy curved cut." }),
+  S("sworddemon", "frenzy", "Blood Frenzy", 20, "arc", "buff", "flame", "crimson", { buff: { atk: 0.45, dur: 12 }, cd: 28, fx: "rage", desc: "The saber thirsts: +45% ATK for 12 seconds." }),
+  S("sworddemon", "cleave", "Hundred Wounds Cleave", 60, "frenzy", "aoe", "claws", "rose", { mult: 3.9, radius: 160, cd: 16, chant: 0.9, fx: "crescent", desc: "A cleave that opens a hundred wounds." }),
+  ...ults("sworddemon", [["Demon Moon Slash", "crescent", "rose"], ["Bloodtide Reaving", "wave", "crimson"], ["Nine Hells Saber", "skull", "ember"], ["Sword Demon's Sovereignty", "dragon", "violet", "hit"]]),
+  // ---- Breaker
+  S("breaker", "split", "Mountain Splitter", 9, null, "hit", "heavy", "ember", { mult: 5, cd: 10, chant: 0.9, desc: "A slow overhead blow that splits stone." }),
+  S("breaker", "quake", "Quake Slam", 20, "split", "aoe", "mountain", "gold", { mult: 2.6, radius: 150, cd: 12, chant: 0.8, fx: "thunder", desc: "Slam the ground and shake everything near." }),
+  S("breaker", "bulwark", "Unyielding Bulwark", 60, "quake", "buff", "seal", "ink", { buff: { def: 0.9, dur: 12 }, cd: 30, desc: "Become a wall: +90% DEF for 12 seconds." }),
+  ...ults("breaker", [["Avalanche Verdict", "mountain", "ink"], ["World-Cracking Blow", "void", "ember", "hit"], ["Titan Boundary", "bagua", "gold"], ["Heaven's Anvil", "heavy", "white"]]),
+  // ---- Eclipse Sovereign
+  S("eclipse", "dance", "Twin Moon Dance", 9, null, "hit", "twin", "rose", { hits: 6, mult: 0.7, cd: 9, chant: 0.5, fx: "flurry", desc: "Six rapid cuts from both blades." }),
+  S("eclipse", "veil", "Eclipse Veil", 20, "dance", "buff", "eclipse", "azure", { buff: { def: 0.5, atk: 0.2, dur: 12 }, cd: 28, desc: "A shadow veil: +50% DEF and +20% ATK for 12 seconds." }),
+  S("eclipse", "cross", "Sun-Moon Crossing", 60, "veil", "aoe", "sun", "gold", { mult: 3.4, radius: 170, cd: 15, chant: 0.9, desc: "Two arcs cross where the enemies stand." }),
+  ...ults("eclipse", [["Total Eclipse Edge", "eclipse", "violet"], ["Dawn and Dusk Cross", "sun", "ember", "hit"], ["Starless Twin Heavens", "void", "ice"], ["Sovereign of Day and Night", "taiji", "white"]]),
+  // ---- War Sovereign
+  S("war", "thrust", "Dragon Lance Thrust", 9, null, "hit", "spear", "gold", { mult: 4, cd: 9, chant: 0.5, fx: "dash", desc: "A long, straight thrust with reach." }),
+  S("war", "banner", "Sweeping Banner", 20, "thrust", "aoe", "fan", "crimson", { mult: 2.2, radius: 170, cd: 11, chant: 0.7, fx: "crescent", desc: "Sweep the spear and its banner through the line." }),
+  S("war", "oath", "Warbanner Oath", 60, "banner", "buff", "talisman", "gold", { buff: { atk: 0.3, def: 0.3, dur: 12 }, cd: 30, desc: "Raise the banner: +30% ATK and DEF for 12 seconds." }),
+  ...ults("war", [["Ten Thousand Spear Charge", "spear", "ember"], ["Heavenly Army Descent", "cloud", "azure"], ["Dragon-Slaying Lance", "dragon", "crimson", "hit"], ["Sovereign's Last Charge", "sun", "gold"]]),
 ];
 export const SKILL = Object.fromEntries(SKILLS.map((s) => [s.id, s]));
+export const skillsOfClass = (cls) => SKILLS.filter((s) => s.cls === cls);
 export const STARTER_SLOTS = ["vslash", "crescent", "mend", "ironstance"];
 
-// ---------------------------------------------------------------- saved state (flags.skills)
+// ---------------------------------------------------------------- saved state
 export function skillRec(eco) {
-  const f = eco.state.flags, r = (f.skills ||= { lv: {}, books: {}, slots: [...STARTER_SLOTS], auto: true });
-  if (!r.lv.vslash) for (const id of STARTER_SLOTS) r.lv[id] ||= 1;     // the four starters are known from the start
-  r.slots ||= [...STARTER_SLOTS]; while (r.slots.length < SLOT_COUNT) r.slots.push(null); r.books ||= {}; r.lv ||= {}; if (r.auto == null) r.auto = true; return r;
+  const f = eco.state.flags, r = (f.skills ||= { owned: {}, books: {}, slots: [...STARTER_SLOTS], auto: true });
+  r.owned ||= {}; r.books ||= {}; if (!r.slots) r.slots = [...STARTER_SLOTS]; while (r.slots.length < SLOT_COUNT) r.slots.push(null); if (r.auto == null) r.auto = true;
+  for (const s of STARTER_SLOTS) r.owned[s] ||= 1; return r;
 }
-export const levelOfSkill = (eco, id) => skillRec(eco).lv[id] || 0;
+export function classRec(eco) { const f = eco.state.flags, c = (f.cls ||= { owned: [], active: null }); c.owned ||= []; return c; }
+export const activeClass = (eco) => CLASS[classRec(eco).active] || null;
+export const ownsClass = (eco, id) => classRec(eco).owned.includes(id);
+export const isUnlocked = (eco, id) => !!skillRec(eco).owned[id];
 export const booksOf = (eco, id) => skillRec(eco).books[id] || 0;
-/** damage / heal scale of a skill level (+14% per level above 1) */
-export const levelScale = (lv) => 1 + 0.14 * (Math.max(1, lv) - 1);
-/** cost to learn (lv 0 -> 1) or upgrade (lv -> lv+1): books + materials */
-export function costOf(sk, lv) {
-  const next = lv + 1, books = Math.round(BOOKS[sk.tier] * (lv === 0 ? 1 : next * 0.8)), mats = MATS[sk.tier].map(([name, n]) => [name, Math.ceil(n * (lv === 0 ? 1 : next * 0.7))]);
-  return { books, mats, next };
+export const tierLabel = (s) => TIER[tierOf(s)];
+/** Qi a skill costs before the Qi Consumption / Reduction stats: tier 1 ~10, tier 4 ~36, Ultimates 70 / 110 / 150 / 190 (heals and buffs +20%) */
+export const qiCost = (s) => Math.round(s.ult ? 70 + 40 * (s.ult - 1) : (10 + (tierOf(s) - 1) * 8.7) * (s.type === "heal" || s.type === "buff" ? 1.2 : 1));
+/** can this skill be USED right now?  (an Ultimate needs its own class to be the active one) */
+export function usable(eco, id) { const s = SKILL[id]; if (!s || !isUnlocked(eco, id)) return { ok: false, why: "Not learned." }; if (s.ult && classRec(eco).active !== s.cls) return { ok: false, why: `Needs the ${CLASS[s.cls].name} class active.` }; return { ok: true }; }
+
+// ---------------------------------------------------------------- classes
+export function canAcquireClass(eco, id, level) { if (!CLASS[id]) return { ok: false, reason: "invalid" }; if (ownsClass(eco, id)) return { ok: false, reason: "owned" }; if (level < FIRST_CLASS_LEVEL) return { ok: false, reason: "level" }; if (eco.wallet() + 1e-9 < CLASS_COST) return { ok: false, reason: "funds" }; return { ok: true }; }
+export function acquireClass(eco, id, level, free = false) { const c = free ? { ok: !ownsClass(eco, id) } : canAcquireClass(eco, id, level); if (!c.ok) return c; if (!free) eco.state.wallet_xc = Math.round((eco.state.wallet_xc - CLASS_COST) * 100) / 100; const r = classRec(eco); r.owned.push(id); r.active = id; eco.changed?.(); return { ok: true }; }
+export function switchClass(eco, id) { if (!ownsClass(eco, id)) return { ok: false, reason: "not_owned" }; const r = classRec(eco); if (r.active === id) return { ok: false, reason: "active" }; if (eco.wallet() + 1e-9 < SWITCH_COST) return { ok: false, reason: "funds" }; eco.state.wallet_xc = Math.round((eco.state.wallet_xc - SWITCH_COST) * 100) / 100; r.active = id; eco.changed?.(); return { ok: true }; }
+
+// ---------------------------------------------------------------- unlocking skills in a class Skill Book
+export function costOf(s) { const t = tierOf(s); return { books: BOOKS[t], mats: MATS[t] }; }
+export function canUnlock(eco, id, catalog, level) {
+  const s = SKILL[id]; if (!s || s.cls === "basic") return { ok: false, reasons: ["invalid"] }; if (isUnlocked(eco, id)) return { ok: false, reasons: ["done"] };
+  const why = []; if (!ownsClass(eco, s.cls)) why.push("class"); if (level < s.lv) why.push(`Lv ${s.lv}`); if (s.parent && !isUnlocked(eco, s.parent)) why.push("previous skill");
+  const c = costOf(s); if (booksOf(eco, id) < c.books) why.push(`${c.books - booksOf(eco, id)} more book(s)`);
+  for (const [name, n] of c.mats) { const it = catalog.byName(name); if (!it || eco.total(it.item_id) + 1e-9 < n) why.push(`${n}× ${name}`); }
+  return { ok: !why.length, reasons: why, cost: c };
 }
-export function canLearn(eco, id, catalog) {
-  const sk = SKILL[id], lv = levelOfSkill(eco, id); if (!sk) return { ok: false, reason: "invalid" }; if (lv >= MAX_SKILL_LV) return { ok: false, reason: "max" };
-  const c = costOf(sk, lv), missing = []; if (booksOf(eco, id) < c.books) missing.push(`${c.books - booksOf(eco, id)} more book(s)`);
-  for (const [name, n] of c.mats) { const it = catalog.byName(name); if (!it || eco.total(it.item_id) + 1e-9 < n) missing.push(`${n}× ${name}`); }
-  return { ok: !missing.length, missing, cost: c, lv };
+export function unlock(eco, id, catalog, level) {
+  const c = canUnlock(eco, id, catalog, level); if (!c.ok) return c; const r = skillRec(eco);
+  r.books[id] = (r.books[id] || 0) - c.cost.books; for (const [name, n] of c.cost.mats) eco._takeTotal(catalog.byName(name).item_id, n); r.owned[id] = 1; eco.changed?.(); return { ok: true };
 }
-export function learn(eco, id, catalog) {
-  const c = canLearn(eco, id, catalog); if (!c.ok) return c; const r = skillRec(eco);
-  r.books[id] = (r.books[id] || 0) - c.cost.books; for (const [name, n] of c.cost.mats) eco._takeTotal(catalog.byName(name).item_id, n);
-  r.lv[id] = c.lv + 1; if (c.lv === 0 && !r.slots.includes(id)) { const i = r.slots.indexOf(null); if (i >= 0) r.slots[i] = id; } eco.changed?.(); return { ok: true, lv: r.lv[id] };
-}
-export function setSlot(eco, slot, id) { const r = skillRec(eco); if (id && !r.lv[id]) return false; if (id) { const o = r.slots.indexOf(id); if (o >= 0 && o !== slot) r.slots[o] = r.slots[slot]; } r.slots[slot] = id; eco.changed?.(); return true; }
+export function setSlot(eco, slot, id) { const r = skillRec(eco); if (id && !r.owned[id]) return false; if (id) { const o = r.slots.indexOf(id); if (o >= 0 && o !== slot) r.slots[o] = r.slots[slot]; } r.slots[slot] = id; eco.changed?.(); return true; }
 export function setAuto(eco, on) { skillRec(eco).auto = !!on; eco.changed?.(); }
-/** books are a separate collection (they do not use bag slots) */
 export function addBooks(eco, id, n) { const r = skillRec(eco); r.books[id] = (r.books[id] || 0) + n; eco.changed?.(); }
-/** drop roll for one kill: normal monsters rarely, sub bosses often, bosses always.  luck = Loot & book luck %.  Returns [{id, n}] */
+/** drop roll for one kill: normal monsters rarely, sub bosses often, bosses always.  Books of every class can drop (collect them for classes you will own). luck = Loot & book luck % */
 export function rollBooks(sp, luck = 0, rnd = Math.random) {
-  const pool = SKILLS.filter((s) => s.zones.includes(sp.z)); if (!pool.length) return [];
-  const k = 1 + luck / 100, chance = sp.tier === "boss" ? 1 : sp.tier === "sub" ? 0.4 * k : 0.035 * k, out = [];
-  if (rnd() >= chance) return out;
-  // heavier skills are rarer: weight 1 / tier^1.3
-  const w = pool.map((s) => 1 / Math.pow(s.tier, 1.3)), tot = w.reduce((a, b) => a + b, 0); let x = rnd() * tot, pick = pool[0]; for (let i = 0; i < pool.length; i++) { x -= w[i]; if (x <= 0) { pick = pool[i]; break; } }
-  out.push({ id: pick.id, n: sp.tier === "boss" ? 2 + Math.floor(rnd() * 3) : sp.tier === "sub" ? 1 + Math.floor(rnd() * 2) : 1 }); return out;
+  const zi = Number(sp.z.slice(1)), pool = SKILLS.filter((s) => s.cls !== "basic" && Math.abs(Number(s.zone.slice(1)) - zi) <= 1); if (!pool.length) return [];
+  const k = 1 + luck / 100, chance = sp.tier === "boss" ? 1 : sp.tier === "sub" ? 0.4 * k : 0.035 * k; if (rnd() >= chance) return [];
+  const w = pool.map((s) => 1 / Math.pow(tierOf(s), 1.3)), tot = w.reduce((a, b) => a + b, 0); let x = rnd() * tot, pick = pool[0]; for (let i = 0; i < pool.length; i++) { x -= w[i]; if (x <= 0) { pick = pool[i]; break; } }
+  return [{ id: pick.id, n: sp.tier === "boss" ? 2 + Math.floor(rnd() * 3) : sp.tier === "sub" ? 1 + Math.floor(rnd() * 2) : 1 }];
 }
+// ---------------------------------------------------------------- Advanced Classes: state only, no UI (discovery happens through achievements, lore and NPCs)
+export function advancedRec(eco) { const f = eco.state.flags, a = (f.adv ||= { clues: {}, lore: {}, silhouette: [], owned: [] }); return a; }

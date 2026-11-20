@@ -1,8 +1,9 @@
 // Auto-Grind: the hero hunts the chosen mob species on its own (seek -> fight -> loot -> next), rests when hurt and stops when it keeps losing.
 // Pure game logic + small canvas drawing; economy rules (items, wallet) go through GameEconomy, numbers live in data/mobs.js.
-import { speciesById, rollLevel, mobHp, rewards, heroHit, mobHit, getHero, addExp, sizeOf, TIER_SIZE, TIER_RESPAWN, TIER_COUNT } from "./data/mobs.js";
+import { ART, speciesById, rollLevel, mobHp, rewards, heroHit, mobHit, getHero, addExp, sizeOf, TIER_SIZE, TIER_RESPAWN, TIER_COUNT } from "./data/mobs.js";
 import { statsOf, pointsOf, NODE_COST } from "./data/progression.js";
-import { SKILL, skillRec, levelOfSkill, levelScale, rollBooks, addBooks } from "./data/skills.js";
+import { dropRing, gateOf, RING_TIERS, cult } from "./data/realms.js";
+import { SKILL, CLASS, skillRec, usable, ownsClass, rollBooks, addBooks, qiCost } from "./data/skills.js";
 import { buildRig, drawMob } from "./art/mobs.js";
 import { drawMonster, monsterSprite, topOf } from "./art/monsters.js";
 import { zoneById, AREA_NAMES } from "./data/areas.js";
@@ -50,7 +51,18 @@ function barBoss(c, x, y, m, T) {
 
 // ---- skill effects (world space).  f = { kind, x, y, px, py, t, col, R }, k = t / 1.1
 const glow = (c, col, a, w) => { c.globalAlpha = a; c.strokeStyle = `rgba(${col},1)`; c.shadowColor = `rgba(${col},.95)`; c.shadowBlur = 14; c.lineWidth = w; c.lineCap = "round"; };
+function dmgPopup(c, f, k) {   // three identities: normal (red + white) · critical (black + maroon, glowing) · deadly (white glow + purple demonic aura)
+  const y = f.y - k * 38 - (f.dk === "n" ? 0 : 8), pop = f.dk === "n" ? 1 : 1 + Math.max(0, 0.5 - f.t * 2.4) * (f.dk === "deadly" ? 1.4 : 1), T = f.t;
+  c.save(); c.translate(f.x, y); c.scale(pop, pop); c.lineJoin = "round"; c.textAlign = "center";
+  if (f.dk === "deadly") { const g = c.createRadialGradient(0, -8, 2, 0, -8, 40 + Math.sin(T * 14) * 4); g.addColorStop(0, "rgba(190,110,255,.75)"); g.addColorStop(0.55, "rgba(120,40,200,.35)"); g.addColorStop(1, "rgba(80,20,140,0)"); c.fillStyle = g; c.fillRect(-60, -60, 120, 100);
+    c.fillStyle = "rgba(160,80,255,.7)"; for (let i = 0; i < 7; i++) { const a = i * 0.9 + T * 2.2, r = 20 + (i % 3) * 5; c.beginPath(); c.moveTo(Math.cos(a) * r, -8 + Math.sin(a) * r * 0.7); c.lineTo(Math.cos(a + 0.16) * (r + 12 + Math.sin(T * 12 + i) * 4), -8 + Math.sin(a + 0.16) * (r + 12) * 0.7); c.lineTo(Math.cos(a + 0.32) * r, -8 + Math.sin(a + 0.32) * r * 0.7); c.fill(); }
+    c.font = "900 27px system-ui"; c.lineWidth = 4; c.strokeStyle = "#5a1ea0"; c.shadowColor = "#c46bff"; c.shadowBlur = 16; c.strokeText(f.txt, 0, 0); c.fillStyle = "#ffffff"; c.fillText(f.txt, 0, 0); }
+  else if (f.dk === "crit") { c.font = "900 22px system-ui"; c.lineWidth = 4.2; c.strokeStyle = "#8a1230"; c.shadowColor = "#ff3050"; c.shadowBlur = 12; c.strokeText(f.txt + "!", 0, 0); c.shadowBlur = 0; c.fillStyle = "#12070b"; c.fillText(f.txt + "!", 0, 0); }
+  else { c.font = "800 15px system-ui"; c.lineWidth = 3.4; c.strokeStyle = "#8a1a1a"; c.strokeText(f.txt, 0, 0); c.fillStyle = "#fff3ee"; c.fillText(f.txt, 0, 0); }
+  c.restore();
+}
 const SKFX = {
+  shock(c, f, k) { const cols = f.cols; cols.forEach((col, i) => { const kk = Math.max(0, Math.min(1, k * 1.6 - i * 0.06)), R = 30 + (f.R - 30) * kk; c.globalAlpha = (1 - kk) * 0.85; c.strokeStyle = col; c.lineWidth = 5 - 3 * kk; c.shadowColor = col; c.shadowBlur = 10; c.beginPath(); c.ellipse(f.x, f.y, R, R * 0.38, 0, 0, 6.3); c.stroke(); }); },
   vslash(c, f, k) { const q = Math.min(1, f.t / 0.28), a = 1 - Math.max(0, (f.t - 0.28) / 0.5); if (a <= 0) return; glow(c, f.col, a, 7 * (1 - f.t * 0.8)); for (const s of [-1, 1]) { c.beginPath(); c.moveTo(f.x + s * 46, f.y - 120); c.lineTo(f.x + s * 46 * (1 - q), f.y - 120 + 96 * q); c.stroke(); } },
   crescent(c, f, k) { const q = Math.min(1, f.t / 0.35), a = 1 - Math.max(0, (f.t - 0.3) / 0.6); if (a <= 0) return; const R = (f.R || 118) * (0.7 + 0.3 * q); glow(c, f.col, a, 9 * (1 - q * 0.5)); c.beginPath(); c.ellipse(f.x, f.y - 30, R, R * 0.5, 0, -2.6, -2.6 + 5.2 * q); c.stroke(); },
   dash(c, f, k) { const a = 1 - Math.min(1, f.t / 0.5); if (a <= 0) return; glow(c, f.col, a, 10 * a); c.beginPath(); c.moveTo(f.px ?? f.x - 80, (f.py ?? f.y) - 60); c.lineTo(f.x, f.y - 60); c.stroke(); c.lineWidth = 3; c.beginPath(); c.moveTo((f.px ?? f.x - 80) - 10, (f.py ?? f.y) - 74); c.lineTo(f.x + 14, f.y - 52); c.stroke(); },
@@ -79,6 +91,7 @@ export class Grinder {
   _emit() { for (const f of this.listeners) f(); }
   setSpecies(id) { const h = this.hero; if (h.species === id) return; h.species = id; this.retreats = 0; if (this.on) { if (this.e.areaId !== this.species.z) { this.setOn(false); this.toggle(); } else { this.clearMobs(); this._fill(true); } } this._emit(); }
   toggle() {
+    if (this.e.meditating) { this.e.ui.toast?.("You are absorbing a Spirit Ring."); return; }
     if (this.on) return this.setOn(false, "manual"); const sp = this.species, e = this.e;
     if (e.busy) return; if (e.areaId !== sp.z) { e.ui.toast?.(`Travelling to ${AREA_NAMES[sp.z] || sp.z}…`); e.travel(sp.z, "s", { then: () => this.setOn(true) }); return; }
     this.setOn(true);
@@ -114,7 +127,7 @@ export class Grinder {
   update(dt) {
     for (const f of this.fx) f.t += dt; this.fx = this.fx.filter((f) => f.t < 1.1);
     const T = this.e.time, p = this.e.player, h = this.hero, st = this.st;
-    for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt); this.buffs = this.buffs.filter((b) => b.until > T);
+    for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt); this.recover = Math.max(0, (this.recover || 0) - dt); h.qi = Math.min(st.qiCap, (h.qi ?? st.qiCap) + st.qiRegen * dt);   // Qi regenerates all the time; recovery = the pause after a skill this.buffs = this.buffs.filter((b) => b.until > T);
     if (st.regen > 0) h.hp = Math.min(st.maxHp, h.hp + st.maxHp * st.regen / 100 * dt); for (const b of this.buffs) if (b.regen) h.hp = Math.min(st.maxHp, h.hp + st.maxHp * b.regen / 100 * dt);
     p.lunge = Math.max(0, (p.lunge || 0) - dt * 5);
     if (!this.on) { if (h.hp < st.maxHp) { h.hp = Math.min(st.maxHp, h.hp + st.maxHp * 0.012 * dt); } return; }
@@ -122,6 +135,8 @@ export class Grinder {
     for (const r of this.respawn) r.t -= dt; const due = this.respawn.filter((r) => r.t <= 0); if (due.length) { this.respawn = this.respawn.filter((r) => r.t > 0); for (const r of due) this._spawn(r.sp); }
     // mob idle wander
     for (const m of this.mobs) {
+      if (m.prov > 0) m.prov -= dt;
+      if (m.fear > 0) { m.fear -= dt; const ax = m.x - p.x, ay = m.y - p.y, L = Math.hypot(ax, ay) || 1, T0 = this.e.world.tile, nx = m.x + ax / L * 56 * dt, ny = m.y + ay / L * 40 * dt; if (Math.hypot(nx - m.hx, ny - m.hy) < 320 && this.e.walkable(Math.floor(nx / T0), Math.floor(ny / T0))) { m.x = nx; m.y = ny; } m.face = ax > 0 ? 1 : -1; m.mv += (1 - m.mv) * Math.min(1, dt * 6); m.t += dt; m.born = Math.min(1, m.born + dt * 2.2); m.lag = Math.max(m.hp, m.lag - m.max * 0.7 * dt); m.flash = Math.max(0, m.flash - dt * 4); continue; }
       m.t += dt; m.flash = Math.max(0, m.flash - dt * 4); m.born = Math.min(1, m.born + dt * 2.2); m.lag = Math.max(m.hp, m.lag - m.max * 0.7 * dt);
       if (m === this.target && this.status === "fight") { m.mv += (0 - m.mv) * Math.min(1, dt * 8); continue; }
       m.wanderT -= dt; if (m.wanderT <= 0) { m.wanderT = 1.5 + Math.random() * 2.5; const a = Math.random() * 6.3, d = Math.random() < 0.45 ? 0 : 14 + Math.random() * 20; m.vx = Math.cos(a) * d; m.vy = Math.sin(a) * d * 0.7; }
@@ -136,8 +151,9 @@ export class Grinder {
     }
     if (h.hp < st.maxHp * 0.3) { this._retreat("low"); return; }
     // pick a target
+    if (this.target?.fear > 0 && this.mobs.some((x) => x !== this.target && x.sp.id === this.species.id && !(x.fear > 0))) this.target = null;   // don't chase a cowed monster while others are still standing
     if (!this.target || !this.mobs.includes(this.target)) {
-      this.target = null; let best = null, bd = 1e9; for (const m of this.mobs) { if (m.sp.id !== this.species.id) continue; const d = Math.hypot(m.x - p.x, m.y - p.y); if (d < bd) { bd = d; best = m; } }
+      this.target = null; let best = null, bd = 1e9; for (const m of this.mobs) { if (m.sp.id !== this.species.id) continue; const d = Math.hypot(m.x - p.x, m.y - p.y) + (m.fear > 0 ? 400 : 0); if (d < bd) { bd = d; best = m; } }
       if (!best) { this._fill(false); this.status = "seek"; p.moving = false; return; } this.target = best; this.status = "seek"; this.repathT = 0;
     }
     const m = this.target, dx = m.x - p.x, dy = m.y - p.y, d = Math.hypot(dx, dy);
@@ -147,26 +163,48 @@ export class Grinder {
     }
     // in reach: fight
     p.path = []; p.moving = false; this.status = "fight"; p.dir = this.e.dirFrom(dx, dy); this.atkT -= dt; m.atkT -= dt; m.face = dx < 0 ? 1 : -1;
+    if (cult(this.eco).autoAura !== false && this.pressureReady()) this.pressure(false);
     if (this.chant) { this.chant.t += dt; if (this.chant.t >= this.chant.dur) { const id = this.chant.id; this.chant = null; this._fire(id); if (m.hp <= 0 || !this.mobs.includes(m)) return; } }
-    else if (skillRec(this.eco).auto && this._autoCast(m, st)) { if (m.hp <= 0 || !this.mobs.includes(m)) return; }
-    if (this.atkT <= 0 && !this.chant) { this.atkT = st.speed; const r = heroHit(st, m.sp.tier); if (this._hit(m, 1, r.dmg, r.crit)) return; }
-    if (m.atkT <= 0) {
-      m.atkT = MOB_SWING; m.swingAt = this.e.time;
+    else if (skillRec(this.eco).auto && !(this.recover > 0) && this._autoCast(m, st)) { if (m.hp <= 0 || !this.mobs.includes(m)) return; }
+    if (this.atkT <= 0 && !this.chant && !(this.recover > 0)) { this.atkT = st.speed; const r = heroHit(st, m.sp.tier); if (this._hit(m, 1, r.dmg, r.crit)) return; }
+    if (m.fear > 0) m.atkT = Math.max(m.atkT, 0.4);   // a cowed monster does not strike back
+    else if (m.atkT <= 0) {
+      m.atkT = MOB_SWING * (m.prov > 0 ? 0.8 : 1); m.swingAt = this.e.time;
       if (Math.random() * 100 < st.evade) this.fx.push({ x: p.x, y: p.y - 130, t: 0, txt: "Miss", col: "#bfe3d0" });
-      else { const dmg = mobHit(m.sp, m.lv, st.def); h.hp -= dmg; this.fx.push({ x: p.x, y: p.y - 130, t: 0, txt: "-" + dmg, col: "#ff9a8a" }); if (h.hp <= 0) return this._faint(); }
+      else { const dmg = Math.round(mobHit(m.sp, m.lv, st.def) * (m.prov > 0 ? 1.35 : 1)); h.hp -= dmg; this.e.kick?.(Math.min(6, 2 + 8 * dmg / st.maxHp)); this.fx.push({ x: p.x, y: p.y - 130, t: 0, txt: "-" + dmg, col: "#ff9a8a" }); if (h.hp <= 0) return this._faint(); }
     }
   }
   /** one blow on mob m; returns true when it killed it */
-  _hit(m, k, base, crit) {
-    const p = this.e.player, dmg = Math.max(1, Math.round(base * k)); m.hp -= dmg; m.flash = 1; m.hitAt = this.e.time; p.lunge = 1;
-    this.fx.push({ x: m.x + (Math.random() - 0.5) * 16, y: m.y - sizeOf(m.sp) * 0.8, t: 0, txt: String(dmg), col: crit ? "#ffd27a" : "#fff4cf", big: !!crit }); this.e.ui.audio?.thud?.();
+  _hit(m, k, base, crit, deadly) {
+    const p = this.e.player, dmg = Math.max(1, Math.round(base * k * (m.fear > 0 ? 1.15 : 1))); m.hp -= dmg; m.flash = 1; m.hitAt = this.e.time; p.lunge = 1;
+    this.fx.push({ x: m.x + (Math.random() - 0.5) * 16, y: m.y - sizeOf(m.sp) * 0.8, t: 0, txt: String(dmg), col: crit ? "#ffd27a" : "#fff4cf", big: !!crit, dk: deadly ? "deadly" : crit ? "crit" : "n" }); this.e.ui.audio?.thud?.(); this.e.kick?.(deadly ? 5 : crit ? 3 : Math.min(2.2, 0.9 + 3 * dmg / (this.st.maxHp + 1)) * (k > 1.6 ? 1.5 : 1));
     if (m.hp <= 0) { this._kill(m); return true; } return false;
   }
   // ---------------------------------------------------------------- skills (4 quick slots; see data/skills.js)
+  // ---------------------------------------------------------------- Spirit Pressure: the Spirit Rings' aura intimidates weaker monsters
+  //   P = sum over bound rings of (tier + 1) x (0.6 + quality / 100)      (one white ring ~ 1, a full set of red rings ~ 40)
+  //   monster level below yours (gap d >= 1):  cowed with p = min(97%, 45% + 7% x d + 1.5% x P) for 4 + d/2 s (max 12 s): flees, cannot strike back, takes +15% damage
+  //   same level:                              small chance to flee (6% + 0.4% x P, max 25%, 3.5 s) - or to be PROVOKED instead (12% - 0.3% x P, min 3%): +35% damage, +20% swing speed for 8 s
+  //   higher level, bosses and sub bosses:     unaffected.   Cooldown 30 s - 0.4 x P (max -12 s).  Auto-fires when a fight starts (setting in the Character menu) or from the HUD button.
+  ringPower() { const c = this.eco.state.flags?.cult; let p = 0; for (const r of c?.rings || []) if (r) p += (r.tier + 1) * (0.6 + r.quality / 100); return p; }
+  pressureReady() { return this.on && this.ringPower() > 0 && !((this.cd._aura || 0) > 0) && this.mobs.some((m) => m.sp.tier === "mob"); }
+  pressure(manual) {
+    const e = this.e, p = e.player, P = this.ringPower(), lv = this.hero.lv; if (P <= 0) { if (manual) e.ui.toast?.("Bind a Spirit Ring to use Spirit Pressure."); return false; }
+    if (!this.on) { if (manual) e.ui.toast?.("Spirit Pressure works on monsters — start Auto-grind first."); return false; } if ((this.cd._aura || 0) > 0) { if (manual) e.ui.toast?.(`Spirit Pressure — ${Math.ceil(this.cd._aura)}s`); return false; }
+    this.cd._aura = this.cdMax._aura = 30 - Math.min(12, 0.4 * P); let cowed = 0, riled = 0;
+    for (const m of this.mobs) { if (Math.hypot(m.x - p.x, m.y - p.y) > 340) continue; const say = (t, col) => this.fx.push({ x: m.x, y: m.y - sizeOf(m.sp) - 6, t: 0, txt: t, col, wide: true });
+      if (m.sp.tier !== "mob") { say("Unshaken", "#c9c3d6"); continue; } const d = lv - m.lv;
+      if (d >= 1) { if (Math.random() < Math.min(0.97, 0.45 + 0.07 * d + 0.015 * P)) { m.fear = Math.min(12, 4 + d / 2); cowed++; say("COWED", "#9fd8ff"); } else say("Unmoved", "#c9c3d6"); }
+      else if (d === 0) { const r = Math.random(), pf = Math.min(0.25, 0.06 + 0.004 * P), pt = Math.max(0.03, 0.12 - 0.003 * P); if (r < pf) { m.fear = 3.5; cowed++; say("FLEES", "#9fd8ff"); } else if (r < pf + pt) { m.prov = 8; riled++; say("PROVOKED!", "#ff6a5a"); } }
+      else say("Unfazed", "#c9c3d6"); }
+    const cu = this.eco.state.flags.cult, cols = (cu?.rings || []).filter(Boolean).map((r) => RING_TIERS[r.tier].col); e.ringFlash = e.time; e.kick?.(2.5);
+    this.fx.push({ kind: "shock", x: p.x, y: p.y, t: 0, cols: cols.length ? cols : ["#ffffff"], R: 340 }); e.ui.audio?.ok?.();
+    e.ui.toast?.(cowed || riled ? `Spirit Pressure — ${cowed} cowed${riled ? `, ${riled} provoked!` : ""}` : "Spirit Pressure — nothing stirs."); this._emit(); return true;
+  }
   /** auto-use: heal when hurt, buffs before a fight, attacks when ready.  Returns true when something was started. */
   _autoCast(m, st) {
     const h = this.hero, r = skillRec(this.eco);
-    for (const id of r.slots) { const sk = SKILL[id]; if (!sk || (this.cd[id] || 0) > 0 || !levelOfSkill(this.eco, id)) continue;
+    for (const id of r.slots) { const sk = SKILL[id]; if (!sk || (this.cd[id] || 0) > 0 || !usable(this.eco, id).ok) continue;
       if (sk.type === "heal" && h.hp > st.maxHp * 0.55) continue; if (sk.type === "buff" && this.buffs.some((b) => b.id === id)) continue;
       if (this.cast(id)) return true; }
     return false;
@@ -175,26 +213,27 @@ export class Grinder {
   /** start a skill (manual tap or auto).  Returns false (with a reason in this.why) when it cannot be used right now. */
   cast(id) {
     const e = this.e, p = e.player, h = this.hero, st = this.st, sk = SKILL[id]; this.why = "";
-    if (!sk || !levelOfSkill(this.eco, id)) { this.why = "Not learned."; return false; } if (e.busy) { this.why = ""; return false; }
+    const u = usable(this.eco, id); if (!u.ok) { this.why = u.why; return false; } if (e.busy) { this.why = ""; return false; }
     if (this.chant) { this.why = "Already chanting."; return false; } if ((this.cd[id] || 0) > 0) { this.why = "Not ready yet."; return false; }
     if (sk.type === "heal" && h.hp >= st.maxHp) { this.why = "HP is already full."; return false; }
     if (sk.type === "hit") { const m = this.target; if (!this.on || !m || !this.mobs.includes(m) || Math.hypot(m.x - p.x, m.y - p.y) > REACH + 14) { this.why = this.on ? "Move closer to a target first." : "Start Auto-grind first."; return false; } }
     if (sk.type === "aoe" && !(this.on && this.mobs.some((o) => Math.hypot(o.x - p.x, o.y - p.y) <= sk.radius + 20))) { this.why = this.on ? "No enemy in range." : "Start Auto-grind first."; return false; }
-    const dur = sk.chant * (1 - st.cdr / 100); p.path = []; p.moving = false;
+    if ((this.recover || 0) > 0) { this.why = "Recovering…"; return false; } const cost = Math.ceil(qiCost(sk) * st.qiCostMul); if ((h.qi ?? st.qiCap) + 1e-9 < cost) { this.why = `Not enough Qi (${cost}).`; return false; } h.qi = (h.qi ?? st.qiCap) - cost;
+    const dur = sk.chant * (1 - st.chantRed / 100); p.path = []; p.moving = false;
     if (dur < 0.15) this._fire(id); else { this.chant = { id, t: 0, dur }; this.fx.push({ ring: true, x: p.x, y: p.y, t: 0, col: sk.col, small: true }); }
     this._emit(); return true;
   }
   _fire(id) {
-    const e = this.e, p = e.player, h = this.hero, st = this.st, sk = SKILL[id], lv = levelOfSkill(this.eco, id), sc = levelScale(lv) * (1 + st.skillPct / 100); if (!sk) return;
-    this.cd[id] = this.cdMax[id] = sk.cd; this.atkT = Math.max(this.atkT, 0.35);
-    if (sk.type === "heal") { const n = Math.round(st.maxHp * sk.heal * levelScale(lv)); h.hp = Math.min(st.maxHp, h.hp + n); if (sk.regen) this.buffs.push({ id, regen: sk.regen, until: e.time + 10 }); this.fx.push({ x: p.x, y: p.y - 150, t: 0, txt: "+" + n, col: "#9be5a8" }, { kind: "heal", x: p.x, y: p.y, t: 0, col: sk.col }); e.ui.audio?.ok?.(); }
+    const e = this.e, p = e.player, h = this.hero, st = this.st, sk = SKILL[id], sc = 1 + st.skillPct / 100; if (!sk) return;
+    this.cd[id] = this.cdMax[id] = sk.cd * (1 - st.cdRed / 100); this.recover = 0.55 * (1 - st.recovRed / 100); this.atkT = Math.max(this.atkT, 0.35);
+    if (sk.type === "heal") { const n = Math.round(st.maxHp * sk.heal); h.hp = Math.min(st.maxHp, h.hp + n); if (sk.regen) this.buffs.push({ id, regen: sk.regen, until: e.time + 10 }); this.fx.push({ x: p.x, y: p.y - 150, t: 0, txt: "+" + n, col: "#9be5a8" }, { kind: "heal", x: p.x, y: p.y, t: 0, col: sk.col }); e.ui.audio?.ok?.(); }
     else if (sk.type === "buff") { this.buffs = this.buffs.filter((b) => b.id !== id); this.buffs.push({ id, atk: sk.buff.atk, def: sk.buff.def, until: e.time + sk.buff.dur, col: sk.col }); this.fx.push({ kind: sk.fx, x: p.x, y: p.y, t: 0, col: sk.col }, { x: p.x, y: p.y - 150, t: 0, txt: sk.name, col: "#f2d889", wide: true }); e.ui.audio?.ok?.(); }
     else if (sk.type === "hit") {
       const m = this.target; if (!m || !this.mobs.includes(m)) return; this.fx.push({ kind: sk.fx, x: m.x, y: m.y, px: p.x, py: p.y, t: 0, col: sk.col });
-      for (let i = 0; i < sk.hits && this.mobs.includes(m); i++) { const r = heroHit(st, m.sp.tier); this._hit(m, sk.mult * sc, r.dmg, r.crit || i === sk.hits - 1); }
+      for (let i = 0; i < sk.hits && this.mobs.includes(m); i++) { const r = heroHit(st, m.sp.tier); this._hit(m, sk.mult * sc, r.dmg, r.crit || i === sk.hits - 1, r.deadly); }
     } else if (sk.type === "aoe") {
       this.fx.push({ kind: sk.fx, x: p.x, y: p.y, t: 0, col: sk.col, R: sk.radius });
-      for (const o of [...this.mobs]) { if (Math.hypot(o.x - p.x, o.y - p.y) > sk.radius + 20) continue; const r = heroHit(st, o.sp.tier); this._hit(o, sk.mult * sc, r.dmg, r.crit); }
+      for (const o of [...this.mobs]) { if (Math.hypot(o.x - p.x, o.y - p.y) > sk.radius + 20) continue; const r = heroHit(st, o.sp.tier); this._hit(o, sk.mult * sc, r.dmg, r.crit, r.deadly); }
     }
     e.ui.audio?.thud?.(); this._emit();
   }
@@ -209,14 +248,15 @@ export class Grinder {
   }
   _kill(m) {
     const e = this.e, h = this.hero, st = this.st, rw = rewards(m.sp, m.lv, h.lv, e.catalog, Math.random, 1 + st.dropPct / 100), parts = []; rw.exp = Math.round(rw.exp * (1 + st.expPct / 100)); parts.push(`+${rw.exp} exp`);
-    this.mobs = this.mobs.filter((x) => x !== m); this.dying.push({ m, t0: this.e.time }); this.target = null; this.retreats = 0; h.kills = (h.kills || 0) + 1; this.session.kills++; this.session.exp += rw.exp;
+    this.mobs = this.mobs.filter((x) => x !== m); this.dying.push({ m, t0: this.e.time }); this.target = null; this.retreats = 0; h.kills = (h.kills || 0) + 1; (h.dex ||= {})[m.sp.id] = (h.dex[m.sp.id] || 0) + 1; this.session.kills++; this.session.exp += rw.exp;
     this.fx.push({ x: m.x, y: m.y - 20, t: 0, txt: "✦", col: "#fff4cf", puff: true });
     if (rw.xc > 0) { this.eco.state.wallet_xc = Math.round((this.eco.state.wallet_xc + rw.xc) * 100) / 100; this.session.xc += rw.xc; this.eco.ledger?.("hunt", rw.xc, m.sp.name); parts.push(`+${rw.xc} xc`); e.ui.audio?.coin?.(); }
     let lost = false; for (const it of rw.items) { const r = this.eco.addItem(it.item_id, it.quantity); if (r.ok) parts.push(`+${it.quantity} ${e.catalog.itemName(it.item_id)}`); else lost = true; }
     if (lost && performance.now() - this.lootWarn > 8000) { this.lootWarn = performance.now(); e.ui.toast?.("Your bag is full — some loot was left behind."); }
-    for (const b of rollBooks(m.sp, st.dropPct)) { addBooks(this.eco, b.id, b.n); parts.push(`+${b.n} ${SKILL[b.id].name} book`); e.ui.audio?.ok?.(); }
-    const up = addExp(this.eco, rw.exp); this.fx.push({ x: e.player.x, y: e.player.y - 150, t: 0, txt: parts.join("  "), col: "#f2d889", wide: true });
-    if (up) { e.ui.toast?.(`Level up! Lv ${h.lv} · +${up * 3} stat points` + (pointsOf(this.eco).free >= NODE_COST ? " — open the Meridians" : "")); e.ui.audio?.ok?.(); this.fx.push({ x: e.player.x, y: e.player.y - 170, t: 0, txt: "LEVEL UP  +" + up * 3 + " pts", col: "#9be5a8", wide: true }); }
+    for (const b of rollBooks(m.sp, st.dropPct)) { addBooks(this.eco, b.id, b.n); parts.push(ownsClass(this.eco, SKILL[b.id].cls) || SKILL[b.id].cls === "basic" ? `+${b.n} ${SKILL[b.id].name} book` : `+${b.n} skill book`); e.ui.audio?.ok?.(); }
+    const ring = dropRing(this.eco, m.sp, ART, st.dropPct, m.lv); if (ring) { parts.push(`+1 ${RING_TIERS[ring.tier].name} Spirit Ring`); e.ui.audio?.ok?.(); e.ui.toast?.(`A ${RING_TIERS[ring.tier].name} Spirit Ring (${ring.age.toLocaleString()} yr) drops from ${m.sp.name}!`); }
+    const wasGate = gateOf(this.eco), up = addExp(this.eco, rw.exp); if (wasGate && !this.eco.state.flags.cult.toldGate?.[wasGate]) { (this.eco.state.flags.cult.toldGate ||= {})[wasGate] = 1; e.ui.toast?.(wasGate === "awaken" ? "Your EXP is full — visit the Awakening Facility in the Village to awaken your Martial Soul." : wasGate === "ring1" ? "Ring Slot 1 is open — hunt a Spirit Beast for its Ring, then absorb it to open Spirit Initiate (Lv 2)." : "Realm cap reached — EXP is banked. The next Ring slot is open: hunt a Spirit Beast for its Ring, then absorb it."); } this.fx.push({ x: e.player.x, y: e.player.y - 150, t: 0, txt: parts.join("  "), col: "#f2d889", wide: true });
+    if (up) { e.ui.toast?.(`Level up! Lv ${h.lv} · +${up * 3} stat points` + (pointsOf(this.eco).free >= NODE_COST ? " — open the Node System" : "")); e.ui.audio?.ok?.(); this.fx.push({ x: e.player.x, y: e.player.y - 170, t: 0, txt: "LEVEL UP  +" + up * 3 + " pts", col: "#9be5a8", wide: true }); const fl = this.eco.state.flags; if (!fl.toldPoints && pointsOf(this.eco).free >= NODE_COST) { fl.toldPoints = true; e.ui.say?.([{ who: "player", text: "My meridians are stirring… I should spend these stat points." }, "Open the Node System (the node button, right side) and activate a node next to the glowing centre. Each node costs 6 points; levelling never raises a stat by itself."]); } }
     this.respawn.push({ sp: m.sp, t: TIER_RESPAWN[m.sp.tier] * (0.7 + Math.random() * 0.6) }); this.eco.changed?.(); this._emit();
   }
 
@@ -247,6 +287,7 @@ export class Grinder {
     c.save(); c.textAlign = "center"; c.lineJoin = "round";
     for (const f of this.fx) { const k = f.t / 1.1; c.globalAlpha = 1 - k * k; if (f.kind) { c.save(); SKFX[f.kind]?.(c, f, k); c.restore(); continue; }
       if (f.ring) { const kk = Math.min(1, f.t / 0.6), R = (f.small ? 36 : f.big ? 96 : 60) * (0.35 + 0.65 * kk); c.globalAlpha = 0.9 * (1 - kk); c.lineWidth = 4 + 3 * (1 - kk); c.strokeStyle = `rgba(${f.col},1)`; c.shadowColor = `rgba(${f.col},.9)`; c.shadowBlur = 12; c.beginPath(); c.ellipse(f.x, f.y - 4, R, R * 0.36, 0, 0, 6.3); c.stroke(); c.shadowBlur = 0; continue; }
+      if (f.dk) { dmgPopup(c, f, k); continue; }
       if (f.puff) { c.fillStyle = f.col; c.font = "700 22px system-ui"; c.fillText("✦", f.x - 14 - k * 18, f.y - k * 30); c.fillText("✦", f.x + 14 + k * 18, f.y - k * 24); continue; }
       c.font = (f.wide ? "700 12px system-ui" : f.big ? "900 20px system-ui" : "800 15px system-ui"); c.lineWidth = 3.5; c.strokeStyle = "rgba(30,20,36,.9)"; c.strokeText(f.txt, f.x, f.y - k * 38); c.fillStyle = f.col; c.fillText(f.txt, f.x, f.y - k * 38); }
     c.restore();

@@ -4,7 +4,11 @@ import { housePlan, upgradeHouse, houseLevel } from "./data/house.js";
 import { ROSTER, speciesById, getHero, expToNext, MAX_LEVEL, TIER_LABEL } from "./data/mobs.js";
 import { statsOf } from "./data/progression.js";
 import { installSkillPanels } from "./skillui.js";
-import { SKILLS, addBooks } from "./data/skills.js";
+import { installCharPanels } from "./charui.js";
+import { eat, satOf } from "./data/realms.js";
+import { createDialogue } from "./dialogue.js";
+import { classRec, activeClass, acquireClass, CLASSES } from "./data/skills.js";
+import { SKILLS, SKILL, addBooks, skillRec } from "./data/skills.js";
 import { ZONES, zoneById, zoneOfLevel, AREA_NAMES, isHunting } from "./data/areas.js";
 import { buildHud } from "./hud.js";
 
@@ -27,7 +31,7 @@ const clockText = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${Strin
 const fmt = (n) => (Math.round(n * 100) / 100).toString();
 const WHY = { bag_full: "Your bag is full.", requirements: "Requirements not met.", blocked: "Can't build there.", merchant_away: "The merchant has left for the day.", no_funds: "Not enough xc.", out_of_stock: "Out of stock.", not_wanted: "He doesn't want that.", missing: "You don't have that.", nothing_to_collect: "Nothing to collect yet.", max_level: "Already at the highest level.", busy: "Busy right now." };
 
-export function createGameUI({ hud, layer, toastBox, eco, catalog, identity, audio, getEngine, onPause }) {
+export function createGameUI({ hud, layer, toastBox, eco, catalog, identity, audio, music, getOpts, getEngine, onPause }) {
   const cat = catalog; let sheet = null, placing = null, merchantTick = null;
   const api = { audio };
 
@@ -35,7 +39,7 @@ export function createGameUI({ hud, layer, toastBox, eco, catalog, identity, aud
   api.toast = (txt) => { if (!txt) return; api.logLine?.(txt); const t = h("div", { class: "gh-toast" }, txt); toastBox.append(t); while (toastBox.children.length > 3) toastBox.firstChild.remove(); setTimeout(() => t.remove(), 2600); };
   const why = (res, fallback = "Couldn't do that.") => WHY[res?.reason] || fallback;
   const off = [eco.on("toast", api.toast)];
-  api.blocking = () => !!sheet || !!placing?.blocking;
+  const dlg = createDialogue({ h, root: layer, hud, audio, getEngine }); api.say = dlg.say; api.blocking = () => !!sheet || !!placing?.blocking || dlg.isOpen();
 
   // ---------------------------------------------------------------- HUD (portrait layout lives in hud.js)
   buildHud({ h, hud, eco, audio, api, getEngine });
@@ -95,15 +99,28 @@ export function createGameUI({ hud, layer, toastBox, eco, catalog, identity, aud
   };
 
   installSkillPanels({ api, h, open, close, eco, audio, cat, getEngine });
+  installCharPanels({ api, h, open, close, eco, audio, music, getOpts, cat, getEngine, layer, hud });
+  // ---------------------------------------------------------------- NPC conversations (everything goes through the dialogue box)
+  api.talkMerchant = async () => { const m = eco.merchant(); await api.say([{ who: "npc", npc: { model: "hooded", view: "SW" }, name: m.name || "Merchant", text: m.greeting || "Fine day for honest trade." }]); api.openMerchant(); };
+  api.talkNpc = async (n) => {
+    if (n.kind === "awaken") return api.talkAwakening(n); if (n.kind === "academy") return api.talkAcademy(n);
+    const lvl = getHero(eco).lv, act = activeClass(eco), npc = { model: n.model, view: "SW" };
+    if (n.kind === "class") {
+      if (lvl < 9) { await api.say([{ who: "player", text: "Master, may I begin a martial path?" }, { who: "npc", npc, name: n.name, text: "A blade without a body is only iron. Return when you have grown — Level 9." }]); return; }
+      const r = await api.say([{ who: "npc", npc, name: n.name, text: act ? `You walk the ${act.name} path. Will you keep it, or take another?` : "Every disciple begins unclassed. Choose a discipline and a weapon — and a Skill Book will open before you.", choices: ["Show me the disciplines", "Not now"] }]);
+      if (r === 0) api.openClasses();
+    } else await api.say([{ who: "npc", npc, name: n.name, text: n.text || "…" }]);
+  };
 
   // ---------------------------------------------------------------- bag
   api.openBag = () => {
     let sel = null, cf = "all";
-    open("BAG", { sub: "", tabs: [["all", "All"], ...[...new Set(eco.bagList().map((x) => x.item.category))].map((c) => [c, c[0].toUpperCase() + c.slice(1)])],
+    open("BAG", { sub: "", tabs: [["all", "All"], ...[...new Set(eco.bagList().map((x) => x.item.category))].map((c) => [c, c[0].toUpperCase() + c.slice(1)]), ["books", "Skill Books"]],
       render(tab, redraw, subEl) {
-        cf = tab; subEl.textContent = `${eco.bagUsed()}/${eco.state.bag.slots} slots`; const list = eco.bagList().filter((x) => cf === "all" || x.item.category === cf);
+        cf = tab; subEl.textContent = `${eco.bagUsed()}/${eco.state.bag.slots} slots`;
+        if (cf === "books") { const bk = Object.entries(skillRec(eco).books).filter(([, n]) => n > 0); return bk.length ? h("div", { class: "gp-list" }, bk.map(([id, n]) => h("div", { class: "gp-line" }, h("span", null, `Skill Book: ${SKILL[id]?.name || id}`), h("em", null, "×" + n)))) : h("div", { class: "gp-empty" }, "No Skill Books yet. They drop from monsters and reward certain quests — spend them in your Class Skill Tree."); } const list = eco.bagList().filter((x) => cf === "all" || x.item.category === cf);
         const grid = list.length ? h("div", { class: "gp-grid" }, list.map((x) => tile(x.item, x.qty, sel === x.item.item_id, () => { sel = x.item.item_id; audio.tap(); redraw(); }))) : h("div", { class: "gp-empty" }, "Nothing here yet.");
-        const it = sel && cat.itemById.get(sel), det = it ? h("div", { class: "gp-card" }, h("h4", null, `${it.name} × ${fmt(eco.qty(it.item_id))}`), h("p", null, `${it.category} · tier ${it.quality_tier ?? 1} · base ${fmt(cat.price(it.item_id).base)} xc · merchant pays ~${fmt(cat.price(it.item_id).buyback)} xc`), ...(it.uses || []).slice(0, 2).map((u) => h("p", null, "• " + u))) : null;
+        const it = sel && cat.itemById.get(sel), det = it ? h("div", { class: "gp-card" }, h("h4", null, `${it.name} × ${fmt(eco.qty(it.item_id))}`), h("p", null, `${it.category} · tier ${it.quality_tier ?? 1} · base ${fmt(cat.price(it.item_id).base)} xc · merchant pays ~${fmt(cat.price(it.item_id).buyback)} xc`), ...(it.uses || []).slice(0, 2).map((u) => h("p", null, "• " + u)), it.category === "food" ? h("button", { class: "gm-btn sm", onclick: () => { const r = eat(eco, it.item_id); audio.tap(); api.toast(r.ok ? `Ate ${r.name} · satiety ${Math.round(r.sat)}%` : r.reason === "full" ? "You are not hungry." : "Can't eat that."); redraw(); } }, `EAT (+${satOf(it)} satiety)`) : null) : null;
         return [det, grid];
       } });
   };
@@ -211,11 +228,11 @@ export function createGameUI({ hud, layer, toastBox, eco, catalog, identity, aud
       const out = [h("button", { class: "gm-btn", style: "margin-bottom:10px", onclick: () => { audio.tap(); close(); } }, "RESUME"),
         h("button", { class: "gm-btn alt", style: "margin-bottom:10px", onclick: () => { close(); onPause("options"); } }, "OPTIONS"),
         h("button", { class: "gm-btn alt", style: "margin-bottom:10px", onclick: () => { close(); onPause("menu"); } }, "SAVE & MAIN MENU")];
-      if (eco.isDev) out.push(h("div", { class: "gs-sec" }, "DEVELOPER TOOLS"), h("div", { class: "gp-qty" }, h("button", { class: "gm-chip", onclick: () => { eco.devGrant({ xc: 100 }); api.toast("+100 xc"); } }, "+100 xc"), h("button", { class: "gm-chip", onclick: () => { const hr = getHero(eco); hr.lv = Math.min(MAX_LEVEL, hr.lv + 10); eco.changed?.(); api.toast(`Dev: Lv ${hr.lv}`); } }, "+10 levels"), h("button", { class: "gm-chip", onclick: () => { for (const k of SKILLS) addBooks(eco, k.id, 20); api.toast("Dev: +20 of every skill book"); } }, "+20 books"), h("button", { class: "gm-chip", onclick: () => { eco.devSkipTime(60); api.toast("+1 hour"); } }, "+1 h"), h("button", { class: "gm-chip", onclick: () => { eco.devSkipTime(480); api.toast("+8 hours"); } }, "+8 h")));
+      if (eco.isDev) out.push(h("div", { class: "gs-sec" }, "DEVELOPER TOOLS"), h("div", { class: "gp-qty" }, h("button", { class: "gm-chip", onclick: () => { eco.devGrant({ xc: 100 }); api.toast("+100 xc"); } }, "+100 xc"), ...[["Awaken", "awaken"], ["Realm cap", "cap"], ["Spirit Ring", "ring"], ["+12 food", "food"], ["Skip absorb", "skip"]].map(([t, k]) => h("button", { class: "gm-chip", onclick: () => api.devCult[k]() }, t)), h("button", { class: "gm-chip", onclick: () => { const hr = getHero(eco); hr.lv = Math.min(MAX_LEVEL, hr.lv + 10); eco.changed?.(); api.toast(`Dev: Lv ${hr.lv}`); } }, "+10 levels"), h("button", { class: "gm-chip", onclick: () => { for (const k of SKILLS) addBooks(eco, k.id, 20); api.toast("Dev: +20 of every skill book"); } }, "+20 books"), h("button", { class: "gm-chip", onclick: () => { const hr = getHero(eco); hr.lv = Math.max(hr.lv, 9); for (const c of CLASSES) if (!classRec(eco).owned.includes(c.id)) acquireClass(eco, c.id, hr.lv, true); eco.changed?.(); api.toast("Dev: all classes owned"); } }, "all classes"), h("button", { class: "gm-chip", onclick: () => { eco.devSkipTime(60); api.toast("+1 hour"); } }, "+1 h"), h("button", { class: "gm-chip", onclick: () => { eco.devSkipTime(480); api.toast("+8 hours"); } }, "+8 h")));
       return out;
     } });
   };
 
-  api.destroy = () => { clearInterval(hudUpdate); off.forEach((f) => f()); close(); };
+  api.destroy = () => { clearInterval(hudUpdate); api.charDestroy?.(); off.forEach((f) => f()); close(); };
   return api;
 }

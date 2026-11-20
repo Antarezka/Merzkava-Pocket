@@ -97,17 +97,18 @@ export const TIER_SCALE = { mob: 1, sub: 1.45, boss: 1.95 };
 export const sizeOf = (sp) => (ART[sp.art]?.h || 90) * TIER_SCALE[sp.tier];
 
 import { statsOf, LEVEL_CAP, heroRec } from "./progression.js";
+import { gateOf } from "./realms.js";
 
 // ---------------------------------------------------------------- hero progression
 export const expToNext = (lv) => Math.round(28 * Math.pow(lv, 1.6));   // hard grind: ~30 kills per level around Lv 10
 export function getHero(eco) {
-  const h = heroRec(eco), st = statsOf(eco); if (h.hp == null || h.hp > st.maxHp) h.hp = st.maxHp; if (!h.species) h.species = defaultSpecies(h.lv); return h;
+  const h = heroRec(eco), st = statsOf(eco); if (h.hp == null || h.hp > st.maxHp) h.hp = st.maxHp; if (h.qi == null || h.qi > st.qiCap) h.qi = st.qiCap; if (!h.species) h.species = defaultSpecies(h.lv); return h;
 }
 export function defaultSpecies(lv) { let best = MOBS[0]; for (const m of MOBS) if (m.lv[0] <= lv) best = m; return best.id; }
 /** returns number of levels gained.  Levelling gives stat points (3 per level) - it never raises an attribute by itself. */
 export function addExp(eco, amount) {
   const h = getHero(eco); let up = 0; if (h.lv >= MAX_LEVEL) return 0; h.exp += amount;
-  while (h.lv < MAX_LEVEL && h.exp >= expToNext(h.lv)) { h.exp -= expToNext(h.lv); h.lv++; up++; }
+  while (h.lv < MAX_LEVEL && !gateOf(eco) && h.exp >= expToNext(h.lv)) { h.exp -= expToNext(h.lv); h.lv++; up++; }   // a gate (awakening / realm cap) banks the EXP instead of levelling
   if (h.lv >= MAX_LEVEL) h.exp = 0; if (up) h.hp = statsOf(eco).maxHp; return up;
 }
 
@@ -131,7 +132,10 @@ export function rewards(sp, mobLv, heroLv, catalog, rnd = Math.random, luck = 1)
   return { exp, xc, items };
 }
 /** one swing by the hero: { dmg, crit }.  st = statsOf(eco) (with temporary buffs) */
+/** Consistent Damage steadies and lifts NON-crit hits; a Luck-driven share of crits become Deadly (+50% on top of the crit multiplier) */
 export function heroHit(st, mobTier, rnd = Math.random) {
-  const crit = rnd() * 100 < st.crit; return { dmg: Math.max(1, Math.round(st.atk * (0.85 + rnd() * 0.3) * (mobTier === "boss" ? 0.9 : 1) * (crit ? st.critDmg / 100 : 1))), crit };
+  const crit = rnd() * 100 < st.crit, deadly = crit && rnd() * 100 < st.deadly, spread = 0.15 * (1 - Math.min(0.8, st.consDmg * 0.012));
+  const d = st.atk * (1 - spread + rnd() * 2 * spread) * (mobTier === "boss" ? 0.9 : 1) * (crit ? (st.critDmg / 100) * (deadly ? 1.5 : 1) : 1 + st.consDmg / 100);
+  return { dmg: Math.max(1, Math.round(d)), crit, deadly };
 }
 export const mobHit = (sp, mobLv, def, rnd = Math.random) => Math.max(1, Math.round(mobDmg(mobLv, sp.tier) * (0.85 + rnd() * 0.3) - def));
