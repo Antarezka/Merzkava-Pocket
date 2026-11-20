@@ -4,6 +4,19 @@
 **Target branch: `claude-today2`**  
 **Scope: the Game screen and its legacy gameplay implementation only.**
 
+## Exact Pocket baseline — verified latest published APK
+
+Use the latest published Pocket release as the app-shell baseline unless a newer approved release is published before integration:
+
+- Release: **Merzkava Pocket Build #429**
+- Version: **v.0.01.007-4aa649d**
+- Release tag: `pocket-build-429`
+- Release/source commit: `4aa649d`
+- APK: [Merzkava-Pocket-Build-429-4aa649d.apk](https://github.com/Antarezka/Merzkava-Pocket/releases/download/pocket-build-429/Merzkava-Pocket-Build-429-4aa649d.apk)
+- Published: **2026-11-12 09:41:46 UTC**
+
+This is the latest published release verified when this handoff was updated. Start by checking out the release source commit/tag (or the corresponding current `main` history) and inspect its actual tree before editing. The `claude-today2` branch contains this handoff/documentation; do **not** assume it is itself the Build #429 app source baseline. If a newer release exists by the time work begins, verify it on GitHub and update this baseline before proceeding. Do not build or publish an APK without the user's explicit approval.
+
 ## Required outcome
 
 The current Pocket app must not ship the old game as a placeholder or alongside the replacement. Before the new Claude-built game is integrated into the **Game** screen, remove the legacy Game implementation from the app runtime.
