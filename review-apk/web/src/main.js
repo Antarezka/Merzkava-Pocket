@@ -1,7 +1,5 @@
 import { animate } from "animejs";
 import "./styles.css";
-import { economyMarkup, mountEconomy } from "./economy.js";
-import { mountHomeBase } from "./home-base.js";
 import { dailyLoginMarkup, mountDailyLogin } from "./daily-login.js";
 
 const root = document.querySelector("#app");
@@ -759,23 +757,11 @@ function renderPage(destination, transitionDuration=420) {
       </main>`;
   } else if(destination==="game"){
     pageMarkup=`
-      <main class="page-stage">
-        <span class="eyebrow">GAME / WORLD ACCESS</span><h1>Enter the world.</h1><p class="page-lead">World navigation follows the Pocket hierarchy.</p>
-        <article class="destination-card"><span>01 / GAME ENTRY</span><strong>Home Base</strong><small>The starting hub for in-world navigation.</small><button type="button" data-subroute="home-base">OPEN HOME BASE ↗</button></article>
-        <article class="destination-card"><span>02 / DAILY LIFE</span><strong>Living Economy</strong><small>Explore the item register, local wallet, gathering, construction, facilities and defined production chains.</small><button type="button" data-subroute="economy">OPEN ECONOMY ↗</button></article>
+      <main class="page-stage game-placeholder" aria-labelledby="game-placeholder-title">
+        <span class="eyebrow">GAME / RPG ENTRY</span>
+        <h1 id="game-placeholder-title">Put Entire RPG Game Here</h1>
+        <p class="page-lead">Start from Main Menu.</p>
       </main>`;
-  } else if(destination==="home-base"){
-    pageMarkup='<main class="home-base-host" data-home-base-root></main>';
-  } else if(destination==="city"){
-    pageMarkup=`
-      <main class="page-stage"><span class="eyebrow">GAME / CITY</span><h1>City.</h1><p class="page-lead">Choose a connected destination from the city layer.</p>
-      <article class="destination-card"><span>03 / WORLD SCALE</span><strong>World Map</strong><small>World-scale geography belongs inside Game.</small><button data-subroute="world-map">OPEN WORLD MAP ↗</button></article></main>`;
-  } else if(destination==="world-map"){
-    pageMarkup=`
-      <main class="page-stage"><span class="eyebrow">GAME / WORLD MAP</span><h1>World Map.</h1><p class="page-lead">The map data is not included in this shell build.</p>
-      <article class="destination-card"><span>WORLD ATLAS</span><strong>Geographic layer</strong><small>Map content will be connected from the reviewed Universe sources; no placeholder geography is invented here.</small><button data-subroute="city">RETURN TO CITY ↗</button></article></main>`;
-  } else if(destination==="economy"){
-    pageMarkup=economyMarkup();
   } else if(destination==="daily-login"){
     pageMarkup=dailyLoginMarkup();
   } else {
@@ -825,18 +811,7 @@ function renderPage(destination, transitionDuration=420) {
   const page=root.querySelector(".home-stage,.page-stage,.home-base-host");
   if(!reducedMotion()&&page)animate(page,{opacity:[0,1],translateY:[8,0],duration:transitionDuration,ease:"outCubic"});
   if(destination!=="daily-login")mountMenu();
-  if(destination==="economy"){
-    const menuCleanup=currentDisposer;
-    const economyCleanup=mountEconomy(root.querySelector("[data-economy-root]"),accessIdentity);
-    currentDisposer=()=>{menuCleanup?.();economyCleanup?.();};
-  }else if(destination==="home-base"){
-    const menuCleanup=currentDisposer;
-    let homeBaseCleanup=()=>{};
-    currentDisposer=()=>{menuCleanup?.();homeBaseCleanup?.();};
-    void mountHomeBase(root.querySelector("[data-home-base-root]"),accessIdentity,navigateBack,()=>currentRoute==="home-base")
-      .then(cleanup=>{if(currentRoute==="home-base")homeBaseCleanup=cleanup;else cleanup();})
-      .catch(error=>{const host=root.querySelector("[data-home-base-root]");if(host)host.textContent="Home Base error: "+error.message;});
-  }else if(destination==="daily-login"){
+  if(destination==="daily-login"){
     currentDisposer=mountDailyLogin(root.querySelector("[data-daily-login-root]"),()=>navigateBack(2000));
   }
 }
@@ -1069,7 +1044,7 @@ function mountMenu() {
 }
 
 function navigate(destination) {
-  if(!["home","game","daily-login","settings","home-base","city","world-map","economy"].includes(destination))return;
+  if(!["home","game","daily-login","settings"].includes(destination))return;
   if(destination===currentRoute)return;
   routeHistory.push(currentRoute);
   renderPage(destination);
