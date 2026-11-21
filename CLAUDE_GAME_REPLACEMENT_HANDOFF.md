@@ -46,7 +46,7 @@ Do **not** remove or merge these while cleaning up the legacy Game:
 
 ## Reference material versus active implementation
 
-Existing map, character, sprite, wardrobe, and gameplay documents/assets may be retained in Git history or clearly marked as **legacy/archive reference** if they are useful for historical context. They must not be treated as instructions to restore the old game or as dependencies of the replacement. Do not delete shared app assets or unrelated resources without checking references first.
+Legacy game-specific map, character, sprite, wardrobe, gameplay, and economy reference files have now been removed from the active branch, including the old `docs/game/` documentation/catalogs and the old character pixel-base specification. Do not restore these from Git history. Keep only shared Pocket app-shell assets and resources that are unrelated to gameplay.
 
 ## Completion report required
 
@@ -82,3 +82,8 @@ The app entry file no longer imports or mounts the deleted gameplay modules. **D
 The files under `docs/game/` are retained as documentation/reference only; they are not active Game runtime or assets. Do not restore the removed implementation from Git history. Claude should build the new RPG independently and integrate it into the Game destination, beginning at the new game's own main menu.
 
 No APK was built or published as part of this cleanup.
+
+
+## Legacy game reference cleanup — completed
+
+The remaining old game design/catalog references were removed from this branch, including the complete `docs/game/` tree and `docs/design/CHARACTER_PIXEL_BASE_EIGHT_DIRECTIONS.md`. These are not to be restored or used as a basis for the replacement. The new game must follow the latest HTML supplied directly in the active Claude session, which is intentionally not stored in this repository.
