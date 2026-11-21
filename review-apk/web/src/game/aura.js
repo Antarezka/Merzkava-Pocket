@@ -1,13 +1,13 @@
-// Aura Repulsion: the interruption mini-game played while a Spirit Ring is being absorbed (spec v4 section 17, kept in v9).
-// It is a rhythm game: the bubbles follow the beat-maps generated from the five rhythm songs (public/game-data/beats.json - 5 songs x 9 charts, one chart per Spirit Realm,
+// Aura Repulsion: the interruption mini-game played while a Origin is being absorbed (spec v4 section 17, kept in v9).
+// It is a rhythm game: the bubbles follow the beat-maps generated from the five rhythm songs (public/game-data/beats.json - 5 songs x 9 charts, one chart per Guanghuan Realm,
 // easy -> hard).  A random song is chosen each time; the higher the realm, the longer the excerpt (45 s ... the whole song), the denser the chart, the faster the approach
-// rings, the tighter the timing windows and the higher the accuracy needed to repel the intruders.
+// slots, the tighter the timing windows and the higher the accuracy needed to repel the intruders.
 // Judgments: Perfect / Great / Good / Bad / Miss.  The absorption clock never pauses while this plays (the overlay lives on top of the world; nothing here touches the clock).
 const JUDGE = [["PERFECT", 1, "#ffe27a"], ["GREAT", 0.7, "#8ff0b8"], ["GOOD", 0.4, "#8fc8ff"], ["BAD", 0.15, "#c9a0ff"], ["MISS", 0, "#ff7a6a"]];
 const EXCERPT = [45, 60, 75, 90, 105, 120, 140, 160, 999];            // seconds of music per realm (the last one is the whole song)
 const LEVEL_NAME = ["EASY", "EASY", "NORMAL", "NORMAL", "HARD", "HARD", "EXPERT", "EXPERT", "MASTER"];
 
-/** difficulty curve by Spirit Realm 1..9 (the chart density itself comes from the beat-map; this is everything around it) */
+/** difficulty curve by Guanghuan Realm 1..9 (the chart density itself comes from the beat-map; this is everything around it) */
 export function auraParams(realm) {
   const r = Math.max(1, Math.min(9, realm)), scale = Math.max(0.72, 1 - 0.035 * (r - 1) - (r >= 8 ? 0.04 : 0));
   return { ar: [1.35, 1.25, 1.15, 1.05, 0.95, 0.85, 0.76, 0.68, 0.6][r - 1], win: [55, 110, 170, 240].map((v) => v * scale / 1000), pass: Math.min(0.95, 0.55 + 0.035 * (r - 1) + (r >= 8 ? 0.03 : 0)),
@@ -41,7 +41,7 @@ export function createAura({ h, root, audio, music, getOpts }) {
     if (song) plan = planEvent(song, realm, lead); else { const gap = Math.max(0.4, 1.1 - 0.07 * realm), n = 14 + 3 * realm; plan = { P, notes: Array.from({ length: n }, (_, i) => lead + i * gap), from: 0, beats: [] }; }   // no beat-map available: plain metronome fallback
     const { notes, beats } = plan, bar = h("i"), pct = h("em", null, "0%"), combo = h("b", null, "0"), acc = h("b", null, "100%"), say = h("div", { class: "au-say" }), field = h("div", { class: "au-field" });
     const el = h("div", { class: "au" }, h("div", { class: "au-top" }, h("div", { class: "au-t1" }, h("b", null, "AURA REPULSION"), h("small", null, song ? `♪ ${song.title} · ${Math.round(song.bpm)} BPM · ${P.level}` : "INTERRUPTION EVENT")), h("div", { class: "au-bar" }, bar), h("div", { class: "au-t2" }, h("small", null, "EVENT TIME"), pct)),
-      h("div", { class: "au-intro" }, `${foe === "beasts" ? "Spirit Beasts" : "Bandits"} are closing in on your meditation!`, h("small", null, "Tap each bubble when its ring closes on it")), field, say,
+      h("div", { class: "au-intro" }, `${foe === "beasts" ? "Origin Beasts" : "Bandits"} are closing in on your meditation!`, h("small", null, "Tap each bubble when its ring closes on it")), field, say,
       h("div", { class: "au-bot" }, h("div", null, h("small", null, "COMBO"), combo), h("div", null, h("small", null, `ACCURACY · NEED ${Math.round(P.pass * 100)}%`), acc), h("button", { class: "au-skip", type: "button" }, "LET THEM")));
     root.append(el); await new Promise((r) => requestAnimationFrame(r));
     const fb = field.getBoundingClientRect(), FW = fb.width || 360, FH = fb.height || 540, mg = P.size / 2 + 8, seq = []; let prev = [];

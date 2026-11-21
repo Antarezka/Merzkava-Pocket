@@ -148,7 +148,7 @@ function recordMarkup(record, developer) {
           '<div><small>NAME</small><strong>' + esc(record.name || "Unknown") + '</strong></div>' +
           '<div><small>AGE</small><strong>' + esc(show(age)) + '</strong></div>' +
           '<div><small>ORIGIN</small><strong>' + esc(show(origin)) + '</strong></div>' +
-          '<div><small>SPIRIT REALM</small><strong>' + esc(show(realm)) + '</strong></div>' +
+          '<div><small>REALM</small><strong>' + esc(show(realm)) + '</strong></div>' +
           '<div><small>AWAKENED</small><strong>' + esc(show(character.awakened ?? fields.Awakened)) + '</strong></div>' +
           '<div><small>LEVEL</small><strong>' + esc(show(character.cultivationLevel ?? character.level)) + '</strong></div>' +
         '</div><p class="player-record-note">' + esc(background) + '</p>' +

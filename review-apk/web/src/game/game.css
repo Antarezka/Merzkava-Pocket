@@ -254,22 +254,25 @@
 .mt-wrap{position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--line)}.mt-cv{display:block;width:100%;height:min(46vh,380px);touch-action:none}.mt-zoom{position:absolute;right:6px;top:6px;display:flex;flex-direction:column;gap:4px}.mt-zoom button{width:28px;height:28px;border-radius:9px;background:rgba(14,12,22,.7);border:1px solid var(--line);font-size:14px;color:var(--tx)}
 .mt-card{margin-top:8px}.mt-card h4{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.mt-dot{width:10px;height:10px;border-radius:50%;display:inline-block}.mt-key{background:rgba(255,194,71,.16);color:var(--acc);border-radius:7px;padding:1px 6px;font-size:8px;font-weight:700;letter-spacing:.12em}.mt-fx{color:var(--acc);font-weight:600}.mt-st{font-size:11px;color:var(--mut)}.mt-why{display:block;margin-top:4px;font-size:10px;color:#ffb3a8}
 
-/* ---- main menu (layered art: bg / compass-world / logo / buttons, all positioned on a 756x1344 design box) */
-.gmm{position:absolute;inset:0;overflow:hidden;background:#241a30 center/cover no-repeat}
+/* ---- main menu (wallpaper + drifting light + bubbles + logo + buttons, all positioned on a 756x1344 design box; palette taken from the wallpaper: jade / mint / koi amber / stern red) */
+.gmm{position:absolute;inset:0;overflow:hidden;background:#06201a}
+.gmm-bg{position:absolute;inset:-3%;background:center/cover no-repeat;animation:gmm-drift 26s ease-in-out infinite alternate;will-change:transform}
+@keyframes gmm-drift{0%{transform:scale(1.02) translate(0,0)}100%{transform:scale(1.07) translate(-1.2%,1.4%)}}
+.gmm-caustics{position:absolute;inset:0;pointer-events:none;mix-blend-mode:screen;opacity:.5;background:radial-gradient(60% 34% at 28% 12%,rgba(160,255,220,.28),transparent 70%),radial-gradient(46% 30% at 78% 34%,rgba(120,240,200,.16),transparent 70%);animation:gmm-glow 9s ease-in-out infinite alternate}
+@keyframes gmm-glow{0%{opacity:.25;transform:translateX(-2%)}100%{opacity:.6;transform:translateX(3%)}}
 .gmm-box{position:absolute;left:50%;top:50%;width:756px;height:1344px;margin:-672px 0 0 -378px;transform:translateX(var(--tx,0px)) scale(var(--k,.55));transform-origin:50% 50%}
-.gmm-world,.gmm-logo{position:absolute;display:block;user-select:none;-webkit-user-drag:none;pointer-events:none}
-.gmm-world{left:21px;top:432px;width:521px;height:672px;animation:gmm-bob 7s ease-in-out infinite;transform-origin:50% 100%}
-.gmm-logo{left:54px;top:80px;width:651px;height:291px;animation:gmm-logo 5s ease-in-out infinite;filter:drop-shadow(0 8px 18px rgba(0,0,0,.45))}
-@keyframes gmm-bob{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-12px) rotate(.5deg)}}
+.gmm-logo{position:absolute;display:block;user-select:none;-webkit-user-drag:none;pointer-events:none}
+.gmm-logo{left:98px;top:46px;width:560px;height:250px;animation:gmm-logo 5s ease-in-out infinite;filter:drop-shadow(0 8px 18px rgba(0,0,0,.45))}
 @keyframes gmm-logo{0%,100%{transform:scale(1)}50%{transform:scale(1.015) translateY(-2px)}}
 .gmm-b{position:absolute;left:512px;width:244px;padding:0;border:0;background:none;cursor:pointer;opacity:0;transform:translateX(60px);animation:gmm-in .5s cubic-bezier(.2,.8,.2,1) forwards;animation-delay:calc(.25s + var(--i) * .08s);-webkit-tap-highlight-color:transparent}
 .gmm-b img{display:block;width:100%;height:100%;pointer-events:none;user-select:none;transition:transform .12s,filter .12s}
 .gmm-b:active img{transform:translateX(8px) scale(.97);filter:brightness(1.25)}.gmm-b.off{pointer-events:none}.gmm-b.off img{filter:grayscale(.85) brightness(.55)}
 @keyframes gmm-in{to{opacity:1;transform:none}}.gmm-b.off{animation-name:gmm-in-off}@keyframes gmm-in-off{to{opacity:.55;transform:none}}
-.gmm-foot{position:absolute;left:0;width:756px;top:1282px;text-align:center;font-size:23px;letter-spacing:.2em;color:rgba(255,255,255,.55);font-weight:500}
-.gmm-spark{position:absolute;width:16px;height:16px;margin:-8px;background:#fff4cf;clip-path:polygon(50% 0,60% 40%,100% 50%,60% 60%,50% 100%,40% 60%,0 50%,40% 40%);animation:gmm-tw 3.2s ease-in-out infinite;pointer-events:none;filter:drop-shadow(0 0 6px #ffd98a)}
+.gmm-foot{position:absolute;left:0;width:756px;top:1282px;text-align:center;font-size:23px;letter-spacing:.2em;color:rgba(214,255,240,.7);text-shadow:0 1px 6px rgba(0,20,15,.8);font-weight:500}
+.gmm-spark{position:absolute;width:16px;height:16px;margin:-8px;background:#d6fff0;clip-path:polygon(50% 0,60% 40%,100% 50%,60% 60%,50% 100%,40% 60%,0 50%,40% 40%);animation:gmm-tw 3.2s ease-in-out infinite;pointer-events:none;filter:drop-shadow(0 0 7px #7ff0c4)}
 @keyframes gmm-tw{0%,100%{opacity:.1}50%{opacity:1}}
-.gmm-leaf{position:absolute;top:-30px;width:16px;height:12px;border-radius:80% 0 80% 0;opacity:.8;animation:gl-fall linear infinite;pointer-events:none}
+.gmm-bub{position:absolute;bottom:-24px;width:var(--sz,10px);height:var(--sz,10px);border-radius:50%;border:1.5px solid currentColor;background:radial-gradient(circle at 32% 30%,rgba(255,255,255,.55),rgba(255,255,255,0) 55%);opacity:0;animation:gmm-rise linear infinite;pointer-events:none}
+@keyframes gmm-rise{0%{transform:translate(0,0);opacity:0}12%{opacity:.8}50%{transform:translate(var(--sw,12px),-52vh)}90%{opacity:.7}100%{transform:translate(calc(var(--sw,12px)*-.6),-108vh);opacity:0}}
 /* ---- archive */
 .gs{background:linear-gradient(#1f1829,#15111c)}.ar-tabs{padding:0 16px 8px}.ar-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .ar-cell{display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;padding:8px 4px 7px;border-radius:12px;background:var(--s2);border:1px solid var(--line)}.ar-cell img{width:100%;height:72px;object-fit:contain}.ar-cell b{font-size:11px;font-weight:600;color:var(--tx)}.ar-cell small{font-size:9px;color:var(--mut)}
@@ -308,7 +311,7 @@
 .au-say{position:absolute;left:0;right:0;top:44%;text-align:center;font-size:20px;font-weight:800;letter-spacing:.14em;opacity:0;pointer-events:none}.au-say.show{opacity:1;animation:au-pop .4s}.au-say.ok{color:#8ff0b8}.au-say.bad{color:#ff7a6a}@keyframes au-pop{from{transform:scale(.7);opacity:0}}
 /* overlay layer never blocks the HUD: only the open sheet / dialogue / rite / mini-game itself takes taps */
 .gm-layer{pointer-events:none!important}.gm-layer>*{pointer-events:auto}.gm-layer>.gm-hidden{pointer-events:none}
-/* ---- v6: Qi bar + Spirit Pressure button */
+/* ---- v6: Qi bar + Aura Repulsion button */
 .hd-bar.qi{height:4px;margin-top:3px}.hd-bar.qi i{background:linear-gradient(90deg,#4aa3ff,#7fd2ff)}
 .hd-aura{pointer-events:auto;position:relative;align-self:center;display:grid;grid-template-columns:auto auto;align-items:center;gap:6px;padding:4px 12px 4px 8px;border-radius:999px;background:var(--s1);border:1px solid rgba(196,123,255,.4);color:#e7d3ff;font-size:8px;font-weight:700;letter-spacing:.14em;overflow:hidden}
 .hd-aura svg.ui-ic{width:22px;height:22px}.hd-aura small{font-size:8px}

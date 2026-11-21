@@ -75,10 +75,11 @@ export function installAutomation({ api, h, open, audio, eco, getEngine, cat }) 
     const g = () => getEngine()?.grind, c = cult(eco), rec = skillRec(eco);
     return [h("div", { class: "gs-sec" }, "HUNTING"), row("Auto-grind", "The big AUTO button — hunts the chosen monster for you", toggle(() => !!g()?.on, () => { g()?.toggle(); setTimeout(redraw, 60); })),
       row("Skills", "AUTO fires your equipped skills by itself; MANUAL waits for your taps", seg([[true, "Auto"], [false, "Manual"]], () => !!rec.auto, (v) => setAuto(eco, v), redraw)),
-      row("Spirit Pressure", "Use the Rings' pressure when a fight starts (needs a bound Spirit Ring)", toggle(() => c.autoAura !== false, (v) => { c.autoAura = v; })),
+      row("Origin Devourer", "Extract the Origin of a fallen Origin Beast automatically while hunting (otherwise you are asked each time)", toggle(() => c.autoExtract !== false, (v) => { c.autoExtract = v; })),
+      row("Origin Surge", "Use the Guanghuan's aura when a fight starts (needs an absorbed Origin)", toggle(() => c.autoAura !== false, (v) => { c.autoAura = v; })),
       row("Stop when the bag is full", "Switch AUTO off instead of leaving loot behind", toggle(() => a.stopFull, (v) => { a.stopFull = v; })),
       h("div", { class: "gs-sec" }, "FOOD"), row("Eat when hungry", "Eats the cheapest food in your bag when Satiety is low and no Meal slot is set", toggle(() => c.autoEat, (v) => { c.autoEat = v; })),
-      row("Keep food for absorption", `Auto never uses the last ${a.reserve} food items while a Spirit Ring slot is waiting`, h("div", { class: "gs-seg" }, [0, 4, 6, 10].map((n) => h("button", { class: a.reserve === n ? "on" : "", onclick: () => { a.reserve = n; audio.tap(); eco.changed?.(); redraw(); } }, String(n))))),
+      row("Keep food for absorption", `Auto never uses the last ${a.reserve} food items while a Guanghuan slot is waiting for its Origin`, h("div", { class: "gs-seg" }, [0, 4, 6, 10].map((n) => h("button", { class: a.reserve === n ? "on" : "", onclick: () => { a.reserve = n; audio.tap(); eco.changed?.(); redraw(); } }, String(n))))),
       h("p", { class: "gc-note" }, "Quick slots have their own tab. Everything here is saved with your character.")];
   }
 }

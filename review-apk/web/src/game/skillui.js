@@ -30,7 +30,7 @@ export function installSkillPanels({ api, h, open, close, eco, audio, cat, getEn
           if (!cv.isConnected) return; const r = cv.getBoundingClientRect(); const lw = cv.offsetWidth, lh = cv.offsetHeight; if (!lw) return; if (cv.width !== Math.round(lw * dpr) || cv.height !== Math.round(lh * dpr)) { cv.width = Math.round(lw * dpr); cv.height = Math.round(lh * dpr); }
           W = lw; H = lh; const c = cv.getContext("2d"); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
           const g = c.createRadialGradient(W / 2, H / 2, 10, W / 2, H / 2, Math.max(W, H) * 0.7); g.addColorStop(0, "#2a2238"); g.addColorStop(1, "#15101c"); c.fillStyle = g; c.fillRect(0, 0, W, H);
-          // faint rings
+          // faint slots
           c.strokeStyle = "rgba(255,243,220,.05)"; c.lineWidth = 1; for (let k = 1; k <= 10; k++) { const R = (96 + k * 74) * view.k; c.beginPath(); c.arc(W / 2 - view.x * view.k, H / 2 - view.y * view.k, R, 0, 6.2832); c.stroke(); }
           const free = pointsOf(eco).free >= NODE_COST, t = performance.now() / 1000;
           c.lineCap = "round"; const drawn = new Set();

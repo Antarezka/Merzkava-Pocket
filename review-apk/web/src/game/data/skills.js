@@ -58,7 +58,7 @@ export const SKILLS = [
   S("ghostneedle", "stars", "Scatter Stars", 9, null, "aoe", "shuriken", "violet", { mult: 1.7, radius: 150, cd: 9, chant: 0.5, fx: "flurry", desc: "Throw a ring of stars that hits everything near you." }),
   S("ghostneedle", "rain", "Shadow Needle Rain", 20, "stars", "hit", "needles", "ink", { hits: 5, mult: 0.9, cd: 12, chant: 0.7, fx: "rain", desc: "Five hidden needles into one target." }),
   S("ghostneedle", "mark", "Ghost Flame Mark", 60, "rain", "aoe", "spirit", "teal", { mult: 3.6, radius: 160, cd: 17, chant: 1.0, desc: "Mark the field with pale spirit flame." }),
-  ...ults("ghostneedle", [["Hundred Shadow Hail", "needles", "ink"], ["Soul-Stitching Needles", "needles", "rose", "hit"], ["Night Without Dawn", "eclipse", "violet"], ["Empty Heaven Barrage", "void", "white"]]),
+  ...ults("ghostneedle", [["Hundred Shadow Hail", "needles", "ink"], ["Origin-Stitching Needles", "needles", "rose", "hit"], ["Night Without Dawn", "eclipse", "violet"], ["Empty Heaven Barrage", "void", "white"]]),
   // ---- Striker
   S("striker", "combo", "Thunder Fist Combo", 9, null, "hit", "fist", "orange", { hits: 4, mult: 1.0, cd: 8, chant: 0.4, fx: "flurry", desc: "Four quick punches with thunder qi." }),
   S("striker", "palm", "Shattering Palm", 20, "combo", "aoe", "bolt", "gold", { mult: 2.4, radius: 130, cd: 11, chant: 0.7, fx: "thunder", desc: "A palm strike that shocks everything close." }),

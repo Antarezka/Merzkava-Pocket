@@ -7,7 +7,7 @@ export const ZONES = [
   { id: "z3", name: "Streams & Caves", lv: [17, 24], theme: "Water predators, golems, cave creatures" },
   { id: "z4", name: "Marshes & Abandoned Shrines", lv: [25, 32], theme: "Poison, undead, wandering spirits" },
   { id: "z5", name: "Mountain Passes & Old Ruins", lv: [33, 40], theme: "Armored beasts, spirit warriors, guardians" },
-  { id: "z6", name: "Deeper Spirit Lands", lv: [41, 50], theme: "Shape-shifters, spirit beasts, evolved monsters" },
+  { id: "z6", name: "Deeper Wildlands", lv: [41, 50], theme: "Shape-shifters, Origin Beasts, evolved monsters" },
   { id: "z7", name: "Crimson Battlefield", lv: [51, 60], theme: "Fallen warriors and war spirits (placeholder)" },
   { id: "z8", name: "Frozen Highlands", lv: [61, 70], theme: "Frost beasts and ice guardians (placeholder)" },
   { id: "z9", name: "Sunken Palace Depths", lv: [71, 80], theme: "Drowned court and deep-water dragons (placeholder)" },

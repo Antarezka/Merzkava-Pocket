@@ -2,7 +2,7 @@
 // Pure game logic + small canvas drawing; economy rules (items, wallet) go through GameEconomy, numbers live in data/mobs.js.
 import { ART, speciesById, rollLevel, mobHp, rewards, heroHit, mobHit, getHero, addExp, sizeOf, TIER_SIZE, TIER_RESPAWN, TIER_COUNT } from "./data/mobs.js";
 import { statsOf, pointsOf, NODE_COST } from "./data/progression.js";
-import { dropRing, gateOf, RING_TIERS, cult } from "./data/realms.js";
+import { offerExtraction, resolveExtraction, elementOf, gateOf, cult } from "./data/realms.js";
 import { SKILL, CLASS, skillRec, usable, ownsClass, rollBooks, addBooks, qiCost } from "./data/skills.js";
 import { buildRig, drawMob } from "./art/mobs.js";
 import { drawMonster, monsterSprite, topOf } from "./art/monsters.js";
@@ -91,7 +91,7 @@ export class Grinder {
   _emit() { for (const f of this.listeners) f(); }
   setSpecies(id) { const h = this.hero; if (h.species === id) return; h.species = id; this.retreats = 0; if (this.on) { if (this.e.areaId !== this.species.z) { this.setOn(false); this.toggle(); } else { this.clearMobs(); this._fill(true); } } this._emit(); }
   toggle() {
-    if (this.e.meditating) { this.e.ui.toast?.("You are absorbing a Spirit Ring."); return; }
+    if (this.e.meditating) { this.e.ui.toast?.("You are absorbing an Origin."); return; }
     if (this.on) return this.setOn(false, "manual"); const sp = this.species, e = this.e;
     if (e.busy) return; if (e.areaId !== sp.z) { e.ui.toast?.(`Travelling to ${AREA_NAMES[sp.z] || sp.z}…`); e.travel(sp.z, "s", { then: () => this.setOn(true) }); return; }
     this.setOn(true);
@@ -181,25 +181,34 @@ export class Grinder {
     if (m.hp <= 0) { this._kill(m); return true; } return false;
   }
   // ---------------------------------------------------------------- skills (4 quick slots; see data/skills.js)
-  // ---------------------------------------------------------------- Spirit Pressure: the Spirit Rings' aura intimidates weaker monsters
-  //   P = sum over bound rings of (tier + 1) x (0.6 + quality / 100)      (one white ring ~ 1, a full set of red rings ~ 40)
+  // ---------------------------------------------------------------- Origin Surge: the Guanghuan's aura intimidates weaker monsters
+  //   P = sum over bound slots of grade x (0.6 + quality / 100)      (one grade-1 Origin ~ 1, a full crown of high-grade Origins ~ 40)
   //   monster level below yours (gap d >= 1):  cowed with p = min(97%, 45% + 7% x d + 1.5% x P) for 4 + d/2 s (max 12 s): flees, cannot strike back, takes +15% damage
   //   same level:                              small chance to flee (6% + 0.4% x P, max 25%, 3.5 s) - or to be PROVOKED instead (12% - 0.3% x P, min 3%): +35% damage, +20% swing speed for 8 s
   //   higher level, bosses and sub bosses:     unaffected.   Cooldown 30 s - 0.4 x P (max -12 s).  Auto-fires when a fight starts (setting in the Character menu) or from the HUD button.
-  ringPower() { const c = this.eco.state.flags?.cult; let p = 0; for (const r of c?.rings || []) if (r) p += (r.tier + 1) * (0.6 + r.quality / 100); return p; }
-  pressureReady() { return this.on && this.ringPower() > 0 && !((this.cd._aura || 0) > 0) && this.mobs.some((m) => m.sp.tier === "mob"); }
+  originPower() { const c = this.eco.state.flags?.cult; let p = 0; for (const r of c?.slots || []) if (r) p += (r.tier + 1) * (0.6 + r.quality / 100); return p; }
+  pressureReady() { return this.on && this.originPower() > 0 && !((this.cd._aura || 0) > 0) && this.mobs.some((m) => m.sp.tier === "mob"); }
   pressure(manual) {
-    const e = this.e, p = e.player, P = this.ringPower(), lv = this.hero.lv; if (P <= 0) { if (manual) e.ui.toast?.("Bind a Spirit Ring to use Spirit Pressure."); return false; }
-    if (!this.on) { if (manual) e.ui.toast?.("Spirit Pressure works on monsters — start Auto-grind first."); return false; } if ((this.cd._aura || 0) > 0) { if (manual) e.ui.toast?.(`Spirit Pressure — ${Math.ceil(this.cd._aura)}s`); return false; }
+    const e = this.e, p = e.player, P = this.originPower(), lv = this.hero.lv; if (P <= 0) { if (manual) e.ui.toast?.("Absorb an Origin to use Origin Surge."); return false; }
+    if (!this.on) { if (manual) e.ui.toast?.("Origin Surge works on monsters — start Auto-grind first."); return false; } if ((this.cd._aura || 0) > 0) { if (manual) e.ui.toast?.(`Origin Surge — ${Math.ceil(this.cd._aura)}s`); return false; }
     this.cd._aura = this.cdMax._aura = 30 - Math.min(12, 0.4 * P); let cowed = 0, riled = 0;
     for (const m of this.mobs) { if (Math.hypot(m.x - p.x, m.y - p.y) > 340) continue; const say = (t, col) => this.fx.push({ x: m.x, y: m.y - sizeOf(m.sp) - 6, t: 0, txt: t, col, wide: true });
       if (m.sp.tier !== "mob") { say("Unshaken", "#c9c3d6"); continue; } const d = lv - m.lv;
       if (d >= 1) { if (Math.random() < Math.min(0.97, 0.45 + 0.07 * d + 0.015 * P)) { m.fear = Math.min(12, 4 + d / 2); cowed++; say("COWED", "#9fd8ff"); } else say("Unmoved", "#c9c3d6"); }
       else if (d === 0) { const r = Math.random(), pf = Math.min(0.25, 0.06 + 0.004 * P), pt = Math.max(0.03, 0.12 - 0.003 * P); if (r < pf) { m.fear = 3.5; cowed++; say("FLEES", "#9fd8ff"); } else if (r < pf + pt) { m.prov = 8; riled++; say("PROVOKED!", "#ff6a5a"); } }
       else say("Unfazed", "#c9c3d6"); }
-    const cu = this.eco.state.flags.cult, cols = (cu?.rings || []).filter(Boolean).map((r) => RING_TIERS[r.tier].col); e.ringFlash = e.time; e.kick?.(2.5);
+    const cu = this.eco.state.flags.cult, cols = cu?.innate ? [elementOf(cu.innate).col, "#ffffff"] : []; e.originFlash = e.time; e.kick?.(2.5);
     this.fx.push({ kind: "shock", x: p.x, y: p.y, t: 0, cols: cols.length ? cols : ["#ffffff"], R: 340 }); e.ui.audio?.ok?.();
-    e.ui.toast?.(cowed || riled ? `Spirit Pressure — ${cowed} cowed${riled ? `, ${riled} provoked!` : ""}` : "Spirit Pressure — nothing stirs."); this._emit(); return true;
+    e.ui.toast?.(cowed || riled ? `Origin Surge — ${cowed} cowed${riled ? `, ${riled} provoked!` : ""}` : "Origin Surge — nothing stirs."); this._emit(); return true;
+  }
+  /** Origin Devourer: an Origin Beast that fell may yield its Origin.  Forced Extraction (can fail) or Voluntary Surrender (always works).  On Auto the technique is used without interrupting the hunt. */
+  async _extractOffer(offer, m) {
+    const e = this.e, c = cult(this.eco), auto = this.on && c.autoExtract !== false; let take = true;
+    if (!auto) { const pct = Math.round(offer.odds * 100), r = await e.ui.say?.([{ text: offer.surrender ? `The ${m.sp.name} lowers its head and offers up its Origin.` : `Something still burns inside the fallen ${m.sp.name}. Origin Devourer — Forced Extraction: ${pct}% to take it whole.`, choices: [offer.surrender ? "Accept its Origin" : `Extract it (${pct}%)`, "Leave it"] }]); take = r === 0; }
+    const res = resolveExtraction(this.eco, offer, take);
+    if (res.ok) { e.ui.audio?.ok?.(); e.ui.toast?.(offer.surrender ? `${m.sp.name} surrendered its Origin — see the Guanghuan menu.` : `Origin extracted from ${m.sp.name} — see the Guanghuan menu.`); }
+    else if (res.why === "dissipated") { e.ui.audio?.no?.(); e.ui.toast?.(`The Origin of ${m.sp.name} dissipated before you could take it.`); }
+    this._emit();
   }
   /** auto-use: heal when hurt, buffs before a fight, attacks when ready.  Returns true when something was started. */
   _autoCast(m, st) {
@@ -254,8 +263,8 @@ export class Grinder {
     let lost = false; for (const it of rw.items) { const r = this.eco.addItem(it.item_id, it.quantity); if (r.ok) parts.push(`+${it.quantity} ${e.catalog.itemName(it.item_id)}`); else lost = true; }
     if (lost && performance.now() - this.lootWarn > 8000) { this.lootWarn = performance.now(); e.ui.toast?.("Your bag is full — some loot was left behind."); }
     for (const b of rollBooks(m.sp, st.dropPct)) { addBooks(this.eco, b.id, b.n); parts.push(ownsClass(this.eco, SKILL[b.id].cls) || SKILL[b.id].cls === "basic" ? `+${b.n} ${SKILL[b.id].name} book` : `+${b.n} skill book`); e.ui.audio?.ok?.(); }
-    const ring = dropRing(this.eco, m.sp, ART, st.dropPct, m.lv); if (ring) { parts.push(`+1 ${RING_TIERS[ring.tier].name} Spirit Ring`); e.ui.audio?.ok?.(); e.ui.toast?.(`A ${RING_TIERS[ring.tier].name} Spirit Ring (${ring.age.toLocaleString()} yr) drops from ${m.sp.name}!`); }
-    const wasGate = gateOf(this.eco), up = addExp(this.eco, rw.exp); if (wasGate && !this.eco.state.flags.cult.toldGate?.[wasGate]) { (this.eco.state.flags.cult.toldGate ||= {})[wasGate] = 1; e.ui.toast?.(wasGate === "awaken" ? "Your EXP is full — visit the Awakening Facility in the Village to awaken your Martial Soul." : wasGate === "ring1" ? "Ring Slot 1 is open — hunt a Spirit Beast for its Ring, then absorb it to open Spirit Initiate (Lv 2)." : "Realm cap reached — EXP is banked. The next Ring slot is open: hunt a Spirit Beast for its Ring, then absorb it."); } this.fx.push({ x: e.player.x, y: e.player.y - 150, t: 0, txt: parts.join("  "), col: "#f2d889", wide: true });
+    const offer = offerExtraction(this.eco, m.sp, ART, st.dropPct, m.lv); if (offer) this._extractOffer(offer, m);
+    const wasGate = gateOf(this.eco), up = addExp(this.eco, rw.exp); if (wasGate && !this.eco.state.flags.cult.toldGate?.[wasGate]) { (this.eco.state.flags.cult.toldGate ||= {})[wasGate] = 1; e.ui.toast?.(wasGate === "awaken" ? "Your EXP is full — visit the Awakening Facility in the Village to awaken your Origin." : wasGate === "slot1" ? "Guanghuan Slot 1 is open — defeat an Origin Beast and take its Origin with Origin Devourer, then absorb it to open Guanghuan Initiate (Lv 2)." : "Realm cap reached — EXP is banked. The next Guanghuan slot is open: defeat an Origin Beast, take its Origin with Origin Devourer, then absorb it."); } this.fx.push({ x: e.player.x, y: e.player.y - 150, t: 0, txt: parts.join("  "), col: "#f2d889", wide: true });
     if (up) { e.ui.toast?.(`Level up! Lv ${h.lv} · +${up * 3} stat points` + (pointsOf(this.eco).free >= NODE_COST ? " — open the Node System" : "")); e.ui.audio?.ok?.(); this.fx.push({ x: e.player.x, y: e.player.y - 170, t: 0, txt: "LEVEL UP  +" + up * 3 + " pts", col: "#9be5a8", wide: true }); const fl = this.eco.state.flags; if (!fl.toldPoints && pointsOf(this.eco).free >= NODE_COST) { fl.toldPoints = true; e.ui.say?.([{ who: "player", text: "My meridians are stirring… I should spend these stat points." }, "Open the Node System (the node button, right side) and activate a node next to the glowing centre. Each node costs 6 points; levelling never raises a stat by itself."]); } }
     this.respawn.push({ sp: m.sp, t: TIER_RESPAWN[m.sp.tier] * (0.7 + Math.random() * 0.6) }); this.eco.changed?.(); this._emit();
   }

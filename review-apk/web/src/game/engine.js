@@ -1,6 +1,7 @@
 // Game-mode engine: Canvas 2D top-down (slightly tilted) renderer, tap-only control, A* movement, gather / build / merchant interaction.
 // Dependency-free. The economy rules live in data/economy.js — this file only drives the world and asks the economy for outcomes.
-import { drawRingOrbits, orbitItems } from "./art/rings.js";
+import { elementOf } from "./data/realms.js";
+import { drawGuanghuan, guanghuanItems } from "./art/guanghuan.js";
 import { buildSheet, drawBreathing } from "./art/anim.js";
 import { drawHouse, drawFacility, drawConstructionSite, drawCart, drawMarker, facilityFootprint } from "./art/world.js";
 import { minuteOfDay } from "./data/clock.js";
@@ -269,24 +270,24 @@ export class GameEngine {
     let col; if (p.moving) col = s.idleFrames + (Math.floor(p.frame) % s.walkFrames); else if (p.action) col = s.idleFrames; else col = 0;
     const dw = cw * sc, dh = ch * sc, feet = s.feet || 0.973, b = (Math.sin(T * 2.3) + 1) / 2, step = p.moving ? Math.abs(Math.sin(p.frame * (s.stride ? 0.42 : 0.35) * Math.PI)) : 0;
     // soft ground shadow: breathes with the body when standing, pulses with each step when walking
-    c.save(); c.fillStyle = "rgba(30,24,40,0.3)"; c.beginPath(); c.ellipse(p.x, p.y, 22 + b * 0.9 - step * 2.5, 8 + b * 0.25 - step * 0.6, 0, 0, 6.3); c.fill(); this._rings(c, p, "back"); if (this.meditating) this._drawMeditate(c, p);
+    this._hd = { hy: p.y - dh * feet + dh * 0.16, u: dh }; c.save(); c.fillStyle = "rgba(30,24,40,0.3)"; c.beginPath(); c.ellipse(p.x, p.y, 22 + b * 0.9 - step * 2.5, 8 + b * 0.25 - step * 0.6, 0, 0, 6.3); c.fill(); this._slots(c, p, "back"); if (this.meditating) this._drawMeditate(c, p);
     const lg = (p.lunge || 0) * 9, lv = { E: [1, 0], W: [-1, 0], S: [0, 1], N: [0, -1], SE: [.7, .7], SW: [-.7, .7], NE: [.7, -.7], NW: [-.7, -.7] }[p.dir] || [0, 0];
     c.translate(p.x + lv[0] * lg, p.y + lv[1] * lg * 0.6 - dh * feet + (p.action ? Math.sin(p.action.t * 12) * 1.5 : 0));
     if (mirror) c.scale(-1, 1);
     if (still || p.action) drawBreathing(c, s.canvas, col * cw, row * ch, cw, ch, -dw / 2, 0, dw, dh, s.hip || 0.8, T + (p.seed || 0), p.action ? 0.6 : 1);
     else c.drawImage(s.canvas, col * cw, row * ch, cw, ch, -dw / 2, 0, dw, dh);
-    c.restore(); this._rings(c, p, "front");
+    c.restore(); this._slots(c, p, "front");
   }
-  _rings(c, p, half) {   // Spirit Ring orbits (art/rings.js): bound rings + the ring being absorbed
-    const cu = this.eco.state.flags?.cult; if (!cu || (!cu.absorb && !cu.rings?.some(Boolean))) return; const a = cu.absorb, prog = a ? Math.min(1, (this.eco.now() - a.t0) / a.dur) : 0, fl = Math.max(0, 1 - (this.time - (this.ringFlash ?? -9)) / 1.6);
-    drawRingOrbits(c, p.x, p.y, orbitItems(cu, prog), this.time, half, fl);
+  _slots(c, p, half) {   // the Guanghuan (art/guanghuan.js): plain shell above the head once awakened, then one orbital layer per absorbed Origin
+    const cu = this.eco.state.flags?.cult, hd = this._hd; if (!cu?.innate || !hd) return; const a = cu.absorb, prog = a ? Math.min(1, (this.eco.now() - a.t0) / a.dur) : 0, fl = Math.max(0, 1 - (this.time - (this.originFlash ?? -9)) / 1.6);
+    cu.innateCol ||= elementOf(cu.innate).col; drawGuanghuan(c, p.x, hd.hy, hd.u, guanghuanItems(cu, prog), this.time, half, fl);
   }
 
   // ------------------------------------------------------------ NPCs: standing figures with the idle breathing, tap to talk
   _placeNpcs(w) {
     const T = w.tile; for (const n of w.npcs || []) { if (n.x != null) continue; let best = null; for (let d = 0; d < 9 && !best; d++) for (let dc = -d; dc <= d && !best; dc++) for (let dr = -d; dr <= d && !best; dr++) { if (Math.max(Math.abs(dc), Math.abs(dr)) !== d) continue; const c = n.c + dc, r = n.r + dr; if (this.walkable(c, r)) best = { x: (c + 0.5) * T, y: (r + 0.5) * T }; } if (best) { n.x = best.x; n.y = best.y; } }
   }
-  _drawMeditate(c, p) {   // glowing rings + rising motes while a Spirit Ring is being absorbed
+  _drawMeditate(c, p) {   // glowing slots + rising motes while a Origin is being absorbed
     const T = this.time; c.save();
     for (let i = 0; i < 9; i++) { const k = ((T * 0.3 + i * 0.111) % 1), a = i * 2.4 + T * 0.6; c.fillStyle = `rgba(255,236,170,${(1 - k) * 0.85})`; c.beginPath(); c.arc(p.x + Math.cos(a) * (18 + i * 2.5), p.y - k * 120, 1.6 + (1 - k) * 1.4, 0, 6.3); c.fill(); }
     const g = c.createRadialGradient(p.x, p.y - 40, 4, p.x, p.y - 40, 70); g.addColorStop(0, "rgba(255,214,120,.28)"); g.addColorStop(1, "rgba(255,214,120,0)"); c.fillStyle = g; c.fillRect(p.x - 80, p.y - 120, 160, 160); c.restore();

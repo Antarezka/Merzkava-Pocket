@@ -37,7 +37,7 @@ export const LOOK_ZONE_LABELS = { burgundy8: { 2: "Hair", 4: "Haori (jacket)", 5
   miko_blue: { 2: "Hair & eyes", 4: "Haori (top)", 5: "Hair bow", 6: "Hakama & ribbon", 7: "Hair ornament" }, samurai: { 2: "Hair", 4: "Kimono", 6: "Hakama" },
   ronin_mask: { 2: "Hair", 4: "Haori (jacket)", 5: "Mask", 6: "Hakama", 7: "Sash" }, elf: { 2: "Hair", 4: "Kimono", 5: "Obi & dark trim", 6: "Skirt", 7: "Gold pattern" },
   blindfold: { 2: "Hair", 4: "Outer robe", 6: "Under-robe", 7: "Cords & ornaments" }, maiden: { 2: "Hair", 4: "Kimono", 5: "Obi & dark trim", 6: "Skirt", 7: "Gold pattern" },
-  kitsune: { 2: "Fur, hair & robe", 5: "Inner kimono", 6: "Hakama", 7: "Ribbon accents" }, priestess: { 2: "Hair", 4: "Dark robe", 6: "White under-robe", 7: "Spirit flames & cords" }, hooded: { 2: "Hair", 4: "Hood & coat", 6: "Trousers & boots", 7: "Straps & fittings" } };
+  kitsune: { 2: "Fur, hair & robe", 5: "Inner kimono", 6: "Hakama", 7: "Ribbon accents" }, priestess: { 2: "Hair", 4: "Dark robe", 6: "White under-robe", 7: "Origin flames & cords" }, hooded: { 2: "Hair", 4: "Hood & coat", 6: "Trousers & boots", 7: "Straps & fittings" } };
 
 export function defaultAppearance(look = "burgundy8") {
   return { gender: "female", look, body: "balanced", skin: null, hairColor: null, eyeColor: null, eyeShape: "original", expression: "original", browColor: null, colors: {} };

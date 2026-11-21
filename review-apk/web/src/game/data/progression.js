@@ -4,7 +4,7 @@ import { SKILL } from "./skills.js";
 // Character development (architecture v6): Level -> Stat Points -> Meridian Web -> Final Stats.
 //   * 17 Base Stats, all starting at 9: six Primary Attributes (STR DEX AGI VIT END LCK) + eleven modifiers (chant / recovery / cooldown / crit rate / crit damage /
 //     consistent damage / consistent defense / Qi consumption / Qi consumption reduction / HP regen / Qi regen). HP, HP Cap, Qi and Qi Cap are resource pools derived from them.
-//   * Stat Points: +3 per level (1,995 at Lv 666) + independent extra allowances (Class 216, Specialist Weapons 216, Spirit Realm 210 = 642). A node costs 6.
+//   * Stat Points: +3 per level (1,995 at Lv 666) + independent extra allowances (Class 216, Specialist Weapons 216, Guanghuan Realm 210 = 642). A node costs 6.
 //   * Meridian Web: six named paths x 133 nodes, one shared network. A node can be activated only when it touches an active node (the Origin is always active);
 //     only ACTIVE nodes add their stat. The Node System (cultivation) is NOT a point source; it is the realm / breakthrough interface.
 //   * Final stat = (9 + flat bonuses) x (1 + % modifiers); derived effects grow from the points above 9 (formulas in statsOf; every curve is mine, the document left them open).
@@ -13,7 +13,7 @@ export const LEVEL_CAP = 666, POINTS_PER_LEVEL = 3, NODE_COST = 6;
 export const levelPoints = (lv) => POINTS_PER_LEVEL * Math.max(0, Math.min(LEVEL_CAP, lv) - 1);          // 1995 at the cap
 export const TOTAL_LEVEL_POINTS = levelPoints(LEVEL_CAP);
 export const EXTRA_BUDGET = { class: 216, weapon: 216, realm: 210 };                                      // provisional allowances from the document (642 combined)
-export const REALM_POINTS = [24, 24, 24, 23, 23, 23, 23, 23, 23];                                         // 210, awarded on entering each Spirit Realm
+export const REALM_POINTS = [24, 24, 24, 23, 23, 23, 23, 23, 23];                                         // 210, awarded on entering each Guanghuan Realm
 
 // ---------------------------------------------------------------- the 17 Base Stats
 export const ATTRS = ["str", "dex", "agi", "vit", "end", "lck"];
@@ -67,10 +67,10 @@ export function describeFx(fx) {
 
 // ---------------------------------------------------------------- saved state (inside flags.hero)
 export function heroRec(eco) { const f = eco.state.flags; const h = (f.hero ||= { lv: 1, exp: 0, hp: null, kills: 0, species: null }); h.nodes ||= []; if (h.nodes.some((id) => !NODE[id])) h.nodes = h.nodes.filter((id) => NODE[id]); h.bonusPts ||= 0; h.spentRespec ||= 0; return h; }
-/** extra Stat Point allowances (provisional budget 216 + 216 + 210): Class mastery (3 per Class Skill Tree skill, 15 per Ultimate), Specialist Weapons (hook: hero.weaponPts), Spirit Realm (on entering a realm) */
+/** extra Stat Point allowances (provisional budget 216 + 216 + 210): Class mastery (3 per Class Skill Tree skill, 15 per Ultimate), Specialist Weapons (hook: hero.weaponPts), Guanghuan Realm (on entering a realm) */
 export function extraPoints(eco) {
   const h = heroRec(eco), owned = eco.state.flags?.skills?.owned || {}; let cp = 0; for (const id of Object.keys(owned)) { const s = SKILL[id]; if (s && s.cls !== "basic") cp += s.ult ? 15 : 3; }
-  const n = realmOf(h.lv).n, awake = h.lv > 1; let rp = 0; for (let i = 0; i < n; i++) if (i || awake) rp += REALM_POINTS[i];   // Spirit Initiate (and its points) opens with Ring 1 at Lv 2
+  const n = realmOf(h.lv).n, awake = h.lv > 1; let rp = 0; for (let i = 0; i < n; i++) if (i || awake) rp += REALM_POINTS[i];   // Guanghuan Initiate (and its points) opens with Slot 1 at Lv 2
   return { class: Math.min(EXTRA_BUDGET.class, cp), weapon: Math.min(EXTRA_BUDGET.weapon, h.weaponPts || 0), realm: Math.min(EXTRA_BUDGET.realm, rp) };
 }
 /** { total, spent, free, nodes, src } stat points */
@@ -99,7 +99,7 @@ export function resetNodes(eco) {
 }
 
 // ---------------------------------------------------------------- stat sources
-/** every source returns { flat: {stat: n}, pct: {stat: %} }.  Nodes and cultivation (Spirit Realm / Soul / Rings) are live; the rest are hooks for the coming systems. */
+/** every source returns { flat: {stat: n}, pct: {stat: %} }.  Nodes and cultivation (Guanghuan Realm / Origin / Rings) are live; the rest are hooks for the coming systems. */
 export const SOURCES = {
   nodes(eco) {
     const o = { flat: {}, pct: {} }; for (const id of heroRec(eco).nodes) { const n = NODE[id]; if (!n) continue; for (const [k, v] of Object.entries(n.fx.flat || {})) o.flat[k] = (o.flat[k] || 0) + v; for (const [k, v] of Object.entries(n.fx.pct || {})) o.pct[k] = (o.pct[k] || 0) + v; } return o;
@@ -107,7 +107,7 @@ export const SOURCES = {
   equipment: (eco) => eco.state.flags?.hero?.equipment || { flat: {}, pct: {} },       // weapons / armour / accessories (not implemented yet)
   class: (eco) => eco.state.flags?.hero?.classMods || { flat: {}, pct: {} },            // direct class bonuses (the class Stat Point allowance is counted in pointsOf)
   specialist: (eco) => eco.state.flags?.hero?.weaponMods || { flat: {}, pct: {} },      // Specialist Weapon bonuses
-  realm: (eco) => cultivationMods(eco),                                                 // Spirit Realm stages / breakthroughs, Martial Soul, Spirit Rings, hunger
+  realm: (eco) => cultivationMods(eco),                                                 // Guanghuan Realm stages / breakthroughs, Origin, Guanghuan, hunger
   pets: (eco) => eco.state.flags?.hero?.petMods || { flat: {}, pct: {} },
 };
 export const BASE_STAT = 9;   // every Base Stat starts at 9 (Strength 9 + a +3 node = 12)

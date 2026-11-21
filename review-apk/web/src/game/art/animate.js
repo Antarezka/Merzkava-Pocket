@@ -96,7 +96,7 @@ export function drawGrass(c, world, time, view) {
   c.restore();
 }
 
-// ------------------------------------------------------------------ water: flowing streaks, glints, ripple rings, lapping foam, lily pads
+// ------------------------------------------------------------------ water: flowing streaks, glints, ripple slots, lapping foam, lily pads
 export function drawWater(c, world, time, view) {
   const T = world.tile, cols = world.cols, rows = world.rows, W = new Set(world.waterTypes || [4, 5, 7]), tiles = world.tiles, at = (cc, r) => (cc < 0 || r < 0 || cc >= cols || r >= rows ? -1 : tiles[r * cols + cc]), isW = (cc, r) => W.has(at(cc, r));
   const c0 = Math.max(0, Math.floor(view.x0 / T) - 1), c1 = Math.min(cols - 1, Math.floor(view.x1 / T) + 1), r0 = Math.max(0, Math.floor(view.y0 / T) - 1), r1 = Math.min(rows - 1, Math.floor(view.y1 / T) + 1), fl = world.flow || [1, 0];
@@ -111,7 +111,7 @@ export function drawWater(c, world, time, view) {
     c.strokeStyle = `rgba(${tint},${0.1 * fade})`; c.lineWidth = 5; c.beginPath(); c.moveTo(x - len / 2, y); c.quadraticCurveTo(x, y + 3 * Math.sin(time * 1.2 + ph), x + len / 2, y); c.stroke();
     c.strokeStyle = `rgba(${tint},${0.5 * fade})`; c.lineWidth = 1.5; c.stroke();
   }
-  // 2. per water tile: twinkling glints + expanding ripple rings + shoreline foam
+  // 2. per water tile: twinkling glints + expanding ripple slots + shoreline foam
   for (let r = r0; r <= r1; r++) for (let cc = c0; cc <= c1; cc++) {
     if (!isW(cc, r)) continue; const x0 = cc * T, y0 = r * T, t = at(cc, r), calm = t === 7 ? 1 : 0;
     if (hh(cc, r, 5) < 0.7) { const per = 2.4 + hh(cc, r, 6) * 3, u = ((time + hh(cc, r, 7) * per * 4) / per) % 1; if (u < 0.34) { const k = Math.sin(u / 0.34 * Math.PI), gx = x0 + hh(cc, r, 8) * T, gy = y0 + hh(cc, r, 9) * T, s = 2 + 5 * k; c.strokeStyle = `rgba(255,255,240,${0.9 * k})`; c.lineWidth = 1.3; c.beginPath(); c.moveTo(gx - s, gy); c.lineTo(gx + s, gy); c.moveTo(gx, gy - s * 1.2); c.lineTo(gx, gy + s * 1.2); c.stroke(); c.fillStyle = `rgba(255,255,255,${k})`; c.beginPath(); c.arc(gx, gy, 1.3, 0, TAU); c.fill(); } }
@@ -127,7 +127,7 @@ export function drawWater(c, world, time, view) {
       }
     }
   }
-  // 3. foam rings around stepping stones
+  // 3. foam slots around stepping stones
   for (const pr of world.props) { if (pr.kind !== "river_rock" || !inView(pr, view, 60, 40, 60)) continue; const k = 0.5 + 0.5 * Math.sin(time * 1.8 + (pr.ph || pr.uid)); c.strokeStyle = `rgba(255,255,255,${0.25 + 0.3 * k})`; c.lineWidth = 2; c.beginPath(); c.ellipse(pr.x, pr.y - 3, pr.w * 0.42 + 3 * k, pr.w * 0.14 + 1.5 * k, 0, 0, TAU); c.stroke(); }
   // 4. lily pads bob on ponds
   for (const l of world.lilies || []) { if (l.x < view.x0 - 40 || l.x > view.x1 + 40 || l.y < view.y0 - 40 || l.y > view.y1 + 40) continue; c.save(); c.translate(l.x, l.y + Math.sin(time * 0.9 + l.ph) * 1.6); c.rotate(Math.sin(time * 0.5 + l.ph) * 0.12 + l.rot); c.scale(1, 0.48);

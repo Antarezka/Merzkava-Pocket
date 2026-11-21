@@ -77,16 +77,16 @@ export function mountGame(host, { identity, storage = window.localStorage, base 
   function showMenu() {
     backStack = []; closeEngine(); canvas.classList.add("gm-hidden"); hud.classList.add("gm-hidden"); exitConfirm = null;
     const has = hasSave(id, storage); let saved = null; if (has && assets) { const r = loadState(id, assets.catalog, storage); if (r.ok) saved = r.state; }
-    const A = (n) => `${base}game-art/menu/${n}.webp`, leafCols = ["#e07a3a", "#c0392b", "#e8b23a", "#b5532f"];
-    const leaves = Array.from({ length: 12 }, (_, i) => h("i", { class: "gmm-leaf", style: `left:${(i * 61) % 100}%;animation-duration:${9 + (i % 6) * 1.9}s;animation-delay:-${(i * 1.7) % 9}s;background:${leafCols[i % 4]}` }));
+    const A = (n) => `${base}game-art/menu/${n}.webp`, leafCols = ["#bff5df", "#8de9c5", "#e4fff4", "#6fd8b4"];
+    const leaves = Array.from({ length: 16 }, (_, i) => h("i", { class: "gmm-bub", style: `left:${(i * 37 + 9) % 96}%;--sz:${5 + (i * 7) % 13}px;--sw:${(i % 2 ? 1 : -1) * (10 + (i * 5) % 22)}px;animation-duration:${11 + (i % 7) * 2.3}s;animation-delay:-${(i * 2.9) % 17}s;color:${leafCols[i % 4]}` }));
     const sparks = [[300, 640], [452, 600], [150, 830], [520, 760], [250, 980], [470, 1040], [370, 560], [80, 700], [540, 900], [330, 1090]].map(([x, y], i) => h("i", { class: "gmm-spark", style: `left:${x}px;top:${y}px;animation-delay:-${(i * 0.7) % 4}s;transform:scale(${0.6 + (i % 3) * 0.3})` }));
     const startAudio = () => music.play("menu");
     const B = (key, y, h0, fn, off) => h("button", { class: "gmm-b" + (off ? " off" : ""), type: "button", "aria-label": key, style: `top:${y}px;height:${h0}px;--i:${["new", "continue", "archive", "options", "exit"].indexOf(key)}`, disabled: !!off, onclick: () => { audio.tap(); startAudio(); fn(); } }, h("img", { src: A("b_" + key), alt: "", draggable: "false" }));
     const box = h("div", { class: "gmm-box" }, ...sparks,
-      h("img", { class: "gmm-world", src: A("world"), alt: "", draggable: "false" }), h("img", { class: "gmm-logo", src: A("logo"), alt: "MERZKAVA — The Pocket Archive", draggable: "false" }),
+      h("img", { class: "gmm-logo", src: A("logo"), alt: "MERZKAVA — The Pocket Archive", draggable: "false" }),
       B("new", 527, 105, () => (saved ? confirmNew() : showCreator())), B("continue", 634, 103, () => saved && continueGame(saved), !saved), B("archive", 740, 104, () => showArchive(saved)), B("options", 847, 104, () => showOptions(showMenu)), B("exit", 953, 104, askExit),
       h("div", { class: "gmm-foot" }, id.role.toUpperCase() + " · " + id.displayName));
-    const el = h("div", { class: "gmm", style: `background-image:url(${A("bg")})` }, ...leaves, box);
+    const el = h("div", { class: "gmm" }, h("div", { class: "gmm-bg", style: `background-image:url(${A("bg")})` }), h("div", { class: "gmm-caustics" }), ...leaves, box);
     const fit = () => { const k = Math.min(el.clientWidth / 756, el.clientHeight / 1344) || 1; box.style.setProperty("--k", k.toFixed(4)); box.style.setProperty("--tx", Math.max(0, (el.clientWidth - 756 * k) / 2).toFixed(1) + "px"); };
     setScreen("menu", el); fit(); const ro = typeof ResizeObserver === "function" ? new ResizeObserver(fit) : null; ro?.observe(el); setTimeout(fit, 400);
   }
@@ -97,7 +97,7 @@ export function mountGame(host, { identity, storage = window.localStorage, base 
     const draw = () => { body.replaceChildren();
       if (!saved) { body.append(h("p", { class: "gc-note" }, "Nothing is recorded yet. Begin a journey and the Archive starts filling in.")); return; }
       if (tab === "dex") { body.append(h("div", { class: "gs-sec" }, `BESTIARY · ${seen} / ${ROSTER.length}`), h("div", { class: "ar-grid" }, ROSTER.map((m) => { const n = dex[m.id] || 0; return h("div", { class: "ar-cell" + (n ? "" : " lock") + (m.tier !== "mob" ? " " + m.tier : "") }, h("img", { src: `${base}game-art/monsters/${m.art}.png`, alt: "", loading: "lazy", style: `filter:hue-rotate(${m.hue || 0}deg) saturate(${m.sat || 1}) brightness(${m.bri || 1})` }), h("b", null, n ? m.name : "???"), h("small", null, n ? `${m.jp || ""} · ×${n}` : `Lv ${m.lv[0]}+`)); }))); }
-      else { const f = saved.flags || {}, st = saved.stats || {}, rows = [["Name", saved.profile.name], ["Level", hero.lv || 1], ["Monsters defeated", hero.kills || 0], ["Resources gathered", st.gathered || 0], ["Goods sold", st.sold || 0], ["Things built", st.built || 0], ["Days lived", (saved.clock?.day ?? 0) + 1], ["Realm", f.realm?.n ? `Realm ${f.realm.n}` : "Spirit Initiate"], ["Martial Soul", f.soul?.name || "Not awakened"]];
+      else { const f = saved.flags || {}, st = saved.stats || {}, rows = [["Name", saved.profile.name], ["Level", hero.lv || 1], ["Monsters defeated", hero.kills || 0], ["Resources gathered", st.gathered || 0], ["Goods sold", st.sold || 0], ["Things built", st.built || 0], ["Days lived", (saved.clock?.day ?? 0) + 1], ["Realm", f.realm?.n ? `Realm ${f.realm.n}` : "Guanghuan Initiate"], ["Origin", f.innate?.name || "Not awakened"]];
         body.append(h("div", { class: "gs-sec" }, "RECORDS"), ...rows.map(([k, v]) => h("div", { class: "gs-row" }, h("div", null, h("b", null, k)), h("span", { class: "ar-v" }, String(v))))); } };
     const tabs = h("div", { class: "gc-chips ar-tabs" }, [["dex", "BESTIARY"], ["rec", "RECORDS"]].map(([k, l]) => h("button", { class: "gm-chip" + (k === tab ? " on" : ""), onclick: (e) => { tab = k; tabs.querySelectorAll("button").forEach((b) => b.classList.remove("on")); e.target.classList.add("on"); audio.tap(); draw(); } }, l)));
     setScreen("archive", h("div", { class: "gs" }, h("div", { class: "gs-head" }, h("button", { class: "gs-back", onclick: () => goBack() }, "‹"), h("h2", null, "ARCHIVE")), tabs, body)); draw();

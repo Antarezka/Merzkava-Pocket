@@ -1,6 +1,6 @@
 // Mob roster + hero progression + combat maths for Auto-Grind.
 // Zones (areas) follow the design brief: 01-08 Village Outskirts, 09-16 Forest & Foothills, 17-24 Streams & Caves, 25-32 Marshes & Abandoned Shrines,
-// 33-40 Mountain Passes & Old Ruins, 41-50 Deeper Spirit Lands, then one 10-level band per zone up to Lv 100 (zones 7-11: PLACEHOLDER names/themes).
+// 33-40 Mountain Passes & Old Ruins, 41-50 Deeper Wildlands, then one 10-level band per zone up to Lv 100 (zones 7-11: PLACEHOLDER names/themes).
 // A sub boss appears every 5 levels, a boss every 10 levels. Monster names are taken from Japanese yokai folklore (kodama, tsuchigumo, kitsunebi, ...).
 // Art: every species uses one of the 35 portrait illustrations (public/game-art/monsters/<art>.png), animated as a puppet (see art/monsters.js);
 // level 51+ species and all bosses recolour a portrait with hue/sat/bri. The procedural rig (art/mobs.js) is only the fallback while a portrait loads.
@@ -55,7 +55,7 @@ export const MOBS = [
   // 33-40 Mountain Passes & Old Ruins: armored beasts, spirit warriors, guardians
   M("z5", "yama_nushi", "Yama-Nushi", "山主", "spirit_boar", 33, 36), M("z5", "kuro_ishigami", "Kuro-Ishigami", "黒石神", "stone_golem_dark", 34, 38), M("z5", "kage_deshi", "Kage-Deshi", "影弟子", "cultist_disciple", 35, 38),
   M("z5", "datsu_onmyoji", "Datsu-Onmyōji", "堕陰陽師", "rogue_cultist", 36, 39), M("z5", "furu_kodama", "Furu-Kodama", "古木霊", "wooden_spirit_b", 37, 40), M("z5", "kage_shinobi", "Kage Shinobi", "影忍", "shadow_bandit", 38, 40),
-  // 41-50 Deeper Spirit Lands: shape-shifters, spirit beasts, evolved monsters
+  // 41-50 Deeper Wildlands: shape-shifters, Origin Beasts, evolved monsters
   M("z6", "kitsune", "Kitsune", "狐", "fox_spirit", 41, 44), M("z6", "nobusuma", "Nobusuma", "野衾", "vampire_bat", 42, 45), M("z6", "jorogumo", "Jorō-gumo", "絡新婦", "venomous_spider_b", 43, 46),
   M("z6", "kirin", "Kirin", "麒麟", "qilin", 44, 47), M("z6", "shinkai_slime", "Shinkai Slime", "深海", "abyssal_slime", 45, 48), M("z6", "tenko", "Tenko", "天狐", "celestial_fox", 47, 50),
   // 51-100 (PLACEHOLDER zones 7-11): evolved variants - a portrait recoloured per zone
