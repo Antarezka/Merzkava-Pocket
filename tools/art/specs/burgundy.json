@@ -1,0 +1,205 @@
+{
+ "set": "burgundy",
+ "parts": [
+  {
+   "name": "head_front_a",
+   "box": [
+    22,
+    343,
+    128,
+    75
+   ],
+   "kind": "hair",
+   "view": "S"
+  },
+  {
+   "name": "head_front_b",
+   "box": [
+    163,
+    343,
+    129,
+    74
+   ],
+   "kind": "hair",
+   "view": "S"
+  },
+  {
+   "name": "head_front_c",
+   "box": [
+    304,
+    350,
+    128,
+    65
+   ],
+   "kind": "hair",
+   "view": "S"
+  },
+  {
+   "name": "hair_back",
+   "box": [
+    471,
+    330,
+    113,
+    113
+   ],
+   "kind": "hair",
+   "view": "N"
+  },
+  {
+   "name": "hair_side",
+   "box": [
+    600,
+    325,
+    104,
+    118
+   ],
+   "kind": "hair",
+   "view": "E"
+  },
+  {
+   "name": "hair_back_bow",
+   "box": [
+    718,
+    308,
+    111,
+    135
+   ],
+   "kind": "hair",
+   "view": "N"
+  },
+  {
+   "name": "kosode",
+   "box": [
+    35,
+    608,
+    188,
+    114
+   ],
+   "kind": "outer",
+   "split": 2,
+   "view": "S"
+  },
+  {
+   "name": "collar",
+   "box": [
+    234,
+    609,
+    76,
+    82
+   ],
+   "kind": "collar"
+  },
+  {
+   "name": "hakama_front",
+   "box": [
+    318,
+    611,
+    88,
+    111
+   ],
+   "kind": "bottom",
+   "view": "S"
+  },
+  {
+   "name": "hakama_back",
+   "box": [
+    407,
+    611,
+    87,
+    110
+   ],
+   "kind": "bottom",
+   "view": "N"
+  },
+  {
+   "name": "sash",
+   "box": [
+    508,
+    611,
+    78,
+    38
+   ],
+   "kind": "sash"
+  },
+  {
+   "name": "acc_tassel",
+   "box": [
+    608,
+    609,
+    44,
+    68
+   ],
+   "kind": "acc"
+  },
+  {
+   "name": "acc_ribbons",
+   "box": [
+    717,
+    453,
+    54,
+    61
+   ],
+   "kind": "acc"
+  },
+  {
+   "name": "zori_a",
+   "box": [
+    503,
+    672,
+    43,
+    49
+   ],
+   "kind": "shoes"
+  },
+  {
+   "name": "zori_b",
+   "box": [
+    550,
+    672,
+    43,
+    49
+   ],
+   "kind": "shoes"
+  },
+  {
+   "name": "zori_pair",
+   "box": [
+    611,
+    679,
+    79,
+    43
+   ],
+   "kind": "shoes"
+  },
+  {
+   "name": "glass_pair",
+   "box": [
+    336,
+    455,
+    85,
+    66
+   ],
+   "kind": "prop"
+  },
+  {
+   "name": "decanter",
+   "box": [
+    446,
+    438,
+    75,
+    87
+   ],
+   "kind": "prop"
+  },
+  {
+   "name": "stem_glass",
+   "box": [
+    597,
+    464,
+    39,
+    59
+   ],
+   "kind": "prop"
+  }
+ ]
+}

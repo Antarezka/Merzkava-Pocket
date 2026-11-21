@@ -1,7 +1,6 @@
 import { animate, engine } from "animejs";
 import "./styles.css";
-import { economyMarkup, mountEconomy, startPocketGiftRuntime, stopPocketGiftRuntime } from "./economy.js";
-import { mountHomeBase, setHomeBaseRenderSuspended } from "./home-base.js";
+import { startPocketGiftRuntime, stopPocketGiftRuntime } from "./pocket-save.js";
 import { dailyLoginMarkup, mountDailyLogin } from "./daily-login.js";
 import { playerRecordsMarkup, mountPlayerRecords } from "./player-records.js";
 import { getAccessDiagnostics, getDiagnosticWordFrames, formatDiagnosticFrame } from "./access-diagnostics.js";
@@ -60,6 +59,7 @@ let backPrompt = null;
 let floatingReadiness = { displayOverApps:false, notifications:false, batteryExemption:false, serviceRunning:false, bubbleVisible:false, supported:false };
 let floatingBusy = false;
 let bubbleVisualSuspended = false;
+let activeRpg = null; // the mounted RPG (Game route) or null
 
 function applyFloatingRenderMode(mode) {
   if (mode !== "bubble" && mode !== "window" && mode !== "full") return;
@@ -72,7 +72,7 @@ function applyFloatingRenderMode(mode) {
   // The CRI player keeps running in every window mode; only this visual RAF is
   // suspended while the TV bubble hides the WebView.
   activeTurntableMotion?.setRenderEnabled(!bubbleVisualSuspended);
-  setHomeBaseRenderSuspended(bubbleVisualSuspended);
+  activeRpg?.setSuspended(bubbleVisualSuspended);
 }
 
 window.addEventListener("pocket:render-mode", event => {
@@ -1724,24 +1724,8 @@ function renderPage(destination, transitionDuration=420) {
         <footer class="home-foot"><span>LOCAL POCKET SHELL</span><span>${accessIdentity?.role.toUpperCase()||"SESSION"}</span></footer>
       </main>`;
   } else if(destination==="game"){
-    pageMarkup=`
-      <main class="page-stage">
-        <span class="eyebrow">GAME / WORLD ACCESS</span><h1>Enter the world.</h1><p class="page-lead">World navigation follows the Pocket hierarchy.</p>
-        <article class="destination-card"><span>01 / GAME ENTRY</span><strong>Home Base</strong><small>The starting hub for in-world navigation.</small><button type="button" data-subroute="home-base">OPEN HOME BASE ↗</button></article>
-        <article class="destination-card"><span>02 / DAILY LIFE</span><strong>Living Economy</strong><small>Explore the item register, local wallet, gathering, construction, facilities and defined production chains.</small><button type="button" data-subroute="economy">OPEN ECONOMY ↗</button></article>
-      </main>`;
-  } else if(destination==="home-base"){
-    pageMarkup='<main class="home-base-host" data-home-base-root></main>';
-  } else if(destination==="city"){
-    pageMarkup=`
-      <main class="page-stage"><span class="eyebrow">GAME / CITY</span><h1>City.</h1><p class="page-lead">Choose a connected destination from the city layer.</p>
-      <article class="destination-card"><span>03 / WORLD SCALE</span><strong>World Map</strong><small>World-scale geography belongs inside Game.</small><button data-subroute="world-map">OPEN WORLD MAP ↗</button></article></main>`;
-  } else if(destination==="world-map"){
-    pageMarkup=`
-      <main class="page-stage"><span class="eyebrow">GAME / WORLD MAP</span><h1>World Map.</h1><p class="page-lead">The map data is not included in this shell build.</p>
-      <article class="destination-card"><span>WORLD ATLAS</span><strong>Geographic layer</strong><small>Map content will be connected from the reviewed Universe sources; no placeholder geography is invented here.</small><button data-subroute="city">RETURN TO CITY ↗</button></article></main>`;
-  } else if(destination==="economy"){
-    pageMarkup=economyMarkup();
+    // The RPG owns the whole screen: its own Main Menu, HUD and exit flow. No legacy Game screens exist behind this route.
+    pageMarkup='<main class="rpg-host" data-rpg-root aria-label="Merzkava RPG"></main>';
   } else if(destination==="daily-login"){
     pageMarkup=dailyLoginMarkup();
   } else if(destination==="player-list"){
@@ -1886,8 +1870,8 @@ function renderPage(destination, transitionDuration=420) {
     </main>`;
   }
   if(destination==="home")pageMarkup+=accessBufferMarkup("APP RELOAD");
-  const backMarkup=(destination==="home"||destination==="daily-login")?"":'<button type="button" class="page-back" data-page-back aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5 7.5 12l7 7M8 12h11"/></svg></button>';
-  const shellNavigation=destination==="daily-login"?"":navigationMarkup();
+  const backMarkup=(destination==="home"||destination==="daily-login"||destination==="game")?"":'<button type="button" class="page-back" data-page-back aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 5 7.5 12l7 7M8 12h11"/></svg></button>';
+  const shellNavigation=(destination==="daily-login"||destination==="game")?"":navigationMarkup();
   root.innerHTML = pageMarkup + backMarkup + shellNavigation;
   applyTheme();
   applyPaperGlow();
@@ -1920,9 +1904,9 @@ function renderPage(destination, transitionDuration=420) {
       if(reloadButton.isConnected){reloadButton.disabled=false;reloadButton.classList.remove("is-loading");}
     }
   });
-  const page=root.querySelector(".home-stage,.page-stage,.home-base-host");
+  const page=root.querySelector(".home-stage,.page-stage,.rpg-host");
   if(!reducedMotion()&&page)animate(page,{opacity:[0,1],translateY:[8,0],duration:transitionDuration,ease:"outCubic"});
-  if(destination!=="daily-login")mountMenu();
+  if(destination!=="daily-login"&&destination!=="game")mountMenu();
   if(destination==="settings"){
     const menuCleanup=currentDisposer;
     const updateCleanup=mountPocketUpdateSettings();
@@ -1930,17 +1914,8 @@ function renderPage(destination, transitionDuration=420) {
     const legalCleanup=mountLegalNotices();
     currentDisposer=()=>{menuCleanup?.();updateCleanup?.();audioCleanup?.();legalCleanup?.();};
   }
-  if(destination==="economy"){
-    const menuCleanup=currentDisposer;
-    const economyCleanup=mountEconomy(root.querySelector("[data-economy-root]"),accessIdentity);
-    currentDisposer=()=>{menuCleanup?.();economyCleanup?.();};
-  }else if(destination==="home-base"){
-    const menuCleanup=currentDisposer;
-    let homeBaseCleanup=()=>{};
-    currentDisposer=()=>{menuCleanup?.();homeBaseCleanup?.();};
-    void mountHomeBase(root.querySelector("[data-home-base-root]"),accessIdentity,navigateBack,()=>currentRoute==="home-base")
-      .then(cleanup=>{if(currentRoute==="home-base")homeBaseCleanup=cleanup;else cleanup();})
-      .catch(error=>{const host=root.querySelector("[data-home-base-root]");if(host)host.textContent="Home Base error: "+error.message;});
+  if(destination==="game"){
+    currentDisposer=mountRpgGame(root.querySelector("[data-rpg-root]"));
   }else if(destination==="daily-login"){
     currentDisposer=mountDailyLogin(root.querySelector("[data-daily-login-root]"),()=>navigateBack(2000),accessIdentity);
   }else if(destination==="player-list"){
@@ -2053,7 +2028,7 @@ function mountMenu() {
   const bubbleResume=()=>{if(!disposed)refreshBubbleButton();};
   window.addEventListener("pocket:native-resume",bubbleResume);
   window.addEventListener("focus",bubbleResume);
-  const activeDestination=["home-base","city","world-map","economy"].includes(currentRoute)?"game":currentRoute;
+  const activeDestination=currentRoute;
   tiles.forEach(tile=>{const active=tile.dataset.destination===activeDestination;tile.classList.toggle("is-active",active);if(active)tile.setAttribute("aria-current","page");else tile.removeAttribute("aria-current");});
   const HANDLE_ANCHOR_X=28.5;
   const TV_CASE_TOP=18;
@@ -2181,11 +2156,27 @@ function mountMenu() {
 }
 
 function navigate(destination) {
-  if(!["home","game","daily-login","settings","home-base","city","world-map","economy","player-list"].includes(destination))return;
+  if(!["home","game","daily-login","settings","player-list"].includes(destination))return;
   if(destination===currentRoute)return;
   routeHistory.push(currentRoute);
   renderPage(destination);
 
+}
+
+// The Game route hands the whole screen to the self-contained RPG (src/game). It owns its menu, HUD, saves and back handling.
+function mountRpgGame(host){
+  let disposed=false,game=null;
+  import("./game/index.js").then(({mountGame})=>{
+    if(disposed||!host?.isConnected)return;
+    game=mountGame(host,{identity:accessIdentity,storage:window.localStorage,base:import.meta.env.BASE_URL||"./",onExit:()=>navigateBack()});
+    activeRpg=game;
+    if(bubbleVisualSuspended)game.setSuspended(true);
+  }).catch(error=>{
+    if(!disposed&&host?.isConnected)host.innerHTML='<div class="rpg-fail"><p>Game files could not be loaded.</p><button type="button" data-rpg-retry>BACK</button></div>';
+    host?.querySelector?.("[data-rpg-retry]")?.addEventListener("click",()=>navigateBack());
+    console.error("rpg mount failed",error);
+  });
+  return()=>{disposed=true;if(activeRpg===game)activeRpg=null;try{game?.destroy();}catch{}game=null;};
 }
 
 function navigateBack(transitionDuration=420) {
@@ -2221,6 +2212,7 @@ window.addEventListener("pocket:android-back",()=>{
   if(currentRoute==="splash")return;
   if(backPrompt){backPrompt.remove();backPrompt=null;return;}
   if(menuController?.open){menuController.close();return;}
+  if(currentRoute==="game"&&activeRpg?.back())return;
   if(currentRoute!=="home") return navigateBack();
   backPrompt=document.createElement("div");
   backPrompt.className="exit-prompt";

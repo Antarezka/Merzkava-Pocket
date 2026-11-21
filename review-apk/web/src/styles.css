@@ -185,9 +185,8 @@
 :root[data-theme="light"] .page-back{background:#ffee;color:#78623d}
 @media(max-height:700px){.home-brand{margin-top:25px}.home-brand .brand-divider{margin:11px auto 14px}.home-world-panel{height:clamp(96px,16vh,122px);margin-bottom:9px}}
 
-.home-base-host{width:100%;height:100dvh;overflow:hidden}
-.home-base-host .page-back{top:calc(env(safe-area-inset-top) + 7px);left:10px;z-index:40;width:32px;height:32px}
-.home-base-host .home-base-page{padding-top:calc(env(safe-area-inset-top) + 7px);padding-left:47px}
+.rpg-host{position:fixed;inset:0;width:100%;height:100dvh;overflow:hidden;background:#07060c;touch-action:none}
+.rpg-fail{display:grid;place-content:center;gap:14px;height:100%;text-align:center;color:#eef0f6;font:600 14px/1.4 system-ui}.rpg-fail button{padding:10px 22px;border-radius:12px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:inherit;font:inherit}
 
 /* CRT contact response: restrained phosphor flicker and warm light spill on the wall. */
 .cord-wall-glow{position:absolute;z-index:0;width:212px;height:164px;pointer-events:none;opacity:0;filter:blur(7px);background:radial-gradient(ellipse at 48% 45%,rgba(232,205,143,.18) 0%,rgba(198,164,105,.10) 34%,rgba(131,153,112,.045) 55%,transparent 76%);transition:opacity .22s ease}

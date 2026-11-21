@@ -21,7 +21,6 @@ The app's `review-apk/package.json` declares:
 | Package | Pinned version | Declared licence |
 |---|---:|---|
 | animejs | 4.5.0 | MIT |
-| phaser | 4.2.1 | MIT |
 | takumi-js | 2.19.0 | MIT OR Apache-2.0 |
 | vite | 6.4.1 | MIT |
 
@@ -29,7 +28,6 @@ The APK build scans the installed `node_modules` tree and copies package metadat
 
 Upstream licence references:
 - animejs: https://www.npmjs.com/package/animejs
-- Phaser: https://phaser.io/download/license
 - takumi-js: https://www.npmjs.com/package/takumi-js\n- Takumi native packages: full MIT and Apache-2.0 texts are stored from the upstream repository in [docs/legal/licenses](./licenses/) and included in the generated APK notices.
 - Vite: https://github.com/vitejs/vite/blob/main/packages/vite/LICENSE.md
 

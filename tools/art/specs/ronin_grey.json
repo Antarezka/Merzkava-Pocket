@@ -1,0 +1,149 @@
+{
+ "set": "ronin_grey",
+ "parts": [
+  {
+   "name": "hair_messy",
+   "box": [
+    20,
+    105,
+    420,
+    170
+   ],
+   "kind": "hair",
+   "view": "S",
+   "split": 3
+  },
+  {
+   "name": "hair_wavy",
+   "box": [
+    470,
+    105,
+    420,
+    170
+   ],
+   "kind": "hair",
+   "view": "S",
+   "split": 3
+  },
+  {
+   "name": "hair_wavy2",
+   "box": [
+    20,
+    282,
+    420,
+    160
+   ],
+   "kind": "hair",
+   "view": "S",
+   "split": 3
+  },
+  {
+   "name": "hair_short",
+   "box": [
+    470,
+    280,
+    420,
+    150
+   ],
+   "kind": "hair",
+   "view": "S",
+   "split": 3
+  },
+  {
+   "name": "robe",
+   "box": [
+    6,
+    780,
+    401,
+    160
+   ],
+   "kind": "outer",
+   "view": "S",
+   "split": 2
+  },
+  {
+   "name": "collar",
+   "box": [
+    405,
+    775,
+    300,
+    80
+   ],
+   "kind": "collar",
+   "split": 3
+  },
+  {
+   "name": "hakama",
+   "box": [
+    405,
+    900,
+    320,
+    190
+   ],
+   "kind": "bottom",
+   "view": "S",
+   "split": 2
+  },
+  {
+   "name": "sash",
+   "box": [
+    40,
+    985,
+    320,
+    125
+   ],
+   "kind": "sash",
+   "split": 2
+  },
+  {
+   "name": "katana_sheathed",
+   "box": [
+    31,
+    500,
+    410,
+    98
+   ],
+   "kind": "weapon"
+  },
+  {
+   "name": "katana_drawn",
+   "box": [
+    31,
+    601,
+    407,
+    97
+   ],
+   "kind": "weapon"
+  },
+  {
+   "name": "katana_pair",
+   "box": [
+    464,
+    499,
+    400,
+    78
+   ],
+   "kind": "weapon"
+  },
+  {
+   "name": "katana_saya",
+   "box": [
+    469,
+    635,
+    269,
+    35
+   ],
+   "kind": "weapon"
+  },
+  {
+   "name": "grip",
+   "box": [
+    712,
+    626,
+    175,
+    69
+   ],
+   "kind": "prop"
+  }
+ ]
+}

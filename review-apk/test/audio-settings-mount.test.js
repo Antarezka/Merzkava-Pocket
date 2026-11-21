@@ -18,7 +18,7 @@ const floatingSource = readFileSync(new URL("../app/src/main/java/com/merzkava/p
 
 test("Settings mounts and disposes the vinyl deck controls", () => {
   const start = source.indexOf('if(destination==="settings"){');
-  const end = source.indexOf('if(destination==="economy"){', start);
+  const end = source.indexOf('if(destination==="game"){', start);
   assert.notEqual(start, -1);
   assert.notEqual(end, -1);
   const route = source.slice(start, end);

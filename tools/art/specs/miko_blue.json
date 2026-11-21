@@ -1,0 +1,195 @@
+{
+ "set": "miko_blue",
+ "parts": [
+  {
+   "name": "head_front_a",
+   "box": [
+    17,
+    310,
+    133,
+    112
+   ],
+   "kind": "hair",
+   "view": "S"
+  },
+  {
+   "name": "head_front_b",
+   "box": [
+    159,
+    310,
+    130,
+    112
+   ],
+   "kind": "hair",
+   "view": "S"
+  },
+  {
+   "name": "head_front_c",
+   "box": [
+    300,
+    313,
+    129,
+    108
+   ],
+   "kind": "hair",
+   "view": "S"
+  },
+  {
+   "name": "hair_back",
+   "box": [
+    468,
+    309,
+    113,
+    135
+   ],
+   "kind": "hair",
+   "view": "N"
+  },
+  {
+   "name": "hair_side",
+   "box": [
+    596,
+    310,
+    108,
+    134
+   ],
+   "kind": "hair",
+   "view": "E"
+  },
+  {
+   "name": "hair_back_bow",
+   "box": [
+    714,
+    309,
+    110,
+    136
+   ],
+   "kind": "hair",
+   "view": "N"
+  },
+  {
+   "name": "bow",
+   "box": [
+    17,
+    473,
+    261,
+    73
+   ],
+   "kind": "weapon"
+  },
+  {
+   "name": "arrow",
+   "box": [
+    297,
+    471,
+    240,
+    38
+   ],
+   "kind": "weapon"
+  },
+  {
+   "name": "feather_charm",
+   "box": [
+    577,
+    462,
+    55,
+    63
+   ],
+   "kind": "acc"
+  },
+  {
+   "name": "quiver",
+   "box": [
+    682,
+    470,
+    131,
+    42
+   ],
+   "kind": "prop"
+  },
+  {
+   "name": "kosode",
+   "box": [
+    38,
+    608,
+    115,
+    111
+   ],
+   "kind": "outer",
+   "view": "S"
+  },
+  {
+   "name": "kosode_back",
+   "box": [
+    159,
+    629,
+    157,
+    92
+   ],
+   "kind": "outer",
+   "split": 2
+  },
+  {
+   "name": "hakama_front",
+   "box": [
+    316,
+    611,
+    87,
+    110
+   ],
+   "kind": "bottom",
+   "view": "S"
+  },
+  {
+   "name": "hakama_back",
+   "box": [
+    405,
+    611,
+    86,
+    110
+   ],
+   "kind": "bottom",
+   "view": "N"
+  },
+  {
+   "name": "sash",
+   "box": [
+    498,
+    611,
+    91,
+    35
+   ],
+   "kind": "sash"
+  },
+  {
+   "name": "big_bow",
+   "box": [
+    498,
+    650,
+    91,
+    71
+   ],
+   "kind": "acc"
+  },
+  {
+   "name": "acc_tassel",
+   "box": [
+    603,
+    609,
+    46,
+    68
+   ],
+   "kind": "acc"
+  },
+  {
+   "name": "zori_pair",
+   "box": [
+    607,
+    678,
+    79,
+    43
+   ],
+   "kind": "shoes"
+  }
+ ]
+}

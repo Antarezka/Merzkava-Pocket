@@ -1,9 +1,9 @@
 import {
-  exportPocketEconomySnapshot,
-  capturePocketEconomySaveForPlayerName,
-  resetPocketEconomySaveForPlayerName,
-  restorePocketEconomySaveForPlayerName
-} from "./economy.js";
+  exportPocketSaveSnapshot,
+  capturePocketSaveForPlayerName,
+  resetPocketSaveForPlayerName,
+  restorePocketSaveForPlayerName
+} from "./pocket-save.js";
 const native = window.PocketNative || null;
 
 const esc = value => String(value ?? "").replace(/[&<>"']/g, char => ({
@@ -243,7 +243,7 @@ export function mountPlayerRecords(stage, identity, invokeNative) {
     if (developer || !authorized()) return;
     try {
       setStatus("Refreshing your full Pocket save: wallet, inventory, buildings, processes and session…");
-      const snapshot = exportPocketEconomySnapshot(identity);
+      const snapshot = exportPocketSaveSnapshot(identity);
       const updated = JSON.parse(native.updatePocketPlayerEconomySnapshot?.(
         identity.displayName,
         JSON.stringify(snapshot)
@@ -360,8 +360,8 @@ export function mountPlayerRecords(stage, identity, invokeNative) {
     if (feedback) feedback.textContent = "Resetting your local Pocket game and saved Player snapshot…";
     let localBackup = [];
     try {
-      localBackup = capturePocketEconomySaveForPlayerName(identity.displayName);
-      const removed = resetPocketEconomySaveForPlayerName(identity.displayName);
+      localBackup = capturePocketSaveForPlayerName(identity.displayName);
+      const removed = resetPocketSaveForPlayerName(identity.displayName);
       const result = JSON.parse(native.redeemPocketMasterResetCode?.(code) || "{}");
       if (!result.ok) throw new Error(result.error || "Pocket Master Reset could not be completed.");
       if (field instanceof HTMLInputElement) field.value = "";
@@ -371,7 +371,7 @@ export function mountPlayerRecords(stage, identity, invokeNative) {
       if (notice) notice.textContent = "MASTER RESET COMPLETE · " + identity.displayName + " · local game save records cleared: " + removed + ". Your Player account remains active.";
     } catch (error) {
       try {
-        if (localBackup.length) restorePocketEconomySaveForPlayerName(identity.displayName, localBackup);
+        if (localBackup.length) restorePocketSaveForPlayerName(identity.displayName, localBackup);
       } catch (restoreError) {
         if (feedback) feedback.textContent = (error instanceof Error ? error.message : "Master Reset failed.") +
           " Local save rollback also failed: " + (restoreError instanceof Error ? restoreError.message : "storage error") + ". Contact Developer before retrying.";
