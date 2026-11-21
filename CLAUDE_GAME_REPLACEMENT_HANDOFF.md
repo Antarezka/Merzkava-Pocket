@@ -53,3 +53,28 @@ Before declaring the replacement integrated, report:
 - Clean-install and update-install test results, including anything not tested.
 
 **Do not build or publish an APK as part of this handoff note.**
+
+## Current cleanup checkpoint — completed on `claude-today2`
+
+The Game destination has been reduced to a deliberate integration placeholder:
+
+- **Put Entire RPG Game Here**
+- **Start from Main Menu.**
+
+The old Home Base, Economy, City, and World Map routes are no longer accepted by Pocket navigation. The Game screen no longer links to any legacy gameplay destination.
+
+The following legacy Game runtime files were deleted from the active branch:
+- `review-apk/web/src/economy.js` and `economy.css`
+- `review-apk/web/src/home-base.js` and `home-base.css`
+- `review-apk/web/src/wardrobe-shop.js`
+- `review-apk/test/wardrobe-shop.test.js`
+- `review-apk/art/world-archive.px.js`
+- `review-apk/art/human-character-base.px.js`
+- `review-apk/art/human-appearance-layers.px.js`
+- `review-apk/scripts/build-world-assets.mjs`
+
+The app entry file no longer imports or mounts the deleted gameplay modules. **Daily Login remains separate and intact.** Home, Settings, Floating Control, audio infrastructure, access flow, and the Pocket shell are outside this cleanup and must remain intact.
+
+The files under `docs/game/` are retained as documentation/reference only; they are not active Game runtime or assets. Do not restore the removed implementation from Git history. Claude should build the new RPG independently and integrate it into the Game destination, beginning at the new game's own main menu.
+
+No APK was built or published as part of this cleanup.
