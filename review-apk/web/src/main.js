@@ -808,7 +808,7 @@ function renderPage(destination, transitionDuration=420) {
       if(reloadButton.isConnected){reloadButton.disabled=false;reloadButton.classList.remove("is-loading");}
     }
   });
-  const page=root.querySelector(".home-stage,.page-stage,.home-base-host");
+  const page=root.querySelector(".home-stage,.page-stage");
   if(!reducedMotion()&&page)animate(page,{opacity:[0,1],translateY:[8,0],duration:transitionDuration,ease:"outCubic"});
   if(destination!=="daily-login")mountMenu();
   if(destination==="daily-login"){
@@ -916,7 +916,7 @@ function mountMenu() {
   const bubbleResume=()=>{if(!disposed)refreshBubbleButton();};
   window.addEventListener("pocket:native-resume",bubbleResume);
   window.addEventListener("focus",bubbleResume);
-  const activeDestination=["home-base","city","world-map","economy"].includes(currentRoute)?"game":currentRoute;
+  const activeDestination=currentRoute;
   tiles.forEach(tile=>{const active=tile.dataset.destination===activeDestination;tile.classList.toggle("is-active",active);if(active)tile.setAttribute("aria-current","page");else tile.removeAttribute("aria-current");});
   const HANDLE_ANCHOR_X=28.5;
   const TV_CASE_TOP=18;
